@@ -604,8 +604,9 @@ private fun ConnectedScreen(
                         MenuDivider()
 
                         if (capabilities.contains(Capability.HEAD_GESTURES)) {
-                            val headOn = sharedPrefs.getBoolean("head_gestures_answer_call", true)
-                                || sharedPrefs.getBoolean("head_gestures_mute_call", true)
+                            val headOn = sharedPrefs.getBoolean("head_gestures_enabled", true) &&
+                                (sharedPrefs.getBoolean("head_gestures_answer_call", true)
+                                || sharedPrefs.getBoolean("head_gestures_mute_call", true))
                             MenuNavRow("Head Gestures — ${if (headOn) "On" else "Off"}", dark) { navController.navigate("head_tracking") }
                             MenuDivider()
                         }
