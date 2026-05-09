@@ -174,7 +174,8 @@ private fun buildSearchIndex(): List<SearchableItem> = listOf(
     SearchableItem("Hearing Aid", "AirPods Settings", "settings"),
     SearchableItem("Hearing Protection", "AirPods Settings", "settings"),
     SearchableItem("Loud Sound Reduction", "AirPods Settings", "settings"),
-    SearchableItem("Accessibility", "AirPods Controls", "controls"),
+    SearchableItem("Controls Configuration", "AirPods Controls", "controls"),
+    SearchableItem("Volume Control", "AirPods Controls", "controls"),
     SearchableItem("Conversation Awareness", "AirPods Settings", "settings"),
     SearchableItem("Disconnect", "AirPods Settings", "settings"),
     // Smart Features
@@ -741,9 +742,26 @@ private fun ConnectedScreen(
                             }
                         }
 
-                        // ── ACCESSIBILITY ────────────────────────────────────
+                        // ── VOLUME CONTROL ───────────────────────────────────
+                        if (capabilities.contains(Capability.SWIPE_FOR_VOLUME)) {
+                            MenuDivider()
+                            MenuSectionHeader("Volume Control", dark)
+                            Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+                                val volumeSwipeEnabled = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.VOLUME_SWIPE_MODE]?.getOrNull(0)?.toInt() == 0x01
+                                StyledToggle(
+                                    label = stringResource(R.string.volume_control),
+                                    description = stringResource(R.string.volume_control_description),
+                                    checked = volumeSwipeEnabled,
+                                    onCheckedChange = { viewModel.setControlCommandBoolean(AACPManager.Companion.ControlCommandIdentifiers.VOLUME_SWIPE_MODE, it) },
+                                    independent = true,
+                                    enabled = state.isPremium
+                                )
+                            }
+                        }
+
+                        // ── CONTROLS CONFIGURATION ──────────────────────────
                         MenuDivider()
-                        MenuNavRow("Accessibility", dark, subtitle = "Tone, speed, hold duration") { navController.navigate("accessibility") }
+                        MenuNavRow("Controls Configuration", dark, subtitle = "Tone, speed, hold duration") { navController.navigate("accessibility") }
                     }
 
                     // ─── 2. AirPods Settings ──────────────────────────────
