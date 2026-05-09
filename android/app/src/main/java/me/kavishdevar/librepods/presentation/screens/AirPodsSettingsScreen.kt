@@ -80,6 +80,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
@@ -363,6 +364,17 @@ fun AirPodsSettingsScreen(
         else searchIndex.filter { it.label.contains(searchQuery, ignoreCase = true) || it.category.contains(searchQuery, ignoreCase = true) }
     }
 
+    val searchFocusRequester = remember { FocusRequester() }
+
+    // Auto-focus the search field when search becomes active
+    LaunchedEffect(searchActive) {
+        if (searchActive) {
+            // Small delay to let the composition settle before requesting focus
+            delay(100)
+            runCatching { searchFocusRequester.requestFocus() }
+        }
+    }
+
     StyledScaffold(
         title = if (searchActive) "" else deviceName.text,
         actionButtons = if (state.isLocallyConnected) listOf({ scaffoldBackdrop ->
@@ -379,6 +391,7 @@ fun AirPodsSettingsScreen(
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                         keyboardActions = KeyboardActions(onSearch = {}),
                         modifier = Modifier.weight(1f)
+                            .focusRequester(searchFocusRequester)
                             .background(if (dark) Color(0xFF2C2C2E) else Color(0xFFE5E5EA), RoundedCornerShape(10.dp))
                             .padding(horizontal = 12.dp, vertical = 8.dp),
                         decorationBox = { innerTextField ->
