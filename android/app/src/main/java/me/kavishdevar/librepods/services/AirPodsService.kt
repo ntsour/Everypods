@@ -387,11 +387,15 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
      * the lid opens even if `onBroadcastFromNewAddress` hasn't had time to run yet.
      */
     private fun updateCaseBatteryFromBLE() {
-        val status = bleManager.getMostRecentStatus() ?: return
-        val level    = status.caseBattery ?: return   // null = 0xFF (not readable yet), skip
-        if (level <= 0) return                         // 0 is also not useful
+        val status = bleManager.getMostRecentStatus()
+        Log.d(TAG, "updateCaseBatteryFromBLE: status=$status caseBattery=${status?.caseBattery} isCaseCharging=${status?.isCaseCharging}")
+        if (status == null) return
+        val level = status.caseBattery
+        Log.d(TAG, "updateCaseBatteryFromBLE: level=$level")
+        if (level == null) return   // null = 0xFF (not readable yet)
+        if (level <= 0) return      // 0 is also not useful
         val charging = status.isCaseCharging
-        Log.d(TAG, "updateCaseBatteryFromBLE: level=$level, charging=$charging")
+        Log.d(TAG, "updateCaseBatteryFromBLE: UPDATING -> level=$level, charging=$charging")
         batteryNotification.updateCaseBattery(caseLevel = level, caseCharging = charging)
         sendBatteryBroadcast()
     }

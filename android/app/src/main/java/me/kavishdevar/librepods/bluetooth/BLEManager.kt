@@ -84,7 +84,9 @@ class BLEManager(private val context: Context) {
     private var lastBroadcastTime: Long = 0
     private val processedAddresses = mutableSetOf<String>()
 
-    private val lastValidCaseBatteryMap = mutableMapOf<String, Int>()
+    // Global (not per-address) cache so MAC rotation doesn't lose the last known value
+    private var lastValidCaseLevel: Int? = null
+    private var lastValidCaseCharging: Boolean = false
     private val modelNames = mapOf(
         0x0E20 to "AirPods Pro",
         0x1420 to "AirPods Pro 2",
@@ -263,11 +265,13 @@ class BLEManager(private val context: Context) {
             }
 
             val manufacturerData = scanRecord.getManufacturerSpecificData(76) ?: return
+            Log.d(TAG, "processScanResult: address=$address manufacturerDataSize=${manufacturerData.size}")
             if (manufacturerData.size <= 20) return
 
             if (!verifiedAddresses.contains(address)) {
                 val irk = getIrkFromPreferences()
                 if (irk == null || !BluetoothCryptography.verifyRPA(address, irk)) {
+                    Log.d(TAG, "processScanResult: address=$address failed RPA verification, irk=${irk?.size}")
                     return
                 }
                 verifiedAddresses.add(address)
@@ -365,10 +369,13 @@ class BLEManager(private val context: Context) {
         val rawCaseBatteryByte = decrypted[3].toInt() and 0xFF
         val (isCaseCharging, rawCaseBattery) = formatBattery(rawCaseBatteryByte)
 
+        // 0xFF means case battery is unavailable (buds not in case, or lid just opened).
+        // Use the global last-known value so MAC rotation doesn't clear the cache.
         val caseBattery = if (rawCaseBatteryByte == 0xFF || (isCaseCharging && rawCaseBattery == 127)) {
-            lastValidCaseBatteryMap[address]
+            lastValidCaseLevel   // may still be null on first connection
         } else {
-            lastValidCaseBatteryMap[address] = rawCaseBattery
+            lastValidCaseLevel = rawCaseBattery
+            lastValidCaseCharging = isCaseCharging
             rawCaseBattery
         }
 

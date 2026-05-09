@@ -157,7 +157,13 @@ fun BatteryView(
                         status            = case.status
                     )
                 } else {
-                    // Case lid closed or not yet seen — guide the user
+                    // Case battery unknown — explain why based on bud state
+                    val budsInEars = leftKnown && rightKnown
+                    val hint = if (budsInEars)
+                        "Place buds in case to show charge"
+                    else
+                        "Open case lid to show charge"
+
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -174,7 +180,7 @@ fun BatteryView(
                         )
                         Spacer(Modifier.height(2.dp))
                         Text(
-                            text = "Open case lid to show charge",
+                            text = hint,
                             style = TextStyle(
                                 fontSize = 11.sp,
                                 fontFamily = sfPro,
