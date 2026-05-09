@@ -1198,8 +1198,14 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 }
 
                 if (cameraActive && config.cameraAction != null && stemPressType == config.cameraAction) {
+                    // Fire volume-down as a media key — camera apps treat this as shutter.
+                    // This is the same mechanism Bluetooth headset shutter buttons use.
+                    val am = getSystemService(AUDIO_SERVICE) as android.media.AudioManager
+                    am.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_VOLUME_DOWN))
+                    am.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP,   android.view.KeyEvent.KEYCODE_VOLUME_DOWN))
+                    // Also keep the Xposed/root path for rooted users
                     if (BuildConfig.FLAVOR == "xposed") {
-                        Runtime.getRuntime().exec(arrayOf("su", "-c", "input keyevent 27"))
+                        runCatching { Runtime.getRuntime().exec(arrayOf("su", "-c", "input keyevent 27")) }
                     }
                 } else {
                     val action = getActionFor(bud, stemPressType)
