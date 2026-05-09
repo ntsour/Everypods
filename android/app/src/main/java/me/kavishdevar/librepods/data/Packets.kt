@@ -183,6 +183,15 @@ class AirPodsNotifications {
             case = Battery(BatteryComponent.CASE, caseLevel, if (caseCharging) BatteryStatus.CHARGING else BatteryStatus.NOT_CHARGING)
         }
 
+        /** Update only the case battery, leaving bud levels untouched. */
+        fun updateCaseBattery(caseLevel: Int, caseCharging: Boolean) {
+            case = Battery(
+                BatteryComponent.CASE,
+                caseLevel,
+                if (caseCharging) BatteryStatus.CHARGING else BatteryStatus.NOT_CHARGING
+            )
+        }
+
         fun setBattery(data: ByteArray) {
             if (data.size != 22) {
                 return

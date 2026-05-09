@@ -95,34 +95,42 @@ fun BatteryView(
                         .padding(8.dp)
                 )
 
-                // Always show left and right individually
+                // Always show left and right individually, each in equal-weight column
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.Top
                 ) {
                     // Left bud
-                    if (leftKnown) {
-                        BatteryIndicator(
-                            batteryPercentage = left!!.level,
-                            status            = left.status,
-                            prefix            = "\uDBC6\uDCE5"  // SF "L" glyph
-                        )
-                    } else {
-                        // Bud disconnected / unknown — show a dash placeholder
-                        BudPlaceholder(label = "\uDBC6\uDCE5", dark = isDark)
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        if (leftKnown) {
+                            BatteryIndicator(
+                                batteryPercentage = left!!.level,
+                                status            = left.status,
+                                prefix            = "\uDBC6\uDCE5"
+                            )
+                        } else {
+                            BudPlaceholder(label = "\uDBC6\uDCE5", dark = isDark)
+                        }
                     }
 
-                    Spacer(modifier = Modifier.padding(horizontal = 8.dp))
-
                     // Right bud
-                    if (rightKnown) {
-                        BatteryIndicator(
-                            batteryPercentage = right!!.level,
-                            status            = right.status,
-                            prefix            = "\uDBC6\uDCE8"  // SF "R" glyph
-                        )
-                    } else {
-                        BudPlaceholder(label = "\uDBC6\uDCE8", dark = isDark)
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        if (rightKnown) {
+                            BatteryIndicator(
+                                batteryPercentage = right!!.level,
+                                status            = right.status,
+                                prefix            = "\uDBC6\uDCE8"
+                            )
+                        } else {
+                            BudPlaceholder(label = "\uDBC6\uDCE8", dark = isDark)
+                        }
                     }
                 }
             }

@@ -294,21 +294,39 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     getSharedPreferences("settings", MODE_PRIVATE).getString("name", "AirPods Pro")
                         ?: "AirPods"
                 )
-                if (socket.isConnected) return
-                val leftLevel = bleManager.getMostRecentStatus()?.leftBattery ?: 0
-                val rightLevel = bleManager.getMostRecentStatus()?.rightBattery ?: 0
-                val caseLevel = bleManager.getMostRecentStatus()?.caseBattery ?: 0
+                // Always update case battery from BLE when lid opens — the AACP socket
+                // only carries bud battery; case battery comes exclusively from BLE
+                // advertisements broadcast by the case when its lid is open.
+                val bleCaseLevel    = bleManager.getMostRecentStatus()?.caseBattery
+                val bleCaseCharging = bleManager.getMostRecentStatus()?.isCaseCharging
+
+                if (socket.isConnected) {
+                    // Connected via AACP — buds are authoritative from AACP packets.
+                    // Only forward the case level from BLE; leave bud levels unchanged.
+                    if (bleCaseLevel != null && bleCaseLevel > 0) {
+                        batteryNotification.updateCaseBattery(
+                            caseLevel    = bleCaseLevel,
+                            caseCharging = bleCaseCharging == true
+                        )
+                        sendBatteryBroadcast()
+                    }
+                    return
+                }
+
+                // Not connected via AACP — update everything from BLE.
+                val leftLevel    = bleManager.getMostRecentStatus()?.leftBattery ?: 0
+                val rightLevel   = bleManager.getMostRecentStatus()?.rightBattery ?: 0
+                val caseLevel    = bleCaseLevel ?: 0
                 val leftCharging = bleManager.getMostRecentStatus()?.isLeftCharging
                 val rightCharging = bleManager.getMostRecentStatus()?.isRightCharging
-                val caseCharging = bleManager.getMostRecentStatus()?.isCaseCharging
 
                 batteryNotification.setBatteryDirect(
-                    leftLevel = leftLevel,
+                    leftLevel    = leftLevel,
                     leftCharging = leftCharging == true,
-                    rightLevel = rightLevel,
+                    rightLevel   = rightLevel,
                     rightCharging = rightCharging == true,
-                    caseLevel = caseLevel,
-                    caseCharging = caseCharging == true
+                    caseLevel    = caseLevel,
+                    caseCharging = bleCaseCharging == true
                 )
                 sendBatteryBroadcast()
             } else {
