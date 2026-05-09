@@ -73,7 +73,9 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -205,7 +207,7 @@ private fun RootRequiredBanner(dark: Boolean) = Row(
 
 @Composable
 private fun MenuCategory(label: String, dark: Boolean, content: @Composable () -> Unit) {
-    var expanded by remember { mutableStateOf(false) }
+    var expanded by rememberSaveable(key = "cat_$label") { mutableStateOf(true) }
     Column(Modifier.fillMaxWidth().background(
         if (dark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF), RoundedCornerShape(18.dp)
     )) {
@@ -360,10 +362,12 @@ private fun ConnectedScreen(
     val context      = LocalContext.current
     val capabilities = state.capabilities
     val hasRoot      = state.hasRootPermissions
-    var menuExpanded by remember { mutableStateOf(false) }
+    var menuExpanded by rememberSaveable { mutableStateOf(true) }
     val scope        = rememberCoroutineScope()
+    val listState    = rememberLazyListState()
 
     LazyColumn(
+        state = listState,
         modifier = Modifier
             .fillMaxSize()
             .hazeSource(hazeState)
@@ -384,32 +388,14 @@ private fun ConnectedScreen(
             )
         }
 
-        // ── Listening Mode (graphical, root-gated) ────────────────────────
+        // ── Listening Mode (graphical, always available) ──────────────────
         if (capabilities.contains(Capability.LISTENING_MODE)) {
             item(key = "listening_mode") {
-                Column(
-                    Modifier.fillMaxWidth()
-                        .background(if (dark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF), RoundedCornerShape(18.dp))
-                        .alpha(if (hasRoot) 1f else DisabledAlpha.toFloat())
-                ) {
-                    if (!hasRoot) {
-                        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text("􀎠", style = TextStyle(fontSize = 14.sp, fontFamily = SfPro, color = RootOrange))
-                            Text("Requires device root to switch modes", style = TextStyle(fontSize = 13.sp, fontFamily = SfPro, color = RootOrange))
-                        }
-                        HorizontalDivider(color = Color(0x30888888), thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 12.dp))
-                    }
-                    Box(modifier = if (!hasRoot) Modifier.pointerInput(Unit) {
-                        awaitPointerEventScope { while (true) { val e = awaitPointerEvent(PointerEventPass.Initial); e.changes.forEach { it.consume() } } }
-                    } else Modifier) {
-                        NoiseControlSettings(
-                            showOffListeningMode = state.offListeningMode,
-                            noiseControlModeValue = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.LISTENING_MODE]?.getOrNull(0)?.toInt() ?: 3,
-                            onNoiseControlModeChanged = { viewModel.setControlCommandInt(AACPManager.Companion.ControlCommandIdentifiers.LISTENING_MODE, it) }
-                        )
-                    }
-                }
+                NoiseControlSettings(
+                    showOffListeningMode = state.offListeningMode,
+                    noiseControlModeValue = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.LISTENING_MODE]?.getOrNull(0)?.toInt() ?: 3,
+                    onNoiseControlModeChanged = { viewModel.setControlCommandInt(AACPManager.Companion.ControlCommandIdentifiers.LISTENING_MODE, it) }
+                )
             }
         }
 
@@ -736,6 +722,8 @@ private fun ConnectedScreen(
                                 StyledToggle(label = stringResource(R.string.act_as_an_apple_device) + " (${stringResource(R.string.requires_xposed)})", description = stringResource(R.string.act_as_an_apple_device_description), checked = appState.vendorIdHook, onCheckedChange = { Toast.makeText(context, restartMsg, Toast.LENGTH_SHORT).show(); appSettingsViewModel.setVendorIdHook(it) }, independent = true, enabled = appState.isPremium)
                             }
                         }
+                        MenuDivider()
+                        MenuNavRow("Permissions", dark) { navController.navigate("permissions") }
                         MenuDivider()
                         MenuNavRow("Open Source Licenses", dark) { navController.navigate("open_source_licenses") }
                     }

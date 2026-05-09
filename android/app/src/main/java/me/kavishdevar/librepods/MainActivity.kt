@@ -147,6 +147,7 @@ import me.kavishdevar.librepods.presentation.screens.RenameScreen
 import me.kavishdevar.librepods.presentation.screens.TransparencySettingsScreen
 import me.kavishdevar.librepods.presentation.screens.TroubleshootingScreen
 import me.kavishdevar.librepods.presentation.screens.UpdateHearingTestScreen
+import me.kavishdevar.librepods.presentation.screens.AppPermissionsScreen
 import me.kavishdevar.librepods.presentation.screens.VersionScreen
 import me.kavishdevar.librepods.presentation.theme.LibrePodsTheme
 import me.kavishdevar.librepods.presentation.viewmodel.AirPodsViewModel
@@ -610,6 +611,9 @@ fun Main() {
                     composable("purchase_screen") {
                         val purchaseViewModel: PurchaseViewModel = viewModel()
                         PurchaseScreen(purchaseViewModel, navController)
+                    }
+                    composable("permissions") {
+                        AppPermissionsScreen()
                     }
                 }
             }
