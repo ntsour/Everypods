@@ -193,6 +193,22 @@ private fun MenuNavRow(label: String, dark: Boolean, subtitle: String? = null, o
     }
 }
 
+private val XposedOrange = Color(0xFFFF9500)
+
+@Composable
+private fun XposedRequiredBanner(dark: Boolean) = Row(
+    Modifier.fillMaxWidth()
+        .background(if (dark) Color(0xFF2C2C2E) else Color(0xFFFFF3E0), RoundedCornerShape(12.dp))
+        .padding(horizontal = 14.dp, vertical = 10.dp),
+    horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top
+) {
+    Text("⚠", style = TextStyle(fontSize = 14.sp, fontFamily = SfPro, color = XposedOrange))
+    Text(
+        "Requires the Xposed module with \"Act as Apple device\" enabled in App Settings.",
+        style = TextStyle(fontSize = 13.sp, fontFamily = SfPro, color = XposedOrange)
+    )
+}
+
 @Composable
 private fun RootRequiredBanner(dark: Boolean) = Row(
     Modifier.fillMaxWidth()
@@ -579,27 +595,47 @@ private fun ConnectedScreen(
 
                         val hasHA  = state.instance?.model?.capabilities?.contains(Capability.HEARING_AID) == true
                         val hasPPE = state.instance?.model?.capabilities?.contains(Capability.PPE) == true
+                        val hasXposed = state.vendorIdHook
                         if (hasHA || hasPPE) {
-                            MenuNavRow("Hearing Aid", dark) { navController.navigate("hearing_aid") }
+                            // Hearing Aid requires Xposed — grey + warn when not available
+                            Column(
+                                Modifier.fillMaxWidth()
+                                    .alpha(if (hasXposed) 1f else DisabledAlpha.toFloat())
+                            ) {
+                                MenuNavRow(
+                                    "Hearing Aid",
+                                    dark,
+                                    subtitle = if (!hasXposed) "⚠ Requires Xposed" else null
+                                ) { if (hasXposed) navController.navigate("hearing_aid") }
+                            }
+                            if (!hasXposed) {
+                                Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                                    XposedRequiredBanner(dark)
+                                }
+                            }
                             MenuDivider()
-                            MenuNavRow("Hearing Aid Adjustments", dark) { navController.navigate("hearing_aid_adjustments") }
-                            MenuDivider()
+                            // Hearing Aid Adjustments lives inside HearingAidScreen — not duplicated here
                         }
 
-                        // Hearing Protection — inlined (was a separate screen)
+                        // Hearing Protection — inlined
                         if (capabilities.contains(Capability.LOUD_SOUND_REDUCTION) || hasPPE) {
                             MenuSectionHeader("Hearing Protection", dark)
                             Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                                if (state.vendorIdHook) {
+                                // Loud Sound Reduction needs Xposed — always visible, greyed when unavailable
+                                Column(Modifier.alpha(if (hasXposed) 1f else DisabledAlpha.toFloat())) {
                                     StyledToggle(
                                         label = stringResource(R.string.loud_sound_reduction),
                                         description = stringResource(R.string.loud_sound_reduction_description),
                                         checked = state.loudSoundReductionEnabled,
-                                        onCheckedChange = { viewModel.setATTCharacteristicValue(ATTHandles.LOUD_SOUND_REDUCTION, byteArrayOf(if (it) 1 else 0)) },
-                                        independent = true, enabled = state.isPremium
+                                        onCheckedChange = { if (hasXposed) viewModel.setATTCharacteristicValue(ATTHandles.LOUD_SOUND_REDUCTION, byteArrayOf(if (it) 1 else 0)) },
+                                        independent = true, enabled = hasXposed && state.isPremium
                                     )
-                                    Spacer(Modifier.height(4.dp))
+                                    if (!hasXposed) {
+                                        Spacer(Modifier.height(4.dp))
+                                        XposedRequiredBanner(dark)
+                                    }
                                 }
+                                Spacer(Modifier.height(4.dp))
                                 StyledToggle(
                                     label = stringResource(R.string.ppe),
                                     description = stringResource(R.string.workspace_use_description),

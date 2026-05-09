@@ -21,6 +21,10 @@ package me.kavishdevar.librepods.presentation.screens
 import android.annotation.SuppressLint
 import android.util.Log
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -114,9 +118,36 @@ fun HearingAidScreen(viewModel: AirPodsViewModel, navController: NavController) 
             hazeStateS.value = hazeState
             Spacer(modifier = Modifier.height(topPadding))
 
-//            val mediaAssistEnabled = remember { mutableStateOf(false) }
-//            val adjustMediaEnabled = remember { mutableStateOf(false) }
-//            val adjustPhoneEnabled = remember { mutableStateOf(false) }
+            // Xposed warning — shown prominently at the top when vendorIdHook is off
+            val hasXposed = state.vendorIdHook
+            if (!hasXposed) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            if (isDarkTheme) Color(0xFF2C2C2E) else Color(0xFFFFF3E0),
+                            RoundedCornerShape(14.dp)
+                        )
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = androidx.compose.ui.Alignment.Top
+                ) {
+                    Text(
+                        "⚠",
+                        style = TextStyle(
+                            fontSize = 15.sp, fontFamily = FontFamily(Font(R.font.sf_pro)),
+                            color = Color(0xFFFF9500)
+                        )
+                    )
+                    Text(
+                        "Hearing Aid requires the Xposed module with \"Act as Apple device\" enabled in App Settings. Controls below are disabled without it.",
+                        style = TextStyle(
+                            fontSize = 13.sp, fontFamily = FontFamily(Font(R.font.sf_pro)),
+                            color = Color(0xFFFF9500)
+                        )
+                    )
+                }
+            }
 
             LaunchedEffect(hearingAidEnabled.value) {
                 if (hearingAidEnabled.value && !initialLoad.value) {
@@ -136,6 +167,20 @@ fun HearingAidScreen(viewModel: AirPodsViewModel, navController: NavController) 
 //            fun onAdjustMediaChange(value: Boolean) {
 //                // TODO
 //            }
+
+            // Grey out all controls when Xposed is not active
+            Column(modifier = Modifier
+                .fillMaxWidth()
+                .alpha(if (hasXposed) 1f else 0.4f)
+                .then(if (!hasXposed) Modifier.pointerInput(Unit) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            val e = awaitPointerEvent(PointerEventPass.Initial)
+                            e.changes.forEach { it.consume() }
+                        }
+                    }
+                } else Modifier)
+            ) {
 
             Text(
                 text = stringResource(R.string.hearing_aid),
@@ -234,6 +279,7 @@ fun HearingAidScreen(viewModel: AirPodsViewModel, navController: NavController) 
             //     )
             // }
             Spacer(modifier = Modifier.height(bottomPadding))
+            } // end Xposed-gated Column
         }
     }
     ConfirmationDialog(
