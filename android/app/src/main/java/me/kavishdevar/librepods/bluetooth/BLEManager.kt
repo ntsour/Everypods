@@ -265,13 +265,11 @@ class BLEManager(private val context: Context) {
             }
 
             val manufacturerData = scanRecord.getManufacturerSpecificData(76) ?: return
-            Log.d(TAG, "processScanResult: address=$address manufacturerDataSize=${manufacturerData.size}")
             if (manufacturerData.size <= 20) return
 
             if (!verifiedAddresses.contains(address)) {
                 val irk = getIrkFromPreferences()
                 if (irk == null || !BluetoothCryptography.verifyRPA(address, irk)) {
-                    Log.d(TAG, "processScanResult: address=$address failed RPA verification, irk=${irk?.size}")
                     return
                 }
                 verifiedAddresses.add(address)

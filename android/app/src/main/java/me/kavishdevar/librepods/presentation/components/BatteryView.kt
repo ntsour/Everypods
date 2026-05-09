@@ -158,9 +158,11 @@ fun BatteryView(
                     )
                 } else {
                     // Case battery unknown — explain why based on bud state
+                    // Case battery is only reported by the firmware when buds are
+                    // physically inside the case. Neither BLE nor AACP carries it otherwise.
                     val budsInEars = leftKnown && rightKnown
                     val hint = if (budsInEars)
-                        "Place buds in case to show charge"
+                        "Put buds in case to show charge"
                     else
                         "Open case lid to show charge"
 
