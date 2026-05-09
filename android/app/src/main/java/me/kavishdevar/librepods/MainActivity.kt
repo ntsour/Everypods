@@ -550,7 +550,8 @@ fun Main() {
                         )
                     }) {
                     composable("settings") {
-                        if (airPodsViewModel != null) AirPodsSettingsScreen(airPodsViewModel, navController)
+                        val appSettingsViewModel: AppSettingsViewModel = viewModel()
+                        if (airPodsViewModel != null) AirPodsSettingsScreen(airPodsViewModel, appSettingsViewModel, navController)
                     }
                     composable("debug") {
                         DebugScreen(navController = navController)

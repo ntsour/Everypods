@@ -199,72 +199,7 @@ fun AppSettingsScreen(
                     )
                 }
 
-                Text(
-                    text = stringResource(R.string.conversational_awareness), style = TextStyle(
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = textColor.copy(alpha = 0.6f),
-                        fontFamily = FontFamily(Font(R.font.sf_pro))
-                    ), modifier = Modifier.padding(16.dp, bottom = 2.dp, top = 24.dp)
-                )
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            backgroundColor, RoundedCornerShape(28.dp)
-                        )
-                        .padding(vertical = 4.dp)
-                ) {
-                    StyledToggle(
-                        label = stringResource(R.string.conversational_awareness_pause_music),
-                        description = stringResource(R.string.conversational_awareness_pause_music_description),
-                        checked = state.conversationalAwarenessPauseMusicEnabled,
-                        onCheckedChange = viewModel::setConversationalAwarenessPauseMusicEnabled,
-                        independent = false,
-                        enabled = state.isPremium
-                    )
-
-                    HorizontalDivider(
-                        thickness = 1.dp,
-                        color = Color(0x40888888),
-                        modifier = Modifier.padding(horizontal = 12.dp)
-                    )
-
-                    StyledToggle(
-                        label = stringResource(R.string.relative_conversational_awareness_volume),
-                        description = stringResource(R.string.relative_conversational_awareness_volume_description),
-                        checked = state.relativeConversationalAwarenessVolumeEnabled,
-                        onCheckedChange = viewModel::setRelativeConversationalAwarenessVolumeEnabled,
-                        independent = false,
-                        enabled = state.isPremium,
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                val conversationalAwarenessVolume = state.conversationalAwarenessVolume
-                LaunchedEffect(conversationalAwarenessVolume) {
-                    viewModel.setConversationalAwarenessVolume(conversationalAwarenessVolume)
-                }
-
-                StyledSlider(
-                    label = stringResource(R.string.conversational_awareness_volume),
-                    value = conversationalAwarenessVolume,
-                    valueRange = 10f..85f,
-                    snapPoints = listOf(44f),
-                    startLabel = "10%",
-                    endLabel = "85%",
-                    onValueChange = { newValue ->
-                        viewModel.setConversationalAwarenessVolume(
-                            newValue
-                        )
-                    },
-                    independent = true,
-                    enabled = state.isPremium
-                )
+                // Conversation Awareness moved to AirPods Settings menu in AirPodsSettingsScreen
 
 //            if (!BuildConfig.PLAY_BUILD) {
 //                Spacer(modifier = Modifier.height(16.dp))
@@ -408,26 +343,7 @@ fun AppSettingsScreen(
                     )
                 }
 
-                Text(
-                    text = stringResource(R.string.advanced_options), style = TextStyle(
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = textColor.copy(alpha = 0.6f),
-                        fontFamily = FontFamily(Font(R.font.sf_pro))
-                    ), modifier = Modifier.padding(16.dp, bottom = 2.dp, top = 24.dp)
-                )
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                StyledToggle(
-                    label = stringResource(R.string.use_alternate_head_tracking_packets),
-                    description = stringResource(R.string.use_alternate_head_tracking_packets_description),
-                    checked = state.useAlternateHeadTrackingPackets,
-                    onCheckedChange = viewModel::setUseAlternateHeadTrackingPackets,
-                    independent = true,
-                    enabled = state.isPremium
-                )
-                Spacer(modifier = Modifier.height(16.dp))
+                // Advanced Options (alternate head tracking) moved to HeadTrackingScreen
             } else {
                 Box(
                     modifier = Modifier

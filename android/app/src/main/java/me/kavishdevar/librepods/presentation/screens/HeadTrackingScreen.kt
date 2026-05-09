@@ -100,6 +100,8 @@ import me.kavishdevar.librepods.presentation.components.StyledIconButton
 import me.kavishdevar.librepods.presentation.components.StyledScaffold
 import me.kavishdevar.librepods.presentation.components.StyledToggle
 import me.kavishdevar.librepods.presentation.viewmodel.AirPodsViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
+import me.kavishdevar.librepods.presentation.viewmodel.AppSettingsViewModel
 import me.kavishdevar.librepods.services.ServiceManager
 import me.kavishdevar.librepods.utils.HeadTracking
 import kotlin.io.encoding.ExperimentalEncodingApi
@@ -111,7 +113,11 @@ import kotlin.random.Random
 @ExperimentalHazeMaterialsApi
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
 @Composable
-fun HeadTrackingScreen(viewModel: AirPodsViewModel, navController: NavController) {
+fun HeadTrackingScreen(
+    viewModel: AirPodsViewModel,
+    navController: NavController,
+    appSettingsViewModel: AppSettingsViewModel = viewModel()
+) {
     val state by viewModel.uiState.collectAsState()
     DisposableEffect(Unit) {
         viewModel.startHeadTracking()
@@ -226,6 +232,27 @@ fun HeadTrackingScreen(viewModel: AirPodsViewModel, navController: NavController
                     modifier = Modifier.padding(start = 16.dp, bottom = 8.dp, top = 8.dp)
                 )
                 AccelerationPlot()
+
+                // ── Advanced Option: Alternate head-tracking packets ───────
+                val appState by appSettingsViewModel.uiState.collectAsState()
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = stringResource(R.string.advanced_options),
+                    style = TextStyle(
+                        fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                        color = textColor.copy(alpha = 0.6f),
+                        fontFamily = FontFamily(Font(R.font.sf_pro))
+                    ),
+                    modifier = Modifier.padding(start = 16.dp, bottom = 4.dp, top = 8.dp)
+                )
+                StyledToggle(
+                    label           = stringResource(R.string.use_alternate_head_tracking_packets),
+                    description     = stringResource(R.string.use_alternate_head_tracking_packets_description),
+                    checked         = appState.useAlternateHeadTrackingPackets,
+                    onCheckedChange = appSettingsViewModel::setUseAlternateHeadTrackingPackets,
+                    independent     = true,
+                    enabled         = appState.isPremium
+                )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
