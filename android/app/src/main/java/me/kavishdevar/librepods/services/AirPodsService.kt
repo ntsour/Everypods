@@ -885,7 +885,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
     @Suppress("unused")
     fun cameraOpened() {
-        Log.d(TAG, "Camera opened, gonna handle stem presses and take action if visible")
+        if (cameraActive) return  // already active, don't resend config
+        Log.d(TAG, "Camera opened — enabling stem press interception")
         cameraActive = true
         setupStemActions()
     }

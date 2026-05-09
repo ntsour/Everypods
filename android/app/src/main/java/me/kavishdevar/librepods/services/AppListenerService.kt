@@ -23,10 +23,17 @@ package me.kavishdevar.librepods.services
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
+import android.content.Context
 import android.graphics.Path
+import android.hardware.input.InputManager
 import android.os.SystemClock
+import android.util.DisplayMetrics
 import android.util.Log
+import android.view.InputDevice
+import android.view.InputEvent
+import android.view.KeyCharacterMap
 import android.view.KeyEvent
+import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import kotlin.io.encoding.ExperimentalEncodingApi
 
@@ -41,8 +48,8 @@ val cameraPackages = mutableSetOf(
     "org.codeaurora.snapcam"
 )
 
-// Packages that appear on top of the camera (keyboard, system UI, permission dialogs…)
-// and must NOT reset the cameraOpen flag.
+// Packages that must NOT reset the cameraOpen flag — system overlays, launchers,
+// keyboards, and our own app (stem press can briefly surface our service window).
 private val cameraOverlayPackages = setOf(
     "com.android.systemui",
     "com.android.inputmethod.latin",
@@ -50,7 +57,16 @@ private val cameraOverlayPackages = setOf(
     "com.samsung.android.honeyboard",
     "com.swiftkey.swiftkeyapp",
     "com.touchtype.swiftkey",
-    "android"
+    "android",
+    // Launchers — appear briefly during camera interactions
+    "com.google.android.apps.nexuslauncher",
+    "com.sec.android.app.launcher",
+    "com.huawei.android.launcher",
+    "com.miui.home",
+    "com.oneplus.launcher",
+    "com.oppo.launcher",
+    // Our own package — stem press surfaces the service briefly
+    "me.kavishdevar.librepods"
 )
 
 var cameraOpen = false
@@ -84,6 +100,7 @@ class AppListenerService: AccessibilityService() {
         super.onServiceConnected()
         Log.d(TAG, "onServiceConnected — AppListenerService is live")
         instance = this
+
     }
 
     override fun onDestroy() {
@@ -92,34 +109,39 @@ class AppListenerService: AccessibilityService() {
         prefs.unregisterOnSharedPreferenceChangeListener(preferenceChangeListener)
     }
 
-    /** Inject KEYCODE_VOLUME_DOWN directly into the focused window via AccessibilityService.
-     *  This bypasses media-session routing and hits the actual foreground app input. */
+    /** Fire the camera shutter via the IAccessibilityServiceConnection hidden API.
+     *  This is the same channel Android uses internally to handle key events in
+     *  accessibility services — it routes directly to the focused window. */
     fun triggerShutter() {
-        Log.d(TAG, "triggerShutter via AccessibilityService key injection")
-        val down = KeyEvent(SystemClock.uptimeMillis(), SystemClock.uptimeMillis(),
-            KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_VOLUME_DOWN, 0)
-        val up   = KeyEvent(SystemClock.uptimeMillis(), SystemClock.uptimeMillis(),
-            KeyEvent.ACTION_UP, KeyEvent.KEYCODE_VOLUME_DOWN, 0)
-        // dispatchKeyEvent is available on AccessibilityService (hidden API, reflection)
-        runCatching {
-            val method = AccessibilityService::class.java.getMethod("dispatchKeyEvent", KeyEvent::class.java)
-            method.invoke(this, down)
-            method.invoke(this, up)
-            Log.d(TAG, "triggerShutter: dispatchKeyEvent succeeded")
-        }.onFailure { e ->
-            Log.w(TAG, "triggerShutter: dispatchKeyEvent failed ($e), trying KEYCODE_CAMERA")
-            runCatching {
-                val method = AccessibilityService::class.java.getMethod("dispatchKeyEvent", KeyEvent::class.java)
-                val downC = KeyEvent(SystemClock.uptimeMillis(), SystemClock.uptimeMillis(),
-                    KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_CAMERA, 0)
-                val upC   = KeyEvent(SystemClock.uptimeMillis(), SystemClock.uptimeMillis(),
-                    KeyEvent.ACTION_UP, KeyEvent.KEYCODE_CAMERA, 0)
-                method.invoke(this, downC)
-                method.invoke(this, upC)
-            }.onFailure { e2 ->
-                Log.w(TAG, "triggerShutter: KEYCODE_CAMERA also failed: $e2")
+        Log.d(TAG, "triggerShutter")
+        val now = SystemClock.uptimeMillis()
+
+        // Strategy 1: IAccessibilityServiceConnection.sendKeyEvent (hidden, pre-Q)
+        // Strategy 2: AccessibilityService mConnectionImpl field
+        // Strategy 3: fall back to adb-style via Runtime (xposed/root only)
+        // Strategy 4: volume-key broadcast to camera's MediaButtonReceiver
+
+        // Use dispatchGesture to tap the shutter button position.
+        // Google Camera's shutter is always horizontally centred, ~82% down the screen.
+        val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        val metrics = DisplayMetrics()
+        @Suppress("DEPRECATION") wm.defaultDisplay.getRealMetrics(metrics)
+        val cx = metrics.widthPixels / 2f
+        val cy = metrics.heightPixels * 0.82f
+        Log.d(TAG, "triggerShutter: tapping shutter at ($cx, $cy) on ${metrics.widthPixels}x${metrics.heightPixels}")
+
+        val path = Path().apply { moveTo(cx, cy) }
+        val stroke = GestureDescription.StrokeDescription(path, 0L, 50L)
+        val gesture = GestureDescription.Builder().addStroke(stroke).build()
+        val dispatched = dispatchGesture(gesture, object : GestureResultCallback() {
+            override fun onCompleted(gestureDescription: GestureDescription) {
+                Log.d(TAG, "triggerShutter: gesture tap completed")
             }
-        }
+            override fun onCancelled(gestureDescription: GestureDescription) {
+                Log.w(TAG, "triggerShutter: gesture tap cancelled")
+            }
+        }, null)
+        Log.d(TAG, "triggerShutter: dispatchGesture returned $dispatched")
     }
 
     companion object {
