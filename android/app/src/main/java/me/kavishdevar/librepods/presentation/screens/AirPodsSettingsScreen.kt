@@ -982,7 +982,7 @@ private fun ConnectedScreen(
                                             )
                                             Spacer(Modifier.height(2.dp))
                                             Text(
-                                                "Camera Control watches for the camera app to open, so a stem press can trigger the shutter. Enable \"LibrePods\" under Settings → Accessibility → Downloaded Apps.",
+                                                "Camera Control uses an Accessibility Service to detect when the camera app is open, so a stem press can trigger the shutter. Tap Grant to enable it for LibrePods.",
                                                 style = TextStyle(
                                                     fontSize = 12.sp,
                                                     fontFamily = SfPro,
@@ -992,17 +992,20 @@ private fun ConnectedScreen(
                                         }
                                         StyledButton(
                                             onClick = {
-                                                // Deep-link directly to LibrePods accessibility settings page
-                                                val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-                                                    val pkg = "${context.packageName}/${AppListenerService::class.java.name}"
-                                                    putExtra(":settings:show_fragment_args",
-                                                        android.os.Bundle().apply {
-                                                            putString(":settings:fragment_args_key", pkg)
-                                                        })
-                                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                // On API 33+ open directly to this app's accessibility service page
+                                                // ACTION_ACCESSIBILITY_DETAILS_SETTINGS (API 33+) opens
+                                                // directly to this app's accessibility service toggle.
+                                                val action = if (Build.VERSION.SDK_INT >= 33)
+                                                    "android.settings.ACCESSIBILITY_DETAILS_SETTINGS"
+                                                else
+                                                    Settings.ACTION_ACCESSIBILITY_SETTINGS
+                                                val intent = Intent(action).also { i ->
+                                                    if (Build.VERSION.SDK_INT >= 33)
+                                                        i.data = android.net.Uri.fromParts("package", context.packageName, null)
+                                                    i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                                 }
-                                                // Try direct deep-link; fallback to main accessibility page
                                                 runCatching { context.startActivity(intent) }.onFailure {
+                                                    // Fallback to general accessibility settings if direct link fails
                                                     context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
                                                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                                     })
