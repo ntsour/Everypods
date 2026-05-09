@@ -478,43 +478,6 @@ private fun ConnectedScreen(
                                 )
                             }
 
-                            // ── Listening mode cycle sub-options ────────────────────
-                            // Shown when a bud's long press is set to CYCLE_NOISE_CONTROL_MODES
-                            @Composable
-                            fun ListeningModeCycleOptions() {
-                                val currentByte = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.LISTENING_MODE_CONFIGS]?.get(0)?.toInt() ?: 0
-                                Column {
-                                    MenuSectionHeader("Listening Mode Configuration", dark)
-                                    Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 8.dp)) {
-                                    Text(
-                                        stringResource(R.string.press_and_hold_noise_control_description),
-                                        style = captionStyle(dark)
-                                    )
-                                    Spacer(Modifier.height(8.dp))
-                                    StyledSelectList(items = buildList {
-                                        if (state.offListeningMode) add(
-                                            SelectItem(stringResource(R.string.off),
-                                                description = stringResource(R.string.listening_mode_off_description),
-                                                selected = (currentByte and 0x01) != 0,
-                                                onClick = { viewModel.toggleListeningMode(0x01) })
-                                        )
-                                        add(SelectItem(stringResource(R.string.transparency),
-                                            description = stringResource(R.string.listening_mode_transparency_description),
-                                            selected = (currentByte and 0x04) != 0,
-                                            onClick = { viewModel.toggleListeningMode(0x04) }))
-                                        add(SelectItem(stringResource(R.string.adaptive),
-                                            description = stringResource(R.string.listening_mode_adaptive_description),
-                                            selected = (currentByte and 0x08) != 0,
-                                            onClick = { viewModel.toggleListeningMode(0x08) }))
-                                        add(SelectItem(stringResource(R.string.noise_cancellation),
-                                            description = stringResource(R.string.listening_mode_noise_cancellation_description),
-                                            selected = (currentByte and 0x02) != 0,
-                                            onClick = { viewModel.toggleListeningMode(0x02) }))
-                                    })
-                                }
-                                }
-                            }
-
                             // ── LEFT BUD ────────────────────────────────────────────
                             MenuSectionHeader("Left Bud — Single Press", dark)
                             Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
@@ -534,9 +497,6 @@ private fun ConnectedScreen(
                             MenuSectionHeader("Left Bud — Long Press", dark)
                             Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
                                 StyledSelectList(items = actionItems("left", AACPManager.Companion.StemPressType.LONG_PRESS))
-                            }
-                            if (state.leftAction == StemAction.CYCLE_NOISE_CONTROL_MODES) {
-                                ListeningModeCycleOptions()
                             }
                             MenuDivider()
 
@@ -560,8 +520,38 @@ private fun ConnectedScreen(
                             Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
                                 StyledSelectList(items = actionItems("right", AACPManager.Companion.StemPressType.LONG_PRESS))
                             }
-                            if (state.rightAction == StemAction.CYCLE_NOISE_CONTROL_MODES) {
-                                ListeningModeCycleOptions()
+                            MenuDivider()
+
+                            // ── LISTENING MODE CONFIGURATION ────────────────────────
+                            // Applies to any bud/gesture assigned to Listening Mode cycling
+                            val currentByte = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.LISTENING_MODE_CONFIGS]?.get(0)?.toInt() ?: 0
+                            MenuSectionHeader("Listening Mode Configuration", dark)
+                            Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 8.dp)) {
+                                Text(
+                                    stringResource(R.string.press_and_hold_noise_control_description),
+                                    style = captionStyle(dark)
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                StyledSelectList(items = buildList {
+                                    if (state.offListeningMode) add(
+                                        SelectItem(stringResource(R.string.off),
+                                            description = stringResource(R.string.listening_mode_off_description),
+                                            selected = (currentByte and 0x01) != 0,
+                                            onClick = { viewModel.toggleListeningMode(0x01) })
+                                    )
+                                    add(SelectItem(stringResource(R.string.transparency),
+                                        description = stringResource(R.string.listening_mode_transparency_description),
+                                        selected = (currentByte and 0x04) != 0,
+                                        onClick = { viewModel.toggleListeningMode(0x04) }))
+                                    add(SelectItem(stringResource(R.string.adaptive),
+                                        description = stringResource(R.string.listening_mode_adaptive_description),
+                                        selected = (currentByte and 0x08) != 0,
+                                        onClick = { viewModel.toggleListeningMode(0x08) }))
+                                    add(SelectItem(stringResource(R.string.noise_cancellation),
+                                        description = stringResource(R.string.listening_mode_noise_cancellation_description),
+                                        selected = (currentByte and 0x02) != 0,
+                                        onClick = { viewModel.toggleListeningMode(0x02) }))
+                                })
                             }
                             MenuDivider()
 

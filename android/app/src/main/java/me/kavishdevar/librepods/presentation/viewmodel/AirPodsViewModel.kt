@@ -638,9 +638,20 @@ class AirPodsViewModel(
 
     fun toggleListeningMode(modeBit: Int) {
         val currentByte = uiState.value.controlStates[ControlCommandIdentifiers.LISTENING_MODE_CONFIGS]?.get(0)?.toInt() ?: 0
-        val newValue = if ((currentByte and modeBit) != 0) {
+        val isDeselecting = (currentByte and modeBit) != 0
+        val newValue = if (isDeselecting) {
             val temp = currentByte and modeBit.inv()
-            if (countEnabledModes(temp) >= 2) temp else currentByte
+            if (countEnabledModes(temp) >= 2) {
+                temp
+            } else {
+                // Can't deselect — would leave fewer than 2 modes. Inform the user.
+                Toast.makeText(
+                    appContext,
+                    "At least 2 modes must be selected",
+                    Toast.LENGTH_SHORT
+                ).show()
+                return   // exit without changing anything
+            }
         } else {
             currentByte or modeBit
         }

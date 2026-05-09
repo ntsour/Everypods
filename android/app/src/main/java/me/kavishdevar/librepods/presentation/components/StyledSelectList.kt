@@ -37,6 +37,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -94,6 +95,11 @@ fun StyledSelectList(
                 isLast -> RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp)
                 else -> RoundedCornerShape(0.dp)
             }
+            // Keep a MutableState so the pointerInput lambda always sees the latest item,
+            // even though pointerInput is keyed with Unit (composed once, never recreated).
+            val currentItem = remember { mutableStateOf(item) }
+            LaunchedEffect(item) { currentItem.value = item }
+
             var itemBackgroundColor by remember { mutableStateOf(if (item.enabled) backgroundColor else if (isDarkTheme) Color(0x40050505) else Color(0x40D9D9D9)) }
             val animatedBackgroundColor by animateColorAsState(targetValue = itemBackgroundColor, animationSpec = tween(durationMillis = 500))
 
@@ -104,7 +110,7 @@ fun StyledSelectList(
                     .pointerInput(Unit) {
                         detectTapGestures(
                             onPress = {
-                                if (item.enabled) {
+                                if (currentItem.value.enabled) {
                                     itemBackgroundColor =
                                         if (isDarkTheme) Color(0x40888888) else Color(0x40D9D9D9)
                                     tryAwaitRelease()
@@ -112,9 +118,9 @@ fun StyledSelectList(
                                 }
                             },
                             onTap = {
-                                if (item.enabled) {
+                                if (currentItem.value.enabled) {
                                     haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
-                                    item.onClick()
+                                    currentItem.value.onClick()
                                 }
                             }
                         )
