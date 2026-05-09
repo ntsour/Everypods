@@ -467,13 +467,9 @@ private fun ConnectedScreen(
                             @Composable
                             fun ListeningModeCycleOptions() {
                                 val currentByte = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.LISTENING_MODE_CONFIGS]?.get(0)?.toInt() ?: 0
-                                Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) {
-                                    Text(
-                                        "Listening Mode Configuration",
-                                        style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, fontFamily = SfPro,
-                                            color = if (dark) Color.White else Color.Black)
-                                    )
-                                    Spacer(Modifier.height(2.dp))
+                                Column {
+                                    MenuSectionHeader("Listening Mode Configuration", dark)
+                                    Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 8.dp)) {
                                     Text(
                                         stringResource(R.string.press_and_hold_noise_control_description),
                                         style = captionStyle(dark)
@@ -499,6 +495,7 @@ private fun ConnectedScreen(
                                             selected = (currentByte and 0x02) != 0,
                                             onClick = { viewModel.toggleListeningMode(0x02) }))
                                     })
+                                }
                                 }
                             }
 
