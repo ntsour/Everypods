@@ -30,7 +30,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
@@ -74,7 +77,17 @@ fun HearingAidAdjustmentsScreen(viewModel: AirPodsViewModel) {
     isSystemInDarkTheme()
     val verticalScrollState = rememberScrollState()
     val hazeState = remember { HazeState() }
-    val attManager = ServiceManager.getService()?.attManager ?: throw IllegalStateException("ATTManager not available")
+    val attManager = ServiceManager.getService()?.attManager
+    if (attManager == null) {
+        StyledScaffold(title = stringResource(R.string.adjustments)) { _, _, _ ->
+            Text(
+                text = stringResource(R.string.att_manager_is_null_try_reconnecting),
+                modifier = Modifier.fillMaxSize().padding(32.dp),
+                textAlign = TextAlign.Center
+            )
+        }
+        return
+    }
 
     val state by viewModel.uiState.collectAsState()
 
