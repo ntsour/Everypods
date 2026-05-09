@@ -174,7 +174,7 @@ private fun buildSearchIndex(): List<SearchableItem> = listOf(
     SearchableItem("Hearing Aid", "AirPods Settings", "settings"),
     SearchableItem("Hearing Protection", "AirPods Settings", "settings"),
     SearchableItem("Loud Sound Reduction", "AirPods Settings", "settings"),
-    SearchableItem("Accessibility", "AirPods Settings", "settings"),
+    SearchableItem("Accessibility", "AirPods Controls", "controls"),
     SearchableItem("Conversation Awareness", "AirPods Settings", "settings"),
     SearchableItem("Disconnect", "AirPods Settings", "settings"),
     // Smart Features
@@ -358,6 +358,8 @@ fun AirPodsSettingsScreen(
     // Search state
     var searchActive by rememberSaveable { mutableStateOf(false) }
     var searchQuery  by rememberSaveable { mutableStateOf("") }
+    // When non-empty, the target category will be force-expanded and scrolled to
+    var navigateToCategory by rememberSaveable { mutableStateOf("") }
     val searchIndex  = remember { buildSearchIndex() }
     val searchResults = remember(searchQuery) {
         if (searchQuery.length < 2) emptyList()
@@ -427,6 +429,7 @@ fun AirPodsSettingsScreen(
                             Row(
                                 Modifier.fillMaxWidth()
                                     .clickable(remember { MutableInteractionSource() }, null) {
+                                        navigateToCategory = item.categoryKey
                                         searchActive = false; searchQuery = ""
                                     }
                                     .padding(horizontal = 16.dp, vertical = 12.dp),
@@ -451,7 +454,9 @@ fun AirPodsSettingsScreen(
                 navController = navController, sharedPrefs = sharedPreferences,
                 topPadding = topPadding, bottomPadding = bottomPadding,
                 hazeState = hazeState, dark = dark, blockTouches = blockTouches,
-                onOpenContact = { contactBottomSheet.value = true }
+                onOpenContact = { contactBottomSheet.value = true },
+                navigateToCategory = navigateToCategory,
+                onNavigated = { navigateToCategory = "" }
             )
         } else {
             DisconnectedScreen(
@@ -522,14 +527,25 @@ private fun ConnectedScreen(
     hazeState: HazeState,
     dark: Boolean,
     blockTouches: Boolean,
-    onOpenContact: () -> Unit
+    onOpenContact: () -> Unit,
+    navigateToCategory: String = "",
+    onNavigated: () -> Unit = {}
 ) {
     val context      = LocalContext.current
     val capabilities = state.capabilities
     val hasRoot      = state.hasRootPermissions
     var menuExpanded by rememberSaveable { mutableStateOf(true) }
+
+    // When navigating from search, scroll to the menu body item
+    val listState = rememberLazyListState()
+    LaunchedEffect(navigateToCategory) {
+        if (navigateToCategory.isNotEmpty()) {
+            // Scroll to the menu_body item (index depends on what's visible, but key works)
+            val idx = listState.layoutInfo.totalItemsCount - 2  // menu_body is second-to-last
+            if (idx > 0) listState.animateScrollToItem(idx)
+        }
+    }
     val scope        = rememberCoroutineScope()
-    val listState    = rememberLazyListState()
 
     LazyColumn(
         state = listState,
@@ -724,6 +740,10 @@ private fun ConnectedScreen(
                                 Text("Stem controls not available on this model.", style = captionStyle(dark))
                             }
                         }
+
+                        // ── ACCESSIBILITY ────────────────────────────────────
+                        MenuDivider()
+                        MenuNavRow("Accessibility", dark, subtitle = "Tone, speed, hold duration") { navController.navigate("accessibility") }
                     }
 
                     // ─── 2. AirPods Settings ──────────────────────────────
@@ -785,9 +805,6 @@ private fun ConnectedScreen(
                             }
                             MenuDivider()
                         }
-
-                        MenuNavRow("Accessibility", dark) { navController.navigate("accessibility") }
-                        MenuDivider()
 
                         // Conversation Awareness
                         MenuSectionHeader("Conversation Awareness", dark)
