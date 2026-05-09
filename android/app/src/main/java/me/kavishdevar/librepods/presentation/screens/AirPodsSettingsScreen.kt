@@ -860,8 +860,6 @@ private fun ConnectedScreen(
                         }
                         MenuDivider()
                         MenuNavRow("Permissions", dark) { navController.navigate("permissions") }
-                        MenuDivider()
-                        MenuNavRow("Open Source Licenses", dark) { navController.navigate("open_source_licenses") }
                     }
 
                     // ─── 5. Audio & Connection ────────────────────────────
@@ -943,6 +941,8 @@ private fun ConnectedScreen(
                         MenuNavRow("Discord Community", dark) { context.startActivity(Intent(Intent.ACTION_VIEW, "https://discord.gg/Ts4wupXcmc".toUri())) }
                         MenuDivider()
                         MenuNavRow("GitHub Issues", dark) { context.startActivity(Intent(Intent.ACTION_VIEW, "https://github.com/kavishdevar/librepods/issues".toUri())) }
+                        MenuDivider()
+                        MenuNavRow("Open Source Licenses", dark) { navController.navigate("open_source_licenses") }
                     }
 
                     Spacer(Modifier.height(4.dp))
