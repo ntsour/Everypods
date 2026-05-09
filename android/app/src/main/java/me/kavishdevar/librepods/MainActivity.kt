@@ -147,7 +147,11 @@ import me.kavishdevar.librepods.presentation.screens.RenameScreen
 import me.kavishdevar.librepods.presentation.screens.TransparencySettingsScreen
 import me.kavishdevar.librepods.presentation.screens.TroubleshootingScreen
 import me.kavishdevar.librepods.presentation.screens.UpdateHearingTestScreen
+import me.kavishdevar.librepods.presentation.screens.AncProfilesScreen
+import me.kavishdevar.librepods.presentation.screens.AnnouncementAppPickerScreen
 import me.kavishdevar.librepods.presentation.screens.AppPermissionsScreen
+import me.kavishdevar.librepods.presentation.screens.NotificationAnnouncementsScreen
+import me.kavishdevar.librepods.presentation.screens.ProximityFinderScreen
 import me.kavishdevar.librepods.presentation.screens.VersionScreen
 import me.kavishdevar.librepods.presentation.theme.LibrePodsTheme
 import me.kavishdevar.librepods.presentation.viewmodel.AirPodsViewModel
@@ -614,6 +618,22 @@ fun Main() {
                     }
                     composable("permissions") {
                         AppPermissionsScreen()
+                    }
+                    composable("anc_profiles") {
+                        AncProfilesScreen(navController)
+                    }
+                    composable("notification_announcements") {
+                        NotificationAnnouncementsScreen(navController)
+                    }
+                    composable("announcement_app_picker") {
+                        AnnouncementAppPickerScreen(navController)
+                    }
+                    composable("proximity_finder") {
+                        ProximityFinderScreen(navController = navController)
+                    }
+                    composable("smart_features") {
+                        // Smart features are now inlined in the main menu.
+                        // Route kept so any existing deep-link or back-stack reference doesn't crash.
                     }
                 }
             }

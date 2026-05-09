@@ -418,31 +418,10 @@ private fun ConnectedScreen(
         }
 
         // ══════════════════════════════════════════════════════════════════
-        //  MORE OPTIONS TOGGLE
-        // ══════════════════════════════════════════════════════════════════
-        item(key = "menu_toggle") {
-            Column {
-                HorizontalDivider(color = Color(0x30888888), thickness = 0.5.dp)
-                Row(
-                    Modifier.fillMaxWidth()
-                        .clickable(remember { MutableInteractionSource() }, null) { menuExpanded = !menuExpanded }
-                        .padding(vertical = 12.dp),
-                    horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(if (menuExpanded) "▲  More Options  ▲" else "▼  More Options  ▼",
-                        style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro,
-                            color = if (dark) Color.White.copy(0.5f) else Color.Black.copy(0.5f)))
-                }
-                HorizontalDivider(color = Color(0x30888888), thickness = 0.5.dp)
-            }
-        }
-
-        // ══════════════════════════════════════════════════════════════════
-        //  MENU BODY
+        //  MENU BODY (always visible)
         // ══════════════════════════════════════════════════════════════════
         item(key = "menu_body") {
-            AnimatedVisibility(menuExpanded, enter = expandVertically(tween(300)) + fadeIn(tween(250)), exit = shrinkVertically(tween(300)) + fadeOut(tween(250))) {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
 
                     // ─── 1. AirPods Controls ──────────────────────────────
                     MenuCategory("🎧  AirPods Controls", dark) {
@@ -477,9 +456,6 @@ private fun ConnectedScreen(
                                         selected = currentAction == StemAction.DIGITAL_ASSISTANT,
                                         enabled = state.isPremium,
                                         onClick = { viewModel.setPressAction(side, pressType, StemAction.DIGITAL_ASSISTANT) }),
-                                    SelectItem("Mute / Unmute Call",
-                                        selected = currentAction == StemAction.MUTE_CALL,
-                                        onClick = { viewModel.setPressAction(side, pressType, StemAction.MUTE_CALL) }),
                                     SelectItem(stringResource(R.string.noise_control),
                                         selected = currentAction == StemAction.CYCLE_NOISE_CONTROL_MODES,
                                         onClick = { viewModel.setPressAction(side, pressType, StemAction.CYCLE_NOISE_CONTROL_MODES) })
@@ -492,8 +468,17 @@ private fun ConnectedScreen(
                             fun ListeningModeCycleOptions() {
                                 val currentByte = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.LISTENING_MODE_CONFIGS]?.get(0)?.toInt() ?: 0
                                 Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) {
-                                    Text("Modes to cycle through:", style = captionStyle(dark))
-                                    Spacer(Modifier.height(6.dp))
+                                    Text(
+                                        "Listening Mode Configuration",
+                                        style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, fontFamily = SfPro,
+                                            color = if (dark) Color.White else Color.Black)
+                                    )
+                                    Spacer(Modifier.height(2.dp))
+                                    Text(
+                                        stringResource(R.string.press_and_hold_noise_control_description),
+                                        style = captionStyle(dark)
+                                    )
+                                    Spacer(Modifier.height(8.dp))
                                     StyledSelectList(items = buildList {
                                         if (state.offListeningMode) add(
                                             SelectItem(stringResource(R.string.off),
@@ -514,8 +499,6 @@ private fun ConnectedScreen(
                                             selected = (currentByte and 0x02) != 0,
                                             onClick = { viewModel.toggleListeningMode(0x02) }))
                                     })
-                                    Spacer(Modifier.height(4.dp))
-                                    Text(stringResource(R.string.press_and_hold_noise_control_description), style = captionStyle(dark))
                                 }
                             }
 
@@ -931,7 +914,6 @@ private fun ConnectedScreen(
 
                     Spacer(Modifier.height(4.dp))
                 }
-            }
         }
 
         item(key = "spacer_bottom") { Spacer(Modifier.height(bottomPadding + 16.dp)) }

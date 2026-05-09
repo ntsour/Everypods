@@ -274,4 +274,19 @@
     <string name="describe_your_issue">Describe your issue</string>
     <string name="optimized_charging">Optimized Charge Limit</string>
     <string name="optimized_charging_description">AirPods can learn from your daily usage and determine when to charge to an optmized limit and when to allow or full charge. This limit adapts to your daily usage and preserves your battery lifespan over time.\\nThis setting may not affect unsupported AirPods, or AirPods on an older firmware version.</string>
+
+    <!-- Proximity finder strings -->
+    <string name="find_nearby">Find Nearby</string>
+    <string name="find_nearby_empty_description">Open the case briefly, put it in pairing mode, or walk room to room while the scanner listens.</string>
+    <string name="focus">Focus</string>
+    <string name="focus_strongest">Focus Strongest</string>
+    <string name="focused">Focused</string>
+    <string name="nearby_signals">Nearby Signals</string>
+    <string name="no_airpods_signals_yet">No AirPods or Find My signals yet</string>
+    <string name="no_signal_selected">No signal selected</string>
+    <string name="pause_scan">Pause Scan</string>
+    <string name="scan_is_paused">Scan is paused</string>
+    <string name="scan_paused">Scan Paused</string>
+    <string name="scanning">Scanning</string>
+    <string name="start_scan">Start Scan</string>
 </resources>
