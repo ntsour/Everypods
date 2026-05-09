@@ -93,7 +93,9 @@ data class AirPodsUiState(
 
     val dynamicEndOfCharge: Boolean = false,
 
-    val connectionSuccessful: Boolean = false
+    val connectionSuccessful: Boolean = false,
+    
+    val hasRootPermissions: Boolean = false
 )
 
 class AirPodsViewModel(
@@ -141,11 +143,19 @@ class AirPodsViewModel(
         loadName()
         loadInstance()
         loadSharedPreferences()
+        checkRootPermissions()
         setupControlObservers()
         observeBilling()
         loadControlList()
         observeATT()
         if (isDemoMode) activateDemoMode()
+    }
+
+    private fun checkRootPermissions() {
+        val hasModifyPhoneState = appContext.checkSelfPermission("android.permission.MODIFY_PHONE_STATE") == PackageManager.PERMISSION_GRANTED
+        val hasInteractAcrossUsers = appContext.checkSelfPermission("android.permission.INTERACT_ACROSS_USERS") == PackageManager.PERMISSION_GRANTED
+        val hasRootPerms = hasModifyPhoneState && hasInteractAcrossUsers
+        _uiState.update { it.copy(hasRootPermissions = hasRootPerms) }
     }
 
     override fun onCleared() {
