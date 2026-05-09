@@ -127,6 +127,11 @@ import me.kavishdevar.librepods.presentation.components.StyledBottomSheet
 import me.kavishdevar.librepods.presentation.components.StyledButton
 import me.kavishdevar.librepods.presentation.components.StyledIconButton
 import me.kavishdevar.librepods.presentation.components.StyledInputField
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
 import me.kavishdevar.librepods.presentation.components.StyledScaffold
 import me.kavishdevar.librepods.presentation.components.StyledSelectList
 import me.kavishdevar.librepods.presentation.components.StyledSlider
@@ -143,6 +148,67 @@ import kotlin.io.encoding.ExperimentalEncodingApi
 private val RootOrange          = Color(0xFFFF9500)
 private const val DisabledAlpha = 0.45f
 private val SfPro get()         = FontFamily(Font(R.font.sf_pro))
+
+// ─── Searchable menu item ─────────────────────────────────────────────────────
+private data class SearchableItem(
+    val label: String,
+    val category: String,
+    val categoryKey: String   // used to expand the right MenuCategory
+)
+
+private fun buildSearchIndex(): List<SearchableItem> = listOf(
+    // AirPods Controls
+    SearchableItem("Left Bud — Single Press", "AirPods Controls", "controls"),
+    SearchableItem("Left Bud — Double Press", "AirPods Controls", "controls"),
+    SearchableItem("Left Bud — Triple Press", "AirPods Controls", "controls"),
+    SearchableItem("Left Bud — Long Press", "AirPods Controls", "controls"),
+    SearchableItem("Right Bud — Single Press", "AirPods Controls", "controls"),
+    SearchableItem("Right Bud — Double Press", "AirPods Controls", "controls"),
+    SearchableItem("Right Bud — Triple Press", "AirPods Controls", "controls"),
+    SearchableItem("Right Bud — Long Press", "AirPods Controls", "controls"),
+    SearchableItem("Listening Mode Configuration", "AirPods Controls", "controls"),
+    SearchableItem("Call Controls", "AirPods Controls", "controls"),
+    // AirPods Settings
+    SearchableItem("Device Name", "AirPods Settings", "settings"),
+    SearchableItem("Hearing Aid", "AirPods Settings", "settings"),
+    SearchableItem("Hearing Protection", "AirPods Settings", "settings"),
+    SearchableItem("Loud Sound Reduction", "AirPods Settings", "settings"),
+    SearchableItem("Accessibility", "AirPods Settings", "settings"),
+    SearchableItem("Conversation Awareness", "AirPods Settings", "settings"),
+    SearchableItem("Disconnect", "AirPods Settings", "settings"),
+    // Smart Features
+    SearchableItem("Notification Announcements", "Smart Features", "smart"),
+    SearchableItem("Head Gestures", "Smart Features", "smart"),
+    SearchableItem("Adaptive Audio", "Smart Features", "smart"),
+    SearchableItem("Camera Control", "Smart Features", "smart"),
+    SearchableItem("ANC Profiles", "Smart Features", "smart"),
+    SearchableItem("Off Listening Mode", "Smart Features", "smart"),
+    SearchableItem("Sleep Detection", "Smart Features", "smart"),
+    SearchableItem("Optimized Charging", "Smart Features", "smart"),
+    SearchableItem("Resume Media After Call", "Smart Features", "smart"),
+    SearchableItem("Battery Alerts", "Smart Features", "smart"),
+    SearchableItem("Sleep Timer", "Smart Features", "smart"),
+    // App Settings
+    SearchableItem("Battery in Widget", "App Settings", "appsettings"),
+    SearchableItem("Pop-up Animations", "App Settings", "appsettings"),
+    SearchableItem("Bottom Sheet Popup", "App Settings", "appsettings"),
+    SearchableItem("Dynamic Island Popup", "App Settings", "appsettings"),
+    SearchableItem("Act as Apple Device", "App Settings", "appsettings"),
+    SearchableItem("Permissions", "App Settings", "appsettings"),
+    // Audio & Connection
+    SearchableItem("Audio Settings", "Audio & Connection", "audio"),
+    SearchableItem("Ear Detection", "Audio & Connection", "audio"),
+    SearchableItem("Disconnect When Not Wearing", "Audio & Connection", "audio"),
+    SearchableItem("Microphone Settings", "Audio & Connection", "audio"),
+    SearchableItem("Connection Settings", "Audio & Connection", "audio"),
+    // Help
+    SearchableItem("Troubleshooting", "Help & Troubleshooting", "help"),
+    SearchableItem("Email Support", "Help & Troubleshooting", "help"),
+    SearchableItem("Discord Community", "Help & Troubleshooting", "help"),
+    SearchableItem("GitHub Issues", "Help & Troubleshooting", "help"),
+    SearchableItem("Open Source Licenses", "Help & Troubleshooting", "help"),
+    SearchableItem("Version Info", "Help & Troubleshooting", "help"),
+)
 
 @Composable private fun bodyStyle(dark: Boolean) = TextStyle(
     fontSize = 16.sp, fontFamily = SfPro,
@@ -222,8 +288,9 @@ private fun RootRequiredBanner(dark: Boolean) = Row(
 }
 
 @Composable
-private fun MenuCategory(label: String, dark: Boolean, content: @Composable () -> Unit) {
+private fun MenuCategory(label: String, dark: Boolean, forceExpanded: Boolean = false, content: @Composable () -> Unit) {
     var expanded by rememberSaveable(key = "cat_$label") { mutableStateOf(true) }
+    val isExpanded = expanded || forceExpanded
     Column(Modifier.fillMaxWidth().background(
         if (dark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF), RoundedCornerShape(18.dp)
     )) {
@@ -235,10 +302,12 @@ private fun MenuCategory(label: String, dark: Boolean, content: @Composable () -
         ) {
             Text(label, style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
                 fontFamily = SfPro, color = if (dark) Color.White else Color.Black))
-            Text(if (expanded) "  ▲" else "  ▼", style = TextStyle(fontSize = 13.sp, fontFamily = SfPro,
-                color = if (dark) Color.White.copy(0.4f) else Color.Black.copy(0.4f)))
+            if (!forceExpanded) {
+                Text(if (expanded) "  ▲" else "  ▼", style = TextStyle(fontSize = 13.sp, fontFamily = SfPro,
+                    color = if (dark) Color.White.copy(0.4f) else Color.Black.copy(0.4f)))
+            }
         }
-        AnimatedVisibility(expanded, enter = expandVertically(tween(250)) + fadeIn(tween(200)),
+        AnimatedVisibility(isExpanded, enter = expandVertically(tween(250)) + fadeIn(tween(200)),
             exit = shrinkVertically(tween(250)) + fadeOut(tween(200))) {
             Column {
                 HorizontalDivider(color = Color(0x30888888), thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 12.dp))
@@ -285,9 +354,45 @@ fun AirPodsSettingsScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(Unit) { viewModel.refreshInitialData() }
 
+    // Search state
+    var searchActive by rememberSaveable { mutableStateOf(false) }
+    var searchQuery  by rememberSaveable { mutableStateOf("") }
+    val searchIndex  = remember { buildSearchIndex() }
+    val searchResults = remember(searchQuery) {
+        if (searchQuery.length < 2) emptyList()
+        else searchIndex.filter { it.label.contains(searchQuery, ignoreCase = true) || it.category.contains(searchQuery, ignoreCase = true) }
+    }
+
     StyledScaffold(
-        title = deviceName.text,
-        actionButtons = emptyList(),
+        title = if (searchActive) "" else deviceName.text,
+        actionButtons = if (state.isLocallyConnected) listOf({ scaffoldBackdrop ->
+            if (searchActive) {
+                Row(
+                    Modifier.fillMaxWidth().padding(end = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    BasicTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        singleLine = true,
+                        textStyle = TextStyle(fontSize = 16.sp, fontFamily = SfPro, color = if (dark) Color.White else Color.Black),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(onSearch = {}),
+                        modifier = Modifier.weight(1f)
+                            .background(if (dark) Color(0xFF2C2C2E) else Color(0xFFE5E5EA), RoundedCornerShape(10.dp))
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        decorationBox = { innerTextField ->
+                            if (searchQuery.isEmpty()) Text("Search settings...", style = TextStyle(fontSize = 16.sp, fontFamily = SfPro, color = if (dark) Color.White.copy(0.4f) else Color.Black.copy(0.35f)))
+                            innerTextField()
+                        }
+                    )
+                    Spacer(Modifier.padding(start = 8.dp))
+                    StyledIconButton(onClick = { searchActive = false; searchQuery = "" }, icon = "􀆄", backdrop = scaffoldBackdrop)
+                }
+            } else {
+                StyledIconButton(onClick = { searchActive = true }, icon = "􀊫", backdrop = scaffoldBackdrop)
+            }
+        }) else emptyList(),
         snackbarHostState = snackbarHostState
     ) { topPadding, hazeState, bottomPadding ->
         var blockTouches by remember { mutableStateOf(false) }
@@ -295,7 +400,38 @@ fun AirPodsSettingsScreen(
             viewModel.demoActivated.collect { blockTouches = true; delay(1000); blockTouches = false }
         }
 
-        if (state.isLocallyConnected) {
+        // Search results overlay
+        if (searchActive && searchResults.isNotEmpty()) {
+            val cardBg = if (dark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
+            LazyColumn(
+                Modifier.fillMaxWidth().fillMaxHeight()
+                    .padding(top = topPadding + 4.dp)
+                    .padding(horizontal = 16.dp)
+            ) {
+                item {
+                    Column(Modifier.fillMaxWidth().background(cardBg, RoundedCornerShape(14.dp)).padding(vertical = 4.dp)) {
+                        searchResults.forEachIndexed { idx, item ->
+                            Row(
+                                Modifier.fillMaxWidth()
+                                    .clickable(remember { MutableInteractionSource() }, null) {
+                                        searchActive = false; searchQuery = ""
+                                    }
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(item.label, style = TextStyle(fontSize = 15.sp, fontFamily = SfPro, color = if (dark) Color.White else Color.Black))
+                                    Text(item.category, style = TextStyle(fontSize = 12.sp, fontFamily = SfPro, color = if (dark) Color.White.copy(0.5f) else Color.Black.copy(0.45f)))
+                                }
+                                Text("›", style = TextStyle(fontSize = 18.sp, fontFamily = SfPro, color = if (dark) Color.White.copy(0.3f) else Color.Black.copy(0.3f)))
+                            }
+                            if (idx < searchResults.size - 1)
+                                HorizontalDivider(color = Color(0x25888888), thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                        }
+                    }
+                }
+            }
+        } else if (state.isLocallyConnected) {
             ConnectedScreen(
                 state = state, appState = appState,
                 viewModel = viewModel, appSettingsViewModel = appSettingsViewModel,
