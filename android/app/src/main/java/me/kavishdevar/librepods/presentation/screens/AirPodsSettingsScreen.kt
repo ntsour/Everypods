@@ -39,6 +39,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -290,26 +291,31 @@ private fun RootRequiredBanner(dark: Boolean) = Row(
 }
 
 @Composable
-private fun MenuCategory(label: String, dark: Boolean, forceExpanded: Boolean = false, content: @Composable () -> Unit) {
-    var expanded by rememberSaveable(key = "cat_$label") { mutableStateOf(true) }
-    val isExpanded = expanded || forceExpanded
-    Column(Modifier.fillMaxWidth().background(
-        if (dark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF), RoundedCornerShape(18.dp)
-    )) {
+private fun MenuCategory(
+    label: String,
+    dark: Boolean,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    highlighted: Boolean = false,
+    content: @Composable () -> Unit
+) {
+    val borderColor = if (highlighted) Color(0xFF0A84FF) else Color.Transparent
+    Column(Modifier.fillMaxWidth()
+        .background(if (dark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF), RoundedCornerShape(18.dp))
+        .then(if (highlighted) Modifier.border(2.dp, borderColor, RoundedCornerShape(18.dp)) else Modifier)
+    ) {
         Row(
             Modifier.fillMaxWidth()
-                .clickable(remember { MutableInteractionSource() }, null) { expanded = !expanded }
+                .clickable(remember { MutableInteractionSource() }, null) { onToggle() }
                 .padding(horizontal = 16.dp, vertical = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
         ) {
             Text(label, style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
                 fontFamily = SfPro, color = if (dark) Color.White else Color.Black))
-            if (!forceExpanded) {
-                Text(if (expanded) "  ▲" else "  ▼", style = TextStyle(fontSize = 13.sp, fontFamily = SfPro,
-                    color = if (dark) Color.White.copy(0.4f) else Color.Black.copy(0.4f)))
-            }
+            Text(if (expanded) "  ▲" else "  ▼", style = TextStyle(fontSize = 13.sp, fontFamily = SfPro,
+                color = if (dark) Color.White.copy(0.4f) else Color.Black.copy(0.4f)))
         }
-        AnimatedVisibility(isExpanded, enter = expandVertically(tween(250)) + fadeIn(tween(200)),
+        AnimatedVisibility(expanded, enter = expandVertically(tween(250)) + fadeIn(tween(200)),
             exit = shrinkVertically(tween(250)) + fadeOut(tween(200))) {
             Column {
                 HorizontalDivider(color = Color(0x30888888), thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 12.dp))
@@ -535,18 +541,41 @@ private fun ConnectedScreen(
     val context      = LocalContext.current
     val capabilities = state.capabilities
     val hasRoot      = state.hasRootPermissions
-    var menuExpanded by rememberSaveable { mutableStateOf(true) }
+    val scope        = rememberCoroutineScope()
 
-    // When navigating from search, scroll to the menu body item
+    // ── Hoisted category expansion states ─────────────────────────────────
+    // Keyed by the same categoryKey values used in SearchableItem
+    var catControls    by rememberSaveable { mutableStateOf(true) }
+    var catSettings    by rememberSaveable { mutableStateOf(true) }
+    var catSmart       by rememberSaveable { mutableStateOf(true) }
+    var catAppSettings by rememberSaveable { mutableStateOf(true) }
+    var catAudio       by rememberSaveable { mutableStateOf(true) }
+    var catHelp        by rememberSaveable { mutableStateOf(true) }
+
+    // Which category to briefly highlight (cleared after animation)
+    var highlightCategory by remember { mutableStateOf("") }
+
+    // ── Search navigation ─────────────────────────────────────────────────
     val listState = rememberLazyListState()
     LaunchedEffect(navigateToCategory) {
-        if (navigateToCategory.isNotEmpty()) {
-            // Scroll to the menu_body item (index depends on what's visible, but key works)
-            val idx = listState.layoutInfo.totalItemsCount - 2  // menu_body is second-to-last
-            if (idx > 0) listState.animateScrollToItem(idx)
-        }
+        if (navigateToCategory.isEmpty()) return@LaunchedEffect
+        // Collapse all categories then expand only the target
+        catControls    = navigateToCategory == "controls"
+        catSettings    = navigateToCategory == "settings"
+        catSmart       = navigateToCategory == "smart"
+        catAppSettings = navigateToCategory == "appsettings"
+        catAudio       = navigateToCategory == "audio"
+        catHelp        = navigateToCategory == "help"
+        highlightCategory = navigateToCategory
+        // Scroll to menu_body — it's always the second-to-last lazy item
+        delay(80) // let collapse animation start
+        val total = listState.layoutInfo.totalItemsCount
+        if (total > 1) listState.animateScrollToItem(total - 2)
+        onNavigated()
+        // Remove highlight after a moment
+        delay(1500)
+        highlightCategory = ""
     }
-    val scope        = rememberCoroutineScope()
 
     LazyColumn(
         state = listState,
@@ -606,7 +635,7 @@ private fun ConnectedScreen(
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
 
                     // ─── 1. AirPods Controls ──────────────────────────────
-                    MenuCategory("🎧  AirPods Controls", dark) {
+                    MenuCategory("🎧  AirPods Controls", dark, expanded = catControls, onToggle = { catControls = !catControls }, highlighted = highlightCategory == "controls") {
                         if (capabilities.contains(Capability.STEM_CONFIG)) {
 
                             // ── Helper: read single/double/triple action from prefs ──
@@ -765,7 +794,7 @@ private fun ConnectedScreen(
                     }
 
                     // ─── 2. AirPods Settings ──────────────────────────────
-                    MenuCategory("⚙️  AirPods Settings", dark) {
+                    MenuCategory("⚙️  AirPods Settings", dark, expanded = catSettings, onToggle = { catSettings = !catSettings }, highlighted = highlightCategory == "settings") {
 
                         MenuNavRow("Device Name", dark, subtitle = state.deviceName) { navController.navigate("rename") }
                         MenuDivider()
@@ -853,7 +882,7 @@ private fun ConnectedScreen(
                     }
 
                     // ─── 3. Smart Features ────────────────────────────────
-                    MenuCategory("✨  AirPods Smart Features", dark) {
+                    MenuCategory("✨  AirPods Smart Features", dark, expanded = catSmart, onToggle = { catSmart = !catSmart }, highlighted = highlightCategory == "smart") {
 
                         MenuNavRow("Notification Announcements", dark) { navController.navigate("notification_announcements") }
                         MenuDivider()
@@ -1113,7 +1142,7 @@ private fun ConnectedScreen(
                     }
 
                     // ─── 4. App Settings ──────────────────────────────────
-                    MenuCategory("📱  App Settings", dark) {
+                    MenuCategory("📱  App Settings", dark, expanded = catAppSettings, onToggle = { catAppSettings = !catAppSettings }, highlighted = highlightCategory == "appsettings") {
                         Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                             StyledToggle(label = stringResource(R.string.show_phone_battery_in_widget), description = stringResource(R.string.show_phone_battery_in_widget_description), checked = appState.showPhoneBatteryInWidget, onCheckedChange = appSettingsViewModel::setShowPhoneBatteryInWidget, independent = true, enabled = appState.isPremium)
                         }
@@ -1136,7 +1165,7 @@ private fun ConnectedScreen(
                     }
 
                     // ─── 5. Audio & Connection ────────────────────────────
-                    MenuCategory("🔊  Audio & Connection", dark) {
+                    MenuCategory("🔊  Audio & Connection", dark, expanded = catAudio, onToggle = { catAudio = !catAudio }, highlighted = highlightCategory == "audio") {
                         val m = state.instance?.model ?: AirPodsPro3()
                         Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                             AudioSettings(
@@ -1190,7 +1219,7 @@ private fun ConnectedScreen(
                     }
 
                     // ─── 6. Help & Troubleshooting ────────────────────────
-                    MenuCategory("❓  Help & Troubleshooting", dark) {
+                    MenuCategory("❓  Help & Troubleshooting", dark, expanded = catHelp, onToggle = { catHelp = !catHelp }, highlighted = highlightCategory == "help") {
                         // AirPods info (moved from main page)
                         Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                             AboutCard(navController = navController, modelName = state.modelName, actualModel = state.actualModel, serialNumbers = state.serialNumbers, version = state.version3)
