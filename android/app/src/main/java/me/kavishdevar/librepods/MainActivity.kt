@@ -568,8 +568,8 @@ fun Main() {
                         if (airPodsViewModel != null) RenameScreen(airPodsViewModel)
                     }
                     composable("app_settings") {
-                        val appSettingsViewModel: AppSettingsViewModel = viewModel()
-                        AppSettingsScreen(navController, appSettingsViewModel)
+                        // AppSettingsScreen content has been moved into the main screen menu.
+                        // Route kept for backward-compatibility (deep links, etc.) but renders nothing.
                     }
                     composable("troubleshooting") {
                         TroubleshootingScreen(navController)
