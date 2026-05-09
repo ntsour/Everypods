@@ -22,7 +22,11 @@ package me.kavishdevar.librepods.services
 
 
 import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.GestureDescription
+import android.graphics.Path
+import android.os.SystemClock
 import android.util.Log
+import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
 import kotlin.io.encoding.ExperimentalEncodingApi
 
@@ -76,14 +80,50 @@ class AppListenerService: AccessibilityService() {
         prefs.registerOnSharedPreferenceChangeListener(preferenceChangeListener)
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        prefs.unregisterOnSharedPreferenceChangeListener(preferenceChangeListener)
-    }
-
     override fun onServiceConnected() {
         super.onServiceConnected()
         Log.d(TAG, "onServiceConnected — AppListenerService is live")
+        instance = this
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        if (instance === this) instance = null
+        prefs.unregisterOnSharedPreferenceChangeListener(preferenceChangeListener)
+    }
+
+    /** Inject KEYCODE_VOLUME_DOWN directly into the focused window via AccessibilityService.
+     *  This bypasses media-session routing and hits the actual foreground app input. */
+    fun triggerShutter() {
+        Log.d(TAG, "triggerShutter via AccessibilityService key injection")
+        val down = KeyEvent(SystemClock.uptimeMillis(), SystemClock.uptimeMillis(),
+            KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_VOLUME_DOWN, 0)
+        val up   = KeyEvent(SystemClock.uptimeMillis(), SystemClock.uptimeMillis(),
+            KeyEvent.ACTION_UP, KeyEvent.KEYCODE_VOLUME_DOWN, 0)
+        // dispatchKeyEvent is available on AccessibilityService (hidden API, reflection)
+        runCatching {
+            val method = AccessibilityService::class.java.getMethod("dispatchKeyEvent", KeyEvent::class.java)
+            method.invoke(this, down)
+            method.invoke(this, up)
+            Log.d(TAG, "triggerShutter: dispatchKeyEvent succeeded")
+        }.onFailure { e ->
+            Log.w(TAG, "triggerShutter: dispatchKeyEvent failed ($e), trying KEYCODE_CAMERA")
+            runCatching {
+                val method = AccessibilityService::class.java.getMethod("dispatchKeyEvent", KeyEvent::class.java)
+                val downC = KeyEvent(SystemClock.uptimeMillis(), SystemClock.uptimeMillis(),
+                    KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_CAMERA, 0)
+                val upC   = KeyEvent(SystemClock.uptimeMillis(), SystemClock.uptimeMillis(),
+                    KeyEvent.ACTION_UP, KeyEvent.KEYCODE_CAMERA, 0)
+                method.invoke(this, downC)
+                method.invoke(this, upC)
+            }.onFailure { e2 ->
+                Log.w(TAG, "triggerShutter: KEYCODE_CAMERA also failed: $e2")
+            }
+        }
+    }
+
+    companion object {
+        var instance: AppListenerService? = null
     }
 
     override fun onAccessibilityEvent(ev: AccessibilityEvent?) {
