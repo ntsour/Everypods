@@ -605,6 +605,28 @@ class AirPodsViewModel(
         }
     }
 
+    /** Set any press type action for a given bud. Writes to the same prefs the service reads. */
+    fun setPressAction(side: String, pressType: me.kavishdevar.librepods.bluetooth.AACPManager.Companion.StemPressType, action: StemAction) {
+        val sideLower = side.lowercase()
+        val prefKey = when (pressType) {
+            me.kavishdevar.librepods.bluetooth.AACPManager.Companion.StemPressType.SINGLE_PRESS ->
+                if (sideLower == "left") "left_single_press_action" else "right_single_press_action"
+            me.kavishdevar.librepods.bluetooth.AACPManager.Companion.StemPressType.DOUBLE_PRESS ->
+                if (sideLower == "left") "left_double_press_action" else "right_double_press_action"
+            me.kavishdevar.librepods.bluetooth.AACPManager.Companion.StemPressType.TRIPLE_PRESS ->
+                if (sideLower == "left") "left_triple_press_action" else "right_triple_press_action"
+            me.kavishdevar.librepods.bluetooth.AACPManager.Companion.StemPressType.LONG_PRESS ->
+                if (sideLower == "left") "left_long_press_action" else "right_long_press_action"
+        }
+        sharedPreferences.edit { putString(prefKey, action.name) }
+        // Also update UiState for long press (only field we currently expose there)
+        if (pressType == me.kavishdevar.librepods.bluetooth.AACPManager.Companion.StemPressType.LONG_PRESS) {
+            _uiState.update {
+                if (sideLower == "left") it.copy(leftAction = action) else it.copy(rightAction = action)
+            }
+        }
+    }
+
     private fun countEnabledModes(byteValue: Int): Int {
         var count = 0
         if ((byteValue and 0x01) != 0) count++

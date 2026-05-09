@@ -447,23 +447,143 @@ private fun ConnectedScreen(
                     // ─── 1. AirPods Controls ──────────────────────────────
                     MenuCategory("🎧  AirPods Controls", dark) {
                         if (capabilities.contains(Capability.STEM_CONFIG)) {
-                            // Left bud
-                            MenuSectionHeader("Long Press — Left Bud", dark)
+
+                            // ── Helper: read single/double/triple action from prefs ──
+                            fun readAction(key: String, default: StemAction): StemAction =
+                                runCatching { StemAction.valueOf(sharedPrefs.getString(key, default.name) ?: default.name) }.getOrDefault(default)
+
+                            // ── Build SelectItems for a bud's press type ────────────
+                            @Composable
+                            fun actionItems(side: String, pressType: AACPManager.Companion.StemPressType): List<SelectItem> {
+                                val prefKey = "${side}_${pressType.name.lowercase()}_action"
+                                val defaultAction = StemAction.defaultActions[pressType] ?: StemAction.PLAY_PAUSE
+                                // For long press we also track in UiState so read from there
+                                val currentAction = if (pressType == AACPManager.Companion.StemPressType.LONG_PRESS) {
+                                    if (side == "left") state.leftAction else state.rightAction
+                                } else {
+                                    readAction(prefKey, defaultAction)
+                                }
+                                return listOf(
+                                    SelectItem("Play / Pause",
+                                        selected = currentAction == StemAction.PLAY_PAUSE,
+                                        onClick = { viewModel.setPressAction(side, pressType, StemAction.PLAY_PAUSE) }),
+                                    SelectItem("Next Track",
+                                        selected = currentAction == StemAction.NEXT_TRACK,
+                                        onClick = { viewModel.setPressAction(side, pressType, StemAction.NEXT_TRACK) }),
+                                    SelectItem("Previous Track",
+                                        selected = currentAction == StemAction.PREVIOUS_TRACK,
+                                        onClick = { viewModel.setPressAction(side, pressType, StemAction.PREVIOUS_TRACK) }),
+                                    SelectItem(stringResource(R.string.digital_assistant),
+                                        selected = currentAction == StemAction.DIGITAL_ASSISTANT,
+                                        enabled = state.isPremium,
+                                        onClick = { viewModel.setPressAction(side, pressType, StemAction.DIGITAL_ASSISTANT) }),
+                                    SelectItem("Mute / Unmute Call",
+                                        selected = currentAction == StemAction.MUTE_CALL,
+                                        onClick = { viewModel.setPressAction(side, pressType, StemAction.MUTE_CALL) }),
+                                    SelectItem(stringResource(R.string.noise_control),
+                                        selected = currentAction == StemAction.CYCLE_NOISE_CONTROL_MODES,
+                                        onClick = { viewModel.setPressAction(side, pressType, StemAction.CYCLE_NOISE_CONTROL_MODES) })
+                                )
+                            }
+
+                            // ── Listening mode cycle sub-options ────────────────────
+                            // Shown when a bud's long press is set to CYCLE_NOISE_CONTROL_MODES
+                            @Composable
+                            fun ListeningModeCycleOptions() {
+                                val currentByte = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.LISTENING_MODE_CONFIGS]?.get(0)?.toInt() ?: 0
+                                Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) {
+                                    Text("Modes to cycle through:", style = captionStyle(dark))
+                                    Spacer(Modifier.height(6.dp))
+                                    StyledSelectList(items = buildList {
+                                        if (state.offListeningMode) add(
+                                            SelectItem(stringResource(R.string.off),
+                                                description = stringResource(R.string.listening_mode_off_description),
+                                                selected = (currentByte and 0x01) != 0,
+                                                onClick = { viewModel.toggleListeningMode(0x01) })
+                                        )
+                                        add(SelectItem(stringResource(R.string.transparency),
+                                            description = stringResource(R.string.listening_mode_transparency_description),
+                                            selected = (currentByte and 0x04) != 0,
+                                            onClick = { viewModel.toggleListeningMode(0x04) }))
+                                        add(SelectItem(stringResource(R.string.adaptive),
+                                            description = stringResource(R.string.listening_mode_adaptive_description),
+                                            selected = (currentByte and 0x08) != 0,
+                                            onClick = { viewModel.toggleListeningMode(0x08) }))
+                                        add(SelectItem(stringResource(R.string.noise_cancellation),
+                                            description = stringResource(R.string.listening_mode_noise_cancellation_description),
+                                            selected = (currentByte and 0x02) != 0,
+                                            onClick = { viewModel.toggleListeningMode(0x02) }))
+                                    })
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(stringResource(R.string.press_and_hold_noise_control_description), style = captionStyle(dark))
+                                }
+                            }
+
+                            // ── LEFT BUD ────────────────────────────────────────────
+                            MenuSectionHeader("Left Bud — Single Press", dark)
                             Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                                StyledSelectList(items = listOf(
-                                    SelectItem(stringResource(R.string.noise_control), selected = state.leftAction == StemAction.CYCLE_NOISE_CONTROL_MODES, onClick = { viewModel.setLongPressAction("left", StemAction.CYCLE_NOISE_CONTROL_MODES) }),
-                                    SelectItem(stringResource(R.string.digital_assistant), selected = state.leftAction == StemAction.DIGITAL_ASSISTANT, enabled = state.isPremium, onClick = { viewModel.setLongPressAction("left", StemAction.DIGITAL_ASSISTANT) })
-                                ))
+                                StyledSelectList(items = actionItems("left", AACPManager.Companion.StemPressType.SINGLE_PRESS))
                             }
                             MenuDivider()
-                            // Right bud
-                            MenuSectionHeader("Long Press — Right Bud", dark)
+                            MenuSectionHeader("Left Bud — Double Press", dark)
                             Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                                StyledSelectList(items = listOf(
-                                    SelectItem(stringResource(R.string.noise_control), selected = state.rightAction == StemAction.CYCLE_NOISE_CONTROL_MODES, onClick = { viewModel.setLongPressAction("right", StemAction.CYCLE_NOISE_CONTROL_MODES) }),
-                                    SelectItem(stringResource(R.string.digital_assistant), selected = state.rightAction == StemAction.DIGITAL_ASSISTANT, enabled = state.isPremium, onClick = { viewModel.setLongPressAction("right", StemAction.DIGITAL_ASSISTANT) })
-                                ))
+                                StyledSelectList(items = actionItems("left", AACPManager.Companion.StemPressType.DOUBLE_PRESS))
                             }
+                            MenuDivider()
+                            MenuSectionHeader("Left Bud — Triple Press", dark)
+                            Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+                                StyledSelectList(items = actionItems("left", AACPManager.Companion.StemPressType.TRIPLE_PRESS))
+                            }
+                            MenuDivider()
+                            MenuSectionHeader("Left Bud — Long Press", dark)
+                            Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+                                StyledSelectList(items = actionItems("left", AACPManager.Companion.StemPressType.LONG_PRESS))
+                            }
+                            if (state.leftAction == StemAction.CYCLE_NOISE_CONTROL_MODES) {
+                                ListeningModeCycleOptions()
+                            }
+                            MenuDivider()
+
+                            // ── RIGHT BUD ───────────────────────────────────────────
+                            MenuSectionHeader("Right Bud — Single Press", dark)
+                            Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+                                StyledSelectList(items = actionItems("right", AACPManager.Companion.StemPressType.SINGLE_PRESS))
+                            }
+                            MenuDivider()
+                            MenuSectionHeader("Right Bud — Double Press", dark)
+                            Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+                                StyledSelectList(items = actionItems("right", AACPManager.Companion.StemPressType.DOUBLE_PRESS))
+                            }
+                            MenuDivider()
+                            MenuSectionHeader("Right Bud — Triple Press", dark)
+                            Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+                                StyledSelectList(items = actionItems("right", AACPManager.Companion.StemPressType.TRIPLE_PRESS))
+                            }
+                            MenuDivider()
+                            MenuSectionHeader("Right Bud — Long Press", dark)
+                            Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+                                StyledSelectList(items = actionItems("right", AACPManager.Companion.StemPressType.LONG_PRESS))
+                            }
+                            if (state.rightAction == StemAction.CYCLE_NOISE_CONTROL_MODES) {
+                                ListeningModeCycleOptions()
+                            }
+                            MenuDivider()
+
+                            // ── CALL CONTROLS ───────────────────────────────────────
+                            // Kept here: conceptually this is stem behaviour during calls
+                            val bytes = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.CALL_MANAGEMENT_CONFIG]?.take(2)?.toByteArray() ?: byteArrayOf(0x00, 0x00)
+                            val flipped = try { bytes[1] == 0x02.toByte() } catch (_: Exception) { false }
+                            CallControlSettings(
+                                hazeState = remember { HazeState() },
+                                flipped = flipped,
+                                onCallControlValueChanged = {
+                                    viewModel.setControlCommandValue(
+                                        AACPManager.Companion.ControlCommandIdentifiers.CALL_MANAGEMENT_CONFIG,
+                                        if (it) byteArrayOf(0x00, 0x02) else byteArrayOf(0x00, 0x03)
+                                    )
+                                }
+                            )
+
                         } else {
                             Column(Modifier.padding(16.dp)) {
                                 Text("Stem controls not available on this model.", style = captionStyle(dark))
@@ -746,12 +866,6 @@ private fun ConnectedScreen(
                                 onLoudSoundReductionCheckedChange = { viewModel.setATTCharacteristicValue(ATTHandles.LOUD_SOUND_REDUCTION, byteArrayOf(if (it) 0x01.toByte() else 0x00.toByte())) },
                                 vendorIdHook = state.vendorIdHook, isPremium = state.isPremium
                             )
-                        }
-                        MenuDivider()
-                        Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                            val bytes = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.CALL_MANAGEMENT_CONFIG]?.take(2)?.toByteArray() ?: byteArrayOf(0x00, 0x00)
-                            val flipped = try { bytes[1] == 0x02.toByte() } catch (_: Exception) { false }
-                            CallControlSettings(hazeState = remember { HazeState() }, flipped = flipped, onCallControlValueChanged = { viewModel.setControlCommandValue(AACPManager.Companion.ControlCommandIdentifiers.CALL_MANAGEMENT_CONFIG, if (it) byteArrayOf(0x00, 0x02) else byteArrayOf(0x00, 0x03)) })
                         }
                         MenuDivider()
                         Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
