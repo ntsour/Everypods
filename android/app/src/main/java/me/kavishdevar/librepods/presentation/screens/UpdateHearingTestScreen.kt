@@ -74,14 +74,36 @@ private const val TAG = "HearingAidAdjustments"
 fun UpdateHearingTestScreen() {
     val verticalScrollState = rememberScrollState()
     val attManager = ServiceManager.getService()?.attManager
+    val isDark = isSystemInDarkTheme()
     if (attManager == null) {
-        Text(
-            text = stringResource(R.string.att_manager_is_null_try_reconnecting),
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            textAlign = TextAlign.Center
-        )
+        StyledScaffold(title = stringResource(R.string.hearing_test)) { topPadding, _, _ ->
+            Column(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Spacer(Modifier.height(topPadding))
+                Text(
+                    text = "Requires Xposed",
+                    style = TextStyle(
+                        fontSize = 18.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                        color = if (isDark) Color.White else Color.Black,
+                        fontFamily = FontFamily(Font(R.font.sf_pro)),
+                        textAlign = TextAlign.Center
+                    )
+                )
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = "Updating hearing test results requires the Xposed module with \"Act as Apple device\" enabled in App Settings. This allows direct GATT writes to the AirPods firmware.",
+                    style = TextStyle(
+                        fontSize = 14.sp,
+                        color = (if (isDark) Color.White else Color.Black).copy(alpha = 0.6f),
+                        fontFamily = FontFamily(Font(R.font.sf_pro)),
+                        textAlign = TextAlign.Center
+                    )
+                )
+            }
+        }
         return
     }
 
