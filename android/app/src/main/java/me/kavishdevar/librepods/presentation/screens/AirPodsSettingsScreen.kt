@@ -982,7 +982,7 @@ private fun ConnectedScreen(
                                             )
                                             Spacer(Modifier.height(2.dp))
                                             Text(
-                                                "Camera Control uses an Accessibility Service to detect when the camera app is open, so a stem press can trigger the shutter. Tap Grant to enable it for LibrePods.",
+                                                "Camera Control needs an Accessibility Service to detect when the camera app is open. Tap Grant → find \"Camera listener\" → toggle it ON.",
                                                 style = TextStyle(
                                                     fontSize = 12.sp,
                                                     fontFamily = SfPro,
@@ -993,19 +993,19 @@ private fun ConnectedScreen(
                                         StyledButton(
                                             onClick = {
                                                 // On API 33+ open directly to this app's accessibility service page
-                                                // ACTION_ACCESSIBILITY_DETAILS_SETTINGS (API 33+) opens
-                                                // directly to this app's accessibility service toggle.
-                                                val action = if (Build.VERSION.SDK_INT >= 33)
-                                                    "android.settings.ACCESSIBILITY_DETAILS_SETTINGS"
-                                                else
-                                                    Settings.ACTION_ACCESSIBILITY_SETTINGS
-                                                val intent = Intent(action).also { i ->
-                                                    if (Build.VERSION.SDK_INT >= 33)
-                                                        i.data = android.net.Uri.fromParts("package", context.packageName, null)
-                                                    i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                // Pre-scroll to the LibrePods service entry via fragment args.
+                                                // This is the correct approach for third-party apps —
+                                                // ACTION_ACCESSIBILITY_DETAILS_SETTINGS requires a system permission.
+                                                val componentName = "${context.packageName}/.services.AppListenerService"
+                                                val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                                                    putExtra(":settings:show_fragment_args",
+                                                        android.os.Bundle().apply {
+                                                            putString(":settings:fragment_args_key", componentName)
+                                                        }
+                                                    )
+                                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                                 }
                                                 runCatching { context.startActivity(intent) }.onFailure {
-                                                    // Fallback to general accessibility settings if direct link fails
                                                     context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
                                                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                                     })
