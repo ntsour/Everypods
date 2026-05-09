@@ -1253,16 +1253,39 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             StemAction.PREVIOUS_TRACK -> MediaController.sendPreviousTrack()
             StemAction.NEXT_TRACK -> MediaController.sendNextTrack()
             StemAction.DIGITAL_ASSISTANT -> {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                val geminiPackage = "com.google.android.apps.bard"
+                val geminiComponent = "$geminiPackage/.shellapp.BardEntryPointActivity"
+                val geminiInstalled = runCatching {
+                    packageManager.getPackageInfo(geminiPackage, 0)
+                    true
+                }.getOrDefault(false)
+
+                if (geminiInstalled) {
+                    // Launch Gemini directly in voice/listening mode
+                    val intent = Intent(Intent.ACTION_VOICE_COMMAND).apply {
+                        setClassName(geminiPackage, "$geminiPackage.shellapp.BardEntryPointActivity")
+                        putExtra("INPUT_TYPE", "voice")
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                    }
+                    runCatching { startActivity(intent) }.onFailure {
+                        Log.w("AirPodsParser", "Gemini voice launch failed, falling back: $it")
+                        // Fallback: open Gemini normally if voice intent fails
+                        runCatching {
+                            startActivity(
+                                packageManager.getLaunchIntentForPackage(geminiPackage)
+                                    ?.apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+                            )
+                        }
+                    }
+                } else {
+                    // Gemini not installed — fall back to system default assistant
+                    Log.d("AirPodsParser", "Gemini not installed, using system assistant")
                     val intent = Intent(Intent.ACTION_VOICE_COMMAND).apply {
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     }
-                    startActivity(intent)
-                } else {
-                    Log.w(
-                        "AirPodsParser",
-                        "Digital Assistant action is not supported on this Android version."
-                    )
+                    runCatching { startActivity(intent) }.onFailure {
+                        Log.w("AirPodsParser", "System assistant also unavailable: $it")
+                    }
                 }
             }
 
