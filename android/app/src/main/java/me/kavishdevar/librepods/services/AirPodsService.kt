@@ -261,7 +261,12 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 connectToSocket(bluetoothAdapter, bluetoothDevice)
             }
             Log.d(TAG, "Device status changed")
-            if (socket.isConnected) return
+            if (socket.isConnected) {
+                // When AACP is connected, only update case battery from BLE.
+                // Bud battery comes authoritatively from AACP packets.
+                updateCaseBatteryFromBLE()
+                return
+            }
             val leftLevel = bleManager.getMostRecentStatus()?.leftBattery ?: 0
             val rightLevel = bleManager.getMostRecentStatus()?.rightBattery ?: 0
             val caseLevel = bleManager.getMostRecentStatus()?.caseBattery ?: 0
@@ -282,6 +287,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
         override fun onBroadcastFromNewAddress(device: BLEManager.AirPodsStatus) {
             Log.d(TAG, "New address detected")
+            // New address often means the case opened and rotated its MAC.
+            // Forward the case battery immediately if it's valid.
+            updateCaseBatteryFromBLE()
         }
 
         override fun onLidStateChanged(
@@ -294,31 +302,23 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     getSharedPreferences("settings", MODE_PRIVATE).getString("name", "AirPods Pro")
                         ?: "AirPods"
                 )
-                // Always update case battery from BLE when lid opens — the AACP socket
-                // only carries bud battery; case battery comes exclusively from BLE
-                // advertisements broadcast by the case when its lid is open.
-                val bleCaseLevel    = bleManager.getMostRecentStatus()?.caseBattery
-                val bleCaseCharging = bleManager.getMostRecentStatus()?.isCaseCharging
-
+                // Try to update case battery immediately. If the BLE packet just arrived
+                // it may not yet have a valid level (0xFF); updateCaseBatteryFromBLE()
+                // will also be called from onDeviceStatusChanged / onBatteryChanged on
+                // every subsequent scan result until a valid level is seen.
                 if (socket.isConnected) {
-                    // Connected via AACP — buds are authoritative from AACP packets.
-                    // Only forward the case level from BLE; leave bud levels unchanged.
-                    if (bleCaseLevel != null && bleCaseLevel > 0) {
-                        batteryNotification.updateCaseBattery(
-                            caseLevel    = bleCaseLevel,
-                            caseCharging = bleCaseCharging == true
-                        )
-                        sendBatteryBroadcast()
-                    }
+                    updateCaseBatteryFromBLE()
                     return
                 }
 
                 // Not connected via AACP — update everything from BLE.
-                val leftLevel    = bleManager.getMostRecentStatus()?.leftBattery ?: 0
-                val rightLevel   = bleManager.getMostRecentStatus()?.rightBattery ?: 0
-                val caseLevel    = bleCaseLevel ?: 0
-                val leftCharging = bleManager.getMostRecentStatus()?.isLeftCharging
-                val rightCharging = bleManager.getMostRecentStatus()?.isRightCharging
+                val ble          = bleManager.getMostRecentStatus()
+                val leftLevel    = ble?.leftBattery ?: 0
+                val rightLevel   = ble?.rightBattery ?: 0
+                val caseLevel    = ble?.caseBattery ?: 0
+                val leftCharging  = ble?.isLeftCharging
+                val rightCharging = ble?.isRightCharging
+                val caseCharging  = ble?.isCaseCharging
 
                 batteryNotification.setBatteryDirect(
                     leftLevel    = leftLevel,
@@ -326,7 +326,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     rightLevel   = rightLevel,
                     rightCharging = rightCharging == true,
                     caseLevel    = caseLevel,
-                    caseCharging = bleCaseCharging == true
+                    caseCharging = caseCharging == true
                 )
                 sendBatteryBroadcast()
             } else {
@@ -346,7 +346,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         }
 
         override fun onBatteryChanged(device: BLEManager.AirPodsStatus) {
-            if (socket.isConnected) return
+            if (socket.isConnected) {
+                updateCaseBatteryFromBLE()
+                return
+            }
             val leftLevel = bleManager.getMostRecentStatus()?.leftBattery ?: 0
             val rightLevel = bleManager.getMostRecentStatus()?.rightBattery ?: 0
             val caseLevel = bleManager.getMostRecentStatus()?.caseBattery ?: 0
@@ -373,6 +376,26 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             )
         }
     }
+
+    /**
+     * Forward the most recent case battery from BLE to [batteryNotification] and
+     * broadcast it to the UI. Called from BLE callbacks when the AACP socket is
+     * connected (so bud levels come from AACP, but case level only from BLE).
+     *
+     * Uses `getMostRecentStatus()` which returns the latest scan result across
+     * ALL known addresses, so it picks up the new MAC the case advertises after
+     * the lid opens even if `onBroadcastFromNewAddress` hasn't had time to run yet.
+     */
+    private fun updateCaseBatteryFromBLE() {
+        val status = bleManager.getMostRecentStatus() ?: return
+        val level    = status.caseBattery ?: return   // null = 0xFF (not readable yet), skip
+        if (level <= 0) return                         // 0 is also not useful
+        val charging = status.isCaseCharging
+        Log.d(TAG, "updateCaseBatteryFromBLE: level=$level, charging=$charging")
+        batteryNotification.updateCaseBattery(caseLevel = level, caseCharging = charging)
+        sendBatteryBroadcast()
+    }
+
 
     fun isBluetoothSocketExempted(): Boolean {
         return try {

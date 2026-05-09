@@ -171,6 +171,10 @@ class BLEManager(private val context: Context) {
 
             mScanCallback = object : ScanCallback() {
                 override fun onScanResult(callbackType: Int, result: ScanResult) {
+                    // Clear the per-scan dedup set so every individual advertisement
+                    // is processed. Real dedup is done by comparing parsedStatus to
+                    // previousStatus in deviceStatusMap, which is correct.
+                    processedAddresses.clear()
                     processScanResult(result)
                 }
 
