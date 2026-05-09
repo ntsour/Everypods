@@ -71,7 +71,10 @@ fun BatteryView(
     // A bud is "known" when its status is not DISCONNECTED (or null)
     val leftKnown  = left  != null && left.status  != BatteryStatus.DISCONNECTED
     val rightKnown = right != null && right.status != BatteryStatus.DISCONNECTED
-    val caseKnown  = case  != null && case.status  != BatteryStatus.DISCONNECTED
+    // Case is "known" when we have a non-zero level OR a non-DISCONNECTED status.
+    // The AACP packet carries the case level even with the lid closed (buds relay it),
+    // so level > 0 is the reliable signal — status may still read DISCONNECTED.
+    val caseKnown  = case != null && (case.level > 0 || case.status != BatteryStatus.DISCONNECTED)
 
     Box(
         modifier = Modifier.fillMaxWidth(),

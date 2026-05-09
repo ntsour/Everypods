@@ -712,26 +712,125 @@ private fun ConnectedScreen(
                             MenuDivider()
                         }
 
-                        // Camera Control — inlined (was CameraControlScreen)
+                        // Camera Control — inlined
                         if (capabilities.contains(Capability.STEM_CONFIG) && !BuildConfig.PLAY_BUILD) {
                             MenuSectionHeader("Camera Control", dark)
                             Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
                                 val currentCameraAction by viewModel.cameraAction.collectAsState()
-                                fun isAppListenerEnabled(): Boolean {
-                                    val am = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
-                                    val sc = ComponentName(context, AppListenerService::class.java)
-                                    return am.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
-                                        .any { it.resolveInfo.serviceInfo.packageName == sc.packageName && it.resolveInfo.serviceInfo.name == sc.className }
+
+                                // Check if AppListenerService (Accessibility) is enabled
+                                var accessibilityGranted by remember {
+                                    mutableStateOf(
+                                        (context.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager)
+                                            .getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
+                                            .any {
+                                                val sc = ComponentName(context, AppListenerService::class.java)
+                                                it.resolveInfo.serviceInfo.packageName == sc.packageName &&
+                                                    it.resolveInfo.serviceInfo.name == sc.className
+                                            }
+                                    )
                                 }
-                                fun handleCam(action: me.kavishdevar.librepods.bluetooth.AACPManager.Companion.StemPressType?) {
-                                    if (action != null && !isAppListenerEnabled()) context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-                                    else viewModel.setCameraAction(action)
+                                // Re-check when composable comes back into focus
+                                LaunchedEffect(Unit) {
+                                    while (true) {
+                                        delay(1000)
+                                        accessibilityGranted = (context.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager)
+                                            .getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
+                                            .any {
+                                                val sc = ComponentName(context, AppListenerService::class.java)
+                                                it.resolveInfo.serviceInfo.packageName == sc.packageName &&
+                                                    it.resolveInfo.serviceInfo.name == sc.className
+                                            }
+                                    }
                                 }
-                                StyledSelectList(items = listOf(
-                                    SelectItem("Off", selected = currentCameraAction == null, onClick = { handleCam(null) }),
-                                    SelectItem("Press once", selected = currentCameraAction == me.kavishdevar.librepods.bluetooth.AACPManager.Companion.StemPressType.SINGLE_PRESS, onClick = { handleCam(me.kavishdevar.librepods.bluetooth.AACPManager.Companion.StemPressType.SINGLE_PRESS) }),
-                                    SelectItem("Press and hold", selected = currentCameraAction == me.kavishdevar.librepods.bluetooth.AACPManager.Companion.StemPressType.LONG_PRESS, onClick = { handleCam(me.kavishdevar.librepods.bluetooth.AACPManager.Companion.StemPressType.LONG_PRESS) })
-                                ))
+
+                                // Permission explanation + grant button
+                                if (!accessibilityGranted) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(
+                                                if (dark) Color(0xFF2C2C2E) else Color(0xFFFFF3E0),
+                                                RoundedCornerShape(12.dp)
+                                            )
+                                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(Modifier.weight(1f)) {
+                                            Text(
+                                                "Accessibility permission required",
+                                                style = TextStyle(
+                                                    fontSize = 13.sp,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    fontFamily = SfPro,
+                                                    color = Color(0xFFFF9500)
+                                                )
+                                            )
+                                            Spacer(Modifier.height(2.dp))
+                                            Text(
+                                                "Camera Control watches for the camera app to open, so a stem press can trigger the shutter. Enable \"LibrePods\" under Settings → Accessibility → Downloaded Apps.",
+                                                style = TextStyle(
+                                                    fontSize = 12.sp,
+                                                    fontFamily = SfPro,
+                                                    color = if (dark) Color.White.copy(0.65f) else Color.Black.copy(0.65f)
+                                                )
+                                            )
+                                        }
+                                        StyledButton(
+                                            onClick = {
+                                                // Deep-link directly to LibrePods accessibility settings page
+                                                val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                                                    val pkg = "${context.packageName}/${AppListenerService::class.java.name}"
+                                                    putExtra(":settings:show_fragment_args",
+                                                        android.os.Bundle().apply {
+                                                            putString(":settings:fragment_args_key", pkg)
+                                                        })
+                                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                }
+                                                // Try direct deep-link; fallback to main accessibility page
+                                                runCatching { context.startActivity(intent) }.onFailure {
+                                                    context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                    })
+                                                }
+                                            },
+                                            backdrop = rememberLayerBackdrop(),
+                                            modifier = Modifier.heightIn(min = 36.dp)
+                                        ) {
+                                            Text(
+                                                "Grant",
+                                                style = TextStyle(
+                                                    fontSize = 13.sp,
+                                                    fontWeight = FontWeight.Medium,
+                                                    fontFamily = SfPro,
+                                                    color = if (dark) Color.White else Color.Black
+                                                )
+                                            )
+                                        }
+                                    }
+                                    Spacer(Modifier.height(8.dp))
+                                }
+
+                                // Selector — disabled when permission not granted
+                                Column(
+                                    Modifier.alpha(if (accessibilityGranted) 1f else DisabledAlpha.toFloat())
+                                ) {
+                                    StyledSelectList(items = listOf(
+                                        SelectItem("Off",
+                                            selected = currentCameraAction == null,
+                                            enabled = accessibilityGranted || currentCameraAction == null,
+                                            onClick = { viewModel.setCameraAction(null) }),
+                                        SelectItem("Press once",
+                                            selected = currentCameraAction == AACPManager.Companion.StemPressType.SINGLE_PRESS,
+                                            enabled = accessibilityGranted,
+                                            onClick = { viewModel.setCameraAction(AACPManager.Companion.StemPressType.SINGLE_PRESS) }),
+                                        SelectItem("Press and hold",
+                                            selected = currentCameraAction == AACPManager.Companion.StemPressType.LONG_PRESS,
+                                            enabled = accessibilityGranted,
+                                            onClick = { viewModel.setCameraAction(AACPManager.Companion.StemPressType.LONG_PRESS) })
+                                    ))
+                                }
                             }
                             MenuDivider()
                         }

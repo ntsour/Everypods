@@ -19,10 +19,14 @@
 package me.kavishdevar.librepods.presentation.screens
 
 import android.Manifest
+import android.accessibilityservice.AccessibilityServiceInfo
+import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.Settings
+import android.view.accessibility.AccessibilityManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -61,6 +65,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import me.kavishdevar.librepods.R
 import me.kavishdevar.librepods.presentation.components.StyledScaffold
+import me.kavishdevar.librepods.services.AppListenerService
 import me.kavishdevar.librepods.services.TeamsNotifListener
 
 private val SfPro get() = FontFamily(Font(R.font.sf_pro))
@@ -96,12 +101,24 @@ fun AppPermissionsScreen() {
     var notifAccessGranted by remember { mutableStateOf(TeamsNotifListener.isAccessGranted(context)) }
     var contactsGranted by remember { mutableStateOf(isGranted(Manifest.permission.READ_CONTACTS)) }
 
+    fun isAppListenerEnabled(): Boolean {
+        val am = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
+        val sc = ComponentName(context, AppListenerService::class.java)
+        return am.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
+            .any { it.resolveInfo.serviceInfo.packageName == sc.packageName && it.resolveInfo.serviceInfo.name == sc.className }
+    }
+    var cameraAccessGranted by remember { mutableStateOf(isAppListenerEnabled()) }
+
     // Poll special permissions every second
     LaunchedEffect(Unit) {
         while (true) {
             kotlinx.coroutines.delay(1000)
-            overlayGranted     = Settings.canDrawOverlays(context)
-            notifAccessGranted = TeamsNotifListener.isAccessGranted(context)
+            overlayGranted      = Settings.canDrawOverlays(context)
+            notifAccessGranted  = TeamsNotifListener.isAccessGranted(context)
+            cameraAccessGranted = isAppListenerEnabled()
+            // Also re-check runtime permissions that may have been granted outside the app
+            locationGranted = isGranted(Manifest.permission.ACCESS_FINE_LOCATION)
+            contactsGranted = isGranted(Manifest.permission.READ_CONTACTS)
         }
     }
 
