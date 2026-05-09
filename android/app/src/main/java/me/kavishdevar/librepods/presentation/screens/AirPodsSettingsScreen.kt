@@ -545,12 +545,12 @@ private fun ConnectedScreen(
 
     // ── Hoisted category expansion states ─────────────────────────────────
     // Keyed by the same categoryKey values used in SearchableItem
-    var catControls    by rememberSaveable { mutableStateOf(true) }
-    var catSettings    by rememberSaveable { mutableStateOf(true) }
-    var catSmart       by rememberSaveable { mutableStateOf(true) }
-    var catAppSettings by rememberSaveable { mutableStateOf(true) }
-    var catAudio       by rememberSaveable { mutableStateOf(true) }
-    var catHelp        by rememberSaveable { mutableStateOf(true) }
+    var catControls    by rememberSaveable { mutableStateOf(false) }
+    var catSettings    by rememberSaveable { mutableStateOf(false) }
+    var catSmart       by rememberSaveable { mutableStateOf(false) }
+    var catAppSettings by rememberSaveable { mutableStateOf(false) }
+    var catAudio       by rememberSaveable { mutableStateOf(false) }
+    var catHelp        by rememberSaveable { mutableStateOf(false) }
 
     // Which category to briefly highlight (cleared after animation)
     var highlightCategory by remember { mutableStateOf("") }
@@ -1051,7 +1051,10 @@ private fun ConnectedScreen(
                             MenuDivider()
                         }
 
-                        MenuNavRow("ANC Profiles", dark) { navController.navigate("anc_profiles") }
+                        MenuSectionHeader("ANC Profiles", dark)
+                        Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                            MenuNavRow("View & manage profiles", dark) { navController.navigate("anc_profiles") }
+                        }
                         MenuDivider()
 
                         // Off Listening Mode

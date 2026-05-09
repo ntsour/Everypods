@@ -37,6 +37,18 @@ val cameraPackages = mutableSetOf(
     "org.codeaurora.snapcam"
 )
 
+// Packages that appear on top of the camera (keyboard, system UI, permission dialogs…)
+// and must NOT reset the cameraOpen flag.
+private val cameraOverlayPackages = setOf(
+    "com.android.systemui",
+    "com.android.inputmethod.latin",
+    "com.google.android.inputmethod.latin",
+    "com.samsung.android.honeyboard",
+    "com.swiftkey.swiftkeyapp",
+    "com.touchtype.swiftkey",
+    "android"
+)
+
 var cameraOpen = false
 private var currentCustomPackage: String? = null
 
@@ -69,30 +81,38 @@ class AppListenerService: AccessibilityService() {
         prefs.unregisterOnSharedPreferenceChangeListener(preferenceChangeListener)
     }
 
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        Log.d(TAG, "onServiceConnected — AppListenerService is live")
+    }
+
     override fun onAccessibilityEvent(ev: AccessibilityEvent?) {
         try {
+            Log.d(TAG, "onAccessibilityEvent: type=${ev?.eventType} pkg=${ev?.packageName}")
             if (ev?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
                 val pkg = ev.packageName?.toString() ?: return
-                if (pkg == "com.android.systemui") return // after camera opens, systemui is opened, probably for the privacy indicators
-                Log.d(TAG, "Package: $pkg, cameraOpen: $cameraOpen")
+                // Ignore system overlay packages — they appear on top of the camera
+                // but the user hasn't left the camera app
+                if (pkg in cameraOverlayPackages) return
+                Log.d(TAG, "Window changed → pkg=$pkg  cameraOpen=$cameraOpen")
                 if (pkg in cameraPackages) {
-                    Log.d(TAG, "Camera app opened: $pkg")
+                    Log.d(TAG, "✓ Camera opened: $pkg  serviceRef=${ServiceManager.getService()}")
                     if (!cameraOpen) cameraOpen = true
                     ServiceManager.getService()?.cameraOpened()
                 } else {
                     if (cameraOpen) {
+                        Log.d(TAG, "Camera closed by $pkg")
                         cameraOpen = false
                         ServiceManager.getService()?.cameraClosed()
-                    } else {
-                        Log.d(TAG, "ignoring")
                     }
                 }
-                // Log.d(TAG, "Opened: $pkg")
             }
         } catch(e: Exception) {
-            Log.e(TAG, "Error in onAccessibilityEvent: ${e.message}")
+            Log.e(TAG, "Error in onAccessibilityEvent: ${e.message}", e)
         }
     }
 
-    override fun onInterrupt() {}
+    override fun onInterrupt() {
+        Log.d(TAG, "onInterrupt")
+    }
 }
