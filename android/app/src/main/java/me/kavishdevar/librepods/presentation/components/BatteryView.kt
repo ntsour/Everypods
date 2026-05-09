@@ -1,5 +1,5 @@
 /*
-    LibrePods - AirPods liberated from Apple’s ecosystem
+    LibrePods - AirPods liberated from Apple's ecosystem
     Copyright (C) 2025 LibrePods contributors
 
     This program is free software: you can redistribute it and/or modify
@@ -30,20 +30,24 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import me.kavishdevar.librepods.R
 import me.kavishdevar.librepods.data.Battery
 import me.kavishdevar.librepods.data.BatteryComponent
@@ -56,18 +60,18 @@ fun BatteryView(
     budsRes: Int,
     caseRes: Int
 ) {
-    val left = batteryList.find { it.component == BatteryComponent.LEFT }
+    val left  = batteryList.find { it.component == BatteryComponent.LEFT }
     val right = batteryList.find { it.component == BatteryComponent.RIGHT }
-    val case = batteryList.find { it.component == BatteryComponent.CASE }
+    val case  = batteryList.find { it.component == BatteryComponent.CASE }
 
-    val leftLevel = left?.level ?: 0
-    val rightLevel = right?.level ?: 0
-    val caseLevel = case?.level ?: 0
+    val isDark = isSystemInDarkTheme()
+    val hintColor = if (isDark) Color.White.copy(alpha = 0.45f) else Color.Black.copy(alpha = 0.4f)
+    val sfPro = FontFamily(Font(R.font.sf_pro))
 
-    val caseCharging = case?.status == BatteryStatus.CHARGING ||
-        case?.status == BatteryStatus.OPTIMIZED_CHARGING
-
-    val singleDisplayed = remember { mutableStateOf(false) }
+    // A bud is "known" when its status is not DISCONNECTED (or null)
+    val leftKnown  = left  != null && left.status  != BatteryStatus.DISCONNECTED
+    val rightKnown = right != null && right.status != BatteryStatus.DISCONNECTED
+    val caseKnown  = case  != null && case.status  != BatteryStatus.DISCONNECTED
 
     Box(
         modifier = Modifier.fillMaxWidth(),
@@ -77,6 +81,8 @@ fun BatteryView(
             modifier = Modifier.widthIn(max = 500.dp),
             horizontalArrangement = Arrangement.Center
         ) {
+
+            // ── Buds column ───────────────────────────────────────────────
             Column(
                 modifier = Modifier.weight(1f),
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -89,45 +95,39 @@ fun BatteryView(
                         .padding(8.dp)
                 )
 
-                if (
-                    left?.status == right?.status &&
-                    (leftLevel - rightLevel) in -3..3
+                // Always show left and right individually
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center
                 ) {
-                    BatteryIndicator(
-                        leftLevel.coerceAtMost(rightLevel),
-                        left?.status ?: BatteryStatus.NOT_CHARGING
-                    )
-                    singleDisplayed.value = true
-                } else {
-                    singleDisplayed.value = false
+                    // Left bud
+                    if (leftKnown) {
+                        BatteryIndicator(
+                            batteryPercentage = left!!.level,
+                            status            = left.status,
+                            prefix            = "\uDBC6\uDCE5"  // SF "L" glyph
+                        )
+                    } else {
+                        // Bud disconnected / unknown — show a dash placeholder
+                        BudPlaceholder(label = "\uDBC6\uDCE5", dark = isDark)
+                    }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        if (leftLevel > 0 || left?.status != BatteryStatus.DISCONNECTED) {
-                            BatteryIndicator(
-                                leftLevel,
-                                left?.status ?: BatteryStatus.NOT_CHARGING,
-                                "\uDBC6\uDCE5"
-                            )
-                        }
+                    Spacer(modifier = Modifier.padding(horizontal = 8.dp))
 
-                        if (leftLevel > 0 && rightLevel > 0) {
-                            Spacer(modifier = Modifier.width(16.dp))
-                        }
-
-                        if (rightLevel > 0 || right?.status != BatteryStatus.DISCONNECTED) {
-                            BatteryIndicator(
-                                rightLevel,
-                                right?.status ?: BatteryStatus.NOT_CHARGING,
-                                "\uDBC6\uDCE8"
-                            )
-                        }
+                    // Right bud
+                    if (rightKnown) {
+                        BatteryIndicator(
+                            batteryPercentage = right!!.level,
+                            status            = right.status,
+                            prefix            = "\uDBC6\uDCE8"  // SF "R" glyph
+                        )
+                    } else {
+                        BudPlaceholder(label = "\uDBC6\uDCE8", dark = isDark)
                     }
                 }
             }
 
+            // ── Case column ───────────────────────────────────────────────
             Column(
                 modifier = Modifier.weight(1f),
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -140,15 +140,68 @@ fun BatteryView(
                         .padding(8.dp)
                 )
 
-                if (caseLevel > 0 || case?.status != BatteryStatus.DISCONNECTED) {
+                if (caseKnown) {
                     BatteryIndicator(
-                        caseLevel,
-                        case?.status ?: BatteryStatus.NOT_CHARGING,
-                        prefix = if (!singleDisplayed.value) "\uDBC3\uDE6C" else ""
+                        batteryPercentage = case!!.level,
+                        status            = case.status
                     )
+                } else {
+                    // Case lid closed or not yet seen — guide the user
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.padding(horizontal = 8.dp)
+                    ) {
+                        Text(
+                            text = "—",
+                            style = TextStyle(
+                                fontSize = 18.sp,
+                                fontFamily = sfPro,
+                                color = hintColor,
+                                textAlign = TextAlign.Center
+                            )
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = "Open case lid to show charge",
+                            style = TextStyle(
+                                fontSize = 11.sp,
+                                fontFamily = sfPro,
+                                color = hintColor,
+                                textAlign = TextAlign.Center
+                            )
+                        )
+                    }
                 }
             }
         }
+    }
+}
+
+/** Grey dash placeholder shown for a bud that is disconnected/unknown. */
+@Composable
+private fun BudPlaceholder(label: String, dark: Boolean) {
+    val color = if (dark) Color.White.copy(alpha = 0.35f) else Color.Black.copy(alpha = 0.3f)
+    val sfPro = FontFamily(Font(R.font.sf_pro))
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.padding(4.dp)
+    ) {
+        Text(
+            text = "—",
+            style = TextStyle(
+                fontSize = 18.sp, fontFamily = sfPro,
+                color = color, textAlign = TextAlign.Center
+            )
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = "$label —",
+            style = TextStyle(
+                fontSize = 14.sp, fontFamily = sfPro,
+                color = color, textAlign = TextAlign.Center
+            )
+        )
     }
 }
 
@@ -156,18 +209,30 @@ fun BatteryView(
 @Composable
 fun BatteryViewPreview() {
     val fakeBattery = listOf(
-        Battery(BatteryComponent.LEFT, 85, BatteryStatus.CHARGING),
+        Battery(BatteryComponent.LEFT,  85, BatteryStatus.CHARGING),
         Battery(BatteryComponent.RIGHT, 40, BatteryStatus.OPTIMIZED_CHARGING),
-        Battery(BatteryComponent.CASE, 60, BatteryStatus.NOT_CHARGING)
+        Battery(BatteryComponent.CASE,  60, BatteryStatus.NOT_CHARGING)
     )
-
     val bg = if (isSystemInDarkTheme()) Color.Black else Color(0xFFF2F2F7)
+    Box(modifier = Modifier.background(bg).padding(16.dp)) {
+        BatteryView(
+            batteryList = fakeBattery,
+            budsRes = R.drawable.airpods_pro_2_buds,
+            caseRes = R.drawable.airpods_pro_2_case
+        )
+    }
+}
 
-    Box(
-        modifier = Modifier
-            .background(bg)
-            .padding(16.dp)
-    ) {
+@Preview(uiMode = Configuration.UI_MODE_NIGHT_YES, name = "Case closed")
+@Composable
+fun BatteryViewNoCase() {
+    val fakeBattery = listOf(
+        Battery(BatteryComponent.LEFT,  72, BatteryStatus.NOT_CHARGING),
+        Battery(BatteryComponent.RIGHT, 68, BatteryStatus.NOT_CHARGING),
+        Battery(BatteryComponent.CASE,   0, BatteryStatus.DISCONNECTED)
+    )
+    val bg = if (isSystemInDarkTheme()) Color.Black else Color(0xFFF2F2F7)
+    Box(modifier = Modifier.background(bg).padding(16.dp)) {
         BatteryView(
             batteryList = fakeBattery,
             budsRes = R.drawable.airpods_pro_2_buds,
