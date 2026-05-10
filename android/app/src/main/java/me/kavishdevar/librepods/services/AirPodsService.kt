@@ -1199,23 +1199,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 }
 
                 if (cameraActive && config.cameraAction != null && stemPressType == config.cameraAction) {
-                    Log.d(TAG, "Camera shutter: triggering via AppListenerService")
-                    // Use the AccessibilityService instance to inject the key directly into
-                    // the focused camera window — bypasses media-session routing
-                    val triggered = AppListenerService.instance?.let {
-                        it.triggerShutter()
-                        true
-                    } ?: false
-                    if (!triggered) {
-                        // Fallback: dispatchMediaKeyEvent if accessibility service not live
-                        Log.w(TAG, "Camera shutter: AppListenerService not live, falling back to AudioManager")
-                        val am = getSystemService(AUDIO_SERVICE) as android.media.AudioManager
-                        am.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_VOLUME_DOWN))
-                        am.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_VOLUME_DOWN))
-                    }
-                    if (BuildConfig.FLAVOR == "xposed") {
-                        runCatching { Runtime.getRuntime().exec(arrayOf("su", "-c", "input keyevent 27")) }
-                    }
+                    // Trigger camera shutter via the accessibility service gesture tap
+                    AppListenerService.instance?.triggerShutter()
+                        ?: Log.w(TAG, "Camera shutter: AppListenerService not live — enable Camera listener in Accessibility settings")
                 } else {
                     val action = getActionFor(bud, stemPressType)
                     Log.d("AirPodsParser", "$bud $stemPressType action: $action")
