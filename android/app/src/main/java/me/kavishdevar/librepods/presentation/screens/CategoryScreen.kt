@@ -703,13 +703,6 @@ private fun SmartContent(
             }
         }
 
-        // ANC Profiles
-        MenuDivider()
-        MenuSectionHeader("ANC Profiles", dark)
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-            MenuNavRow("View & manage profiles", dark) { navController.navigate("anc_profiles") }
-        }
-
         // Off Listening Mode
         if (capabilities.contains(Capability.LOUD_SOUND_REDUCTION)) {
             MenuDivider()

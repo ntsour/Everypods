@@ -189,7 +189,6 @@ private fun buildSearchIndex(): List<SearchableItem> = listOf(
     SearchableItem("Head Gestures", "Smart Features", "smart"),
     SearchableItem("Adaptive Audio", "Smart Features", "smart"),
     SearchableItem("Camera Control", "Smart Features", "smart"),
-    SearchableItem("ANC Profiles", "Smart Features", "smart"),
     SearchableItem("Off Listening Mode", "Smart Features", "smart"),
     SearchableItem("Sleep Detection", "Smart Features", "smart"),
     SearchableItem("Optimized Charging", "Smart Features", "smart"),

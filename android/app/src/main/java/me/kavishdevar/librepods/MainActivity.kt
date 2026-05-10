@@ -147,7 +147,7 @@ import me.kavishdevar.librepods.presentation.screens.RenameScreen
 import me.kavishdevar.librepods.presentation.screens.TransparencySettingsScreen
 import me.kavishdevar.librepods.presentation.screens.TroubleshootingScreen
 import me.kavishdevar.librepods.presentation.screens.UpdateHearingTestScreen
-import me.kavishdevar.librepods.presentation.screens.AncProfilesScreen
+
 import me.kavishdevar.librepods.presentation.screens.AnnouncementAppPickerScreen
 import me.kavishdevar.librepods.presentation.screens.AppPermissionsScreen
 import me.kavishdevar.librepods.presentation.screens.NotificationAnnouncementsScreen
@@ -619,9 +619,6 @@ fun Main() {
                     }
                     composable("permissions") {
                         AppPermissionsScreen()
-                    }
-                    composable("anc_profiles") {
-                        AncProfilesScreen(navController)
                     }
                     composable("notification_announcements") {
                         NotificationAnnouncementsScreen(navController)
