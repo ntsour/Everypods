@@ -56,7 +56,7 @@ class TeamsNotifListener : NotificationListenerService() {
                 context.contentResolver, "enabled_notification_listeners"
             ) ?: return false
             val cn = "${context.packageName}/${TeamsNotifListener::class.java.name}"
-            return flat.split(":").any { it == cn }
+            return flat.split(":").any { it.trim() == cn }
         }
 
         fun openAccessSettings(context: Context) {

@@ -28,8 +28,10 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import android.view.accessibility.AccessibilityManager
+import android.app.Activity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.app.ActivityCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -120,6 +122,7 @@ fun AppPermissionsScreen() {
         overlayGranted      = Settings.canDrawOverlays(context)
         notifAccessGranted  = TeamsNotifListener.isAccessGranted(context)
         cameraAccessGranted = isAppListenerEnabled()
+
     }
 
     // Initial + periodic refresh
@@ -136,16 +139,28 @@ fun AppPermissionsScreen() {
     val multiLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { refreshAll() }
     val singleLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { refreshAll() }
 
-    // ── Smart grant: try launcher first, fall back to app settings if permanently denied
+    // ── Smart grant: check if permanently denied, then either show dialog or open settings
     fun grantRuntime(permissions: Array<String>) {
-        // If all already granted, do nothing
         if (permissions.all { isGranted(it) }) return
-        // Try the launcher — if Android has permanently denied, open system settings
-        try {
+
+        // Check if any permission is permanently denied (user tapped "Don't ask again")
+        val activity = context as? Activity
+        val permanentlyDenied = activity != null && permissions.any { perm ->
+            !isGranted(perm) && !ActivityCompat.shouldShowRequestPermissionRationale(activity, perm)
+                && context.getSharedPreferences("permissions_asked", Context.MODE_PRIVATE).getBoolean(perm, false)
+        }
+
+        if (permanentlyDenied) {
+            // Can't show dialog — open system app settings where user can toggle manually
+            openAppSettings()
+        } else {
+            // Mark that we've asked, so next time we know if it was permanently denied
+            context.getSharedPreferences("permissions_asked", Context.MODE_PRIVATE).edit().apply {
+                permissions.forEach { putBoolean(it, true) }
+                apply()
+            }
             if (permissions.size == 1) singleLauncher.launch(permissions[0])
             else multiLauncher.launch(permissions)
-        } catch (_: Exception) {
-            openAppSettings()
         }
     }
 
