@@ -58,7 +58,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.TextFieldState
@@ -87,6 +86,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -354,11 +354,16 @@ fun AirPodsSettingsScreen(
     val backdrop           = rememberLayerBackdrop()
 
     var deviceName by remember {
-        mutableStateOf(TextFieldValue(sharedPreferences.getString("name", state.deviceName).toString()))
+        mutableStateOf(TextFieldValue(state.deviceName))
+    }
+    LaunchedEffect(state.deviceName) {
+        if (deviceName.text.isBlank() || deviceName.text == "AirPods" || deviceName.text == "AirPods Pro") {
+            deviceName = TextFieldValue(state.deviceName)
+        }
     }
     DisposableEffect(Unit) {
-        val l = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-            if (key == "name") deviceName = TextFieldValue(sharedPreferences.getString("name", "AirPods Pro").toString())
+        val l = SharedPreferences.OnSharedPreferenceChangeListener { prefs, key ->
+            if (key == "name") deviceName = TextFieldValue(prefs.getString("name", state.deviceName) ?: state.deviceName)
         }
         sharedPreferences.registerOnSharedPreferenceChangeListener(l)
         onDispose { sharedPreferences.unregisterOnSharedPreferenceChangeListener(l) }
@@ -389,14 +394,7 @@ fun AirPodsSettingsScreen(
 
     StyledScaffold(
         title = if (searchActive) "" else deviceName.text,
-        navigationIcon = if (!searchActive && state.isLocallyConnected) {{ _ ->
-            Image(
-                painter = painterResource(R.drawable.airpods),
-                contentDescription = null,
-                colorFilter = ColorFilter.tint(if (dark) Color.White else Color.Black),
-                modifier = Modifier.size(30.dp)
-            )
-        }} else null,
+        titleAlign = androidx.compose.ui.text.style.TextAlign.Start,
         actionButtons = if (state.isLocallyConnected) listOf({ scaffoldBackdrop ->
             if (searchActive) {
                 Row(

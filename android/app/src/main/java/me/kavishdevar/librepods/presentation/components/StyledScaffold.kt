@@ -62,6 +62,7 @@ import me.kavishdevar.librepods.R
 @Composable
 fun StyledScaffold(
     title: String,
+    titleAlign: TextAlign = TextAlign.Center,
     navigationIcon: (@Composable (backdrop: LayerBackdrop) -> Unit)? = null,
     actionButtons: List<@Composable (backdrop: LayerBackdrop) -> Unit> = emptyList(),
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
@@ -109,8 +110,9 @@ fun StyledScaffold(
                                 color = if (isDarkTheme) Color.White else Color.Black,
                                 fontFamily = FontFamily(Font(R.font.sf_pro))
                             ),
-                            modifier = Modifier.fillMaxWidth(),
-                            textAlign = TextAlign.Center
+                            modifier = Modifier.fillMaxWidth()
+                                .then(if (titleAlign == TextAlign.Start) Modifier.padding(start = 16.dp) else Modifier),
+                            textAlign = titleAlign
                         )
                 }
             }

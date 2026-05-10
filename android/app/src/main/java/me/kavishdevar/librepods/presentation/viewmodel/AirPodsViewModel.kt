@@ -108,10 +108,7 @@ class AirPodsViewModel(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(
         AirPodsUiState(
-            deviceName = sharedPreferences.getString(
-                "name",
-                "AirPods Pro"
-            ) ?: "AirPods Pro"
+            deviceName = preferredDeviceName()
         )
     )
     val uiState: StateFlow<AirPodsUiState> = _uiState
@@ -171,8 +168,17 @@ class AirPodsViewModel(
     }
 
     private fun loadName() {
-        val name = sharedPreferences.getString("name", "AirPods Pro")!!
-        _uiState.update { it.copy(deviceName = name) }
+        _uiState.update { it.copy(deviceName = preferredDeviceName()) }
+    }
+
+    private fun preferredDeviceName(): String {
+        val savedName = sharedPreferences.getString("name", null)
+        val bluetoothName = service.device?.name?.takeIf { it.isNotBlank() }
+        return if (savedName.isNullOrBlank() || savedName == "AirPods" || savedName == "AirPods Pro") {
+            bluetoothName ?: savedName ?: "AirPods"
+        } else {
+            savedName
+        }
     }
 
     private fun observeBilling() {
@@ -204,6 +210,7 @@ class AirPodsViewModel(
                 val action = intent?.action ?: return
                 if (!isDemoMode) when (action) {
                     AirPodsNotifications.AIRPODS_L2CAP_CONNECTED -> {
+                        loadName()
                         _uiState.update {
                             it.copy(isLocallyConnected = true)
                         }
@@ -230,6 +237,7 @@ class AirPodsViewModel(
                     }
 
                     AirPodsNotifications.AIRPODS_INFORMATION_UPDATED -> {
+                        loadName()
                         loadInstance()
                     }
                 }

@@ -80,6 +80,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
@@ -207,65 +208,57 @@ private fun ControlsContent(
     val actionOptions = listOf(
         StemAction.PLAY_PAUSE              to "Play / Pause",
         StemAction.NEXT_TRACK              to "Next Track",
-        StemAction.PREVIOUS_TRACK          to "Previous Track",
-        StemAction.DIGITAL_ASSISTANT       to stringResource(R.string.digital_assistant),
-        StemAction.CYCLE_NOISE_CONTROL_MODES to stringResource(R.string.noise_control),
+        StemAction.PREVIOUS_TRACK          to "Prev. Track",
+        StemAction.DIGITAL_ASSISTANT       to "Voice Assistant",
+        StemAction.CYCLE_NOISE_CONTROL_MODES to "Listening Mode",
     )
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (capabilities.contains(Capability.STEM_CONFIG)) {
 
-            // ── Bud Selector ─────────────────────────────────────────────────
+            // ── Stem Actions Grid ────────────────────────────────────────────
+            ExternalSectionHeader("Stem Actions", dark)
             Column(
                 Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp))
                     .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text("Select Bud", style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                    fontFamily = SfPro, color = (if (dark) Color.White else Color.Black).copy(alpha = 0.5f)))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    BudCard(
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    BudColumnHeader(
                         imageRes = state.instance?.model?.leftBudsRes ?: R.drawable.airpods_pro_2_left,
-                        label = "Left",
+                        label = "Left Bud",
                         selected = selectedBud == "left",
                         dark = dark,
                         modifier = Modifier.weight(1f),
                         onClick = { selectedBud = "left" }
                     )
-                    BudCard(
+                    BudColumnHeader(
                         imageRes = state.instance?.model?.rightBudsRes ?: R.drawable.airpods_pro_2_right,
-                        label = "Right",
+                        label = "Right Bud",
                         selected = selectedBud == "right",
                         dark = dark,
                         modifier = Modifier.weight(1f),
                         onClick = { selectedBud = "right" }
                     )
                 }
-            }
 
-            // ── Press Actions 2×2 Grid ────────────────────────────────────────
-            Column(
-                Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp))
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Text("Press Actions", style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                    fontFamily = SfPro, color = (if (dark) Color.White else Color.Black).copy(alpha = 0.5f)))
-                pressTypes.chunked(2).forEach { row ->
+                pressTypes.forEach { (label, pressType, defaultAction) ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        row.forEach { (label, pressType, defaultAction) ->
-                            val prefKey = "${selectedBud}_${pressType.name.lowercase()}_action"
+                        listOf("left", "right").forEach { side ->
+                            val prefKey = "${side}_${pressType.name.lowercase()}_action"
                             val currentAction = if (pressType == AACPManager.Companion.StemPressType.LONG_PRESS) {
-                                if (selectedBud == "left") state.leftAction else state.rightAction
+                                if (side == "left") state.leftAction else state.rightAction
                             } else readAction(prefKey, defaultAction)
+                            val editable = selectedBud == side
                             PressDropdown(
                                 label = label,
                                 currentAction = currentAction,
                                 options = actionOptions,
                                 isPremium = state.isPremium,
+                                enabled = editable,
                                 dark = dark,
                                 modifier = Modifier.weight(1f),
-                                onSelect = { action -> viewModel.setPressAction(selectedBud, pressType, action) }
+                                onSelect = { action -> viewModel.setPressAction(side, pressType, action) }
                             )
                         }
                     }
@@ -314,24 +307,177 @@ private fun ControlsContent(
                     if (it) byteArrayOf(0x00, 0x02) else byteArrayOf(0x00, 0x03))
             })
 
-        // ── Volume Control ────────────────────────────────────────────────────
-        if (capabilities.contains(Capability.SWIPE_FOR_VOLUME)) {
-            Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp))) {
-                MenuSectionHeader("Volume Control", dark)
-                Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                    val enabled = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.VOLUME_SWIPE_MODE]?.getOrNull(0)?.toInt() == 0x01
-                    StyledToggle(label = stringResource(R.string.volume_control),
-                        description = stringResource(R.string.volume_control_description),
-                        checked = enabled,
-                        onCheckedChange = { viewModel.setControlCommandBoolean(AACPManager.Companion.ControlCommandIdentifiers.VOLUME_SWIPE_MODE, it) },
-                        independent = true, enabled = state.isPremium)
+        // ── Controls Configuration ────────────────────────────────────────────
+        ExternalSectionHeader("Controls Configuration", dark)
+        Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp))) {
+            ControlsConfigurationContent(
+                state = state,
+                viewModel = viewModel,
+                navController = navController,
+                dark = dark,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ControlsConfigurationContent(
+    state: AirPodsUiState,
+    viewModel: AirPodsViewModel,
+    navController: NavController,
+    dark: Boolean,
+) {
+    val pressSpeedOptions = listOf(
+        0.toByte() to stringResource(R.string.default_option),
+        1.toByte() to stringResource(R.string.slower),
+        2.toByte() to stringResource(R.string.slowest),
+    )
+    val pressAndHoldDurationOptions = listOf(
+        0.toByte() to stringResource(R.string.default_option),
+        1.toByte() to stringResource(R.string.slower),
+        2.toByte() to stringResource(R.string.slowest),
+    )
+    val volumeSwipeSpeedOptions = listOf(
+        1.toByte() to stringResource(R.string.default_option),
+        2.toByte() to stringResource(R.string.longer),
+        3.toByte() to stringResource(R.string.longest),
+    )
+
+    fun selectedByte(identifier: AACPManager.Companion.ControlCommandIdentifiers): Byte? =
+        state.controlStates[identifier]?.getOrNull(0)
+
+    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        ConfigSubheader(stringResource(R.string.press_speed), dark)
+        StyledSelectList(items = pressSpeedOptions.map { (value, label) ->
+            SelectItem(
+                label,
+                description = if (value == 0.toByte()) stringResource(R.string.press_speed_description) else null,
+                selected = selectedByte(AACPManager.Companion.ControlCommandIdentifiers.DOUBLE_CLICK_INTERVAL) == value ||
+                    (value == 0.toByte() && selectedByte(AACPManager.Companion.ControlCommandIdentifiers.DOUBLE_CLICK_INTERVAL) == null),
+                enabled = state.isPremium,
+                onClick = {
+                    viewModel.setControlCommandByte(
+                        AACPManager.Companion.ControlCommandIdentifiers.DOUBLE_CLICK_INTERVAL,
+                        value
+                    )
                 }
+            )
+        })
+
+        MenuDivider()
+        ConfigSubheader(stringResource(R.string.press_and_hold_duration), dark)
+        StyledSelectList(items = pressAndHoldDurationOptions.map { (value, label) ->
+            SelectItem(
+                label,
+                description = if (value == 0.toByte()) stringResource(R.string.press_and_hold_duration_description) else null,
+                selected = selectedByte(AACPManager.Companion.ControlCommandIdentifiers.CLICK_HOLD_INTERVAL) == value ||
+                    (value == 0.toByte() && selectedByte(AACPManager.Companion.ControlCommandIdentifiers.CLICK_HOLD_INTERVAL) == null),
+                enabled = state.isPremium,
+                onClick = {
+                    viewModel.setControlCommandByte(
+                        AACPManager.Companion.ControlCommandIdentifiers.CLICK_HOLD_INTERVAL,
+                        value
+                    )
+                }
+            )
+        })
+
+        MenuDivider()
+        StyledToggle(
+            label = stringResource(R.string.noise_cancellation_single_airpod),
+            description = stringResource(R.string.noise_cancellation_single_airpod_description),
+            independent = true,
+            checked = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.ONE_BUD_ANC_MODE]?.getOrNull(0) == 0x01.toByte(),
+            onCheckedChange = {
+                viewModel.setControlCommandBoolean(
+                    AACPManager.Companion.ControlCommandIdentifiers.ONE_BUD_ANC_MODE,
+                    it
+                )
+            },
+            enabled = state.isPremium
+        )
+
+        if (state.capabilities.contains(Capability.LOUD_SOUND_REDUCTION) && state.vendorIdHook) {
+            MenuDivider()
+            StyledToggle(
+                label = stringResource(R.string.loud_sound_reduction),
+                description = stringResource(R.string.loud_sound_reduction_description),
+                checked = state.loudSoundReductionEnabled,
+                onCheckedChange = {
+                    viewModel.setATTCharacteristicValue(
+                        ATTHandles.LOUD_SOUND_REDUCTION,
+                        if (it) byteArrayOf(0x01) else byteArrayOf(0x00)
+                    )
+                },
+                enabled = state.isPremium
+            )
+        }
+
+        val hearingAidEnabled =
+            state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.HEARING_AID]?.getOrNull(1)?.toInt() == 1 &&
+                state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.HEARING_AID]?.getOrNull(0)?.toInt() == 1
+        if (!hearingAidEnabled && state.vendorIdHook) {
+            MenuDivider()
+            MenuNavRow(stringResource(R.string.customize_transparency_mode), dark) {
+                if (state.isPremium) navController.navigate("transparency_customization")
             }
         }
 
-        // ── Controls Configuration ────────────────────────────────────────────
-        Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp))) {
-            MenuNavRow("Controls Configuration", dark, subtitle = "Tone, speed, hold duration") { navController.navigate("accessibility") }
+        val toneVolumeValue =
+            state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.CHIME_VOLUME]?.getOrNull(0)?.toFloat() ?: 75f
+        MenuDivider()
+        StyledSlider(
+            label = stringResource(R.string.tone_volume),
+            description = stringResource(R.string.tone_volume_description),
+            value = toneVolumeValue,
+            onValueChange = {
+                viewModel.setControlCommandValue(
+                    AACPManager.Companion.ControlCommandIdentifiers.CHIME_VOLUME,
+                    byteArrayOf(it.toInt().toByte(), 0x50)
+                )
+            },
+            valueRange = 0f..100f,
+            snapPoints = listOf(75f),
+            startIcon = "\uDBC0\uDEA1",
+            endIcon = "\uDBC0\uDEA9",
+            independent = true,
+            enabled = state.isPremium
+        )
+
+        if (state.capabilities.contains(Capability.SWIPE_FOR_VOLUME)) {
+            val volumeSwipeEnabled =
+                state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.VOLUME_SWIPE_MODE]?.getOrNull(0)?.toInt() == 0x01
+            MenuDivider()
+            StyledToggle(
+                label = stringResource(R.string.volume_control),
+                description = stringResource(R.string.volume_control_description),
+                checked = volumeSwipeEnabled,
+                onCheckedChange = {
+                    viewModel.setControlCommandBoolean(
+                        AACPManager.Companion.ControlCommandIdentifiers.VOLUME_SWIPE_MODE,
+                        it
+                    )
+                },
+                enabled = state.isPremium
+            )
+
+            MenuDivider()
+            ConfigSubheader(stringResource(R.string.volume_swipe_speed), dark)
+            StyledSelectList(items = volumeSwipeSpeedOptions.map { (value, label) ->
+                SelectItem(
+                    label,
+                    description = if (value == 1.toByte()) stringResource(R.string.volume_swipe_speed_description) else null,
+                    selected = selectedByte(AACPManager.Companion.ControlCommandIdentifiers.VOLUME_SWIPE_INTERVAL) == value ||
+                        (value == 1.toByte() && selectedByte(AACPManager.Companion.ControlCommandIdentifiers.VOLUME_SWIPE_INTERVAL) == null),
+                    enabled = state.isPremium,
+                    onClick = {
+                        viewModel.setControlCommandByte(
+                            AACPManager.Companion.ControlCommandIdentifiers.VOLUME_SWIPE_INTERVAL,
+                            value
+                        )
+                    }
+                )
+            })
         }
     }
 }
@@ -454,6 +600,10 @@ private fun SmartContent(
 
         // Notification Announcements
         MenuNavRow("Notification Announcements", dark) { navController.navigate("notification_announcements") }
+        MenuDivider()
+
+        // Find my Case (proximity finder — works even when buds are out of case)
+        MenuNavRow("Find my Case", dark, subtitle = "Locate your AirPods case via Bluetooth signal") { navController.navigate("proximity_finder") }
 
         // Head Gestures
         if (capabilities.contains(Capability.HEAD_GESTURES)) {
@@ -823,7 +973,35 @@ private fun HelpContent(
 // ─── Shared helper composables for Controls screen ───────────────────────────
 
 @Composable
-private fun BudCard(
+private fun ExternalSectionHeader(label: String, dark: Boolean) {
+    Text(
+        label.uppercase(),
+        style = TextStyle(
+            fontSize = 16.sp,
+            fontWeight = FontWeight.SemiBold,
+            fontFamily = SfPro,
+            color = if (dark) Color.White.copy(0.5f) else Color.Black.copy(0.5f)
+        ),
+        modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 0.dp)
+    )
+}
+
+@Composable
+private fun ConfigSubheader(label: String, dark: Boolean) {
+    Text(
+        label,
+        style = TextStyle(
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            fontFamily = SfPro,
+            color = if (dark) Color.White.copy(0.5f) else Color.Black.copy(0.5f)
+        ),
+        modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 4.dp)
+    )
+}
+
+@Composable
+private fun BudColumnHeader(
     imageRes: Int,
     label: String,
     selected: Boolean,
@@ -842,7 +1020,7 @@ private fun BudCard(
             )
             .background(bgColor, RoundedCornerShape(14.dp))
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick)
-            .padding(12.dp),
+            .padding(horizontal = 10.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -853,9 +1031,9 @@ private fun BudCard(
                 painter = painterResource(imageRes),
                 contentDescription = label,
                 contentScale = ContentScale.Fit,
-                modifier = Modifier.height(80.dp).fillMaxWidth()
+                modifier = Modifier.height(46.dp).fillMaxWidth()
             )
-            Text(label, style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium,
+            Text(label, style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium,
                 fontFamily = SfPro, color = if (selected) Color(0xFF0A84FF) else textColor))
         }
     }
@@ -867,6 +1045,7 @@ private fun PressDropdown(
     currentAction: StemAction,
     options: List<Pair<StemAction, String>>,
     isPremium: Boolean,
+    enabled: Boolean,
     dark: Boolean,
     modifier: Modifier = Modifier,
     onSelect: (StemAction) -> Unit,
@@ -876,20 +1055,24 @@ private fun PressDropdown(
     val bgColor   = if (dark) Color(0xFF2C2C2E) else Color(0xFFF2F2F7)
     val textColor = if (dark) Color.White else Color.Black
 
-    Box(modifier = modifier) {
+    Box(modifier = modifier.alpha(if (enabled) 1f else 0.55f)) {
         Column(
             Modifier
                 .fillMaxWidth()
                 .background(bgColor, RoundedCornerShape(12.dp))
-                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { expanded = true }
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(3.dp)
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
+                    if (enabled) expanded = true
+                }
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-            Text(label, style = TextStyle(fontSize = 11.sp, fontFamily = SfPro,
+            Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                style = TextStyle(fontSize = 10.sp, fontFamily = SfPro,
                 color = textColor.copy(alpha = 0.5f)))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
-                Text(actionName, style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium,
+                Text(actionName, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium,
                     fontFamily = SfPro, color = textColor), modifier = Modifier.weight(1f))
                 Text("▾", style = TextStyle(fontSize = 11.sp, fontFamily = SfPro, color = textColor.copy(alpha = 0.4f)))
             }
@@ -900,19 +1083,19 @@ private fun PressDropdown(
             modifier = Modifier.background(if (dark) Color(0xFF2C2C2E) else Color.White)
         ) {
             options.forEach { (action, name) ->
-                val enabled = action != StemAction.DIGITAL_ASSISTANT || isPremium
+                val optionEnabled = action != StemAction.DIGITAL_ASSISTANT || isPremium
                 DropdownMenuItem(
                     text = {
                         Text(name, style = TextStyle(fontSize = 15.sp, fontFamily = SfPro,
                             color = when {
-                                !enabled             -> textColor.copy(alpha = 0.35f)
+                                !optionEnabled       -> textColor.copy(alpha = 0.35f)
                                 action == currentAction -> Color(0xFF0A84FF)
                                 else                 -> textColor
                             }))
                     },
                     trailingIcon = if (action == currentAction) {{ Text("✓", style = TextStyle(
                         fontSize = 14.sp, color = Color(0xFF0A84FF))) }} else null,
-                    onClick = { if (enabled) { onSelect(action); expanded = false } }
+                    onClick = { if (optionEnabled) { onSelect(action); expanded = false } }
                 )
             }
         }

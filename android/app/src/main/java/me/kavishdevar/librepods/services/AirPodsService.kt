@@ -1295,38 +1295,22 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             StemAction.PREVIOUS_TRACK -> MediaController.sendPreviousTrack()
             StemAction.NEXT_TRACK -> MediaController.sendNextTrack()
             StemAction.DIGITAL_ASSISTANT -> {
-                val geminiPackage = "com.google.android.apps.bard"
-                val geminiComponent = "$geminiPackage/.shellapp.BardEntryPointActivity"
-                val geminiInstalled = runCatching {
-                    packageManager.getPackageInfo(geminiPackage, 0)
-                    true
-                }.getOrDefault(false)
-
-                if (geminiInstalled) {
-                    // Launch Gemini directly in voice/listening mode
-                    val intent = Intent(Intent.ACTION_VOICE_COMMAND).apply {
-                        setClassName(geminiPackage, "$geminiPackage.shellapp.BardEntryPointActivity")
-                        putExtra("INPUT_TYPE", "voice")
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                    }
-                    runCatching { startActivity(intent) }.onFailure {
-                        Log.w("AirPodsParser", "Gemini voice launch failed, falling back: $it")
-                        // Fallback: open Gemini normally if voice intent fails
-                        runCatching {
-                            startActivity(
-                                packageManager.getLaunchIntentForPackage(geminiPackage)
-                                    ?.apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
-                            )
-                        }
-                    }
-                } else {
-                    // Gemini not installed — fall back to system default assistant
-                    Log.d("AirPodsParser", "Gemini not installed, using system assistant")
-                    val intent = Intent(Intent.ACTION_VOICE_COMMAND).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                    runCatching { startActivity(intent) }.onFailure {
-                        Log.w("AirPodsParser", "System assistant also unavailable: $it")
+                // ACTION_ASSIST with ASSIST_INPUT_HINT_SPEECH tells the configured assistant
+                // (Gemini, Google Assistant, etc.) to start immediately in voice-listening mode —
+                // the same path used by car/watch triggers. No package hardcoding needed.
+                val voiceIntent = Intent(Intent.ACTION_ASSIST).apply {
+                    putExtra("android.intent.extra.ASSIST_INPUT_HINT_SPEECH", true)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                }
+                runCatching { startActivity(voiceIntent) }.onFailure {
+                    Log.w("AirPodsParser", "ACTION_ASSIST failed, trying VOICE_COMMAND: $it")
+                    // Fallback: VOICE_COMMAND also routes to the default assistant
+                    runCatching {
+                        startActivity(Intent(Intent.ACTION_VOICE_COMMAND).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        })
+                    }.onFailure { e ->
+                        Log.w("AirPodsParser", "Voice assistant unavailable: $e")
                     }
                 }
             }
