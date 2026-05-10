@@ -119,29 +119,53 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
         }
     }
 
-    var notifAccess by remember { mutableStateOf(NotificationAnnouncementService.isAccessGranted(context)) }
-    var contactsGranted by remember {
-        mutableStateOf(
-            context.checkSelfPermission(Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED
-        )
+    fun isGranted(perm: String) = context.checkSelfPermission(perm) == PackageManager.PERMISSION_GRANTED
+
+    var notifAccess       by remember { mutableStateOf(NotificationAnnouncementService.isAccessGranted(context)) }
+    var contactsGranted   by remember { mutableStateOf(isGranted(Manifest.permission.READ_CONTACTS)) }
+    var callLogGranted    by remember { mutableStateOf(isGranted(Manifest.permission.READ_CALL_LOG)) }
+    var phoneStateGranted by remember { mutableStateOf(isGranted(Manifest.permission.READ_PHONE_STATE)) }
+
+    // Poll all permission states every second (user may grant in system settings)
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(1000)
+            notifAccess       = NotificationAnnouncementService.isAccessGranted(context)
+            contactsGranted   = isGranted(Manifest.permission.READ_CONTACTS)
+            callLogGranted    = isGranted(Manifest.permission.READ_CALL_LOG)
+            phoneStateGranted = isGranted(Manifest.permission.READ_PHONE_STATE)
+        }
     }
-    var callLogGranted by remember {
-        mutableStateOf(
-            context.checkSelfPermission(Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED
-        )
-    }
-    var phoneStateGranted by remember {
-        mutableStateOf(
-            context.checkSelfPermission(Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED
-        )
+
+    fun openAppSettings() {
+        context.startActivity(android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = android.net.Uri.fromParts("package", context.packageName, null)
+            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        })
     }
 
     val multiPermLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) { result ->
-        contactsGranted = result[Manifest.permission.READ_CONTACTS] == true || contactsGranted
-        callLogGranted = result[Manifest.permission.READ_CALL_LOG] == true || callLogGranted
-        phoneStateGranted = result[Manifest.permission.READ_PHONE_STATE] == true || phoneStateGranted
+    ) { _ ->
+        // Refresh all — the polling will also catch it
+        contactsGranted   = isGranted(Manifest.permission.READ_CONTACTS)
+        callLogGranted    = isGranted(Manifest.permission.READ_CALL_LOG)
+        phoneStateGranted = isGranted(Manifest.permission.READ_PHONE_STATE)
+    }
+
+    // Smart grant: if permanently denied, open app settings
+    fun grantPermission(perm: String) {
+        if (isGranted(perm)) return
+        val activity = context as? android.app.Activity
+        val askedBefore = context.getSharedPreferences("permissions_asked", android.content.Context.MODE_PRIVATE).getBoolean(perm, false)
+        val permanentlyDenied = activity != null && !isGranted(perm) &&
+            !androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(activity, perm) && askedBefore
+        if (permanentlyDenied) {
+            openAppSettings()
+        } else {
+            context.getSharedPreferences("permissions_asked", android.content.Context.MODE_PRIVATE).edit().putBoolean(perm, true).apply()
+            multiPermLauncher.launch(arrayOf(perm))
+        }
     }
 
     StyledScaffold(title = "Notification Announcements") { topPadding, _, bottomPadding ->
@@ -175,13 +199,13 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
                     NotificationAnnouncementService.openAccessSettings(context)
                 }
                 PermStatusRow("Contacts (caller name lookup)", contactsGranted) {
-                    multiPermLauncher.launch(arrayOf(Manifest.permission.READ_CONTACTS))
+                    grantPermission(Manifest.permission.READ_CONTACTS)
                 }
                 PermStatusRow("Call log (incoming caller number)", callLogGranted) {
-                    multiPermLauncher.launch(arrayOf(Manifest.permission.READ_CALL_LOG))
+                    grantPermission(Manifest.permission.READ_CALL_LOG)
                 }
                 PermStatusRow("Phone state (call detection)", phoneStateGranted) {
-                    multiPermLauncher.launch(arrayOf(Manifest.permission.READ_PHONE_STATE))
+                    grantPermission(Manifest.permission.READ_PHONE_STATE)
                 }
             }
 
