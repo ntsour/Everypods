@@ -153,18 +153,19 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
         phoneStateGranted = isGranted(Manifest.permission.READ_PHONE_STATE)
     }
 
-    // Smart grant: if permanently denied, open app settings
+    // Track if we tried the launcher dialog already in THIS screen session
+    val triedLauncher = remember { mutableSetOf<String>() }
+
+    // Grant permission: try system dialog first, then app settings as fallback
     fun grantPermission(perm: String) {
         if (isGranted(perm)) return
-        val activity = context as? android.app.Activity
-        val askedBefore = context.getSharedPreferences("permissions_asked", android.content.Context.MODE_PRIVATE).getBoolean(perm, false)
-        val permanentlyDenied = activity != null && !isGranted(perm) &&
-            !androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(activity, perm) && askedBefore
-        if (permanentlyDenied) {
-            openAppSettings()
-        } else {
-            context.getSharedPreferences("permissions_asked", android.content.Context.MODE_PRIVATE).edit().putBoolean(perm, true).apply()
+        if (perm !in triedLauncher) {
+            // First attempt in this session — always try the system dialog
+            triedLauncher.add(perm)
             multiPermLauncher.launch(arrayOf(perm))
+        } else {
+            // Already tried the dialog and it didn't work — open app settings permissions page
+            openAppSettings()
         }
     }
 
