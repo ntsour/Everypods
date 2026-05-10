@@ -147,6 +147,6 @@ class AppListenerService : AccessibilityService() {
     override fun onInterrupt() {}
 
     companion object {
-        var instance: AppListenerService? = null
+        @Volatile var instance: AppListenerService? = null
     }
 }

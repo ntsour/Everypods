@@ -56,6 +56,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
+import androidx.compose.runtime.key
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
@@ -244,23 +245,22 @@ private fun ControlsContent(
 
                 pressTypes.forEach { (label, pressType, defaultAction) ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        listOf("left", "right").forEach { side ->
-                            val prefKey = "${side}_${pressType.name.lowercase()}_action"
-                            val currentAction = if (pressType == AACPManager.Companion.StemPressType.LONG_PRESS) {
-                                if (side == "left") state.leftAction else state.rightAction
-                            } else readAction(prefKey, defaultAction)
-                            val editable = selectedBud == side
-                            PressDropdown(
-                                label = label,
-                                currentAction = currentAction,
-                                options = actionOptions,
-                                isPremium = state.isPremium,
-                                enabled = editable,
-                                dark = dark,
-                                modifier = Modifier.weight(1f),
-                                onSelect = { action -> viewModel.setPressAction(side, pressType, action) }
-                            )
-                        }
+                        // Left cell
+                        StatefulPressDropdown(
+                            side = "left", label = label, pressType = pressType,
+                            defaultAction = defaultAction, state = state, viewModel = viewModel,
+                            actionOptions = actionOptions, enabled = selectedBud == "left",
+                            dark = dark, modifier = Modifier.weight(1f),
+                            readAction = { k, d -> readAction(k, d) }
+                        )
+                        // Right cell
+                        StatefulPressDropdown(
+                            side = "right", label = label, pressType = pressType,
+                            defaultAction = defaultAction, state = state, viewModel = viewModel,
+                            actionOptions = actionOptions, enabled = selectedBud == "right",
+                            dark = dark, modifier = Modifier.weight(1f),
+                            readAction = { k, d -> readAction(k, d) }
+                        )
                     }
                 }
             }
@@ -1100,4 +1100,46 @@ private fun PressDropdown(
             }
         }
     }
+}
+
+/**
+ * Wrapper that owns the [currentAction] state so it updates immediately on selection
+ * without waiting for a recomposition triggered by SharedPreferences changes.
+ * [remember(seed)] ensures the value resets if the external source-of-truth changes
+ * (e.g. ViewModel emits a new long-press action, or the bud is switched).
+ */
+@Composable
+private fun StatefulPressDropdown(
+    side: String,
+    label: String,
+    pressType: AACPManager.Companion.StemPressType,
+    defaultAction: StemAction,
+    state: AirPodsUiState,
+    viewModel: AirPodsViewModel,
+    actionOptions: List<Pair<StemAction, String>>,
+    enabled: Boolean,
+    dark: Boolean,
+    modifier: Modifier,
+    readAction: (String, StemAction) -> StemAction,
+) {
+    val prefKey = "${side}_${pressType.name.lowercase()}_action"
+    val seed = if (pressType == AACPManager.Companion.StemPressType.LONG_PRESS) {
+        if (side == "left") state.leftAction else state.rightAction
+    } else {
+        readAction(prefKey, defaultAction)
+    }
+    var currentAction by remember(seed) { mutableStateOf(seed) }
+    PressDropdown(
+        label = label,
+        currentAction = currentAction,
+        options = actionOptions,
+        isPremium = state.isPremium,
+        enabled = enabled,
+        dark = dark,
+        modifier = modifier,
+        onSelect = { action ->
+            viewModel.setPressAction(side, pressType, action)
+            currentAction = action  // immediate local update — no recompose needed
+        }
+    )
 }
