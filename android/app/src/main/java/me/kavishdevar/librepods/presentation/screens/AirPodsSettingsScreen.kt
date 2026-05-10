@@ -93,6 +93,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.sp
@@ -535,72 +536,68 @@ private fun ConnectedScreen(
     val context      = LocalContext.current
     val capabilities = state.capabilities
 
-    val listState = rememberLazyListState()
-
-    LazyColumn(
-        state = listState,
+    // Weight-based layout: top content takes natural height, tile grid fills the rest.
+    // This guarantees all 6 tiles are always visible without scrolling.
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .hazeSource(hazeState)
             .padding(horizontal = 16.dp)
+            .padding(top = topPadding, bottom = bottomPadding)
             .then(if (blockTouches) Modifier.pointerInput(Unit) {
                 awaitPointerEventScope { while (true) { val e = awaitPointerEvent(PointerEventPass.Initial); e.changes.forEach { it.consume() } } }
             } else Modifier),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item(key = "spacer_top") { Spacer(Modifier.height(topPadding)) }
-
         // ── Battery ──────────────────────────────────────────────────────────
-        item(key = "battery") {
-            BatteryView(
-                batteryList = state.battery,
-                budsRes = state.instance?.model?.budsRes ?: R.drawable.airpods_pro_2_case,
-                caseRes = state.instance?.model?.caseRes ?: R.drawable.airpods_pro_2_case
-            )
-        }
+        BatteryView(
+            batteryList = state.battery,
+            budsRes = state.instance?.model?.budsRes ?: R.drawable.airpods_pro_2_case,
+            caseRes = state.instance?.model?.caseRes ?: R.drawable.airpods_pro_2_case
+        )
 
-        // ── Listening Mode (graphical, always available) ──────────────────
+        // ── Listening Mode ────────────────────────────────────────────────
         if (capabilities.contains(Capability.LISTENING_MODE)) {
-            item(key = "listening_mode") {
-                NoiseControlSettings(
-                    showOffListeningMode = state.offListeningMode,
-                    noiseControlModeValue = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.LISTENING_MODE]?.getOrNull(0)?.toInt() ?: 3,
-                    onNoiseControlModeChanged = { viewModel.setControlCommandInt(AACPManager.Companion.ControlCommandIdentifiers.LISTENING_MODE, it) }
-                )
-            }
+            Spacer(Modifier.height(8.dp))
+            NoiseControlSettings(
+                showOffListeningMode = state.offListeningMode,
+                noiseControlModeValue = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.LISTENING_MODE]?.getOrNull(0)?.toInt() ?: 3,
+                onNoiseControlModeChanged = { viewModel.setControlCommandInt(AACPManager.Companion.ControlCommandIdentifiers.LISTENING_MODE, it) }
+            )
         }
 
         // ── Transparency (Xposed-only) ────────────────────────────────────
         if (capabilities.contains(Capability.LISTENING_MODE) && state.vendorIdHook) {
-            item(key = "transparency_nav") {
-                NavigationButton(to = "transparency_customization", name = stringResource(R.string.customize_transparency_mode), navController = navController)
-            }
+            Spacer(Modifier.height(8.dp))
+            NavigationButton(to = "transparency_customization", name = stringResource(R.string.customize_transparency_mode), navController = navController)
         }
 
         // ── Upgrade banner ────────────────────────────────────────────────
         if (!state.isPremium) {
-            item(key = "upgrade") {
-                StyledButton(onClick = { navController.navigate("purchase_screen") }, backdrop = rememberLayerBackdrop(),
-                    modifier = Modifier.fillMaxWidth(), maxScale = 0.05f,
-                    surfaceColor = if (dark) Color(0xFF916100) else Color(0xFFE59900)) {
-                    Text(stringResource(R.string.unlock_advanced_features), style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro, color = Color.White))
-                }
+            Spacer(Modifier.height(8.dp))
+            StyledButton(onClick = { navController.navigate("purchase_screen") }, backdrop = rememberLayerBackdrop(),
+                modifier = Modifier.fillMaxWidth(), maxScale = 0.05f,
+                surfaceColor = if (dark) Color(0xFF916100) else Color(0xFFE59900)) {
+                Text(stringResource(R.string.unlock_advanced_features), style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro, color = Color.White))
             }
         }
 
-        // ══════════════════════════════════════════════════════════════════
-        //  CATEGORY TILE GRID
-        // ══════════════════════════════════════════════════════════════════
-        item(key = "menu_body") {
-            CategoryTileGrid(navController = navController, dark = dark)
-        }
+        Spacer(Modifier.height(8.dp))
 
-        item(key = "spacer_bottom") { Spacer(Modifier.height(bottomPadding + 16.dp)) }
+        // ── Tile grid fills all remaining vertical space ──────────────────
+        CategoryTileGrid(
+            modifier = Modifier.weight(1f),
+            navController = navController,
+            dark = dark
+        )
     }
 }
 
 @Composable
-private fun CategoryTileGrid(navController: NavController, dark: Boolean) {
+private fun CategoryTileGrid(
+    modifier: Modifier = Modifier,
+    navController: NavController,
+    dark: Boolean,
+) {
     val tileColor = if (dark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
     val textColor = if (dark) Color.White else Color.Black
     val tiles = listOf(
@@ -608,33 +605,40 @@ private fun CategoryTileGrid(navController: NavController, dark: Boolean) {
         Triple("settings",    "⚙️", "AirPods Settings"),
         Triple("smart",       "✨", "Smart Features"),
         Triple("appsettings", "📱", "App Settings"),
-        Triple("audio",       "🔊", "Audio & Connection"),
+        Triple("audio",       "🔊", "Audio & Conn."),
         Triple("help",        "❓", "Help & Support"),
     )
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    // Each row takes an equal share of the available height via weight(1f)
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
         tiles.chunked(2).forEach { row ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 row.forEach { (key, emoji, label) ->
                     androidx.compose.foundation.layout.Box(
                         modifier = Modifier
                             .weight(1f)
-                            .heightIn(min = 110.dp)
+                            .fillMaxHeight()
                             .background(tileColor, RoundedCornerShape(18.dp))
                             .clickable(
                                 interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
                                 indication = null
                             ) { navController.navigate("category/$key") }
-                            .padding(16.dp),
+                            .padding(14.dp),
                         contentAlignment = Alignment.TopStart
                     ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Text(emoji, style = TextStyle(fontSize = 30.sp, fontFamily = SfPro))
-                            Text(label, style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium,
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(emoji, style = TextStyle(fontSize = 26.sp, fontFamily = SfPro))
+                            Text(label, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                                style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium,
                                 fontFamily = SfPro, color = textColor))
                         }
                     }
                 }
-                // Fill empty slot if row has only 1 tile
                 if (row.size == 1) androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
             }
         }
