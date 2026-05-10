@@ -749,14 +749,22 @@ private fun SmartContent(
             var batteryAlerts by remember { mutableStateOf(SmartFeaturesPrefs.batteryAlertsEnabled(context)) }
             var batteryThreshold by remember { mutableStateOf(SmartFeaturesPrefs.batteryAlertThreshold(context)) }
             StyledToggle(label = "Speak when battery is low", checked = batteryAlerts, independent = true,
+                description = "Announces at threshold, then every 5% below it (every 2% under 10%, repeats every 10 min under 2%)",
                 onCheckedChange = { batteryAlerts = it; SmartFeaturesPrefs.prefs(context).edit().putBoolean(SmartFeaturesPrefs.KEY_BATTERY_ALERTS_ENABLED, it).apply() })
             if (batteryAlerts) {
-                Spacer(Modifier.height(4.dp))
-                StyledSlider(label = "Alert threshold", value = batteryThreshold.toFloat(),
-                    valueRange = 5f..80f, snapPoints = listOf(10f, 20f, 30f, 40f),
-                    startLabel = "5%", endLabel = "80%",
-                    onValueChange = { batteryThreshold = it.toInt(); SmartFeaturesPrefs.prefs(context).edit().putInt(SmartFeaturesPrefs.KEY_BATTERY_ALERT_THRESHOLD, it.toInt()).apply() },
-                    independent = true)
+                Spacer(Modifier.height(6.dp))
+                // 4 discrete threshold options — no slider
+                StyledSelectList(items = listOf(10, 20, 30, 40).map { pct ->
+                    SelectItem(
+                        name = "$pct%",
+                        selected = batteryThreshold == pct,
+                        onClick = {
+                            batteryThreshold = pct
+                            SmartFeaturesPrefs.prefs(context).edit()
+                                .putInt(SmartFeaturesPrefs.KEY_BATTERY_ALERT_THRESHOLD, pct).apply()
+                        }
+                    )
+                })
             }
         }
 

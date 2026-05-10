@@ -963,6 +963,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                         .getString("name", device?.name),
                     batteryNotification.getBattery()
                 )
+                me.kavishdevar.librepods.utils.BatteryAlertWatcher.checkAndMaybeAlert(
+                    this@AirPodsService, batteryNotification.getBattery()
+                )
 //                CrossDevice.sendRemotePacket(batteryInfo)
 //                CrossDevice.batteryBytes = batteryInfo
 
