@@ -52,6 +52,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.SnapshotMutationPolicy
+import androidx.compose.runtime.snapshots.SnapshotStateMap
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -144,12 +148,57 @@ internal val categoryEmojis = mapOf(
 
 // ─── Entry point ──────────────────────────────────────────────────────────────
 
+/** Shared state threaded into content composables for scroll-to + highlight. */
+internal class SectionFocus(
+    val offsets: SnapshotStateMap<String, Float> = androidx.compose.runtime.mutableStateMapOf(),
+    val scrollState: androidx.compose.foundation.ScrollState,
+) {
+    var highlight by mutableStateOf<String?>(null)
+}
+
+/**
+ * For top-level section cards: registers position + draws a blue border highlight.
+ */
+private fun Modifier.sectionTrack(
+    key: String,
+    focus: SectionFocus,
+    cardColor: Color,
+    cornerDp: Float = 18f,
+): Modifier {
+    val shape = RoundedCornerShape(cornerDp.dp)
+    return this
+        .onGloballyPositioned { coords ->
+            focus.offsets[key] = coords.boundsInRoot().top + focus.scrollState.value
+        }
+        .background(cardColor, shape)
+        .then(if (focus.highlight == key) Modifier.border(2.dp, Color(0xFF0A84FF), shape) else Modifier)
+}
+
+/**
+ * For sections within a single shared card: invisible anchor that registers the
+ * position and shows a thin blue stripe above the section header when highlighted.
+ */
+@Composable
+private fun SectionAnchor(key: String, focus: SectionFocus) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .onGloballyPositioned { focus.offsets[key] = it.boundsInRoot().top + focus.scrollState.value }
+            .then(
+                if (focus.highlight == key)
+                    Modifier.height(3.dp).background(Color(0xFF0A84FF))
+                else Modifier
+            )
+    )
+}
+
 @Composable
 fun CategoryScreen(
     viewModel: AirPodsViewModel,
     appSettingsViewModel: AppSettingsViewModel,
     navController: NavController,
     categoryKey: String,
+    focusSection: String? = null,
 ) {
     val state    by viewModel.uiState.collectAsState()
     val appState by appSettingsViewModel.uiState.collectAsState()
@@ -157,24 +206,38 @@ fun CategoryScreen(
     val context  = LocalContext.current
     val sharedPrefs = context.getSharedPreferences("settings", MODE_PRIVATE)
     val title = categoryTitles[categoryKey] ?: categoryKey
+    val scrollState = rememberScrollState()
+    val scope = rememberCoroutineScope()
+    val focus = remember { SectionFocus(scrollState = scrollState) }
+
+    // Scroll to and briefly highlight the target section after layout settles
+    LaunchedEffect(focusSection) {
+        if (focusSection == null) return@LaunchedEffect
+        delay(350)
+        val y = focus.offsets[focusSection]
+        if (y != null) scrollState.animateScrollTo(maxOf(0, (y - 80).toInt()))
+        focus.highlight = focusSection
+        delay(1800)
+        focus.highlight = null
+    }
 
     StyledScaffold(title = title) { topPadding, hazeState, bottomPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .hazeSource(hazeState)
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Spacer(Modifier.height(topPadding))
             when (categoryKey) {
-                "controls"    -> ControlsContent(state, viewModel, navController, sharedPrefs, dark)
-                "settings"    -> SettingsContent(state, appState, viewModel, appSettingsViewModel, navController, dark)
-                "smart"       -> SmartContent(state, viewModel, navController, sharedPrefs, dark)
-                "appsettings" -> AppSettingsContent(appState, appSettingsViewModel, navController, dark)
-                "audio"       -> AudioContent(state, appState, viewModel, appSettingsViewModel, navController, dark)
-                "help"        -> HelpContent(state, navController, dark)
+                "controls"    -> ControlsContent(state, viewModel, navController, sharedPrefs, dark, focus)
+                "settings"    -> SettingsContent(state, appState, viewModel, appSettingsViewModel, navController, dark, focus)
+                "smart"       -> SmartContent(state, viewModel, navController, sharedPrefs, dark, focus)
+                "appsettings" -> AppSettingsContent(appState, appSettingsViewModel, navController, dark, focus)
+                "audio"       -> AudioContent(state, appState, viewModel, appSettingsViewModel, navController, dark, focus)
+                "help"        -> HelpContent(state, navController, dark, focus)
             }
             Spacer(Modifier.height(bottomPadding))
         }
@@ -190,6 +253,7 @@ private fun ControlsContent(
     navController: NavController,
     sharedPrefs: SharedPreferences,
     dark: Boolean,
+    focus: SectionFocus = SectionFocus(scrollState = rememberScrollState()),
 ) {
     val capabilities = state.capabilities
     val cardColor = if (dark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
@@ -220,7 +284,7 @@ private fun ControlsContent(
             // ── Stem Actions Grid ────────────────────────────────────────────
             ExternalSectionHeader("Stem Actions", dark)
             Column(
-                Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp))
+                Modifier.fillMaxWidth().sectionTrack("pressActions", focus, cardColor)
                     .padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
@@ -272,7 +336,7 @@ private fun ControlsContent(
 
         // ── Listening Mode Configuration ──────────────────────────────────────
         val currentByte = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.LISTENING_MODE_CONFIGS]?.get(0)?.toInt() ?: 0
-        Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp))) {
+        Column(Modifier.fillMaxWidth().sectionTrack("listeningMode", focus, cardColor)) {
             MenuSectionHeader("Listening Mode Configuration", dark)
             Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 8.dp)) {
                 Text(stringResource(R.string.press_and_hold_noise_control_description), style = captionStyle(dark))
@@ -492,6 +556,7 @@ private fun SettingsContent(
     appSettingsViewModel: AppSettingsViewModel,
     navController: NavController,
     dark: Boolean,
+    focus: SectionFocus = SectionFocus(scrollState = rememberScrollState()),
 ) {
     val capabilities = state.capabilities
     val hasXposed = state.vendorIdHook
@@ -506,6 +571,7 @@ private fun SettingsContent(
         MenuNavRow("Device Name", dark, subtitle = state.deviceName) { navController.navigate("rename") }
 
         // Conversation Awareness (no gate — moved above Xposed-gated items)
+        SectionAnchor("conversationAwareness", focus)
         MenuDivider()
         MenuSectionHeader("Conversation Awareness", dark)
         Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
@@ -531,6 +597,7 @@ private fun SettingsContent(
         // ── ⚠ Xposed-gated ────────────────────────────────────────────────────
         // Hearing Protection (PPE = ungated, Loud Sound Reduction = Xposed)
         if (capabilities.contains(Capability.LOUD_SOUND_REDUCTION) || hasPPE) {
+            SectionAnchor("hearingProtection", focus)
             MenuDivider()
             MenuSectionHeader("Hearing Protection", dark)
             Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
@@ -563,6 +630,7 @@ private fun SettingsContent(
         }
 
         // ── 🔒 Root-gated — always last ───────────────────────────────────────
+        SectionAnchor("bluetoothControl", focus)
         MenuDivider()
         MenuSectionHeader("🔒  Bluetooth Control (Root Required)", dark)
         Column(Modifier.fillMaxWidth().alpha(if (hasRoot) 1f else DisabledAlpha.toFloat()).padding(horizontal = 16.dp, vertical = 14.dp),
@@ -590,6 +658,7 @@ private fun SmartContent(
     navController: NavController,
     sharedPrefs: SharedPreferences,
     dark: Boolean,
+    focus: SectionFocus = SectionFocus(scrollState = rememberScrollState()),
 ) {
     val context      = LocalContext.current
     val capabilities = state.capabilities
@@ -616,6 +685,7 @@ private fun SmartContent(
         // Adaptive Audio
         val model = state.instance?.model ?: AirPodsPro3()
         if (model.capabilities.contains(Capability.ADAPTIVE_VOLUME)) {
+            SectionAnchor("adaptiveAudio", focus)
             MenuDivider()
             MenuSectionHeader("Adaptive Audio", dark)
             val adaptiveVal = remember {
@@ -643,6 +713,7 @@ private fun SmartContent(
 
         // Camera Control
         if (capabilities.contains(Capability.STEM_CONFIG) && !BuildConfig.PLAY_BUILD) {
+            SectionAnchor("cameraControl", focus)
             MenuDivider()
             MenuSectionHeader("Camera Control", dark)
             Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
@@ -703,18 +774,8 @@ private fun SmartContent(
             }
         }
 
-        // Off Listening Mode
-        if (capabilities.contains(Capability.LOUD_SOUND_REDUCTION)) {
-            MenuDivider()
-            Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                StyledToggle(label = stringResource(R.string.off_listening_mode),
-                    description = stringResource(R.string.off_listening_mode_description),
-                    checked = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.ALLOW_OFF_OPTION]?.getOrNull(0) == 0x01.toByte(),
-                    onCheckedChange = viewModel::setOffListeningMode)
-            }
-        }
-
         // Automation
+        SectionAnchor("automation", focus)
         MenuDivider()
         MenuSectionHeader("Automation", dark)
         Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
@@ -731,9 +792,8 @@ private fun SmartContent(
                 checked = state.dynamicEndOfCharge, onCheckedChange = viewModel::setDynamicEndOfCharge, independent = true)
         }
 
-        // Smart Features (resume media, battery alerts)
+        // Resume media + battery alerts (merged into Automation section)
         MenuDivider()
-        MenuSectionHeader("Smart Features", dark)
         Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
             var autoResume by remember { mutableStateOf(SmartFeaturesPrefs.autoResumeAfterCall(context)) }
             StyledToggle(label = "Resume media after call", checked = autoResume, independent = true,
@@ -762,6 +822,7 @@ private fun SmartContent(
         }
 
         // Sleep Timer
+        SectionAnchor("sleepTimer", focus)
         MenuDivider()
         MenuSectionHeader("Sleep Timer", dark)
         Column(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -802,11 +863,13 @@ private fun AppSettingsContent(
     appSettingsViewModel: AppSettingsViewModel,
     navController: NavController,
     dark: Boolean,
+    focus: SectionFocus = SectionFocus(scrollState = rememberScrollState()),
 ) {
     val context   = LocalContext.current
     val cardColor = if (dark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
 
     Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp))) {
+        SectionAnchor("phoneBattery", focus)
         Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
             StyledToggle(label = stringResource(R.string.show_phone_battery_in_widget),
                 description = stringResource(R.string.show_phone_battery_in_widget_description),
@@ -814,6 +877,7 @@ private fun AppSettingsContent(
                 onCheckedChange = appSettingsViewModel::setShowPhoneBatteryInWidget,
                 independent = true, enabled = appState.isPremium)
         }
+        SectionAnchor("popupAnimations", focus)
         MenuDivider()
         MenuSectionHeader("Pop-up Animations", dark)
         Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
@@ -854,12 +918,14 @@ private fun AudioContent(
     appSettingsViewModel: AppSettingsViewModel,
     navController: NavController,
     dark: Boolean,
+    focus: SectionFocus = SectionFocus(scrollState = rememberScrollState()),
 ) {
     val context   = LocalContext.current
     val m         = state.instance?.model ?: AirPodsPro3()
     val cardColor = if (dark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
 
     Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp))) {
+        SectionAnchor("audioSettings", focus)
         Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
             AudioSettings(navController = navController,
                 adaptiveVolumeCapability = m.capabilities.contains(Capability.ADAPTIVE_VOLUME),
@@ -874,6 +940,7 @@ private fun AudioContent(
                 onLoudSoundReductionCheckedChange = { viewModel.setATTCharacteristicValue(ATTHandles.LOUD_SOUND_REDUCTION, byteArrayOf(if (it) 0x01.toByte() else 0x00.toByte())) },
                 vendorIdHook = state.vendorIdHook, isPremium = state.isPremium)
         }
+        SectionAnchor("connectionSettings", focus)
         MenuDivider()
         Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
             ConnectionSettings(
@@ -882,6 +949,7 @@ private fun AudioContent(
                 automaticConnectionEnabled = state.automaticConnectionEnabled,
                 onAutomaticConnectionChanged = { viewModel.setAutomaticConnectionEnabled(it) })
         }
+        SectionAnchor("microphoneSettings", focus)
         MenuDivider()
         Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
             val id = AACPManager.Companion.ControlCommandIdentifiers.MIC_MODE
@@ -927,6 +995,7 @@ private fun HelpContent(
     state: AirPodsUiState,
     navController: NavController,
     dark: Boolean,
+    focus: SectionFocus = SectionFocus(scrollState = rememberScrollState()),
 ) {
     val context   = LocalContext.current
     val cardColor = if (dark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)

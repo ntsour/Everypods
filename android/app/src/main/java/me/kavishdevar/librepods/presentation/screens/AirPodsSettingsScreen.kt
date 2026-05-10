@@ -160,61 +160,65 @@ internal val SfPro get()         = FontFamily(Font(R.font.sf_pro))
 private data class SearchableItem(
     val label: String,
     val category: String,
-    val categoryKey: String   // used to expand the right MenuCategory
+    val categoryKey: String,
+    /** If set, navigate directly to this route instead of the category screen. */
+    val directRoute: String? = null,
+    /** If set, scroll to + briefly highlight this section key inside the category screen. */
+    val focusSection: String? = null,
 )
 
 private fun buildSearchIndex(): List<SearchableItem> = listOf(
     // AirPods Controls
-    SearchableItem("Left Bud — Single Press", "AirPods Controls", "controls"),
-    SearchableItem("Left Bud — Double Press", "AirPods Controls", "controls"),
-    SearchableItem("Left Bud — Triple Press", "AirPods Controls", "controls"),
-    SearchableItem("Left Bud — Long Press", "AirPods Controls", "controls"),
-    SearchableItem("Right Bud — Single Press", "AirPods Controls", "controls"),
-    SearchableItem("Right Bud — Double Press", "AirPods Controls", "controls"),
-    SearchableItem("Right Bud — Triple Press", "AirPods Controls", "controls"),
-    SearchableItem("Right Bud — Long Press", "AirPods Controls", "controls"),
-    SearchableItem("Listening Mode Configuration", "AirPods Controls", "controls"),
-    SearchableItem("Call Controls", "AirPods Controls", "controls"),
+    SearchableItem("Left Bud — Single Press",  "AirPods Controls", "controls", focusSection = "pressActions"),
+    SearchableItem("Left Bud — Double Press",  "AirPods Controls", "controls", focusSection = "pressActions"),
+    SearchableItem("Left Bud — Triple Press",  "AirPods Controls", "controls", focusSection = "pressActions"),
+    SearchableItem("Left Bud — Long Press",    "AirPods Controls", "controls", focusSection = "pressActions"),
+    SearchableItem("Right Bud — Single Press", "AirPods Controls", "controls", focusSection = "pressActions"),
+    SearchableItem("Right Bud — Double Press", "AirPods Controls", "controls", focusSection = "pressActions"),
+    SearchableItem("Right Bud — Triple Press", "AirPods Controls", "controls", focusSection = "pressActions"),
+    SearchableItem("Right Bud — Long Press",   "AirPods Controls", "controls", focusSection = "pressActions"),
+    SearchableItem("Listening Mode Configuration", "AirPods Controls", "controls", focusSection = "listeningMode"),
+    SearchableItem("Call Controls",            "AirPods Controls", "controls", focusSection = "callControls"),
+    SearchableItem("Volume Control",           "AirPods Controls", "controls", focusSection = "volumeControl"),
+    SearchableItem("Controls Configuration",   "AirPods Controls", "controls", directRoute = "accessibility"),
     // AirPods Settings
-    SearchableItem("Device Name", "AirPods Settings", "settings"),
-    SearchableItem("Hearing Aid", "AirPods Settings", "settings"),
-    SearchableItem("Hearing Protection", "AirPods Settings", "settings"),
-    SearchableItem("Loud Sound Reduction", "AirPods Settings", "settings"),
-    SearchableItem("Controls Configuration", "AirPods Controls", "controls"),
-    SearchableItem("Volume Control", "AirPods Controls", "controls"),
-    SearchableItem("Conversation Awareness", "AirPods Settings", "settings"),
-    SearchableItem("Disconnect", "AirPods Settings", "settings"),
+    SearchableItem("Device Name",              "AirPods Settings", "settings", directRoute = "rename"),
+    SearchableItem("Hearing Aid",              "AirPods Settings", "settings", directRoute = "hearing_aid"),
+    SearchableItem("Hearing Protection",       "AirPods Settings", "settings", focusSection = "hearingProtection"),
+    SearchableItem("Loud Sound Reduction",     "AirPods Settings", "settings", focusSection = "hearingProtection"),
+    SearchableItem("Conversation Awareness",   "AirPods Settings", "settings", focusSection = "conversationAwareness"),
+    SearchableItem("Disconnect",               "AirPods Settings", "settings", focusSection = "bluetoothControl"),
     // Smart Features
-    SearchableItem("Notification Announcements", "Smart Features", "smart"),
-    SearchableItem("Head Gestures", "Smart Features", "smart"),
-    SearchableItem("Adaptive Audio", "Smart Features", "smart"),
-    SearchableItem("Camera Control", "Smart Features", "smart"),
-    SearchableItem("Off Listening Mode", "Smart Features", "smart"),
-    SearchableItem("Sleep Detection", "Smart Features", "smart"),
-    SearchableItem("Optimized Charging", "Smart Features", "smart"),
-    SearchableItem("Resume Media After Call", "Smart Features", "smart"),
-    SearchableItem("Battery Alerts", "Smart Features", "smart"),
-    SearchableItem("Sleep Timer", "Smart Features", "smart"),
+    SearchableItem("Notification Announcements", "Smart Features", "smart", directRoute = "notification_announcements"),
+    SearchableItem("Find my Case",             "Smart Features", "smart", directRoute = "proximity_finder"),
+    SearchableItem("Head Gestures",            "Smart Features", "smart", directRoute = "head_tracking"),
+    SearchableItem("Adaptive Audio",           "Smart Features", "smart", focusSection = "adaptiveAudio"),
+    SearchableItem("Camera Control",           "Smart Features", "smart", focusSection = "cameraControl"),
+    SearchableItem("Sleep Detection",          "Smart Features", "smart", focusSection = "automation"),
+    SearchableItem("Optimized Charging",       "Smart Features", "smart", focusSection = "automation"),
+    SearchableItem("Resume Media After Call",  "Smart Features", "smart", focusSection = "automation"),
+    SearchableItem("Battery Alerts",           "Smart Features", "smart", focusSection = "automation"),
+    SearchableItem("Sleep Timer",              "Smart Features", "smart", focusSection = "sleepTimer"),
     // App Settings
-    SearchableItem("Battery in Widget", "App Settings", "appsettings"),
-    SearchableItem("Pop-up Animations", "App Settings", "appsettings"),
-    SearchableItem("Bottom Sheet Popup", "App Settings", "appsettings"),
-    SearchableItem("Dynamic Island Popup", "App Settings", "appsettings"),
-    SearchableItem("Act as Apple Device", "App Settings", "appsettings"),
-    SearchableItem("Permissions", "App Settings", "appsettings"),
+    SearchableItem("Battery in Widget",        "App Settings", "appsettings", focusSection = "phoneBattery"),
+    SearchableItem("Pop-up Animations",        "App Settings", "appsettings", focusSection = "popupAnimations"),
+    SearchableItem("Bottom Sheet Popup",       "App Settings", "appsettings", focusSection = "popupAnimations"),
+    SearchableItem("Dynamic Island Popup",     "App Settings", "appsettings", focusSection = "popupAnimations"),
+    SearchableItem("Act as Apple Device",      "App Settings", "appsettings", focusSection = "xposedToggle"),
+    SearchableItem("Permissions",              "App Settings", "appsettings", directRoute = "permissions"),
     // Audio & Connection
-    SearchableItem("Audio Settings", "Audio & Connection", "audio"),
-    SearchableItem("Ear Detection", "Audio & Connection", "audio"),
-    SearchableItem("Disconnect When Not Wearing", "Audio & Connection", "audio"),
-    SearchableItem("Microphone Settings", "Audio & Connection", "audio"),
-    SearchableItem("Connection Settings", "Audio & Connection", "audio"),
+    SearchableItem("Audio Settings",           "Audio & Connection", "audio", focusSection = "audioSettings"),
+    SearchableItem("Ear Detection",            "Audio & Connection", "audio", focusSection = "connectionSettings"),
+    SearchableItem("Disconnect When Not Wearing","Audio & Connection","audio", focusSection = "connectionSettings"),
+    SearchableItem("Microphone Settings",      "Audio & Connection", "audio", focusSection = "microphoneSettings"),
+    SearchableItem("Connection Settings",      "Audio & Connection", "audio", focusSection = "connectionSettings"),
     // Help
-    SearchableItem("Troubleshooting", "Help & Troubleshooting", "help"),
-    SearchableItem("Email Support", "Help & Troubleshooting", "help"),
-    SearchableItem("Discord Community", "Help & Troubleshooting", "help"),
-    SearchableItem("GitHub Issues", "Help & Troubleshooting", "help"),
-    SearchableItem("Open Source Licenses", "Help & Troubleshooting", "help"),
-    SearchableItem("Version Info", "Help & Troubleshooting", "help"),
+    SearchableItem("Troubleshooting",          "Help & Troubleshooting", "help", directRoute = "troubleshooting"),
+    SearchableItem("Open Source Licenses",     "Help & Troubleshooting", "help", directRoute = "open_source_licenses"),
+    SearchableItem("Version Info",             "Help & Troubleshooting", "help", directRoute = "version_info"),
+    SearchableItem("Email Support",            "Help & Troubleshooting", "help"),
+    SearchableItem("Discord Community",        "Help & Troubleshooting", "help"),
+    SearchableItem("GitHub Issues",            "Help & Troubleshooting", "help"),
 )
 
 @Composable internal fun bodyStyle(dark: Boolean) = TextStyle(
@@ -445,7 +449,14 @@ fun AirPodsSettingsScreen(
                                 Modifier.fillMaxWidth()
                                     .clickable(remember { MutableInteractionSource() }, null) {
                                         searchActive = false; searchQuery = ""
-                                        navController.navigate("category/${item.categoryKey}")
+                                        when {
+                                            item.directRoute != null ->
+                                                navController.navigate(item.directRoute)
+                                            item.focusSection != null ->
+                                                navController.navigate("category/${item.categoryKey}?focus=${android.net.Uri.encode(item.focusSection)}")
+                                            else ->
+                                                navController.navigate("category/${item.categoryKey}")
+                                        }
                                     }
                                     .padding(horizontal = 16.dp, vertical = 12.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
@@ -568,7 +579,7 @@ private fun ConnectedScreen(
         if (capabilities.contains(Capability.LISTENING_MODE)) {
             Spacer(Modifier.height(8.dp))
             NoiseControlSettings(
-                showOffListeningMode = state.offListeningMode,
+                showOffListeningMode = true, // always show Off option — toggle lives in Smart Features
                 noiseControlModeValue = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.LISTENING_MODE]?.getOrNull(0)?.toInt() ?: 3,
                 onNoiseControlModeChanged = { viewModel.setControlCommandInt(AACPManager.Companion.ControlCommandIdentifiers.LISTENING_MODE, it) }
             )
@@ -637,14 +648,28 @@ private fun CategoryTileGrid(
                                 interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
                                 indication = null
                             ) { navController.navigate("category/$key") }
-                            .padding(14.dp),
-                        contentAlignment = Alignment.TopStart
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        contentAlignment = Alignment.CenterStart
                     ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(emoji, style = TextStyle(fontSize = 26.sp, fontFamily = SfPro))
-                            Text(label, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                        Row(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                emoji,
+                                modifier = Modifier.width(34.dp),
+                                style = TextStyle(fontSize = 26.sp, fontFamily = SfPro)
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(label, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
                                 style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium,
                                 fontFamily = SfPro, color = textColor))
+                            }
                         }
                     }
                 }

@@ -633,13 +633,25 @@ fun Main() {
                         // Smart features are now inlined in the main menu.
                         // Route kept so any existing deep-link or back-stack reference doesn't crash.
                     }
-                    composable("category/{key}") { entry ->
-                        val key = entry.arguments?.getString("key") ?: "controls"
+                    composable(
+                        route = "category/{key}?focus={focus}",
+                        arguments = listOf(
+                            androidx.navigation.navArgument("key") { type = androidx.navigation.NavType.StringType },
+                            androidx.navigation.navArgument("focus") {
+                                type = androidx.navigation.NavType.StringType
+                                nullable = true
+                                defaultValue = null
+                            }
+                        )
+                    ) { entry ->
+                        val key   = entry.arguments?.getString("key") ?: "controls"
+                        val focus = entry.arguments?.getString("focus")
                         if (airPodsViewModel != null) CategoryScreen(
                             viewModel = airPodsViewModel,
                             appSettingsViewModel = viewModel(),
                             navController = navController,
                             categoryKey = key,
+                            focusSection = focus,
                         )
                     }
                 }

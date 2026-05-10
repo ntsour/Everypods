@@ -368,27 +368,35 @@ fun NoiseControlSettings(
                 if (showOffListeningMode) {
                     Text(
                         text = stringResource(R.string.off),
-                        style = TextStyle(fontSize = 12.sp, color = textColor),
+                        style = TextStyle(fontSize = 10.sp, color = textColor),
                         textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        softWrap = false,
                         modifier = Modifier.weight(1f)
                     )
                 }
                 Text(
                     text = stringResource(R.string.transparency),
-                    style = TextStyle(fontSize = 12.sp, color = textColor),
+                    style = TextStyle(fontSize = 10.sp, color = textColor),
                     textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    softWrap = false,
                     modifier = Modifier.weight(1f)
                 )
                 Text(
                     text = stringResource(R.string.adaptive),
-                    style = TextStyle(fontSize = 12.sp, color = textColor),
+                    style = TextStyle(fontSize = 10.sp, color = textColor),
                     textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    softWrap = false,
                     modifier = Modifier.weight(1f)
                 )
                 Text(
                     text = stringResource(R.string.noise_cancellation),
-                    style = TextStyle(fontSize = 12.sp, color = textColor),
+                    style = TextStyle(fontSize = 10.sp, color = textColor),
                     textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    softWrap = false,
                     modifier = Modifier.weight(1f)
                 )
             }
