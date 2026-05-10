@@ -62,6 +62,7 @@ import me.kavishdevar.librepods.R
 @Composable
 fun StyledScaffold(
     title: String,
+    navigationIcon: (@Composable (backdrop: LayerBackdrop) -> Unit)? = null,
     actionButtons: List<@Composable (backdrop: LayerBackdrop) -> Unit> = emptyList(),
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     content: @Composable (spacerValue: Dp, hazeState: HazeState, bottomPadding: Dp) -> Unit
@@ -111,6 +112,17 @@ fun StyledScaffold(
                             modifier = Modifier.fillMaxWidth(),
                             textAlign = TextAlign.Center
                         )
+                }
+            }
+            if (navigationIcon != null) {
+                Row(
+                    modifier = Modifier
+                        .zIndex(3f)
+                        .padding(top = topPadding, start = 8.dp)
+                        .align(Alignment.TopStart),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    navigationIcon(backdrop)
                 }
             }
             Row(

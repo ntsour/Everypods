@@ -30,22 +30,36 @@ import android.content.pm.PackageManager
 import android.provider.Settings
 import android.view.accessibility.AccessibilityManager
 import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -178,66 +192,94 @@ private fun ControlsContent(
     val capabilities = state.capabilities
     val cardColor = if (dark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
 
+    var selectedBud by rememberSaveable { mutableStateOf("left") }
+
     fun readAction(key: String, default: StemAction): StemAction =
         runCatching { StemAction.valueOf(sharedPrefs.getString(key, default.name) ?: default.name) }.getOrDefault(default)
 
-    @Composable
-    fun actionItems(side: String, pressType: AACPManager.Companion.StemPressType): List<SelectItem> {
-        val prefKey = "${side}_${pressType.name.lowercase()}_action"
-        val defaultAction = StemAction.defaultActions[pressType] ?: StemAction.PLAY_PAUSE
-        val currentAction = if (pressType == AACPManager.Companion.StemPressType.LONG_PRESS) {
-            if (side == "left") state.leftAction else state.rightAction
-        } else readAction(prefKey, defaultAction)
-        return listOf(
-            SelectItem("Play / Pause", selected = currentAction == StemAction.PLAY_PAUSE,
-                onClick = { viewModel.setPressAction(side, pressType, StemAction.PLAY_PAUSE) }),
-            SelectItem("Next Track", selected = currentAction == StemAction.NEXT_TRACK,
-                onClick = { viewModel.setPressAction(side, pressType, StemAction.NEXT_TRACK) }),
-            SelectItem("Previous Track", selected = currentAction == StemAction.PREVIOUS_TRACK,
-                onClick = { viewModel.setPressAction(side, pressType, StemAction.PREVIOUS_TRACK) }),
-            SelectItem(stringResource(R.string.digital_assistant),
-                selected = currentAction == StemAction.DIGITAL_ASSISTANT,
-                enabled = state.isPremium,
-                onClick = { viewModel.setPressAction(side, pressType, StemAction.DIGITAL_ASSISTANT) }),
-            SelectItem(stringResource(R.string.noise_control),
-                selected = currentAction == StemAction.CYCLE_NOISE_CONTROL_MODES,
-                onClick = { viewModel.setPressAction(side, pressType, StemAction.CYCLE_NOISE_CONTROL_MODES) }),
-        )
-    }
+    val pressTypes = listOf(
+        Triple("Single Press", AACPManager.Companion.StemPressType.SINGLE_PRESS,  StemAction.PLAY_PAUSE),
+        Triple("Double Press", AACPManager.Companion.StemPressType.DOUBLE_PRESS,  StemAction.NEXT_TRACK),
+        Triple("Triple Press", AACPManager.Companion.StemPressType.TRIPLE_PRESS,  StemAction.PREVIOUS_TRACK),
+        Triple("Long Press",   AACPManager.Companion.StemPressType.LONG_PRESS,    StemAction.CYCLE_NOISE_CONTROL_MODES),
+    )
 
-    Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp))) {
+    val actionOptions = listOf(
+        StemAction.PLAY_PAUSE              to "Play / Pause",
+        StemAction.NEXT_TRACK              to "Next Track",
+        StemAction.PREVIOUS_TRACK          to "Previous Track",
+        StemAction.DIGITAL_ASSISTANT       to stringResource(R.string.digital_assistant),
+        StemAction.CYCLE_NOISE_CONTROL_MODES to stringResource(R.string.noise_control),
+    )
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (capabilities.contains(Capability.STEM_CONFIG)) {
-            // Left bud press types
-            listOf(
-                "Single Press" to AACPManager.Companion.StemPressType.SINGLE_PRESS,
-                "Double Press" to AACPManager.Companion.StemPressType.DOUBLE_PRESS,
-                "Triple Press" to AACPManager.Companion.StemPressType.TRIPLE_PRESS,
-                "Long Press"   to AACPManager.Companion.StemPressType.LONG_PRESS,
-            ).forEachIndexed { i, (label, type) ->
-                if (i > 0) MenuDivider()
-                MenuSectionHeader("Left Bud — $label", dark)
-                Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                    StyledSelectList(items = actionItems("left", type))
-                }
-            }
-            MenuDivider()
-            // Right bud press types
-            listOf(
-                "Single Press" to AACPManager.Companion.StemPressType.SINGLE_PRESS,
-                "Double Press" to AACPManager.Companion.StemPressType.DOUBLE_PRESS,
-                "Triple Press" to AACPManager.Companion.StemPressType.TRIPLE_PRESS,
-                "Long Press"   to AACPManager.Companion.StemPressType.LONG_PRESS,
-            ).forEachIndexed { i, (label, type) ->
-                if (i > 0) MenuDivider()
-                MenuSectionHeader("Right Bud — $label", dark)
-                Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                    StyledSelectList(items = actionItems("right", type))
-                }
-            }
-            MenuDivider()
 
-            // Listening Mode Configuration
-            val currentByte = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.LISTENING_MODE_CONFIGS]?.get(0)?.toInt() ?: 0
+            // ── Bud Selector ─────────────────────────────────────────────────
+            Column(
+                Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp))
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text("Select Bud", style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                    fontFamily = SfPro, color = (if (dark) Color.White else Color.Black).copy(alpha = 0.5f)))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    BudCard(
+                        imageRes = state.instance?.model?.leftBudsRes ?: R.drawable.airpods_pro_2_left,
+                        label = "Left",
+                        selected = selectedBud == "left",
+                        dark = dark,
+                        modifier = Modifier.weight(1f),
+                        onClick = { selectedBud = "left" }
+                    )
+                    BudCard(
+                        imageRes = state.instance?.model?.rightBudsRes ?: R.drawable.airpods_pro_2_right,
+                        label = "Right",
+                        selected = selectedBud == "right",
+                        dark = dark,
+                        modifier = Modifier.weight(1f),
+                        onClick = { selectedBud = "right" }
+                    )
+                }
+            }
+
+            // ── Press Actions 2×2 Grid ────────────────────────────────────────
+            Column(
+                Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp))
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text("Press Actions", style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                    fontFamily = SfPro, color = (if (dark) Color.White else Color.Black).copy(alpha = 0.5f)))
+                pressTypes.chunked(2).forEach { row ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        row.forEach { (label, pressType, defaultAction) ->
+                            val prefKey = "${selectedBud}_${pressType.name.lowercase()}_action"
+                            val currentAction = if (pressType == AACPManager.Companion.StemPressType.LONG_PRESS) {
+                                if (selectedBud == "left") state.leftAction else state.rightAction
+                            } else readAction(prefKey, defaultAction)
+                            PressDropdown(
+                                label = label,
+                                currentAction = currentAction,
+                                options = actionOptions,
+                                isPremium = state.isPremium,
+                                dark = dark,
+                                modifier = Modifier.weight(1f),
+                                onSelect = { action -> viewModel.setPressAction(selectedBud, pressType, action) }
+                            )
+                        }
+                    }
+                }
+            }
+        } else {
+            Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp)).padding(16.dp)) {
+                Text("Stem controls not available on this model.", style = captionStyle(dark))
+            }
+        }
+
+        // ── Listening Mode Configuration ──────────────────────────────────────
+        val currentByte = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.LISTENING_MODE_CONFIGS]?.get(0)?.toInt() ?: 0
+        Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp))) {
             MenuSectionHeader("Listening Mode Configuration", dark)
             Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 8.dp)) {
                 Text(stringResource(R.string.press_and_hold_noise_control_description), style = captionStyle(dark))
@@ -261,39 +303,36 @@ private fun ControlsContent(
                         onClick = { viewModel.toggleListeningMode(0x02) }))
                 })
             }
-            MenuDivider()
-
-            // Call Controls
-            val bytes = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.CALL_MANAGEMENT_CONFIG]?.take(2)?.toByteArray() ?: byteArrayOf(0x00, 0x00)
-            val flipped = try { bytes[1] == 0x02.toByte() } catch (_: Exception) { false }
-            CallControlSettings(hazeState = remember { HazeState() }, flipped = flipped,
-                onCallControlValueChanged = {
-                    viewModel.setControlCommandValue(AACPManager.Companion.ControlCommandIdentifiers.CALL_MANAGEMENT_CONFIG,
-                        if (it) byteArrayOf(0x00, 0x02) else byteArrayOf(0x00, 0x03))
-                })
-        } else {
-            Column(Modifier.padding(16.dp)) {
-                Text("Stem controls not available on this model.", style = captionStyle(dark))
-            }
         }
 
-        // Volume Control
+        // ── Call Controls ─────────────────────────────────────────────────────
+        val bytes = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.CALL_MANAGEMENT_CONFIG]?.take(2)?.toByteArray() ?: byteArrayOf(0x00, 0x00)
+        val flipped = try { bytes[1] == 0x02.toByte() } catch (_: Exception) { false }
+        CallControlSettings(hazeState = remember { HazeState() }, flipped = flipped,
+            onCallControlValueChanged = {
+                viewModel.setControlCommandValue(AACPManager.Companion.ControlCommandIdentifiers.CALL_MANAGEMENT_CONFIG,
+                    if (it) byteArrayOf(0x00, 0x02) else byteArrayOf(0x00, 0x03))
+            })
+
+        // ── Volume Control ────────────────────────────────────────────────────
         if (capabilities.contains(Capability.SWIPE_FOR_VOLUME)) {
-            MenuDivider()
-            MenuSectionHeader("Volume Control", dark)
-            Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                val enabled = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.VOLUME_SWIPE_MODE]?.getOrNull(0)?.toInt() == 0x01
-                StyledToggle(label = stringResource(R.string.volume_control),
-                    description = stringResource(R.string.volume_control_description),
-                    checked = enabled,
-                    onCheckedChange = { viewModel.setControlCommandBoolean(AACPManager.Companion.ControlCommandIdentifiers.VOLUME_SWIPE_MODE, it) },
-                    independent = true, enabled = state.isPremium)
+            Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp))) {
+                MenuSectionHeader("Volume Control", dark)
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+                    val enabled = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.VOLUME_SWIPE_MODE]?.getOrNull(0)?.toInt() == 0x01
+                    StyledToggle(label = stringResource(R.string.volume_control),
+                        description = stringResource(R.string.volume_control_description),
+                        checked = enabled,
+                        onCheckedChange = { viewModel.setControlCommandBoolean(AACPManager.Companion.ControlCommandIdentifiers.VOLUME_SWIPE_MODE, it) },
+                        independent = true, enabled = state.isPremium)
+                }
             }
         }
 
-        // Controls Configuration sub-screen
-        MenuDivider()
-        MenuNavRow("Controls Configuration", dark, subtitle = "Tone, speed, hold duration") { navController.navigate("accessibility") }
+        // ── Controls Configuration ────────────────────────────────────────────
+        Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp))) {
+            MenuNavRow("Controls Configuration", dark, subtitle = "Tone, speed, hold duration") { navController.navigate("accessibility") }
+        }
     }
 }
 
@@ -314,45 +353,13 @@ private fun SettingsContent(
     val cardColor = if (dark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
 
     Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp))) {
-        // Device Name
-        MenuNavRow("Device Name", dark, subtitle = state.deviceName) { navController.navigate("rename") }
-
-        // Hearing Aid (Xposed-gated)
         val hasHA  = state.instance?.model?.capabilities?.contains(Capability.HEARING_AID) == true
         val hasPPE = state.instance?.model?.capabilities?.contains(Capability.PPE) == true
-        if (hasHA || hasPPE) {
-            MenuDivider()
-            Column(Modifier.fillMaxWidth().alpha(if (hasXposed) 1f else DisabledAlpha.toFloat())) {
-                MenuNavRow("Hearing Aid", dark, subtitle = if (!hasXposed) "⚠ Requires Xposed" else null) {
-                    if (hasXposed) navController.navigate("hearing_aid")
-                }
-            }
-            if (!hasXposed) Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) { XposedRequiredBanner(dark) }
-        }
 
-        // Hearing Protection
-        if (capabilities.contains(Capability.LOUD_SOUND_REDUCTION) || hasPPE) {
-            MenuDivider()
-            MenuSectionHeader("Hearing Protection", dark)
-            Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                Column(Modifier.alpha(if (hasXposed) 1f else DisabledAlpha.toFloat())) {
-                    StyledToggle(label = stringResource(R.string.loud_sound_reduction),
-                        description = stringResource(R.string.loud_sound_reduction_description),
-                        checked = state.loudSoundReductionEnabled,
-                        onCheckedChange = { if (hasXposed) viewModel.setATTCharacteristicValue(ATTHandles.LOUD_SOUND_REDUCTION, byteArrayOf(if (it) 1 else 0)) },
-                        independent = true, enabled = hasXposed && state.isPremium)
-                    if (!hasXposed) { Spacer(Modifier.height(4.dp)); XposedRequiredBanner(dark) }
-                }
-                Spacer(Modifier.height(4.dp))
-                StyledToggle(label = stringResource(R.string.ppe),
-                    description = stringResource(R.string.workspace_use_description),
-                    checked = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.PPE_TOGGLE_CONFIG]?.getOrNull(0)?.toInt() == 1,
-                    onCheckedChange = { viewModel.setControlCommandBoolean(AACPManager.Companion.ControlCommandIdentifiers.PPE_TOGGLE_CONFIG, it) },
-                    independent = true, enabled = state.isPremium)
-            }
-        }
+        // ── Ungated ───────────────────────────────────────────────────────────
+        MenuNavRow("Device Name", dark, subtitle = state.deviceName) { navController.navigate("rename") }
 
-        // Conversation Awareness
+        // Conversation Awareness (no gate — moved above Xposed-gated items)
         MenuDivider()
         MenuSectionHeader("Conversation Awareness", dark)
         Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
@@ -375,7 +382,41 @@ private fun SettingsContent(
                 independent = true, enabled = appState.isPremium)
         }
 
-        // Bluetooth Control (Root)
+        // ── ⚠ Xposed-gated ────────────────────────────────────────────────────
+        // Hearing Protection (PPE = ungated, Loud Sound Reduction = Xposed)
+        if (capabilities.contains(Capability.LOUD_SOUND_REDUCTION) || hasPPE) {
+            MenuDivider()
+            MenuSectionHeader("Hearing Protection", dark)
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+                StyledToggle(label = stringResource(R.string.ppe),
+                    description = stringResource(R.string.workspace_use_description),
+                    checked = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.PPE_TOGGLE_CONFIG]?.getOrNull(0)?.toInt() == 1,
+                    onCheckedChange = { viewModel.setControlCommandBoolean(AACPManager.Companion.ControlCommandIdentifiers.PPE_TOGGLE_CONFIG, it) },
+                    independent = true, enabled = state.isPremium)
+                Spacer(Modifier.height(4.dp))
+                Column(Modifier.alpha(if (hasXposed) 1f else DisabledAlpha.toFloat())) {
+                    StyledToggle(label = stringResource(R.string.loud_sound_reduction),
+                        description = stringResource(R.string.loud_sound_reduction_description),
+                        checked = state.loudSoundReductionEnabled,
+                        onCheckedChange = { if (hasXposed) viewModel.setATTCharacteristicValue(ATTHandles.LOUD_SOUND_REDUCTION, byteArrayOf(if (it) 1 else 0)) },
+                        independent = true, enabled = hasXposed && state.isPremium)
+                    if (!hasXposed) { Spacer(Modifier.height(4.dp)); XposedRequiredBanner(dark) }
+                }
+            }
+        }
+
+        // Hearing Aid (Xposed required)
+        if (hasHA || hasPPE) {
+            MenuDivider()
+            Column(Modifier.fillMaxWidth().alpha(if (hasXposed) 1f else DisabledAlpha.toFloat())) {
+                MenuNavRow("Hearing Aid", dark, subtitle = if (!hasXposed) "⚠ Requires Xposed" else null) {
+                    if (hasXposed) navController.navigate("hearing_aid")
+                }
+            }
+            if (!hasXposed) Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) { XposedRequiredBanner(dark) }
+        }
+
+        // ── 🔒 Root-gated — always last ───────────────────────────────────────
         MenuDivider()
         MenuSectionHeader("🔒  Bluetooth Control (Root Required)", dark)
         Column(Modifier.fillMaxWidth().alpha(if (hasRoot) 1f else DisabledAlpha.toFloat()).padding(horizontal = 16.dp, vertical = 14.dp),
@@ -776,5 +817,104 @@ private fun HelpContent(
         }
         MenuDivider()
         MenuNavRow("Open Source Licenses", dark) { navController.navigate("open_source_licenses") }
+    }
+}
+
+// ─── Shared helper composables for Controls screen ───────────────────────────
+
+@Composable
+private fun BudCard(
+    imageRes: Int,
+    label: String,
+    selected: Boolean,
+    dark: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val bgColor  = if (dark) Color(0xFF2C2C2E) else Color(0xFFF2F2F7)
+    val textColor = if (dark) Color.White else Color.Black
+    Box(
+        modifier = modifier
+            .border(
+                width = if (selected) 2.dp else 1.dp,
+                color  = if (selected) Color(0xFF0A84FF) else Color.Transparent,
+                shape  = RoundedCornerShape(14.dp)
+            )
+            .background(bgColor, RoundedCornerShape(14.dp))
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick)
+            .padding(12.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Image(
+                painter = painterResource(imageRes),
+                contentDescription = label,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.height(80.dp).fillMaxWidth()
+            )
+            Text(label, style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium,
+                fontFamily = SfPro, color = if (selected) Color(0xFF0A84FF) else textColor))
+        }
+    }
+}
+
+@Composable
+private fun PressDropdown(
+    label: String,
+    currentAction: StemAction,
+    options: List<Pair<StemAction, String>>,
+    isPremium: Boolean,
+    dark: Boolean,
+    modifier: Modifier = Modifier,
+    onSelect: (StemAction) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val actionName = options.find { it.first == currentAction }?.second ?: ""
+    val bgColor   = if (dark) Color(0xFF2C2C2E) else Color(0xFFF2F2F7)
+    val textColor = if (dark) Color.White else Color.Black
+
+    Box(modifier = modifier) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .background(bgColor, RoundedCornerShape(12.dp))
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { expanded = true }
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(3.dp)
+        ) {
+            Text(label, style = TextStyle(fontSize = 11.sp, fontFamily = SfPro,
+                color = textColor.copy(alpha = 0.5f)))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically) {
+                Text(actionName, style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium,
+                    fontFamily = SfPro, color = textColor), modifier = Modifier.weight(1f))
+                Text("▾", style = TextStyle(fontSize = 11.sp, fontFamily = SfPro, color = textColor.copy(alpha = 0.4f)))
+            }
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.background(if (dark) Color(0xFF2C2C2E) else Color.White)
+        ) {
+            options.forEach { (action, name) ->
+                val enabled = action != StemAction.DIGITAL_ASSISTANT || isPremium
+                DropdownMenuItem(
+                    text = {
+                        Text(name, style = TextStyle(fontSize = 15.sp, fontFamily = SfPro,
+                            color = when {
+                                !enabled             -> textColor.copy(alpha = 0.35f)
+                                action == currentAction -> Color(0xFF0A84FF)
+                                else                 -> textColor
+                            }))
+                    },
+                    trailingIcon = if (action == currentAction) {{ Text("✓", style = TextStyle(
+                        fontSize = 14.sp, color = Color(0xFF0A84FF))) }} else null,
+                    onClick = { if (enabled) { onSelect(action); expanded = false } }
+                )
+            }
+        }
     }
 }

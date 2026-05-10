@@ -55,7 +55,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.clearText
@@ -385,6 +389,14 @@ fun AirPodsSettingsScreen(
 
     StyledScaffold(
         title = if (searchActive) "" else deviceName.text,
+        navigationIcon = if (!searchActive && state.isLocallyConnected) {{ _ ->
+            Image(
+                painter = painterResource(R.drawable.airpods),
+                contentDescription = null,
+                colorFilter = ColorFilter.tint(if (dark) Color.White else Color.Black),
+                modifier = Modifier.size(30.dp)
+            )
+        }} else null,
         actionButtons = if (state.isLocallyConnected) listOf({ scaffoldBackdrop ->
             if (searchActive) {
                 Row(
