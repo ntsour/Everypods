@@ -153,6 +153,7 @@ import me.kavishdevar.librepods.presentation.screens.AppPermissionsScreen
 import me.kavishdevar.librepods.presentation.screens.NotificationAnnouncementsScreen
 import me.kavishdevar.librepods.presentation.screens.ProximityFinderScreen
 import me.kavishdevar.librepods.presentation.screens.VersionScreen
+import me.kavishdevar.librepods.presentation.screens.CategoryScreen
 import me.kavishdevar.librepods.presentation.theme.LibrePodsTheme
 import me.kavishdevar.librepods.presentation.viewmodel.AirPodsViewModel
 import me.kavishdevar.librepods.presentation.viewmodel.AppSettingsViewModel
@@ -634,6 +635,15 @@ fun Main() {
                     composable("smart_features") {
                         // Smart features are now inlined in the main menu.
                         // Route kept so any existing deep-link or back-stack reference doesn't crash.
+                    }
+                    composable("category/{key}") { entry ->
+                        val key = entry.arguments?.getString("key") ?: "controls"
+                        if (airPodsViewModel != null) CategoryScreen(
+                            viewModel = airPodsViewModel,
+                            appSettingsViewModel = viewModel(),
+                            navController = navController,
+                            categoryKey = key,
+                        )
                     }
                 }
             }

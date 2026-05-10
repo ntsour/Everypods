@@ -71,7 +71,7 @@ import me.kavishdevar.librepods.presentation.components.StyledScaffold
 import me.kavishdevar.librepods.services.AppListenerService
 import me.kavishdevar.librepods.services.TeamsNotifListener
 
-private val SfPro get() = FontFamily(Font(R.font.sf_pro))
+private val PermSfPro get() = FontFamily(Font(R.font.sf_pro))
 
 @Composable
 fun AppPermissionsScreen() {

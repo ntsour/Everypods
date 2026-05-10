@@ -147,9 +147,9 @@ import me.kavishdevar.librepods.utils.XposedState
 import kotlin.io.encoding.ExperimentalEncodingApi
 
 // ─── Design tokens ───────────────────────────────────────────────────────────
-private val RootOrange          = Color(0xFFFF9500)
-private const val DisabledAlpha = 0.45f
-private val SfPro get()         = FontFamily(Font(R.font.sf_pro))
+internal val RootOrange          = Color(0xFFFF9500)
+internal const val DisabledAlpha = 0.45f
+internal val SfPro get()         = FontFamily(Font(R.font.sf_pro))
 
 // ─── Searchable menu item ─────────────────────────────────────────────────────
 private data class SearchableItem(
@@ -213,11 +213,11 @@ private fun buildSearchIndex(): List<SearchableItem> = listOf(
     SearchableItem("Version Info", "Help & Troubleshooting", "help"),
 )
 
-@Composable private fun bodyStyle(dark: Boolean) = TextStyle(
+@Composable internal fun bodyStyle(dark: Boolean) = TextStyle(
     fontSize = 16.sp, fontFamily = SfPro,
     color = if (dark) Color.White else Color.Black
 )
-@Composable private fun captionStyle(dark: Boolean) = TextStyle(
+@Composable internal fun captionStyle(dark: Boolean) = TextStyle(
     fontSize = 13.sp, fontFamily = SfPro,
     color = if (dark) Color.White.copy(0.5f) else Color.Black.copy(0.5f)
 )
@@ -225,7 +225,7 @@ private fun buildSearchIndex(): List<SearchableItem> = listOf(
 // ─── Shared primitives ───────────────────────────────────────────────────────
 
 @Composable
-private fun MenuSectionHeader(label: String, dark: Boolean) {
+internal fun MenuSectionHeader(label: String, dark: Boolean) {
     Box(
         Modifier.fillMaxWidth()
             .background(if (dark) Color(0xFF000000) else Color(0xFFF2F2F7))
@@ -239,13 +239,13 @@ private fun MenuSectionHeader(label: String, dark: Boolean) {
 }
 
 @Composable
-private fun MenuDivider() = HorizontalDivider(
+internal fun MenuDivider() = HorizontalDivider(
     color = Color(0x30888888), thickness = 0.5.dp,
     modifier = Modifier.padding(horizontal = 16.dp)
 )
 
 @Composable
-private fun MenuNavRow(label: String, dark: Boolean, subtitle: String? = null, onClick: () -> Unit) {
+internal fun MenuNavRow(label: String, dark: Boolean, subtitle: String? = null, onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth()
             .clickable(remember { MutableInteractionSource() }, null, onClick = onClick)
@@ -262,10 +262,10 @@ private fun MenuNavRow(label: String, dark: Boolean, subtitle: String? = null, o
     }
 }
 
-private val XposedOrange = Color(0xFFFF9500)
+internal val XposedOrange = Color(0xFFFF9500)
 
 @Composable
-private fun XposedRequiredBanner(dark: Boolean) = Row(
+internal fun XposedRequiredBanner(dark: Boolean) = Row(
     Modifier.fillMaxWidth()
         .background(if (dark) Color(0xFF2C2C2E) else Color(0xFFFFF3E0), RoundedCornerShape(12.dp))
         .padding(horizontal = 14.dp, vertical = 10.dp),
@@ -279,7 +279,7 @@ private fun XposedRequiredBanner(dark: Boolean) = Row(
 }
 
 @Composable
-private fun RootRequiredBanner(dark: Boolean) = Row(
+internal fun RootRequiredBanner(dark: Boolean) = Row(
     Modifier.fillMaxWidth()
         .background(if (dark) Color(0xFF2C2C2E) else Color(0xFFFFF3E0), RoundedCornerShape(12.dp))
         .padding(horizontal = 14.dp, vertical = 10.dp),
@@ -365,8 +365,6 @@ fun AirPodsSettingsScreen(
     // Search state
     var searchActive by rememberSaveable { mutableStateOf(false) }
     var searchQuery  by rememberSaveable { mutableStateOf("") }
-    // When non-empty, the target category will be force-expanded and scrolled to
-    var navigateToCategory by rememberSaveable { mutableStateOf("") }
     val searchIndex  = remember { buildSearchIndex() }
     val searchResults = remember(searchQuery) {
         if (searchQuery.length < 2) emptyList()
@@ -436,8 +434,8 @@ fun AirPodsSettingsScreen(
                             Row(
                                 Modifier.fillMaxWidth()
                                     .clickable(remember { MutableInteractionSource() }, null) {
-                                        navigateToCategory = item.categoryKey
                                         searchActive = false; searchQuery = ""
+                                        navController.navigate("category/${item.categoryKey}")
                                     }
                                     .padding(horizontal = 16.dp, vertical = 12.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
@@ -462,8 +460,6 @@ fun AirPodsSettingsScreen(
                 topPadding = topPadding, bottomPadding = bottomPadding,
                 hazeState = hazeState, dark = dark, blockTouches = blockTouches,
                 onOpenContact = { contactBottomSheet.value = true },
-                navigateToCategory = navigateToCategory,
-                onNavigated = { navigateToCategory = "" }
             )
         } else {
             DisconnectedScreen(
@@ -535,47 +531,11 @@ private fun ConnectedScreen(
     dark: Boolean,
     blockTouches: Boolean,
     onOpenContact: () -> Unit,
-    navigateToCategory: String = "",
-    onNavigated: () -> Unit = {}
 ) {
     val context      = LocalContext.current
     val capabilities = state.capabilities
-    val hasRoot      = state.hasRootPermissions
-    val scope        = rememberCoroutineScope()
 
-    // ── Hoisted category expansion states ─────────────────────────────────
-    // Keyed by the same categoryKey values used in SearchableItem
-    var catControls    by rememberSaveable { mutableStateOf(false) }
-    var catSettings    by rememberSaveable { mutableStateOf(false) }
-    var catSmart       by rememberSaveable { mutableStateOf(false) }
-    var catAppSettings by rememberSaveable { mutableStateOf(false) }
-    var catAudio       by rememberSaveable { mutableStateOf(false) }
-    var catHelp        by rememberSaveable { mutableStateOf(false) }
-
-    // Which category to briefly highlight (cleared after animation)
-    var highlightCategory by remember { mutableStateOf("") }
-
-    // ── Search navigation ─────────────────────────────────────────────────
     val listState = rememberLazyListState()
-    LaunchedEffect(navigateToCategory) {
-        if (navigateToCategory.isEmpty()) return@LaunchedEffect
-        // Collapse all categories then expand only the target
-        catControls    = navigateToCategory == "controls"
-        catSettings    = navigateToCategory == "settings"
-        catSmart       = navigateToCategory == "smart"
-        catAppSettings = navigateToCategory == "appsettings"
-        catAudio       = navigateToCategory == "audio"
-        catHelp        = navigateToCategory == "help"
-        highlightCategory = navigateToCategory
-        // Scroll to menu_body — it's always the second-to-last lazy item
-        delay(80) // let collapse animation start
-        val total = listState.layoutInfo.totalItemsCount
-        if (total > 1) listState.animateScrollToItem(total - 2)
-        onNavigated()
-        // Remove highlight after a moment
-        delay(1500)
-        highlightCategory = ""
-    }
 
     LazyColumn(
         state = listState,
@@ -629,637 +589,58 @@ private fun ConnectedScreen(
         }
 
         // ══════════════════════════════════════════════════════════════════
-        //  MENU BODY (always visible)
+        //  CATEGORY TILE GRID
         // ══════════════════════════════════════════════════════════════════
         item(key = "menu_body") {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-
-                    // ─── 1. AirPods Controls ──────────────────────────────
-                    MenuCategory("🎧  AirPods Controls", dark, expanded = catControls, onToggle = { catControls = !catControls }, highlighted = highlightCategory == "controls") {
-                        if (capabilities.contains(Capability.STEM_CONFIG)) {
-
-                            // ── Helper: read single/double/triple action from prefs ──
-                            fun readAction(key: String, default: StemAction): StemAction =
-                                runCatching { StemAction.valueOf(sharedPrefs.getString(key, default.name) ?: default.name) }.getOrDefault(default)
-
-                            // ── Build SelectItems for a bud's press type ────────────
-                            @Composable
-                            fun actionItems(side: String, pressType: AACPManager.Companion.StemPressType): List<SelectItem> {
-                                val prefKey = "${side}_${pressType.name.lowercase()}_action"
-                                val defaultAction = StemAction.defaultActions[pressType] ?: StemAction.PLAY_PAUSE
-                                // For long press we also track in UiState so read from there
-                                val currentAction = if (pressType == AACPManager.Companion.StemPressType.LONG_PRESS) {
-                                    if (side == "left") state.leftAction else state.rightAction
-                                } else {
-                                    readAction(prefKey, defaultAction)
-                                }
-                                return listOf(
-                                    SelectItem("Play / Pause",
-                                        selected = currentAction == StemAction.PLAY_PAUSE,
-                                        onClick = { viewModel.setPressAction(side, pressType, StemAction.PLAY_PAUSE) }),
-                                    SelectItem("Next Track",
-                                        selected = currentAction == StemAction.NEXT_TRACK,
-                                        onClick = { viewModel.setPressAction(side, pressType, StemAction.NEXT_TRACK) }),
-                                    SelectItem("Previous Track",
-                                        selected = currentAction == StemAction.PREVIOUS_TRACK,
-                                        onClick = { viewModel.setPressAction(side, pressType, StemAction.PREVIOUS_TRACK) }),
-                                    SelectItem(stringResource(R.string.digital_assistant),
-                                        selected = currentAction == StemAction.DIGITAL_ASSISTANT,
-                                        enabled = state.isPremium,
-                                        onClick = { viewModel.setPressAction(side, pressType, StemAction.DIGITAL_ASSISTANT) }),
-                                    SelectItem(stringResource(R.string.noise_control),
-                                        selected = currentAction == StemAction.CYCLE_NOISE_CONTROL_MODES,
-                                        onClick = { viewModel.setPressAction(side, pressType, StemAction.CYCLE_NOISE_CONTROL_MODES) })
-                                )
-                            }
-
-                            // ── LEFT BUD ────────────────────────────────────────────
-                            MenuSectionHeader("Left Bud — Single Press", dark)
-                            Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                                StyledSelectList(items = actionItems("left", AACPManager.Companion.StemPressType.SINGLE_PRESS))
-                            }
-                            MenuDivider()
-                            MenuSectionHeader("Left Bud — Double Press", dark)
-                            Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                                StyledSelectList(items = actionItems("left", AACPManager.Companion.StemPressType.DOUBLE_PRESS))
-                            }
-                            MenuDivider()
-                            MenuSectionHeader("Left Bud — Triple Press", dark)
-                            Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                                StyledSelectList(items = actionItems("left", AACPManager.Companion.StemPressType.TRIPLE_PRESS))
-                            }
-                            MenuDivider()
-                            MenuSectionHeader("Left Bud — Long Press", dark)
-                            Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                                StyledSelectList(items = actionItems("left", AACPManager.Companion.StemPressType.LONG_PRESS))
-                            }
-                            MenuDivider()
-
-                            // ── RIGHT BUD ───────────────────────────────────────────
-                            MenuSectionHeader("Right Bud — Single Press", dark)
-                            Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                                StyledSelectList(items = actionItems("right", AACPManager.Companion.StemPressType.SINGLE_PRESS))
-                            }
-                            MenuDivider()
-                            MenuSectionHeader("Right Bud — Double Press", dark)
-                            Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                                StyledSelectList(items = actionItems("right", AACPManager.Companion.StemPressType.DOUBLE_PRESS))
-                            }
-                            MenuDivider()
-                            MenuSectionHeader("Right Bud — Triple Press", dark)
-                            Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                                StyledSelectList(items = actionItems("right", AACPManager.Companion.StemPressType.TRIPLE_PRESS))
-                            }
-                            MenuDivider()
-                            MenuSectionHeader("Right Bud — Long Press", dark)
-                            Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                                StyledSelectList(items = actionItems("right", AACPManager.Companion.StemPressType.LONG_PRESS))
-                            }
-                            MenuDivider()
-
-                            // ── LISTENING MODE CONFIGURATION ────────────────────────
-                            // Applies to any bud/gesture assigned to Listening Mode cycling
-                            val currentByte = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.LISTENING_MODE_CONFIGS]?.get(0)?.toInt() ?: 0
-                            MenuSectionHeader("Listening Mode Configuration", dark)
-                            Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 8.dp)) {
-                                Text(
-                                    stringResource(R.string.press_and_hold_noise_control_description),
-                                    style = captionStyle(dark)
-                                )
-                                Spacer(Modifier.height(8.dp))
-                                StyledSelectList(items = buildList {
-                                    if (state.offListeningMode) add(
-                                        SelectItem(stringResource(R.string.off),
-                                            description = stringResource(R.string.listening_mode_off_description),
-                                            selected = (currentByte and 0x01) != 0,
-                                            onClick = { viewModel.toggleListeningMode(0x01) })
-                                    )
-                                    add(SelectItem(stringResource(R.string.transparency),
-                                        description = stringResource(R.string.listening_mode_transparency_description),
-                                        selected = (currentByte and 0x04) != 0,
-                                        onClick = { viewModel.toggleListeningMode(0x04) }))
-                                    add(SelectItem(stringResource(R.string.adaptive),
-                                        description = stringResource(R.string.listening_mode_adaptive_description),
-                                        selected = (currentByte and 0x08) != 0,
-                                        onClick = { viewModel.toggleListeningMode(0x08) }))
-                                    add(SelectItem(stringResource(R.string.noise_cancellation),
-                                        description = stringResource(R.string.listening_mode_noise_cancellation_description),
-                                        selected = (currentByte and 0x02) != 0,
-                                        onClick = { viewModel.toggleListeningMode(0x02) }))
-                                })
-                            }
-                            MenuDivider()
-
-                            // ── CALL CONTROLS ───────────────────────────────────────
-                            // Kept here: conceptually this is stem behaviour during calls
-                            val bytes = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.CALL_MANAGEMENT_CONFIG]?.take(2)?.toByteArray() ?: byteArrayOf(0x00, 0x00)
-                            val flipped = try { bytes[1] == 0x02.toByte() } catch (_: Exception) { false }
-                            CallControlSettings(
-                                hazeState = remember { HazeState() },
-                                flipped = flipped,
-                                onCallControlValueChanged = {
-                                    viewModel.setControlCommandValue(
-                                        AACPManager.Companion.ControlCommandIdentifiers.CALL_MANAGEMENT_CONFIG,
-                                        if (it) byteArrayOf(0x00, 0x02) else byteArrayOf(0x00, 0x03)
-                                    )
-                                }
-                            )
-
-                        } else {
-                            Column(Modifier.padding(16.dp)) {
-                                Text("Stem controls not available on this model.", style = captionStyle(dark))
-                            }
-                        }
-
-                        // ── VOLUME CONTROL ───────────────────────────────────
-                        if (capabilities.contains(Capability.SWIPE_FOR_VOLUME)) {
-                            MenuDivider()
-                            MenuSectionHeader("Volume Control", dark)
-                            Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                                val volumeSwipeEnabled = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.VOLUME_SWIPE_MODE]?.getOrNull(0)?.toInt() == 0x01
-                                StyledToggle(
-                                    label = stringResource(R.string.volume_control),
-                                    description = stringResource(R.string.volume_control_description),
-                                    checked = volumeSwipeEnabled,
-                                    onCheckedChange = { viewModel.setControlCommandBoolean(AACPManager.Companion.ControlCommandIdentifiers.VOLUME_SWIPE_MODE, it) },
-                                    independent = true,
-                                    enabled = state.isPremium
-                                )
-                            }
-                        }
-
-                        // ── CONTROLS CONFIGURATION ──────────────────────────
-                        MenuDivider()
-                        MenuNavRow("Controls Configuration", dark, subtitle = "Tone, speed, hold duration") { navController.navigate("accessibility") }
-                    }
-
-                    // ─── 2. AirPods Settings ──────────────────────────────
-                    MenuCategory("⚙️  AirPods Settings", dark, expanded = catSettings, onToggle = { catSettings = !catSettings }, highlighted = highlightCategory == "settings") {
-
-                        MenuNavRow("Device Name", dark, subtitle = state.deviceName) { navController.navigate("rename") }
-                        MenuDivider()
-
-                        val hasHA  = state.instance?.model?.capabilities?.contains(Capability.HEARING_AID) == true
-                        val hasPPE = state.instance?.model?.capabilities?.contains(Capability.PPE) == true
-                        val hasXposed = state.vendorIdHook
-                        if (hasHA || hasPPE) {
-                            // Hearing Aid requires Xposed — grey + warn when not available
-                            Column(
-                                Modifier.fillMaxWidth()
-                                    .alpha(if (hasXposed) 1f else DisabledAlpha.toFloat())
-                            ) {
-                                MenuNavRow(
-                                    "Hearing Aid",
-                                    dark,
-                                    subtitle = if (!hasXposed) "⚠ Requires Xposed" else null
-                                ) { if (hasXposed) navController.navigate("hearing_aid") }
-                            }
-                            if (!hasXposed) {
-                                Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                                    XposedRequiredBanner(dark)
-                                }
-                            }
-                            MenuDivider()
-                            // Hearing Aid Adjustments lives inside HearingAidScreen — not duplicated here
-                        }
-
-                        // Hearing Protection — inlined
-                        if (capabilities.contains(Capability.LOUD_SOUND_REDUCTION) || hasPPE) {
-                            MenuSectionHeader("Hearing Protection", dark)
-                            Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                                // Loud Sound Reduction needs Xposed — always visible, greyed when unavailable
-                                Column(Modifier.alpha(if (hasXposed) 1f else DisabledAlpha.toFloat())) {
-                                    StyledToggle(
-                                        label = stringResource(R.string.loud_sound_reduction),
-                                        description = stringResource(R.string.loud_sound_reduction_description),
-                                        checked = state.loudSoundReductionEnabled,
-                                        onCheckedChange = { if (hasXposed) viewModel.setATTCharacteristicValue(ATTHandles.LOUD_SOUND_REDUCTION, byteArrayOf(if (it) 1 else 0)) },
-                                        independent = true, enabled = hasXposed && state.isPremium
-                                    )
-                                    if (!hasXposed) {
-                                        Spacer(Modifier.height(4.dp))
-                                        XposedRequiredBanner(dark)
-                                    }
-                                }
-                                Spacer(Modifier.height(4.dp))
-                                StyledToggle(
-                                    label = stringResource(R.string.ppe),
-                                    description = stringResource(R.string.workspace_use_description),
-                                    checked = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.PPE_TOGGLE_CONFIG]?.getOrNull(0)?.toInt() == 1,
-                                    onCheckedChange = { viewModel.setControlCommandBoolean(AACPManager.Companion.ControlCommandIdentifiers.PPE_TOGGLE_CONFIG, it) },
-                                    independent = true, enabled = state.isPremium
-                                )
-                            }
-                            MenuDivider()
-                        }
-
-                        // Conversation Awareness
-                        MenuSectionHeader("Conversation Awareness", dark)
-                        Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                            StyledToggle(label = stringResource(R.string.conversational_awareness_pause_music), description = stringResource(R.string.conversational_awareness_pause_music_description), checked = appState.conversationalAwarenessPauseMusicEnabled, onCheckedChange = appSettingsViewModel::setConversationalAwarenessPauseMusicEnabled, independent = true, enabled = appState.isPremium)
-                            Spacer(Modifier.height(4.dp))
-                            StyledToggle(label = stringResource(R.string.relative_conversational_awareness_volume), description = stringResource(R.string.relative_conversational_awareness_volume_description), checked = appState.relativeConversationalAwarenessVolumeEnabled, onCheckedChange = appSettingsViewModel::setRelativeConversationalAwarenessVolumeEnabled, independent = true, enabled = appState.isPremium)
-                            Spacer(Modifier.height(4.dp))
-                            StyledSlider(label = stringResource(R.string.conversational_awareness_volume), value = appState.conversationalAwarenessVolume, valueRange = 10f..85f, snapPoints = listOf(44f), startLabel = "10%", endLabel = "85%", onValueChange = { appSettingsViewModel.setConversationalAwarenessVolume(it) }, independent = true, enabled = appState.isPremium)
-                        }
-                        MenuDivider()
-
-                        // Root-required: Disconnect
-                        MenuSectionHeader("🔒  Bluetooth Control (Root Required)", dark)
-                        Column(Modifier.fillMaxWidth().alpha(if (hasRoot) 1f else DisabledAlpha.toFloat()).padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            if (!hasRoot) RootRequiredBanner(dark)
-                            StyledButton(
-                                onClick = { if (hasRoot) viewModel.disconnect() },
-                                backdrop = rememberLayerBackdrop(), isInteractive = hasRoot,
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp)
-                            ) {
-                                Text(stringResource(R.string.disconnect), style = TextStyle(
-                                    fontSize = 16.sp, fontWeight = FontWeight.Normal, fontFamily = SfPro,
-                                    color = if (hasRoot) { if (dark) Color(0xFF0091FF) else Color(0xFF0088FF) } else { if (dark) Color.White.copy(0.35f) else Color.Black.copy(0.35f) }),
-                                    textAlign = TextAlign.Start, modifier = Modifier.fillMaxWidth())
-                            }
-                        }
-                    }
-
-                    // ─── 3. Smart Features ────────────────────────────────
-                    MenuCategory("✨  AirPods Smart Features", dark, expanded = catSmart, onToggle = { catSmart = !catSmart }, highlighted = highlightCategory == "smart") {
-
-                        MenuNavRow("Notification Announcements", dark) { navController.navigate("notification_announcements") }
-                        MenuDivider()
-
-                        if (capabilities.contains(Capability.HEAD_GESTURES)) {
-                            val headOn = sharedPrefs.getBoolean("head_gestures_enabled", true) &&
-                                (sharedPrefs.getBoolean("head_gestures_answer_call", true) || sharedPrefs.getBoolean("head_gestures_mute_call", true))
-                            MenuNavRow("Head Gestures — ${if (headOn) "On" else "Off"}", dark) { navController.navigate("head_tracking") }
-                            MenuDivider()
-                        }
-
-                        // Adaptive Audio — inlined (was AdaptiveStrengthScreen)
-                        val model = state.instance?.model ?: AirPodsPro3()
-                        if (model.capabilities.contains(Capability.ADAPTIVE_VOLUME)) {
-                            MenuSectionHeader("Adaptive Audio", dark)
-                            val adaptiveVal = remember {
-                                mutableFloatStateOf(100f - (state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.AUTO_ANC_STRENGTH]?.getOrNull(0)?.toFloat() ?: 50f))
-                            }
-                            var adaptiveJob by remember { mutableStateOf<Job?>(null) }
-                            Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                                StyledSlider(
-                                    label = stringResource(R.string.customize_adaptive_audio),
-                                    value = adaptiveVal.floatValue,
-                                    onValueChange = {
-                                        adaptiveVal.floatValue = it
-                                        adaptiveJob?.cancel()
-                                        adaptiveJob = scope.launch {
-                                            delay(150)
-                                            viewModel.setControlCommandValue(AACPManager.Companion.ControlCommandIdentifiers.AUTO_ANC_STRENGTH, byteArrayOf((100 - it).toInt().toByte()))
-                                        }
-                                    },
-                                    valueRange = 0f..100f,
-                                    snapPoints = listOf(0f, 50f, 100f),
-                                    startIcon = "􀊥", endIcon = "􀊩",
-                                    independent = true,
-                                    description = stringResource(R.string.adaptive_audio_description),
-                                    enabled = state.isPremium
-                                )
-                            }
-                            MenuDivider()
-                        }
-
-                        // Camera Control — inlined
-                        if (capabilities.contains(Capability.STEM_CONFIG) && !BuildConfig.PLAY_BUILD) {
-                            MenuSectionHeader("Camera Control", dark)
-                            Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                                val currentCameraAction by viewModel.cameraAction.collectAsState()
-
-                                // Check if AppListenerService (Accessibility) is enabled
-                                var accessibilityGranted by remember {
-                                    mutableStateOf(
-                                        (context.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager)
-                                            .getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
-                                            .any {
-                                                val sc = ComponentName(context, AppListenerService::class.java)
-                                                it.resolveInfo.serviceInfo.packageName == sc.packageName &&
-                                                    it.resolveInfo.serviceInfo.name == sc.className
-                                            }
-                                    )
-                                }
-                                // Re-check when composable comes back into focus
-                                LaunchedEffect(Unit) {
-                                    while (true) {
-                                        delay(1000)
-                                        accessibilityGranted = (context.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager)
-                                            .getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
-                                            .any {
-                                                val sc = ComponentName(context, AppListenerService::class.java)
-                                                it.resolveInfo.serviceInfo.packageName == sc.packageName &&
-                                                    it.resolveInfo.serviceInfo.name == sc.className
-                                            }
-                                    }
-                                }
-
-                                // Permission explanation + grant button
-                                if (!accessibilityGranted) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .background(
-                                                if (dark) Color(0xFF2C2C2E) else Color(0xFFFFF3E0),
-                                                RoundedCornerShape(12.dp)
-                                            )
-                                            .padding(horizontal = 14.dp, vertical = 10.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Column(Modifier.weight(1f)) {
-                                            Text(
-                                                "Accessibility permission required",
-                                                style = TextStyle(
-                                                    fontSize = 13.sp,
-                                                    fontWeight = FontWeight.SemiBold,
-                                                    fontFamily = SfPro,
-                                                    color = Color(0xFFFF9500)
-                                                )
-                                            )
-                                            Spacer(Modifier.height(2.dp))
-                                            Text(
-                                                "Camera Control needs an Accessibility Service to detect when the camera app is open. Tap Grant → find \"Camera listener\" → toggle it ON.",
-                                                style = TextStyle(
-                                                    fontSize = 12.sp,
-                                                    fontFamily = SfPro,
-                                                    color = if (dark) Color.White.copy(0.65f) else Color.Black.copy(0.65f)
-                                                )
-                                            )
-                                        }
-                                        StyledButton(
-                                            onClick = {
-                                                // On API 33+ open directly to this app's accessibility service page
-                                                // Pre-scroll to the LibrePods service entry via fragment args.
-                                                // This is the correct approach for third-party apps —
-                                                // ACTION_ACCESSIBILITY_DETAILS_SETTINGS requires a system permission.
-                                                val componentName = "${context.packageName}/.services.AppListenerService"
-                                                val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-                                                    putExtra(":settings:show_fragment_args",
-                                                        android.os.Bundle().apply {
-                                                            putString(":settings:fragment_args_key", componentName)
-                                                        }
-                                                    )
-                                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                                }
-                                                runCatching { context.startActivity(intent) }.onFailure {
-                                                    context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-                                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                                    })
-                                                }
-                                            },
-                                            backdrop = rememberLayerBackdrop(),
-                                            modifier = Modifier.heightIn(min = 36.dp)
-                                        ) {
-                                            Text(
-                                                "Grant",
-                                                style = TextStyle(
-                                                    fontSize = 13.sp,
-                                                    fontWeight = FontWeight.Medium,
-                                                    fontFamily = SfPro,
-                                                    color = if (dark) Color.White else Color.Black
-                                                )
-                                            )
-                                        }
-                                    }
-                                    Spacer(Modifier.height(8.dp))
-                                }
-
-                                // Selector — disabled when permission not granted
-                                Column(
-                                    Modifier.alpha(if (accessibilityGranted) 1f else DisabledAlpha.toFloat())
-                                ) {
-                                    StyledSelectList(items = listOf(
-                                        SelectItem("Off",
-                                            selected = currentCameraAction == null,
-                                            enabled = accessibilityGranted || currentCameraAction == null,
-                                            onClick = { viewModel.setCameraAction(null) }),
-                                        SelectItem("Press once",
-                                            selected = currentCameraAction == AACPManager.Companion.StemPressType.SINGLE_PRESS,
-                                            enabled = accessibilityGranted,
-                                            onClick = { viewModel.setCameraAction(AACPManager.Companion.StemPressType.SINGLE_PRESS) }),
-                                        SelectItem("Press and hold",
-                                            selected = currentCameraAction == AACPManager.Companion.StemPressType.LONG_PRESS,
-                                            enabled = accessibilityGranted,
-                                            onClick = { viewModel.setCameraAction(AACPManager.Companion.StemPressType.LONG_PRESS) })
-                                    ))
-                                }
-                            }
-                            MenuDivider()
-                        }
-
-                        MenuSectionHeader("ANC Profiles", dark)
-                        Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-                            MenuNavRow("View & manage profiles", dark) { navController.navigate("anc_profiles") }
-                        }
-                        MenuDivider()
-
-                        // Off Listening Mode
-                        if (capabilities.contains(Capability.LOUD_SOUND_REDUCTION)) {
-                            val id = AACPManager.Companion.ControlCommandIdentifiers.ALLOW_OFF_OPTION
-                            Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                                StyledToggle(label = stringResource(R.string.off_listening_mode), description = stringResource(R.string.off_listening_mode_description), checked = state.controlStates[id]?.getOrNull(0) == 0x01.toByte(), onCheckedChange = viewModel::setOffListeningMode)
-                            }
-                            MenuDivider()
-                        }
-
-                        // Sleep Detection + Optimized Charging
-                        MenuSectionHeader("Automation", dark)
-                        Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                            if (capabilities.contains(Capability.SLEEP_DETECTION)) {
-                                val id = AACPManager.Companion.ControlCommandIdentifiers.SLEEP_DETECTION_CONFIG
-                                StyledToggle(label = stringResource(R.string.sleep_detection), checked = state.controlStates[id]?.getOrNull(0) == 0x01.toByte(), onCheckedChange = { viewModel.setControlCommandBoolean(id, it) }, independent = true, enabled = state.isPremium)
-                                Spacer(Modifier.height(4.dp))
-                            }
-                            StyledToggle(label = stringResource(R.string.optimized_charging), description = stringResource(R.string.optimized_charging_description), checked = state.dynamicEndOfCharge, onCheckedChange = viewModel::setDynamicEndOfCharge, independent = true)
-                        }
-                        MenuDivider()
-
-                        // Smart Features — inlined (Resume, Battery Alerts, Sleep Timer)
-                        MenuSectionHeader("Smart Features", dark)
-                        Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                            var autoResume by remember { mutableStateOf(SmartFeaturesPrefs.autoResumeAfterCall(context)) }
-                            StyledToggle(label = "Resume media after call", checked = autoResume, independent = true, onCheckedChange = {
-                                autoResume = it
-                                SmartFeaturesPrefs.prefs(context).edit().putBoolean(SmartFeaturesPrefs.KEY_AUTO_RESUME_AFTER_CALL, it).apply()
-                            })
-                            Spacer(Modifier.height(4.dp))
-
-                            var batteryAlerts by remember { mutableStateOf(SmartFeaturesPrefs.batteryAlertsEnabled(context)) }
-                            var batteryThreshold by remember { mutableStateOf(SmartFeaturesPrefs.batteryAlertThreshold(context)) }
-                            StyledToggle(label = "Speak when battery is low", checked = batteryAlerts, independent = true, onCheckedChange = {
-                                batteryAlerts = it
-                                SmartFeaturesPrefs.prefs(context).edit().putBoolean(SmartFeaturesPrefs.KEY_BATTERY_ALERTS_ENABLED, it).apply()
-                            })
-                            if (batteryAlerts) {
-                                Spacer(Modifier.height(4.dp))
-                                StyledSlider(
-                                    label = "Alert threshold",
-                                    value = batteryThreshold.toFloat(),
-                                    valueRange = 5f..80f,
-                                    snapPoints = listOf(10f, 20f, 30f, 40f),
-                                    startLabel = "5%", endLabel = "80%",
-                                    onValueChange = {
-                                        batteryThreshold = it.toInt()
-                                        SmartFeaturesPrefs.prefs(context).edit().putInt(SmartFeaturesPrefs.KEY_BATTERY_ALERT_THRESHOLD, it.toInt()).apply()
-                                    },
-                                    independent = true
-                                )
-                            }
-                        }
-                        MenuDivider()
-
-                        // Sleep Timer
-                        MenuSectionHeader("Sleep Timer", dark)
-                        Column(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            var sleepRemainingMs by remember { mutableLongStateOf(SleepTimer.remainingMs(context)) }
-                            DisposableEffect(Unit) {
-                                val l: () -> Unit = { sleepRemainingMs = SleepTimer.remainingMs(context) }
-                                SleepTimer.addListener(l)
-                                onDispose { SleepTimer.removeListener(l) }
-                            }
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                listOf(15, 30, 45, 60, 90).forEach { mins ->
-                                    StyledButton(
-                                        onClick = { SleepTimer.start(context, mins * 60_000L); sleepRemainingMs = SleepTimer.remainingMs(context) },
-                                        backdrop = rememberLayerBackdrop(),
-                                        modifier = Modifier.weight(1f).heightIn(min = 40.dp)
-                                    ) {
-                                        Text("${mins}m", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro, color = if (dark) Color.White else Color.Black))
-                                    }
-                                }
-                            }
-                            if (sleepRemainingMs > 0L) {
-                                val mins = (sleepRemainingMs / 60_000L).toInt()
-                                val secs = ((sleepRemainingMs % 60_000L) / 1000L).toInt()
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                    Text("⏱ ${mins}m ${secs}s remaining", style = TextStyle(fontSize = 13.sp, fontFamily = SfPro, color = if (dark) Color.White.copy(0.7f) else Color.Black.copy(0.7f)))
-                                    StyledButton(onClick = { SleepTimer.cancel(context); sleepRemainingMs = 0L }, backdrop = rememberLayerBackdrop(), modifier = Modifier.heightIn(min = 36.dp)) {
-                                        Text("Cancel", style = TextStyle(fontSize = 13.sp, fontFamily = SfPro, color = if (dark) Color.White else Color.Black))
-                                    }
-                                }
-                            } else {
-                                Text("No timer running", style = captionStyle(dark))
-                            }
-                        }
-                    }
-
-                    // ─── 4. App Settings ──────────────────────────────────
-                    MenuCategory("📱  App Settings", dark, expanded = catAppSettings, onToggle = { catAppSettings = !catAppSettings }, highlighted = highlightCategory == "appsettings") {
-                        Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                            StyledToggle(label = stringResource(R.string.show_phone_battery_in_widget), description = stringResource(R.string.show_phone_battery_in_widget_description), checked = appState.showPhoneBatteryInWidget, onCheckedChange = appSettingsViewModel::setShowPhoneBatteryInWidget, independent = true, enabled = appState.isPremium)
-                        }
-                        MenuDivider()
-                        MenuSectionHeader("Pop-up Animations", dark)
-                        Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                            StyledToggle(label = stringResource(R.string.show_bottom_sheet_popup), description = stringResource(R.string.show_bottom_sheet_popup_description), checked = appState.showBottomSheetPopup, onCheckedChange = appSettingsViewModel::setShowBottomSheetPopup, independent = true)
-                            Spacer(Modifier.height(4.dp))
-                            StyledToggle(label = stringResource(R.string.show_island_popup), description = stringResource(R.string.show_island_popup_description), checked = appState.showIslandPopup, onCheckedChange = appSettingsViewModel::setShowIslandPopup, independent = true)
-                        }
-                        if (XposedState.isAvailable && XposedState.bluetoothScopeEnabled) {
-                            MenuDivider()
-                            val restartMsg = stringResource(R.string.found_offset_restart_bluetooth)
-                            Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                                StyledToggle(label = stringResource(R.string.act_as_an_apple_device) + " (${stringResource(R.string.requires_xposed)})", description = stringResource(R.string.act_as_an_apple_device_description), checked = appState.vendorIdHook, onCheckedChange = { Toast.makeText(context, restartMsg, Toast.LENGTH_SHORT).show(); appSettingsViewModel.setVendorIdHook(it) }, independent = true, enabled = appState.isPremium)
-                            }
-                        }
-                        MenuDivider()
-                        MenuNavRow("Permissions", dark) { navController.navigate("permissions") }
-                    }
-
-                    // ─── 5. Audio & Connection ────────────────────────────
-                    MenuCategory("🔊  Audio & Connection", dark, expanded = catAudio, onToggle = { catAudio = !catAudio }, highlighted = highlightCategory == "audio") {
-                        val m = state.instance?.model ?: AirPodsPro3()
-                        Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                            AudioSettings(
-                                navController = navController,
-                                adaptiveVolumeCapability = m.capabilities.contains(Capability.ADAPTIVE_VOLUME),
-                                conversationalAwarenessCapability = m.capabilities.contains(Capability.CONVERSATION_AWARENESS),
-                                loudSoundReductionCapability = m.capabilities.contains(Capability.LOUD_SOUND_REDUCTION),
-                                adaptiveAudioCapability = m.capabilities.contains(Capability.ADAPTIVE_VOLUME),
-                                adaptiveVolumeChecked = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.ADAPTIVE_VOLUME_CONFIG]?.getOrNull(0) == 0x01.toByte(),
-                                onAdaptiveVolumeCheckedChange = { viewModel.setControlCommandBoolean(AACPManager.Companion.ControlCommandIdentifiers.ADAPTIVE_VOLUME_CONFIG, it) },
-                                conversationalAwarenessChecked = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.CONVERSATION_DETECT_CONFIG]?.getOrNull(0) == 0x01.toByte() && state.isPremium,
-                                onConversationalAwarenessCheckedChange = { viewModel.setControlCommandBoolean(AACPManager.Companion.ControlCommandIdentifiers.CONVERSATION_DETECT_CONFIG, it) },
-                                loudSoundReductionChecked = state.loudSoundReductionEnabled,
-                                onLoudSoundReductionCheckedChange = { viewModel.setATTCharacteristicValue(ATTHandles.LOUD_SOUND_REDUCTION, byteArrayOf(if (it) 0x01.toByte() else 0x00.toByte())) },
-                                vendorIdHook = state.vendorIdHook, isPremium = state.isPremium
-                            )
-                        }
-                        MenuDivider()
-                        Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                            ConnectionSettings(automaticEarDetectionEnabled = state.automaticEarDetectionEnabled, onAutomaticEarDetectionChanged = { viewModel.setAutomaticEarDetectionEnabled(it) }, automaticConnectionEnabled = state.automaticConnectionEnabled, onAutomaticConnectionChanged = { viewModel.setAutomaticConnectionEnabled(it) })
-                        }
-                        MenuDivider()
-                        Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                            val id = AACPManager.Companion.ControlCommandIdentifiers.MIC_MODE
-                            MicrophoneSettings(hazeState = remember { HazeState() }, micModeValue = state.controlStates[id]?.getOrNull(0) ?: 0x00.toByte(), onMicModeValueChanged = { viewModel.setControlCommandByte(id, it) })
-                        }
-                        if (context.checkSelfPermission("android.permission.BLUETOOTH_PRIVILEGED") == PackageManager.PERMISSION_GRANTED) {
-                            MenuDivider()
-                            Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                                StyledToggle(label = stringResource(R.string.disconnect_when_not_wearing), description = stringResource(R.string.disconnect_when_not_wearing_description), checked = appState.disconnectWhenNotWearing, onCheckedChange = appSettingsViewModel::setDisconnectWhenNotWearing, independent = true, enabled = appState.isPremium)
-                            }
-                        }
-                        MenuDivider()
-                        MenuSectionHeader(stringResource(R.string.takeover_airpods_state), dark)
-                        Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                            StyledToggle(label = stringResource(R.string.takeover_disconnected), description = stringResource(R.string.takeover_disconnected_desc), checked = appState.takeoverWhenDisconnected, onCheckedChange = appSettingsViewModel::setTakeoverWhenDisconnected, independent = true, enabled = appState.isPremium)
-                            Spacer(Modifier.height(4.dp))
-                            StyledToggle(label = stringResource(R.string.takeover_idle), description = stringResource(R.string.takeover_idle_desc), checked = appState.takeoverWhenIdle, onCheckedChange = appSettingsViewModel::setTakeoverWhenIdle, independent = true, enabled = appState.isPremium)
-                            Spacer(Modifier.height(4.dp))
-                            StyledToggle(label = stringResource(R.string.takeover_music), description = stringResource(R.string.takeover_music_desc), checked = appState.takeoverWhenMusic, onCheckedChange = appSettingsViewModel::setTakeoverWhenMusic, independent = true, enabled = appState.isPremium)
-                            Spacer(Modifier.height(4.dp))
-                            StyledToggle(label = stringResource(R.string.takeover_call), description = stringResource(R.string.takeover_call_desc), checked = appState.takeoverWhenCall, onCheckedChange = appSettingsViewModel::setTakeoverWhenCall, independent = true, enabled = appState.isPremium)
-                        }
-                        MenuDivider()
-                        MenuSectionHeader(stringResource(R.string.takeover_phone_state), dark)
-                        Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                            StyledToggle(label = stringResource(R.string.takeover_ringing_call), description = stringResource(R.string.takeover_ringing_call_desc), checked = appState.takeoverWhenRingingCall, onCheckedChange = appSettingsViewModel::setTakeoverWhenRingingCall, independent = true, enabled = appState.isPremium)
-                            Spacer(Modifier.height(4.dp))
-                            StyledToggle(label = stringResource(R.string.takeover_media_start), description = stringResource(R.string.takeover_media_start_desc), checked = appState.takeoverWhenMediaStart, onCheckedChange = appSettingsViewModel::setTakeoverWhenMediaStart, independent = true, enabled = appState.isPremium)
-                        }
-                    }
-
-                    // ─── 6. Help & Troubleshooting ────────────────────────
-                    MenuCategory("❓  Help & Troubleshooting", dark, expanded = catHelp, onToggle = { catHelp = !catHelp }, highlighted = highlightCategory == "help") {
-                        // AirPods info (moved from main page)
-                        Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                            AboutCard(navController = navController, modelName = state.modelName, actualModel = state.actualModel, serialNumbers = state.serialNumbers, version = state.version3)
-                        }
-                        MenuDivider()
-                        // App + device info (moved from App Settings)
-                        Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                            DeviceInfoCard()
-                            Spacer(Modifier.height(8.dp))
-                            AppInfoCard()
-                        }
-                        MenuDivider()
-                        MenuNavRow("Version Info", dark) { navController.navigate("version_info") }
-                        MenuDivider()
-                        if (!BuildConfig.PLAY_BUILD) {
-                            MenuNavRow("Troubleshooting", dark) { navController.navigate("troubleshooting") }
-                            MenuDivider()
-                        }
-                        MenuNavRow("Email Support", dark) { onOpenContact() }
-                        MenuDivider()
-                        MenuNavRow("Discord Community", dark) { context.startActivity(Intent(Intent.ACTION_VIEW, "https://discord.gg/Ts4wupXcmc".toUri())) }
-                        MenuDivider()
-                        MenuNavRow("GitHub Issues", dark) { context.startActivity(Intent(Intent.ACTION_VIEW, "https://github.com/kavishdevar/librepods/issues".toUri())) }
-                        MenuDivider()
-                        MenuNavRow("Open Source Licenses", dark) { navController.navigate("open_source_licenses") }
-                    }
-
-                    Spacer(Modifier.height(4.dp))
-                }
+            CategoryTileGrid(navController = navController, dark = dark)
         }
 
         item(key = "spacer_bottom") { Spacer(Modifier.height(bottomPadding + 16.dp)) }
     }
 }
+
+@Composable
+private fun CategoryTileGrid(navController: NavController, dark: Boolean) {
+    val tileColor = if (dark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
+    val textColor = if (dark) Color.White else Color.Black
+    val tiles = listOf(
+        Triple("controls",    "🎧", "AirPods Controls"),
+        Triple("settings",    "⚙️", "AirPods Settings"),
+        Triple("smart",       "✨", "Smart Features"),
+        Triple("appsettings", "📱", "App Settings"),
+        Triple("audio",       "🔊", "Audio & Connection"),
+        Triple("help",        "❓", "Help & Support"),
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        tiles.chunked(2).forEach { row ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                row.forEach { (key, emoji, label) ->
+                    androidx.compose.foundation.layout.Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = 110.dp)
+                            .background(tileColor, RoundedCornerShape(18.dp))
+                            .clickable(
+                                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                                indication = null
+                            ) { navController.navigate("category/$key") }
+                            .padding(16.dp),
+                        contentAlignment = Alignment.TopStart
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text(emoji, style = TextStyle(fontSize = 30.sp, fontFamily = SfPro))
+                            Text(label, style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium,
+                                fontFamily = SfPro, color = textColor))
+                        }
+                    }
+                }
+                // Fill empty slot if row has only 1 tile
+                if (row.size == 1) androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+            }
+        }
+    }
+}
+
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  DISCONNECTED MODE
