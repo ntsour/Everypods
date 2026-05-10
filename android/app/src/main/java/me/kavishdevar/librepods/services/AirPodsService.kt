@@ -1298,29 +1298,20 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             StemAction.PREVIOUS_TRACK -> MediaController.sendPreviousTrack()
             StemAction.NEXT_TRACK -> MediaController.sendNextTrack()
             StemAction.DIGITAL_ASSISTANT -> {
-                // android.intent.action.VOICE_ASSIST is the specific intent registered by
-                // Google Search/Gemini for voice-triggered interactions — distinct from
-                // ACTION_ASSIST (text+voice) and ACTION_VOICE_COMMAND (generic).
-                // This is what Google routes hardware voice-button presses to.
-                Log.d("AirPodsParser", "Launching voice assistant via VOICE_ASSIST intent")
+                Log.d("AirPodsParser", "Launching default voice assistant")
                 runCatching {
-                    startActivity(Intent("android.intent.action.VOICE_ASSIST").apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                    startActivity(Intent(Intent.ACTION_VOICE_COMMAND).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     })
-                }.onFailure {
-                    Log.w("AirPodsParser", "VOICE_ASSIST failed ($it), trying VOICE_COMMAND")
+                }.onFailure { voiceCommandError ->
+                    Log.w("AirPodsParser", "VOICE_COMMAND failed ($voiceCommandError), trying ACTION_ASSIST")
                     runCatching {
-                        startActivity(Intent(Intent.ACTION_VOICE_COMMAND).apply {
+                        startActivity(Intent(Intent.ACTION_ASSIST).apply {
+                            putExtra("android.intent.extra.ASSIST_INPUT_HINT_SPEECH", true)
                             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         })
-                    }.onFailure { e ->
-                        Log.w("AirPodsParser", "VOICE_COMMAND failed ($e), trying ACTION_ASSIST")
-                        runCatching {
-                            startActivity(Intent(Intent.ACTION_ASSIST).apply {
-                                putExtra("android.intent.extra.ASSIST_INPUT_HINT_SPEECH", true)
-                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            })
-                        }.onFailure { e2 -> Log.w("AirPodsParser", "All voice intents failed: $e2") }
+                    }.onFailure { assistError ->
+                        Log.w("AirPodsParser", "Assistant launch failed: $assistError")
                     }
                 }
             }
