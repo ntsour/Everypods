@@ -116,7 +116,10 @@ fun AppPermissionsScreen() {
         btGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
             isGranted(Manifest.permission.BLUETOOTH_CONNECT) && isGranted(Manifest.permission.BLUETOOTH_SCAN)
         else isGranted(Manifest.permission.BLUETOOTH)
-        locationGranted     = isGranted(Manifest.permission.ACCESS_FINE_LOCATION)
+        // Location is only needed on Android 11 (API 30) and below for BT scanning.
+        // On API 31+, BLUETOOTH_SCAN with neverForLocation covers this — mark as not-required.
+        locationGranted = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ||
+            isGranted(Manifest.permission.ACCESS_FINE_LOCATION)
         notifGranted        = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) isGranted(Manifest.permission.POST_NOTIFICATIONS) else true
         phoneGranted        = isGranted(Manifest.permission.READ_PHONE_STATE) && isGranted(Manifest.permission.ANSWER_PHONE_CALLS)
         contactsGranted     = isGranted(Manifest.permission.READ_CONTACTS)
@@ -126,6 +129,15 @@ fun AppPermissionsScreen() {
     }
 
     LaunchedEffect(Unit) {
+        // Clear stale permissions_asked flags for permissions that are not relevant on this
+        // Android version (e.g. ACCESS_FINE_LOCATION on API 31+). A stale flag causes the
+        // "permanently denied" branch to fire even though the dialog was never shown.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            context.getSharedPreferences("permissions_asked", Context.MODE_PRIVATE).edit()
+                .remove(Manifest.permission.ACCESS_FINE_LOCATION)
+                .remove(Manifest.permission.ACCESS_COARSE_LOCATION)
+                .apply()
+        }
         refreshAll()
         while (true) { kotlinx.coroutines.delay(1000); refreshAll() }
     }
@@ -179,12 +191,14 @@ fun AppPermissionsScreen() {
                     else
                         grantRuntime(arrayOf(Manifest.permission.BLUETOOTH, Manifest.permission.BLUETOOTH_ADMIN))
                 }
-                RowDivider()
-                PermissionRow(
-                    title = "Location",
-                    description = "Required for Bluetooth scanning on Android 11 and below",
-                    granted = locationGranted, dark = dark, accent = accent, green = green
-                ) { grantRuntime(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)) }
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+                    RowDivider()
+                    PermissionRow(
+                        title = "Location",
+                        description = "Required for Bluetooth scanning on Android 11 and below",
+                        granted = locationGranted, dark = dark, accent = accent, green = green
+                    ) { grantRuntime(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)) }
+                }
                 RowDivider()
                 PermissionRow(
                     title = "Notifications",
@@ -265,7 +279,8 @@ fun AppPermissionsScreen() {
             }
 
             // ── Grant all outstanding standard permissions ────────────────
-            val anyStandardMissing = !btGranted || !locationGranted ||
+            val locationNeeded = Build.VERSION.SDK_INT < Build.VERSION_CODES.S && !locationGranted
+    val anyStandardMissing = !btGranted || locationNeeded ||
                 (!notifGranted && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) ||
                 !phoneGranted || !contactsGranted
             if (anyStandardMissing) {
@@ -282,7 +297,7 @@ fun AppPermissionsScreen() {
                                     add(Manifest.permission.BLUETOOTH_ADMIN)
                                 }
                             }
-                            if (!locationGranted) add(Manifest.permission.ACCESS_FINE_LOCATION)
+                            if (locationNeeded) add(Manifest.permission.ACCESS_FINE_LOCATION)
                             if (!notifGranted && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
                                 add(Manifest.permission.POST_NOTIFICATIONS)
                             if (!phoneGranted) {

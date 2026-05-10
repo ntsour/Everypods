@@ -1295,22 +1295,31 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             StemAction.PREVIOUS_TRACK -> MediaController.sendPreviousTrack()
             StemAction.NEXT_TRACK -> MediaController.sendNextTrack()
             StemAction.DIGITAL_ASSISTANT -> {
-                // ACTION_ASSIST with ASSIST_INPUT_HINT_SPEECH tells the configured assistant
-                // (Gemini, Google Assistant, etc.) to start immediately in voice-listening mode —
-                // the same path used by car/watch triggers. No package hardcoding needed.
-                val voiceIntent = Intent(Intent.ACTION_ASSIST).apply {
-                    putExtra("android.intent.extra.ASSIST_INPUT_HINT_SPEECH", true)
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                }
-                runCatching { startActivity(voiceIntent) }.onFailure {
-                    Log.w("AirPodsParser", "ACTION_ASSIST failed, trying VOICE_COMMAND: $it")
-                    // Fallback: VOICE_COMMAND also routes to the default assistant
+                // GLOBAL_ACTION_VOICE_ASSIST via the accessibility service is the correct
+                // Android API for triggering voice assistant directly in listening mode —
+                // the same path used by screen readers, Android Auto, and wearables.
+                // It is equivalent to long-pressing the home/assistant hardware button.
+                val accessibilitySvc = AppListenerService.instance
+                val triggeredViaAccessibility = accessibilitySvc != null &&
+                    accessibilitySvc.performGlobalAction(7 /* GLOBAL_ACTION_VOICE_ASSIST */)
+
+                if (!triggeredViaAccessibility) {
+                    Log.w("AirPodsParser", "Accessibility service not available, falling back to KEYCODE_VOICE_ASSIST")
+                    // Fallback: simulate the hardware voice-assist button press the same way
+                    // Bluetooth headsets do — AudioManager routes KEYCODE_VOICE_ASSIST to the
+                    // configured assistant in voice mode.
+                    val am = getSystemService(android.media.AudioManager::class.java)
                     runCatching {
-                        startActivity(Intent(Intent.ACTION_VOICE_COMMAND).apply {
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        })
-                    }.onFailure { e ->
-                        Log.w("AirPodsParser", "Voice assistant unavailable: $e")
+                        am.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_VOICE_ASSIST))
+                        am.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP,   android.view.KeyEvent.KEYCODE_VOICE_ASSIST))
+                    }.onFailure {
+                        // Last resort: intent-based launch
+                        runCatching {
+                            startActivity(Intent(Intent.ACTION_ASSIST).apply {
+                                putExtra("android.intent.extra.ASSIST_INPUT_HINT_SPEECH", true)
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                            })
+                        }.onFailure { e -> Log.w("AirPodsParser", "Voice assistant unavailable: $e") }
                     }
                 }
             }
