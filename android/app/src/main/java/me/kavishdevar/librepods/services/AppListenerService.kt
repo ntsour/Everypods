@@ -127,7 +127,7 @@ class AppListenerService: AccessibilityService() {
         val metrics = DisplayMetrics()
         @Suppress("DEPRECATION") wm.defaultDisplay.getRealMetrics(metrics)
         val cx = metrics.widthPixels / 2f
-        val cy = metrics.heightPixels * 0.82f
+        val cy = metrics.heightPixels * 0.74f  // shutter button at ~74% down the screen
         Log.d(TAG, "triggerShutter: tapping shutter at ($cx, $cy) on ${metrics.widthPixels}x${metrics.heightPixels}")
 
         val path = Path().apply { moveTo(cx, cy) }
