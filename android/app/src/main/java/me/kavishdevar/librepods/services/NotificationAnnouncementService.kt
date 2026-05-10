@@ -65,15 +65,13 @@ class NotificationAnnouncementService : NotificationListenerService() {
             val flat = Settings.Secure.getString(
                 context.contentResolver, "enabled_notification_listeners"
             ) ?: return false
-            // Accept either NotificationAnnouncementService or TeamsNotifListener —
-            // the user only sees one "LibrePods" entry in notification access settings,
-            // and both services share the same notification access grant.
-            val pkg = context.packageName
-            return flat.split(":").any { entry ->
-                val trimmed = entry.trim()
-                trimmed == "$pkg/${NotificationAnnouncementService::class.java.name}" ||
-                trimmed == "$pkg/${TeamsNotifListener::class.java.name}"
-            }
+            // Each NotificationListenerService in the manifest gets its own entry in
+            // Android's Notification Access settings (distinguished by android:label).
+            // We need THIS specific service enabled; TeamsNotifListener being on
+            // doesn't bind us. Trim() each entry — Settings.Secure value can have
+            // trailing newlines.
+            val cn = "${context.packageName}/${NotificationAnnouncementService::class.java.name}"
+            return flat.split(":").any { it.trim() == cn }
         }
 
         fun openAccessSettings(context: Context) {

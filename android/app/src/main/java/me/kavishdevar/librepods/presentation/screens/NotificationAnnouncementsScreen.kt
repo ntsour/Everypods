@@ -196,9 +196,14 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
                         fontFamily = FontFamily(Font(R.font.sf_pro))
                     )
                 )
-                PermStatusRow("Notification access", notifAccess) {
-                    NotificationAnnouncementService.openAccessSettings(context)
-                }
+                PermStatusRow(
+                    label = "Notification access",
+                    granted = notifAccess,
+                    hint = if (!notifAccess)
+                        "Enable \"LibrePods Notification Announcements\" in the list (LibrePods has two entries — pick this one, not Teams Mute Sync)."
+                    else null,
+                    onClick = { NotificationAnnouncementService.openAccessSettings(context) }
+                )
                 PermStatusRow("Contacts (caller name lookup)", contactsGranted) {
                     grantPermission(Manifest.permission.READ_CONTACTS)
                 }
@@ -648,7 +653,12 @@ private fun TimeRow(
 }
 
 @Composable
-private fun PermStatusRow(label: String, granted: Boolean, onClick: () -> Unit) {
+private fun PermStatusRow(
+    label: String,
+    granted: Boolean,
+    hint: String? = null,
+    onClick: () -> Unit,
+) {
     val isDark = isSystemInDarkTheme()
     val textColor = if (isDark) Color.White else Color.Black
     val statusColor = if (granted) Color(0xFF34C759) else Color(0xFFFF9500)
@@ -671,6 +681,19 @@ private fun PermStatusRow(label: String, granted: Boolean, onClick: () -> Unit) 
                 fontFamily = FontFamily(Font(R.font.sf_pro))
             )
         )
+        if (!granted && hint != null) {
+            Text(
+                text = hint,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp),
+                style = TextStyle(
+                    fontSize = 12.sp,
+                    color = textColor.copy(alpha = 0.55f),
+                    fontFamily = FontFamily(Font(R.font.sf_pro))
+                )
+            )
+        }
         if (!granted) {
             // Make the row clickable by overlaying a tap target.
             androidx.compose.foundation.layout.Box(
