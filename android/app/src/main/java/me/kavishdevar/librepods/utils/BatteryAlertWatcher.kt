@@ -33,8 +33,8 @@ import me.kavishdevar.librepods.data.BatteryStatus
  *  3. Every 2 % decrease once below 10 %        (e.g. 9 %, 7 %, 5 %…)
  *  4. Once at or below 2 %, repeat every 10 min (time-based reminder).
  *
- * State resets when the component starts charging or recovers above
- * threshold + RESET_MARGIN.
+ * State resets when the component recovers above threshold + RESET_MARGIN.
+ * Charging/disconnect updates clear any pending in-ear alert.
  */
 object BatteryAlertWatcher {
 
@@ -51,7 +51,8 @@ object BatteryAlertWatcher {
     private data class ComponentState(
         var lastAlertedLevel: Int = Int.MAX_VALUE,   // level at which we last spoke
         var lastAlertedAt: Long = 0L,                // timestamp of last alert
-        var armed: Boolean = false                   // true once we've crossed below threshold
+        var armed: Boolean = false,                  // true once we've crossed below threshold
+        var pendingLevel: Int? = null                // low level seen while buds were out of ear / in case
     )
 
     private val state = mutableMapOf<Int, ComponentState>()
@@ -59,7 +60,12 @@ object BatteryAlertWatcher {
     private fun stateFor(component: Int) =
         state.getOrPut(component) { ComponentState() }
 
-    fun checkAndMaybeAlert(ctx: Context, batteries: List<Battery>) {
+    fun checkAndMaybeAlert(
+        ctx: Context,
+        batteries: List<Battery>,
+        anyBudInEar: Boolean,
+        forceSpeakIfLow: Boolean = false
+    ) {
         if (!SmartFeaturesPrefs.batteryAlertsEnabled(ctx)) return
         val threshold = SmartFeaturesPrefs.batteryAlertThreshold(ctx)
 
@@ -71,59 +77,72 @@ object BatteryAlertWatcher {
 
             val s = stateFor(b.component)
 
-            // Reset on charging or disconnect
-            if (b.status == BatteryStatus.CHARGING ||
-                b.status == BatteryStatus.OPTIMIZED_CHARGING ||
-                b.status == BatteryStatus.DISCONNECTED
+            // Buds report fresh low levels while entering the case; queue those until
+            // they are worn again. The case often reports only while open/charging, so
+            // do not suppress case alerts just because it is charging.
+            if ((b.status == BatteryStatus.CHARGING ||
+                    b.status == BatteryStatus.OPTIMIZED_CHARGING ||
+                    b.status == BatteryStatus.DISCONNECTED) &&
+                b.component != BatteryComponent.CASE
             ) {
-                state.remove(b.component as Int)
+                s.pendingLevel = null
                 continue
             }
             if (b.level <= 0) continue
 
             // Rearm: recovered well above threshold — start fresh
             if (b.level > threshold + RESET_MARGIN) {
-                state.remove(b.component as Int)
+                state.remove(b.component)
                 continue
             }
 
             val level = b.level
             val now = System.currentTimeMillis()
+            val shouldSpeak = shouldSpeakNow(s, level, now, threshold, forceSpeakIfLow)
 
-            // ── Tier 4: repeat at or below 2 % every 10 min ──────────────────
-            if (level <= REPEAT_LEVEL) {
-                if (now - s.lastAlertedAt >= REPEAT_INTERVAL_MS) {
-                    Log.d(TAG, "${b.component} critically low ($level%) — repeating every 10 min")
+            if (s.pendingLevel != null && (anyBudInEar || forceSpeakIfLow)) {
+                val pendingLevel = s.pendingLevel ?: level
+                Log.d(TAG, "${b.component} low battery pending alert ($pendingLevel%)")
+                speak(ctx, Battery(b.component, pendingLevel, b.status))
+                markAlerted(s, pendingLevel, now)
+                s.pendingLevel = null
+                continue
+            }
+
+            if (shouldSpeak) {
+                if (anyBudInEar || forceSpeakIfLow) {
+                    Log.d(TAG, "${b.component} low battery alert at $level%")
                     speak(ctx, b)
-                    s.lastAlertedAt = now
-                    s.lastAlertedLevel = level
+                    markAlerted(s, level, now)
+                } else {
+                    Log.d(TAG, "${b.component} low battery queued until buds are in ear ($level%)")
+                    s.pendingLevel = minOf(s.pendingLevel ?: level, level)
                     s.armed = true
                 }
-                continue
-            }
-
-            // ── Arm: first crossing below threshold ───────────────────────────
-            if (!s.armed && level <= threshold) {
-                Log.d(TAG, "${b.component} crossed threshold at $level%")
-                speak(ctx, b)
-                s.lastAlertedAt = now
-                s.lastAlertedLevel = level
-                s.armed = true
-                continue
-            }
-
-            if (!s.armed) continue  // still above threshold
-
-            // ── Tier 2/3: step-based escalation ──────────────────────────────
-            val step = if (level < CRITICAL_LEVEL) STEP_CRITICAL else STEP_NORMAL
-            // Alert when we've dropped at least `step` % below the last alerted level
-            if (level <= s.lastAlertedLevel - step) {
-                Log.d(TAG, "${b.component} stepped down to $level% (step=$step%)")
-                speak(ctx, b)
-                s.lastAlertedAt = now
-                s.lastAlertedLevel = level
             }
         }
+    }
+
+    private fun shouldSpeakNow(
+        s: ComponentState,
+        level: Int,
+        now: Long,
+        threshold: Int,
+        forceSpeakIfLow: Boolean
+    ): Boolean {
+        if (forceSpeakIfLow) return level <= threshold
+        if (level <= REPEAT_LEVEL) {
+            return now - s.lastAlertedAt >= REPEAT_INTERVAL_MS
+        }
+        if (!s.armed) return level <= threshold
+        val step = if (level < CRITICAL_LEVEL) STEP_CRITICAL else STEP_NORMAL
+        return level <= s.lastAlertedLevel - step
+    }
+
+    private fun markAlerted(s: ComponentState, level: Int, now: Long) {
+        s.lastAlertedAt = now
+        s.lastAlertedLevel = level
+        s.armed = true
     }
 
     private fun speak(ctx: Context, b: Battery) {
