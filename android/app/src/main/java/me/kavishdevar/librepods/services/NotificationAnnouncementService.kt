@@ -50,6 +50,7 @@ class NotificationAnnouncementService : NotificationListenerService() {
 
     companion object {
         private const val TAG = "NotifAnnounceSvc"
+        private const val DUPLICATE_WINDOW_MS = 12_000L
 
         // Skip our own foreground service notification, MIUI/OneUI system
         // notifications, and ongoing/group-summary entries that aren't really
@@ -80,6 +81,8 @@ class NotificationAnnouncementService : NotificationListenerService() {
             context.startActivity(intent)
         }
     }
+
+    private val recentAnnouncements = LinkedHashMap<String, Long>()
 
     override fun onListenerConnected() {
         super.onListenerConnected()
@@ -113,8 +116,36 @@ class NotificationAnnouncementService : NotificationListenerService() {
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         if (!shouldAnnounce(sbn)) return
         val text = buildAnnouncement(sbn) ?: return
+        if (isDuplicateAnnouncement(sbn, text)) return
         Log.d(TAG, "Announcing from ${sbn.packageName}: \"$text\"")
         announceText(text)
+    }
+
+    private fun isDuplicateAnnouncement(sbn: StatusBarNotification, text: String): Boolean {
+        val now = System.currentTimeMillis()
+        synchronized(recentAnnouncements) {
+            val iterator = recentAnnouncements.entries.iterator()
+            while (iterator.hasNext()) {
+                if (now - iterator.next().value > DUPLICATE_WINDOW_MS) iterator.remove()
+            }
+
+            val keySignature = "key:${sbn.key}"
+            val textSignature = "text:${sbn.packageName}:${text.normalizedForDedupe()}"
+            if (recentAnnouncements.containsKey(keySignature) ||
+                recentAnnouncements.containsKey(textSignature)
+            ) {
+                Log.d(TAG, "Skip duplicate announcement from ${sbn.packageName}")
+                return true
+            }
+
+            recentAnnouncements[keySignature] = now
+            recentAnnouncements[textSignature] = now
+            while (recentAnnouncements.size > 80) {
+                val firstKey = recentAnnouncements.entries.firstOrNull()?.key ?: break
+                recentAnnouncements.remove(firstKey)
+            }
+            return false
+        }
     }
 
     private fun shouldAnnounce(sbn: StatusBarNotification): Boolean {
@@ -242,4 +273,7 @@ class NotificationAnnouncementService : NotificationListenerService() {
             packageName
         }
     }
+
+    private fun String.normalizedForDedupe(): String =
+        trim().replace(Regex("\\s+"), " ").lowercase()
 }

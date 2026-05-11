@@ -338,6 +338,14 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             device: BLEManager.AirPodsStatus, leftInEar: Boolean, rightInEar: Boolean
         ) {
             Log.d(TAG, "Ear state changed - Left: $leftInEar, Right: $rightInEar")
+            if (leftInEar || rightInEar) {
+                me.kavishdevar.librepods.utils.BatteryAlertWatcher.checkAndMaybeAlert(
+                    this@AirPodsService,
+                    batteryNotification.getBattery(),
+                    true
+                )
+                scheduleStartupBatteryAlertAfterInEar()
+            }
 
             // In BLE-only mode, ear detection is purely based on BLE data
             if (config.bleOnlyMode) {
@@ -962,9 +970,6 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     this@AirPodsService.getSharedPreferences("settings", MODE_PRIVATE)
                         .getString("name", device?.name),
                     batteryNotification.getBattery()
-                )
-                me.kavishdevar.librepods.utils.BatteryAlertWatcher.checkAndMaybeAlert(
-                    this@AirPodsService, batteryNotification.getBattery()
                 )
 //                CrossDevice.sendRemotePacket(batteryInfo)
 //                CrossDevice.batteryBytes = batteryInfo
@@ -1996,7 +2001,49 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             putParcelableArrayListExtra("data", ArrayList(batteryNotification.getBattery()))
             setPackage(packageName)
         })
+        me.kavishdevar.librepods.utils.BatteryAlertWatcher.checkAndMaybeAlert(
+            this,
+            batteryNotification.getBattery(),
+            bleManager.getMostRecentStatus()?.let { it.isLeftInEar || it.isRightInEar } == true
+        )
     }
+
+    @Volatile private var startupBatteryAlertArmed = false
+    private var startupBatteryAlertJob: kotlinx.coroutines.Job? = null
+
+    private fun armStartupBatteryAlert() {
+        startupBatteryAlertArmed = true
+        startupBatteryAlertJob?.cancel()
+        startupBatteryAlertJob = CoroutineScope(Dispatchers.IO).launch {
+            delay(15_000L)
+            runStartupBatteryAlert()
+        }
+        if (isAnyBudInEarFromBle()) scheduleStartupBatteryAlertAfterInEar()
+    }
+
+    private fun scheduleStartupBatteryAlertAfterInEar() {
+        if (!startupBatteryAlertArmed) return
+        startupBatteryAlertJob?.cancel()
+        startupBatteryAlertJob = CoroutineScope(Dispatchers.IO).launch {
+            delay(2_000L)
+            runStartupBatteryAlert()
+        }
+    }
+
+    private fun runStartupBatteryAlert() {
+        if (!startupBatteryAlertArmed) return
+        startupBatteryAlertArmed = false
+        startupBatteryAlertJob = null
+        me.kavishdevar.librepods.utils.BatteryAlertWatcher.checkAndMaybeAlert(
+            this@AirPodsService,
+            batteryNotification.getBattery(),
+            anyBudInEar = isAnyBudInEarFromBle(),
+            forceSpeakIfLow = true
+        )
+    }
+
+    private fun isAnyBudInEarFromBle(): Boolean =
+        bleManager.getMostRecentStatus()?.let { it.isLeftInEar || it.isRightInEar } == true
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     fun sendBatteryNotification() {
@@ -2981,6 +3028,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                         Log.d(TAG, "<LogCollector:Complete:Success> Socket connected")
                         sharedPreferences.edit { putBoolean("connection_successful", true) }
                         sendBroadcast(Intent(AirPodsNotifications.AIRPODS_L2CAP_CONNECTED))
+                        armStartupBatteryAlert()
                     } catch (e: Exception) {
 //                        sharedPreferences.edit { putBoolean("connection_successful", false) }
                         Log.d(
@@ -3402,6 +3450,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         } catch (e: Exception) {
             e.printStackTrace()
         }
+        startupBatteryAlertJob?.cancel()
+        startupBatteryAlertJob = null
+        startupBatteryAlertArmed = false
         if (checkSelfPermission("android.permission.READ_PHONE_STATE") == PackageManager.PERMISSION_GRANTED) {
             telephonyManager.unregisterTelephonyCallback(phoneStateListener)
         }
