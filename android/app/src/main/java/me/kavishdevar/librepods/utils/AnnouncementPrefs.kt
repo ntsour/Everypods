@@ -261,39 +261,39 @@ object AnnouncementPrefs {
         val lang = language.lowercase()
         return when (lang) {
             "es" -> when (component) {
-                "left" -> "AirPod izquierdo al $level por ciento"
-                "right" -> "AirPod derecho al $level por ciento"
-                "case" -> "Estuche al $level por ciento"
+                "left" -> "Batería del AirPod izquierdo al $level por ciento"
+                "right" -> "Batería del AirPod derecho al $level por ciento"
+                "case" -> "Batería del estuche de los AirPods al $level por ciento"
                 else -> "Batería al $level por ciento"
             }
             "fr" -> when (component) {
-                "left" -> "AirPod gauche à $level pour cent"
-                "right" -> "AirPod droit à $level pour cent"
-                "case" -> "Boîtier à $level pour cent"
+                "left" -> "Batterie de l'AirPod gauche à $level pour cent"
+                "right" -> "Batterie de l'AirPod droit à $level pour cent"
+                "case" -> "Batterie du boîtier des AirPods à $level pour cent"
                 else -> "Batterie à $level pour cent"
             }
             "de" -> when (component) {
-                "left" -> "Linker AirPod bei $level Prozent"
-                "right" -> "Rechter AirPod bei $level Prozent"
-                "case" -> "Ladecase bei $level Prozent"
+                "left" -> "Batterie des linken AirPods bei $level Prozent"
+                "right" -> "Batterie des rechten AirPods bei $level Prozent"
+                "case" -> "Batterie des AirPods Ladecase bei $level Prozent"
                 else -> "Akku bei $level Prozent"
             }
             "it" -> when (component) {
-                "left" -> "AirPod sinistro al $level percento"
-                "right" -> "AirPod destro al $level percento"
-                "case" -> "Custodia al $level percento"
+                "left" -> "Batteria dell'AirPod sinistro al $level percento"
+                "right" -> "Batteria dell'AirPod destro al $level percento"
+                "case" -> "Batteria della custodia degli AirPods al $level percento"
                 else -> "Batteria al $level percento"
             }
             "pt" -> when (component) {
-                "left" -> "AirPod esquerdo a $level por cento"
-                "right" -> "AirPod direito a $level por cento"
-                "case" -> "Estojo a $level por cento"
+                "left" -> "Bateria do AirPod esquerdo a $level por cento"
+                "right" -> "Bateria do AirPod direito a $level por cento"
+                "case" -> "Bateria do estojo dos AirPods a $level por cento"
                 else -> "Bateria a $level por cento"
             }
             else -> when (component) {
-                "left" -> "Left AirPod at $level percent"
-                "right" -> "Right AirPod at $level percent"
-                "case" -> "Case at $level percent"
+                "left" -> "Left AirPod battery is $level percent"
+                "right" -> "Right AirPod battery is $level percent"
+                "case" -> "AirPods case battery is $level percent"
                 else -> "Battery at $level percent"
             }
         }
