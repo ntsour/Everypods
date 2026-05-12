@@ -60,6 +60,10 @@ object BatteryAlertWatcher {
     private fun stateFor(component: Int) =
         state.getOrPut(component) { ComponentState() }
 
+    fun resetState() {
+        state.clear()
+    }
+
     fun checkAndMaybeAlert(
         ctx: Context,
         batteries: List<Battery>,
@@ -154,6 +158,28 @@ object BatteryAlertWatcher {
         }
         val language = AnnouncementPrefs.resolvedLanguage(ctx)
         val text = AnnouncementPrefs.batteryAlert(language, componentKey, b.level)
-        TtsEngine.speak(ctx, text)
+        val engine = AnnouncementPrefs.ttsEngine(ctx)
+        val languageForSystemTts = AnnouncementPrefs.languageForText(ctx, text)
+        val elevenLabsLanguageCode = AnnouncementPrefs.elevenLabsLanguageCode(ctx)
+        if (engine == AnnouncementPrefs.TTS_ENGINE_ELEVENLABS) {
+            val apiKey = AnnouncementPrefs.elevenLabsApiKey(ctx)
+            val voiceId = AnnouncementPrefs.elevenLabsVoiceId(ctx)
+            if (apiKey.isNotBlank()) {
+                ElevenLabsEngine.speak(
+                    context = ctx,
+                    text = text,
+                    apiKey = apiKey,
+                    voiceId = voiceId,
+                    languageCode = elevenLabsLanguageCode,
+                    onFallback = { reason ->
+                        Log.w(TAG, "ElevenLabs failed for battery alert ($reason), falling back to system TTS")
+                        TtsEngine.speak(ctx, text, languageForSystemTts)
+                    }
+                )
+                return
+            }
+            Log.w(TAG, "ElevenLabs selected but no API key — using system TTS for battery alert")
+        }
+        TtsEngine.speak(ctx, text, languageForSystemTts)
     }
 }

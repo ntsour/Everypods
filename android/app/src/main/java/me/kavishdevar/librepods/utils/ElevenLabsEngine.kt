@@ -31,6 +31,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -65,6 +66,8 @@ object ElevenLabsEngine {
 
     @Volatile private var player: MediaPlayer? = null
     @Volatile private var focusRequest: AudioFocusRequest? = null
+    private val speaking = AtomicBoolean(false)
+    @Volatile private var playbackLatch: java.util.concurrent.CountDownLatch? = null
 
     // -------------------------------------------------------------------------
     // Public API
@@ -91,18 +94,22 @@ object ElevenLabsEngine {
     ) {
         val ctx = context.applicationContext
         val myGen = generation.get()          // snapshot at enqueue time
+        speaking.set(true)                    // set immediately so isSpeaking() is accurate
         executor.submit {
             // Abort early if stop() was called after this task was enqueued.
             if (generation.get() != myGen) {
                 Log.d(TAG, "Task superseded, skipping \"${text.take(40)}\"")
+                speaking.set(false)
                 return@submit
             }
             if (!AnnouncementAudioRoute.canAnnounceToAirPods(ctx)) {
                 Log.d(TAG, "Skipping ElevenLabs announcement — AirPods are not the selected media route")
+                speaking.set(false)
                 return@submit
             }
             if (!hasValidatedInternet(ctx)) {
                 Log.d(TAG, "No validated internet connection; falling back to system TTS")
+                speaking.set(false)
                 onFallback("No internet connection")
                 return@submit
             }
@@ -112,13 +119,16 @@ object ElevenLabsEngine {
                 // Re-check: stop() may have been called during the network fetch.
                 if (generation.get() != myGen) {
                     Log.d(TAG, "Superseded after fetch, discarding audio")
+                    speaking.set(false)
                     return@submit
                 }
                 if (!AnnouncementAudioRoute.canAnnounceToAirPods(ctx)) {
                     Log.d(TAG, "Route changed after fetch, discarding ElevenLabs audio")
+                    speaking.set(false)
                     return@submit
                 }
                 if (bytes == null || bytes.isEmpty()) {
+                    speaking.set(false)
                     onFallback("Empty response from ElevenLabs")
                     return@submit
                 }
@@ -129,17 +139,21 @@ object ElevenLabsEngine {
                 // Block this executor thread until playback finishes so the next
                 // queued utterance doesn't start while this one is still playing.
                 val latch = java.util.concurrent.CountDownLatch(1)
+                playbackLatch = latch
                 playFile(ctx, tmp,
-                    onDone = { latch.countDown(); onDone() },
+                    onDone = { latch.countDown(); speaking.set(false); onDone() },
                     onError = { reason ->
                         latch.countDown()
+                        speaking.set(false)
                         try { tmp.delete() } catch (_: Exception) {}
                         onFallback(reason)
                     }
                 )
                 latch.await()   // wait for MediaPlayer onCompletion/onError
+                playbackLatch = null
             } catch (e: Exception) {
                 Log.e(TAG, "speak() failed: ${e.message}")
+                speaking.set(false)
                 onFallback(e.message ?: "Unknown error")
             }
         }
@@ -148,8 +162,13 @@ object ElevenLabsEngine {
     /** Stop current playback and cancel any pending queued utterances. */
     fun stop() {
         generation.incrementAndGet()   // invalidates all queued tasks
+        speaking.set(false)
+        playbackLatch?.countDown()     // unblock executor thread if stuck on latch.await()
         stopPlayer()
     }
+
+    /** Returns true if an utterance is currently speaking or fetching. */
+    fun isSpeaking(): Boolean = speaking.get()
 
     private fun stopPlayer() {
         try { player?.stop() } catch (_: Exception) {}

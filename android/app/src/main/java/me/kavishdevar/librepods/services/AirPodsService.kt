@@ -105,6 +105,8 @@ import me.kavishdevar.librepods.presentation.widgets.BatteryWidget
 import me.kavishdevar.librepods.presentation.widgets.NoiseControlWidget
 import me.kavishdevar.librepods.utils.GestureDetector
 import me.kavishdevar.librepods.utils.HeadTracking
+import me.kavishdevar.librepods.utils.ElevenLabsEngine
+import me.kavishdevar.librepods.utils.TtsEngine
 import me.kavishdevar.librepods.utils.MediaController
 import me.kavishdevar.librepods.utils.SystemApisUtils
 import me.kavishdevar.librepods.utils.SystemApisUtils.DEVICE_TYPE_UNTETHERED_HEADSET
@@ -924,10 +926,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         // must route end-call through rejectCall() ourselves.
         val inCall = isInAnyCall()
 
-        val singlePressCustomized = inCall ||
-            isCustomAction(config.leftSinglePressAction, singlePressDefault) || isCustomAction(
-                config.rightSinglePressAction, singlePressDefault
-            ) || (cameraActive && config.cameraAction == StemPressType.SINGLE_PRESS)
+        // Always report single press to the app so we can intercept it when an
+        // announcement is playing (stop reading), and forward to normal action
+        // when silent. The app handles PLAY_PAUSE via MediaController, so
+        // the default behavior is identical to firmware-native handling.
+        val singlePressCustomized = true
         val doublePressCustomized = inCall ||
             isCustomAction(config.leftDoublePressAction, doublePressDefault) || isCustomAction(
                 config.rightDoublePressAction, doublePressDefault
@@ -1206,6 +1209,12 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     return
                 }
 
+                if (stemPressType == StemPressType.SINGLE_PRESS && isAnnouncementSpeaking()) {
+                    Log.d("AirPodsParser", "Single press consumed: stopping active announcement")
+                    stopAnnouncement()
+                    return
+                }
+
                 if (cameraActive && config.cameraAction != null && stemPressType == config.cameraAction) {
                     // Trigger camera shutter via the accessibility service gesture tap
                     AppListenerService.instance?.triggerShutter()
@@ -1295,6 +1304,14 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             StemPressType.TRIPLE_PRESS -> if (bud == AACPManager.Companion.StemPressBudType.LEFT) config.leftTriplePressAction else config.rightTriplePressAction
             StemPressType.LONG_PRESS -> if (bud == AACPManager.Companion.StemPressBudType.LEFT) config.leftLongPressAction else config.rightLongPressAction
         }
+    }
+
+    private fun isAnnouncementSpeaking(): Boolean =
+        TtsEngine.isSpeaking() || ElevenLabsEngine.isSpeaking()
+
+    private fun stopAnnouncement() {
+        TtsEngine.stop()
+        ElevenLabsEngine.stop()
     }
 
     private fun executeStemAction(action: StemAction) {
