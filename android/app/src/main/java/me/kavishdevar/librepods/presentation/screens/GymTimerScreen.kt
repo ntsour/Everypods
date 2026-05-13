@@ -357,7 +357,7 @@ private fun ModeSelectorRow(
                     .padding(vertical = 16.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text(label, style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Medium,
+                Text(label, style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium,
                     fontFamily = SfPro, color = if (enabled) fg else fg.copy(0.4f)))
             }
         }
