@@ -344,7 +344,8 @@ private fun ModeSelectorRow(
             val selected = mode == currentMode
             val bg = if (selected) Color(0xFF0A84FF) else if (dark) Color(0xFF2C2C2E) else Color(0xFFF2F2F7)
             val fg = if (selected) Color.White else textColor
-            val enabled = timerState == GymTimer.State.IDLE
+            // Allow mode change when idle or when paused (timer finished)
+            val enabled = timerState == GymTimer.State.IDLE || timerState == GymTimer.State.PAUSED
 
             Box(
                 modifier = Modifier
