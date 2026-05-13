@@ -19,6 +19,7 @@
 package me.kavishdevar.librepods.utils
 
 import android.os.Handler
+import android.os.HandlerThread
 import android.os.Looper
 import android.os.SystemClock
 import android.util.Log
@@ -33,7 +34,9 @@ object GymTimer {
 
     data class Lap(val number: Int, val elapsedMs: Long, val splitMs: Long)
 
-    private val handler = Handler(Looper.getMainLooper())
+    // Use dedicated HandlerThread for timer to run in background
+    private val timerThread = HandlerThread("GymTimerThread").apply { start() }
+    private val handler = Handler(timerThread.looper)
     private var tickRunnable: Runnable? = null
 
     private var state = State.IDLE
@@ -264,6 +267,11 @@ object GymTimer {
     }
 
     private fun notifyListeners() {
-        listeners.toList().forEach { it.invoke() }
+        // Post to main looper to ensure UI updates happen on main thread
+        Looper.getMainLooper().let { mainLooper ->
+            Handler(mainLooper).post {
+                listeners.toList().forEach { it.invoke() }
+            }
+        }
     }
 }
