@@ -212,21 +212,29 @@ fun GymTimerScreen() {
 
             // Controls
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                // Check if timer is finished (paused with 0 remaining time)
+                val isFinished = timerState == GymTimer.State.PAUSED && 
+                    ((timerMode == GymTimer.Mode.COUNTDOWN && countdownRemainingMs <= 0) ||
+                     (timerMode == GymTimer.Mode.HIIT && GymTimer.hiitComplete()))
+                
                 StyledButton(
                     onClick = {
-                        when (timerState) {
-                            GymTimer.State.IDLE -> GymTimer.start()
-                            GymTimer.State.RUNNING -> GymTimer.pause()
-                            GymTimer.State.PAUSED -> GymTimer.start()
+                        when {
+                            isFinished -> GymTimer.reset()  // If finished, reset instead of resume
+                            timerState == GymTimer.State.IDLE -> GymTimer.start()
+                            timerState == GymTimer.State.RUNNING -> GymTimer.pause()
+                            timerState == GymTimer.State.PAUSED -> GymTimer.start()
                         }
                     },
                     backdrop = backdrop,
                     modifier = Modifier.weight(1f).heightIn(min = 52.dp)
                 ) {
-                    val label = when (timerState) {
-                        GymTimer.State.IDLE -> "START"
-                        GymTimer.State.RUNNING -> "PAUSE"
-                        GymTimer.State.PAUSED -> "RESUME"
+                    val label = when {
+                        isFinished -> "START"  // Show START when finished instead of RESUME
+                        timerState == GymTimer.State.IDLE -> "START"
+                        timerState == GymTimer.State.RUNNING -> "PAUSE"
+                        timerState == GymTimer.State.PAUSED -> "RESUME"
+                        else -> "START"
                     }
                     Text(label, style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium,
                         fontFamily = SfPro, color = if (dark) Color.White else Color.Black))
