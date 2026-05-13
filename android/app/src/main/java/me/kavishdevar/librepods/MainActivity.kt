@@ -154,6 +154,23 @@ import me.kavishdevar.librepods.presentation.screens.NotificationAnnouncementsSc
 import me.kavishdevar.librepods.presentation.screens.ProximityFinderScreen
 import me.kavishdevar.librepods.presentation.screens.VersionScreen
 import me.kavishdevar.librepods.presentation.screens.CategoryScreen
+import me.kavishdevar.librepods.presentation.screens.PressActionsScreen
+import me.kavishdevar.librepods.presentation.screens.VolumeControlScreen
+import me.kavishdevar.librepods.presentation.screens.CallControlsScreen
+import me.kavishdevar.librepods.presentation.screens.ConversationAwarenessScreen
+import me.kavishdevar.librepods.presentation.screens.BluetoothControlScreen
+import me.kavishdevar.librepods.presentation.screens.AudioSettingsScreen
+import me.kavishdevar.librepods.presentation.screens.ConnectionSettingsScreen
+import me.kavishdevar.librepods.presentation.screens.MicrophoneSettingsScreen
+import me.kavishdevar.librepods.presentation.screens.ListeningModeConfigScreen
+import me.kavishdevar.librepods.presentation.screens.SmartAutomationScreen
+import me.kavishdevar.librepods.presentation.screens.SleepTimerScreen
+import me.kavishdevar.librepods.presentation.screens.PhoneBatteryScreen
+import me.kavishdevar.librepods.presentation.screens.PopupAnimationsScreen
+import me.kavishdevar.librepods.presentation.screens.XposedSettingsScreen
+import me.kavishdevar.librepods.presentation.screens.EmailSupportScreen
+import me.kavishdevar.librepods.presentation.screens.DiscordCommunityScreen
+import me.kavishdevar.librepods.presentation.screens.GitHubIssuesScreen
 import me.kavishdevar.librepods.presentation.theme.LibrePodsTheme
 import me.kavishdevar.librepods.presentation.viewmodel.AirPodsViewModel
 import me.kavishdevar.librepods.presentation.viewmodel.AppSettingsViewModel
@@ -633,26 +650,68 @@ fun Main() {
                         // Smart features are now inlined in the main menu.
                         // Route kept so any existing deep-link or back-stack reference doesn't crash.
                     }
-                    composable(
-                        route = "category/{key}?focus={focus}",
-                        arguments = listOf(
-                            androidx.navigation.navArgument("key") { type = androidx.navigation.NavType.StringType },
-                            androidx.navigation.navArgument("focus") {
-                                type = androidx.navigation.NavType.StringType
-                                nullable = true
-                                defaultValue = null
-                            }
-                        )
-                    ) { entry ->
-                        val key   = entry.arguments?.getString("key") ?: "controls"
-                        val focus = entry.arguments?.getString("focus")
+                    composable("category/{key}") { entry ->
+                        val key = entry.arguments?.getString("key") ?: "controls"
                         if (airPodsViewModel != null) CategoryScreen(
                             viewModel = airPodsViewModel,
                             appSettingsViewModel = viewModel(),
                             navController = navController,
                             categoryKey = key,
-                            focusSection = focus,
                         )
+                    }
+                    composable("press_actions") {
+                        if (airPodsViewModel != null) PressActionsScreen(airPodsViewModel)
+                    }
+                    composable("call_controls") {
+                        if (airPodsViewModel != null) CallControlsScreen(airPodsViewModel)
+                    }
+                    composable("controls_configuration") {
+                        if (airPodsViewModel != null) VolumeControlScreen(airPodsViewModel)
+                    }
+                    composable("conversation_awareness") {
+                        if (airPodsViewModel != null) ConversationAwarenessScreen(airPodsViewModel, viewModel())
+                    }
+                    composable("bluetooth_control") {
+                        if (airPodsViewModel != null) BluetoothControlScreen(airPodsViewModel)
+                    }
+                    composable("listening_mode_config") {
+                        if (airPodsViewModel != null) ListeningModeConfigScreen(airPodsViewModel)
+                    }
+                    composable("adaptive_audio") {
+                        if (airPodsViewModel != null) AdaptiveStrengthScreen(airPodsViewModel, navController)
+                    }
+                    composable("smart_automation") {
+                        if (airPodsViewModel != null) SmartAutomationScreen(airPodsViewModel)
+                    }
+                    composable("sleep_timer") {
+                        SleepTimerScreen()
+                    }
+                    composable("phone_battery") {
+                        PhoneBatteryScreen(viewModel())
+                    }
+                    composable("popup_animations") {
+                        PopupAnimationsScreen(viewModel())
+                    }
+                    composable("xposed_settings") {
+                        XposedSettingsScreen(viewModel())
+                    }
+                    composable("audio_settings") {
+                        if (airPodsViewModel != null) AudioSettingsScreen(airPodsViewModel, viewModel(), navController)
+                    }
+                    composable("connection_settings") {
+                        if (airPodsViewModel != null) ConnectionSettingsScreen(airPodsViewModel)
+                    }
+                    composable("microphone_settings") {
+                        if (airPodsViewModel != null) MicrophoneSettingsScreen(airPodsViewModel)
+                    }
+                    composable("email_support") {
+                        EmailSupportScreen()
+                    }
+                    composable("discord_community") {
+                        DiscordCommunityScreen()
+                    }
+                    composable("github_issues") {
+                        GitHubIssuesScreen()
                     }
                 }
             }

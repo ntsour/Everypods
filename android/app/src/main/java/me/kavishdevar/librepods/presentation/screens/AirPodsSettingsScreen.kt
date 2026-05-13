@@ -30,6 +30,8 @@ import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.Settings
+import android.util.Log
+
 import android.view.accessibility.AccessibilityManager
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
@@ -161,64 +163,62 @@ private data class SearchableItem(
     val label: String,
     val category: String,
     val categoryKey: String,
-    /** If set, navigate directly to this route instead of the category screen. */
-    val directRoute: String? = null,
-    /** If set, scroll to + briefly highlight this section key inside the category screen. */
-    val focusSection: String? = null,
+    val directRoute: String,
+    val keywords: List<String> = emptyList(),
 )
 
 private fun buildSearchIndex(): List<SearchableItem> = listOf(
     // AirPods Controls
-    SearchableItem("Left Bud — Single Press",  "AirPods Controls", "controls", focusSection = "pressActions"),
-    SearchableItem("Left Bud — Double Press",  "AirPods Controls", "controls", focusSection = "pressActions"),
-    SearchableItem("Left Bud — Triple Press",  "AirPods Controls", "controls", focusSection = "pressActions"),
-    SearchableItem("Left Bud — Long Press",    "AirPods Controls", "controls", focusSection = "pressActions"),
-    SearchableItem("Right Bud — Single Press", "AirPods Controls", "controls", focusSection = "pressActions"),
-    SearchableItem("Right Bud — Double Press", "AirPods Controls", "controls", focusSection = "pressActions"),
-    SearchableItem("Right Bud — Triple Press", "AirPods Controls", "controls", focusSection = "pressActions"),
-    SearchableItem("Right Bud — Long Press",   "AirPods Controls", "controls", focusSection = "pressActions"),
-    SearchableItem("Listening Mode Configuration", "AirPods Controls", "controls", focusSection = "listeningMode"),
-    SearchableItem("Call Controls",            "AirPods Controls", "controls", focusSection = "callControls"),
-    SearchableItem("Volume Control",           "AirPods Controls", "controls", focusSection = "volumeControl"),
-    SearchableItem("Controls Configuration",   "AirPods Controls", "controls", directRoute = "accessibility"),
+    SearchableItem("Left Bud — Single Press",  "AirPods Controls", "controls", "press_actions", keywords = listOf("stem", "tap", "click")),
+    SearchableItem("Left Bud — Double Press",  "AirPods Controls", "controls", "press_actions", keywords = listOf("stem", "tap", "click")),
+    SearchableItem("Left Bud — Triple Press",  "AirPods Controls", "controls", "press_actions", keywords = listOf("stem", "tap", "click")),
+    SearchableItem("Left Bud — Long Press",    "AirPods Controls", "controls", "press_actions", keywords = listOf("stem", "hold", "press and hold")),
+    SearchableItem("Right Bud — Single Press", "AirPods Controls", "controls", "press_actions", keywords = listOf("stem", "tap", "click")),
+    SearchableItem("Right Bud — Double Press", "AirPods Controls", "controls", "press_actions", keywords = listOf("stem", "tap", "click")),
+    SearchableItem("Right Bud — Triple Press", "AirPods Controls", "controls", "press_actions", keywords = listOf("stem", "tap", "click")),
+    SearchableItem("Right Bud — Long Press",   "AirPods Controls", "controls", "press_actions", keywords = listOf("stem", "hold", "press and hold")),
+    SearchableItem("Listening Mode Configuration", "AirPods Controls", "controls", "listening_mode_config", keywords = listOf("anc", "noise cancellation", "transparency", "adaptive", "off")),
+    SearchableItem("Call Controls",            "AirPods Controls", "controls", "call_controls", keywords = listOf("answer", "end call", "mute")),
+    SearchableItem("Volume Control",           "AirPods Controls", "controls", "controls_configuration", keywords = listOf("swipe", "touch")),
+    SearchableItem("Controls Configuration",   "AirPods Controls", "controls", "controls_configuration", keywords = listOf("press speed", "hold duration", "tone")),
     // AirPods Settings
-    SearchableItem("Device Name",              "AirPods Settings", "settings", directRoute = "rename"),
-    SearchableItem("Hearing Aid",              "AirPods Settings", "settings", directRoute = "hearing_aid"),
-    SearchableItem("Hearing Protection",       "AirPods Settings", "settings", focusSection = "hearingProtection"),
-    SearchableItem("Loud Sound Reduction",     "AirPods Settings", "settings", focusSection = "hearingProtection"),
-    SearchableItem("Conversation Awareness",   "AirPods Settings", "settings", focusSection = "conversationAwareness"),
-    SearchableItem("Disconnect",               "AirPods Settings", "settings", focusSection = "bluetoothControl"),
+    SearchableItem("Device Name",              "AirPods Settings", "settings", "rename", keywords = listOf("rename", "bluetooth name")),
+    SearchableItem("Hearing Aid",              "AirPods Settings", "settings", "hearing_aid", keywords = listOf("amplification", "audiogram")),
+    SearchableItem("Hearing Protection",       "AirPods Settings", "settings", "hearing_protection", keywords = listOf("ppe", "loud sound")),
+    SearchableItem("Loud Sound Reduction",     "AirPods Settings", "settings", "hearing_protection", keywords = listOf("volume limit", "ppe")),
+    SearchableItem("Conversation Awareness",   "AirPods Settings", "settings", "conversation_awareness", keywords = listOf("speak", "talk", "auto pause", "auto volume")),
+    SearchableItem("Disconnect",               "AirPods Settings", "settings", "bluetooth_control", keywords = listOf("bluetooth", "root", "turn off")),
     // Smart Features
-    SearchableItem("Notification Announcements", "Smart Features", "smart", directRoute = "notification_announcements"),
-    SearchableItem("Find my Case",             "Smart Features", "smart", directRoute = "proximity_finder"),
-    SearchableItem("Head Gestures",            "Smart Features", "smart", directRoute = "head_tracking"),
-    SearchableItem("Adaptive Audio",           "Smart Features", "smart", focusSection = "adaptiveAudio"),
-    SearchableItem("Camera Control",           "Smart Features", "smart", focusSection = "cameraControl"),
-    SearchableItem("Sleep Detection",          "Smart Features", "smart", focusSection = "automation"),
-    SearchableItem("Optimized Charging",       "Smart Features", "smart", focusSection = "automation"),
-    SearchableItem("Resume Media After Call",  "Smart Features", "smart", focusSection = "automation"),
-    SearchableItem("Battery Alerts",           "Smart Features", "smart", focusSection = "automation"),
-    SearchableItem("Sleep Timer",              "Smart Features", "smart", focusSection = "sleepTimer"),
+    SearchableItem("Notification Announcements", "Smart Features", "smart", "notification_announcements", keywords = listOf("tts", "read", "speak", "siri")),
+    SearchableItem("Find my Case",             "Smart Features", "smart", "proximity_finder", keywords = listOf("locate", "nearby", "radar")),
+    SearchableItem("Head Gestures",            "Smart Features", "smart", "head_tracking", keywords = listOf("nod", "shake", "answer call")),
+    SearchableItem("Adaptive Audio",           "Smart Features", "smart", "adaptive_audio", keywords = listOf("anc strength", "noise control")),
+    SearchableItem("Camera Control",           "Smart Features", "smart", "camera_control", keywords = listOf("shutter", "photo")),
+    SearchableItem("Sleep Detection",          "Smart Features", "smart", "smart_automation", keywords = listOf("auto sleep", "bedtime")),
+    SearchableItem("Optimized Charging",       "Smart Features", "smart", "smart_automation", keywords = listOf("battery health", "slow charge")),
+    SearchableItem("Resume Media After Call",  "Smart Features", "smart", "smart_automation", keywords = listOf("auto resume", "playback")),
+    SearchableItem("Battery Alerts",           "Smart Features", "smart", "smart_automation", keywords = listOf("low battery", "speak", "announce")),
+    SearchableItem("Sleep Timer",              "Smart Features", "smart", "sleep_timer", keywords = listOf("auto stop", "timer")),
     // App Settings
-    SearchableItem("Battery in Widget",        "App Settings", "appsettings", focusSection = "phoneBattery"),
-    SearchableItem("Pop-up Animations",        "App Settings", "appsettings", focusSection = "popupAnimations"),
-    SearchableItem("Bottom Sheet Popup",       "App Settings", "appsettings", focusSection = "popupAnimations"),
-    SearchableItem("Dynamic Island Popup",     "App Settings", "appsettings", focusSection = "popupAnimations"),
-    SearchableItem("Act as Apple Device",      "App Settings", "appsettings", focusSection = "xposedToggle"),
-    SearchableItem("Permissions",              "App Settings", "appsettings", directRoute = "permissions"),
+    SearchableItem("Battery in Widget",        "App Settings", "appsettings", "phone_battery", keywords = listOf("widget")),
+    SearchableItem("Pop-up Animations",        "App Settings", "appsettings", "popup_animations", keywords = listOf("animation", "connect")),
+    SearchableItem("Bottom Sheet Popup",       "App Settings", "appsettings", "popup_animations", keywords = listOf("animation", "connect")),
+    SearchableItem("Dynamic Island Popup",     "App Settings", "appsettings", "popup_animations", keywords = listOf("animation", "island", "connect")),
+    SearchableItem("Act as Apple Device",      "App Settings", "appsettings", "xposed_settings", keywords = listOf("xposed", "vendor id", "apple", "hook")),
+    SearchableItem("Permissions",              "App Settings", "appsettings", "permissions", keywords = listOf("access", "grant")),
     // Audio & Connection
-    SearchableItem("Audio Settings",           "Audio & Connection", "audio", focusSection = "audioSettings"),
-    SearchableItem("Ear Detection",            "Audio & Connection", "audio", focusSection = "connectionSettings"),
-    SearchableItem("Disconnect When Not Wearing","Audio & Connection","audio", focusSection = "connectionSettings"),
-    SearchableItem("Microphone Settings",      "Audio & Connection", "audio", focusSection = "microphoneSettings"),
-    SearchableItem("Connection Settings",      "Audio & Connection", "audio", focusSection = "connectionSettings"),
+    SearchableItem("Audio Settings",           "Audio & Connection", "audio", "audio_settings", keywords = listOf("eq", "equalizer", "adaptive volume")),
+    SearchableItem("Ear Detection",            "Audio & Connection", "audio", "connection_settings", keywords = listOf("auto pause", "in ear", "wear detection")),
+    SearchableItem("Disconnect When Not Wearing","Audio & Connection","audio", "connection_settings", keywords = listOf("auto disconnect", "wear detection")),
+    SearchableItem("Microphone Settings",      "Audio & Connection", "audio", "microphone_settings", keywords = listOf("mic", "microphone mode")),
+    SearchableItem("Connection Settings",      "Audio & Connection", "audio", "connection_settings", keywords = listOf("auto connect", "bluetooth")),
     // Help
-    SearchableItem("Troubleshooting",          "Help & Troubleshooting", "help", directRoute = "troubleshooting"),
-    SearchableItem("Open Source Licenses",     "Help & Troubleshooting", "help", directRoute = "open_source_licenses"),
-    SearchableItem("Version Info",             "Help & Troubleshooting", "help", directRoute = "version_info"),
-    SearchableItem("Email Support",            "Help & Troubleshooting", "help"),
-    SearchableItem("Discord Community",        "Help & Troubleshooting", "help"),
-    SearchableItem("GitHub Issues",            "Help & Troubleshooting", "help"),
+    SearchableItem("Troubleshooting",          "Help & Troubleshooting", "help", "troubleshooting", keywords = listOf("fix", "debug", "problem")),
+    SearchableItem("Open Source Licenses",     "Help & Troubleshooting", "help", "open_source_licenses", keywords = listOf("license", "credits")),
+    SearchableItem("Version Info",             "Help & Troubleshooting", "help", "version_info", keywords = listOf("about", "app version")),
+    SearchableItem("Email Support",            "Help & Troubleshooting", "help", "email_support", keywords = listOf("contact")),
+    SearchableItem("Discord Community",        "Help & Troubleshooting", "help", "discord_community", keywords = listOf("chat")),
+    SearchableItem("GitHub Issues",            "Help & Troubleshooting", "help", "github_issues", keywords = listOf("bug", "report")),
 )
 
 @Composable internal fun bodyStyle(dark: Boolean) = TextStyle(
@@ -380,8 +380,15 @@ fun AirPodsSettingsScreen(
     var searchQuery  by rememberSaveable { mutableStateOf("") }
     val searchIndex  = remember { buildSearchIndex() }
     val searchResults = remember(searchQuery) {
-        if (searchQuery.length < 2) emptyList()
-        else searchIndex.filter { it.label.contains(searchQuery, ignoreCase = true) || it.category.contains(searchQuery, ignoreCase = true) }
+        if (searchQuery.isEmpty()) emptyList()
+        else {
+            val q = searchQuery.trim().lowercase()
+            searchIndex.filter { item ->
+                item.label.contains(q, ignoreCase = true) ||
+                    item.category.contains(q, ignoreCase = true) ||
+                    item.keywords.any { it.contains(q, ignoreCase = true) }
+            }
+        }
     }
 
     val searchFocusRequester = remember { FocusRequester() }
@@ -449,14 +456,7 @@ fun AirPodsSettingsScreen(
                                 Modifier.fillMaxWidth()
                                     .clickable(remember { MutableInteractionSource() }, null) {
                                         searchActive = false; searchQuery = ""
-                                        when {
-                                            item.directRoute != null ->
-                                                navController.navigate(item.directRoute)
-                                            item.focusSection != null ->
-                                                navController.navigate("category/${item.categoryKey}?focus=${android.net.Uri.encode(item.focusSection)}")
-                                            else ->
-                                                navController.navigate("category/${item.categoryKey}")
-                                        }
+                                        navController.navigate(item.directRoute)
                                     }
                                     .padding(horizontal = 16.dp, vertical = 12.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
