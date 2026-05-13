@@ -65,14 +65,26 @@ object GymTimer {
 
     // Config getters/setters
     fun getCountdownDurationMs(): Long = countdownDurationMs
-    fun setCountdownDurationMs(ms: Long) { countdownDurationMs = ms }
+    fun setCountdownDurationMs(ms: Long) {
+        countdownDurationMs = ms
+        notifyListeners()  // Notify UI of duration change
+    }
 
     fun getHiitWorkMs(): Long = hiitWorkMs
-    fun setHiitWorkMs(ms: Long) { hiitWorkMs = ms }
+    fun setHiitWorkMs(ms: Long) {
+        hiitWorkMs = ms
+        notifyListeners()  // Notify UI of work duration change
+    }
     fun getHiitRestMs(): Long = hiitRestMs
-    fun setHiitRestMs(ms: Long) { hiitRestMs = ms }
+    fun setHiitRestMs(ms: Long) {
+        hiitRestMs = ms
+        notifyListeners()  // Notify UI of rest duration change
+    }
     fun getHiitRounds(): Int = hiitRounds
-    fun setHiitRounds(rounds: Int) { hiitRounds = rounds }
+    fun setHiitRounds(rounds: Int) {
+        hiitRounds = rounds
+        notifyListeners()  // Notify UI of rounds change
+    }
 
     fun setMode(newMode: Mode) {
         if (state != State.IDLE) reset()
