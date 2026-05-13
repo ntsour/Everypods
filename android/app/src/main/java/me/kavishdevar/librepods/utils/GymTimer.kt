@@ -90,8 +90,8 @@ object GymTimer {
     }
 
     fun setMode(newMode: Mode) {
-        if (state != State.IDLE) reset()
         mode = newMode
+        if (state != State.IDLE) reset()
         notifyListeners()
     }
 
