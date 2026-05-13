@@ -380,7 +380,34 @@ private fun CountdownSettings(
         val minLabel = "${durationSec / 60}m ${durationSec % 60}s"
         Text(minLabel, style = TextStyle(fontSize = 14.sp, fontFamily = SfPro,
             color = if (dark) Color.White.copy(0.6f) else Color.Black.copy(0.6f)))
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(12.dp))
+        
+        // Quick seconds (sub-minute timers)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("Quick", style = bodyStyle(dark), modifier = Modifier.weight(1f))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf(10, 15, 20, 30, 45, 60).forEach { s ->
+                    val selected = durationSec == s
+                    val bg = if (selected) Color(0xFF0A84FF) else if (dark) Color(0xFF2C2C2E) else Color(0xFFF2F2F7)
+                    val fg = if (selected) Color.White else if (dark) Color.White else Color.Black
+                    Box(
+                        modifier = Modifier
+                            .background(bg, RoundedCornerShape(8.dp))
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null
+                            ) {
+                                onDurationChange(s)
+                            }
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Text("${s}s", style = TextStyle(fontSize = 12.sp, fontFamily = SfPro, color = fg))
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        
         // Minutes
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text("Minutes", style = bodyStyle(dark), modifier = Modifier.weight(1f))
