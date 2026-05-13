@@ -1,0 +1,82 @@
+05-13 11:34:28.891 28973 28973 E LibrePods: search tap label=Conversation Awareness route=category/settings?focus=conversationAwareness focusSection=conversationAwareness
+05-13 11:34:29.100 28973 28973 E LibrePods: sectionTrack.onGlobPos key=conversationAwareness rootTop=560.0 scrollVal=0 offset=560.0
+05-13 11:34:29.101 28973 28973 E LibrePods: sectionTrack.onGlobPos key=hearingProtection rootTop=1850.0 scrollVal=0 offset=1850.0
+05-13 11:34:29.102 28973 28973 E LibrePods: sectionTrack.onGlobPos key=bluetoothControl rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:34:29.116 28973 28973 E LibrePods: sectionTrack.onGlobPos key=conversationAwareness rootTop=560.0 scrollVal=0 offset=560.0
+05-13 11:34:29.118 28973 28973 E LibrePods: sectionTrack.onGlobPos key=hearingProtection rootTop=1850.0 scrollVal=0 offset=1850.0
+05-13 11:34:29.120 28973 28973 E LibrePods: sectionTrack.onGlobPos key=bluetoothControl rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:34:29.126 28973 28973 E LibrePods: === SCROLL START focusSection=conversationAwareness topPaddingPx=340.99997
+05-13 11:34:29.126 28973 28973 E LibrePods:   targetY found after 1 tries: 560.0
+05-13 11:34:29.127 28973 28973 E LibrePods:   targetY found after 2 tries: 560.0
+05-13 11:34:29.127 28973 28973 E LibrePods:   targetY found after 3 tries: 560.0
+05-13 11:34:29.128 28973 28973 E LibrePods:   targetY found after 4 tries: 560.0
+05-13 11:34:29.128 28973 28973 E LibrePods:   targetY found after 5 tries: 560.0
+05-13 11:34:29.129 28973 28973 E LibrePods:   targetY found after 6 tries: 560.0
+05-13 11:34:29.129 28973 28973 E LibrePods:   targetY found after 7 tries: 560.0
+05-13 11:34:29.130 28973 28973 E LibrePods:   targetY found after 8 tries: 560.0
+05-13 11:34:29.130 28973 28973 E LibrePods:   targetY found after 9 tries: 560.0
+05-13 11:34:29.131 28973 28973 E LibrePods:   targetY found after 10 tries: 560.0
+05-13 11:34:29.131 28973 28973 E LibrePods:   targetY found after 11 tries: 560.0
+05-13 11:34:29.131 28973 28973 E LibrePods:   targetY found after 12 tries: 560.0
+05-13 11:34:29.132 28973 28973 E LibrePods:   targetY found after 13 tries: 560.0
+05-13 11:34:29.132 28973 28973 E LibrePods:   targetY found after 14 tries: 560.0
+05-13 11:34:29.132 28973 28973 E LibrePods:   targetY found after 15 tries: 560.0
+05-13 11:34:29.134 28973 28973 E LibrePods:   targetY found after 16 tries: 560.0
+05-13 11:34:29.134 28973 28973 E LibrePods:   targetY found after 17 tries: 560.0
+05-13 11:34:29.135 28973 28973 E LibrePods:   targetY found after 18 tries: 560.0
+05-13 11:34:29.135 28973 28973 E LibrePods:   targetY found after 19 tries: 560.0
+05-13 11:34:29.135 28973 28973 E LibrePods:   targetY found after 20 tries: 560.0
+05-13 11:34:29.136 28973 28973 E LibrePods:   targetY found after 21 tries: 560.0
+05-13 11:34:29.136 28973 28973 E LibrePods:   targetY found after 22 tries: 560.0
+05-13 11:34:29.136 28973 28973 E LibrePods:   targetY found after 23 tries: 560.0
+05-13 11:34:29.137 28973 28973 E LibrePods:   targetY found after 24 tries: 560.0
+05-13 11:34:29.137 28973 28973 E LibrePods:   targetY found after 25 tries: 560.0
+05-13 11:34:29.137 28973 28973 E LibrePods:   targetY found after 26 tries: 560.0
+05-13 11:34:29.138 28973 28973 E LibrePods:   targetY found after 27 tries: 560.0
+05-13 11:34:29.138 28973 28973 E LibrePods:   targetY found after 28 tries: 560.0
+05-13 11:34:29.139 28973 28973 E LibrePods:   targetY found after 29 tries: 560.0
+05-13 11:34:29.140 28973 28973 E LibrePods:   targetY found after 30 tries: 560.0
+05-13 11:34:29.141 28973 28973 E LibrePods:   scrollTarget=251 (targetY=560.0 - topPadding=340.99997 + 32)
+05-13 11:34:29.141 28973 28973 E LibrePods:   scrollState.value BEFORE=0
+05-13 11:34:29.157 28973 28973 E LibrePods: sectionTrack.onGlobPos key=conversationAwareness rootTop=560.0 scrollVal=0 offset=560.0
+05-13 11:34:29.175 28973 28973 E LibrePods: sectionTrack.onGlobPos key=hearingProtection rootTop=1850.0 scrollVal=0 offset=1850.0
+05-13 11:34:29.178 28973 28973 E LibrePods: sectionTrack.onGlobPos key=bluetoothControl rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:34:29.221 28973 28973 E LibrePods: sectionTrack.onGlobPos key=conversationAwareness rootTop=378.0 scrollVal=182 offset=560.0
+05-13 11:34:29.222 28973 28973 E LibrePods: sectionTrack.onGlobPos key=hearingProtection rootTop=1668.0 scrollVal=182 offset=1850.0
+05-13 11:34:29.223 28973 28973 E LibrePods: sectionTrack.onGlobPos key=bluetoothControl rootTop=0.0 scrollVal=182 offset=182.0
+05-13 11:34:29.239 28973 28973 E LibrePods: sectionTrack.onGlobPos key=conversationAwareness rootTop=342.0 scrollVal=218 offset=560.0
+05-13 11:34:29.240 28973 28973 E LibrePods: sectionTrack.onGlobPos key=hearingProtection rootTop=1632.0 scrollVal=218 offset=1850.0
+05-13 11:34:29.241 28973 28973 E LibrePods: sectionTrack.onGlobPos key=bluetoothControl rootTop=0.0 scrollVal=218 offset=218.0
+05-13 11:34:29.255 28973 28973 E LibrePods: sectionTrack.onGlobPos key=conversationAwareness rootTop=329.0 scrollVal=231 offset=560.0
+05-13 11:34:29.256 28973 28973 E LibrePods: sectionTrack.onGlobPos key=hearingProtection rootTop=1619.0 scrollVal=231 offset=1850.0
+05-13 11:34:29.257 28973 28973 E LibrePods: sectionTrack.onGlobPos key=bluetoothControl rootTop=0.0 scrollVal=231 offset=231.0
+05-13 11:34:29.276 28973 28973 E LibrePods: sectionTrack.onGlobPos key=conversationAwareness rootTop=321.0 scrollVal=239 offset=560.0
+05-13 11:34:29.277 28973 28973 E LibrePods: sectionTrack.onGlobPos key=hearingProtection rootTop=1611.0 scrollVal=239 offset=1850.0
+05-13 11:34:29.277 28973 28973 E LibrePods: sectionTrack.onGlobPos key=bluetoothControl rootTop=0.0 scrollVal=239 offset=239.0
+05-13 11:34:29.289 28973 28973 E LibrePods: sectionTrack.onGlobPos key=conversationAwareness rootTop=316.0 scrollVal=244 offset=560.0
+05-13 11:34:29.290 28973 28973 E LibrePods: sectionTrack.onGlobPos key=hearingProtection rootTop=1606.0 scrollVal=244 offset=1850.0
+05-13 11:34:29.291 28973 28973 E LibrePods: sectionTrack.onGlobPos key=bluetoothControl rootTop=0.0 scrollVal=244 offset=244.0
+05-13 11:34:29.303 28973 28973 E LibrePods: sectionTrack.onGlobPos key=conversationAwareness rootTop=313.0 scrollVal=247 offset=560.0
+05-13 11:34:29.304 28973 28973 E LibrePods: sectionTrack.onGlobPos key=hearingProtection rootTop=1603.0 scrollVal=247 offset=1850.0
+05-13 11:34:29.305 28973 28973 E LibrePods: sectionTrack.onGlobPos key=bluetoothControl rootTop=0.0 scrollVal=247 offset=247.0
+05-13 11:34:29.320 28973 28973 E LibrePods: sectionTrack.onGlobPos key=conversationAwareness rootTop=311.0 scrollVal=249 offset=560.0
+05-13 11:34:29.321 28973 28973 E LibrePods: sectionTrack.onGlobPos key=hearingProtection rootTop=1601.0 scrollVal=249 offset=1850.0
+05-13 11:34:29.322 28973 28973 E LibrePods: sectionTrack.onGlobPos key=bluetoothControl rootTop=0.0 scrollVal=249 offset=249.0
+05-13 11:34:29.331 28973 28973 E LibrePods: sectionTrack.onGlobPos key=conversationAwareness rootTop=311.0 scrollVal=249 offset=560.0
+05-13 11:34:29.331 28973 28973 E LibrePods: sectionTrack.onGlobPos key=hearingProtection rootTop=1601.0 scrollVal=249 offset=1850.0
+05-13 11:34:29.332 28973 28973 E LibrePods: sectionTrack.onGlobPos key=bluetoothControl rootTop=0.0 scrollVal=249 offset=249.0
+05-13 11:34:29.338 28973 28973 E LibrePods: sectionTrack.onGlobPos key=conversationAwareness rootTop=310.0 scrollVal=250 offset=560.0
+05-13 11:34:29.339 28973 28973 E LibrePods: sectionTrack.onGlobPos key=hearingProtection rootTop=1600.0 scrollVal=250 offset=1850.0
+05-13 11:34:29.339 28973 28973 E LibrePods: sectionTrack.onGlobPos key=bluetoothControl rootTop=0.0 scrollVal=250 offset=250.0
+05-13 11:34:29.360 28973 28973 E LibrePods: sectionTrack.onGlobPos key=conversationAwareness rootTop=310.0 scrollVal=250 offset=560.0
+05-13 11:34:29.361 28973 28973 E LibrePods: sectionTrack.onGlobPos key=hearingProtection rootTop=1600.0 scrollVal=250 offset=1850.0
+05-13 11:34:29.362 28973 28973 E LibrePods: sectionTrack.onGlobPos key=bluetoothControl rootTop=0.0 scrollVal=250 offset=250.0
+05-13 11:34:29.367 28973 28973 E LibrePods: sectionTrack.onGlobPos key=conversationAwareness rootTop=310.0 scrollVal=250 offset=560.0
+05-13 11:34:29.368 28973 28973 E LibrePods: sectionTrack.onGlobPos key=hearingProtection rootTop=1600.0 scrollVal=250 offset=1850.0
+05-13 11:34:29.368 28973 28973 E LibrePods: sectionTrack.onGlobPos key=bluetoothControl rootTop=0.0 scrollVal=250 offset=250.0
+05-13 11:34:29.376 28973 28973 E LibrePods: sectionTrack.onGlobPos key=conversationAwareness rootTop=309.0 scrollVal=251 offset=560.0
+05-13 11:34:29.377 28973 28973 E LibrePods: sectionTrack.onGlobPos key=hearingProtection rootTop=1599.0 scrollVal=251 offset=1850.0
+05-13 11:34:29.377 28973 28973 E LibrePods: sectionTrack.onGlobPos key=bluetoothControl rootTop=0.0 scrollVal=251 offset=251.0
+05-13 11:34:29.474 28973 28973 E LibrePods:   scrollState.value AFTER=251
+05-13 11:34:29.629 28973 28973 E LibrePods:   highlight SET to conversationAwareness
+05-13 11:34:32.133 28973 28973 E LibrePods:   highlight CLEARED

@@ -1,0 +1,1114 @@
+--------- beginning of main
+05-13 11:50:11.975 D/AirPodsService( 4398): onHeadTrackingReceived: active=true len=81
+05-13 11:50:11.975 D/AirPodsService( 4398): headData h=0 v=0 detector=true running=false
+05-13 11:50:12.012 D/AirPodsService( 4398): onHeadTrackingReceived: active=true len=81
+05-13 11:50:12.013 D/AirPodsService( 4398): headData h=0 v=0 detector=true running=false
+05-13 11:50:12.053 D/AirPodsService( 4398): onHeadTrackingReceived: active=true len=81
+05-13 11:50:12.054 D/AirPodsService( 4398): headData h=0 v=0 detector=true running=false
+05-13 11:50:12.085 D/AidlBufferPoolAcc( 1503): evictor expired: 2, evicted: 0
+05-13 11:50:12.096 D/AirPodsService( 4398): onHeadTrackingReceived: active=true len=81
+05-13 11:50:12.096 D/AirPodsService( 4398): headData h=0 v=0 detector=true running=false
+05-13 11:50:12.102 E/system_server( 1808): No package ID 7f found for resource ID 0x7f160000.
+--------- beginning of system
+05-13 11:50:12.102 W/LocaleConfig( 1808): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:12.104 D/AidlBufferPool( 4398): bufferpool2 0xb400007191322878 : 0(0 size) total buffers - 0(0 size) used buffers - 0/5 (recycle/alloc) - 4/26 (fetch/transfer)
+05-13 11:50:12.105 D/AidlBufferPool( 4398): bufferpool2 0xb40000719131fed8 : 0(0 size) total buffers - 0(0 size) used buffers - 0/5 (recycle/alloc) - 1/2 (fetch/transfer)
+05-13 11:50:12.105 D/AidlBufferPoolAcc( 4398): evictor expired: 2, evicted: 2
+05-13 11:50:12.109 E/system_server( 1808): No package ID 7f found for resource ID 0x7f160000.
+05-13 11:50:12.110 W/LocaleConfig( 1808): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:12.136 D/AirPodsService( 4398): onHeadTrackingReceived: active=true len=81
+05-13 11:50:12.136 D/AirPodsService( 4398): headData h=0 v=0 detector=true running=false
+05-13 11:50:12.152 I/AiAiEcho( 4707): SmartspaceNotificationPredictor no parser can handle this notification or notification is invalid
+05-13 11:50:12.160 W/LocaleConfig( 2848): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:12.164 I/NearbyDiscovery(28188): (REDACTED) DiscoveryService onStartCommand action: %s
+05-13 11:50:12.165 I/NearbyDiscovery(28188): FastPairApiHandler: trigger firmware update check [CONTEXT service_id=265 ]
+05-13 11:50:12.168 I/NearbyDiscovery(28188): (REDACTED) FastPairApiHandler: Send result, package=(%s), requestType=(%s), status=(%s)
+05-13 11:50:12.169 W/LocaleConfig( 2848): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:12.172 D/AirPodsService( 4398): onHeadTrackingReceived: active=true len=81
+05-13 11:50:12.172 D/AirPodsService( 4398): headData h=0 v=0 detector=true running=false
+05-13 11:50:12.174 D/BackgroundInstallControlService( 1808): Package event received: 0
+05-13 11:50:12.217 D/AirPodsService( 4398): onHeadTrackingReceived: active=true len=81
+05-13 11:50:12.217 D/AirPodsService( 4398): headData h=0 v=0 detector=true running=false
+05-13 11:50:12.244 D/AirPodsService( 4398): onHeadTrackingReceived: active=true len=81
+05-13 11:50:12.244 D/AirPodsService( 4398): headData h=0 v=0 detector=true running=false
+05-13 11:50:12.273 V/DisplayPowerController[0]( 1808): Brightness [0.05] reason changing to: 'automatic [ dim ]', previous reason: 'automatic'.
+05-13 11:50:12.273 I/DisplayPowerController[0]( 1808): BrightnessEvent: brt=0.05(65.0%), nits=100.9262, lux=640.6174, reason=automatic [ dim ], strat=AutomaticBrightnessStrategy, state=ON, stateReason=KEY, policy=DIM, flags=, initBrt=0.106229685, rcmdBrt=0.106229685, preBrt=NaN, preLux=NaN, lastReadLux=639.26404, wasShortTermModelActive=false, autoBrightness=true (default), unclampedBrt=0.106229685, hbmMax=0.2997141, hbmMode=off, thrmMax=1.0, rbcStrength=41, powerFactor=1.0, physDisp=Built-in Screen(local:4619827256186712064), logicalId=0, slowChange=false, rampSpeed=0.7047244
+05-13 11:50:12.283 I/PixelDisplayManager( 3141): onDisplayChanged(Built-in Screen, 0, local:4619827256186712064): screenOn=true, hbmMode=0, br=0.05, product=DeviceProductInfo{name=FLEB-00D-00, manufacturerPnpId=GGL, productId=0, modelYear=null, manufactureDate=ManufactureDate{week=1, year=1990}, connectionToSinkType=1, edidStructureMetadata=EdidStructureMetadata{version=0, revision=0}, videoInputType=0}
+05-13 11:50:12.290 D/AirPodsService( 4398): onHeadTrackingReceived: active=true len=81
+05-13 11:50:12.290 D/AirPodsService( 4398): headData h=0 v=0 detector=true running=false
+05-13 11:50:12.290 I/hwc-pixel-bc(  493): path=drm, id=0, level=2256, nits=207.363205, brightness=0.103252, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:12.306 I/hwc-pixel-bc(  493): path=drm, id=0, level=2209, nits=197.290375, brightness=0.098212, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:12.315 D/AirPodsService( 4398): onHeadTrackingReceived: active=true len=81
+05-13 11:50:12.315 D/AirPodsService( 4398): headData h=0 v=0 detector=true running=false
+05-13 11:50:12.315 I/hwc-pixel-bc(  493): path=drm, id=0, level=2184, nits=192.495941, brightness=0.095813, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:12.333 I/hwc-pixel-bc(  493): path=drm, id=0, level=2131, nits=182.599411, brightness=0.090861, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:12.338 D/ProfileInstaller( 4398): Installing profile for me.kavishdevar.librepods
+05-13 11:50:12.338 E/system_server( 1808): No package ID 7f found for resource ID 0x7f160000.
+05-13 11:50:12.339 W/LocaleConfig( 1808): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:12.340 I/hwc-pixel-bc(  493): path=drm, id=0, level=2108, nits=178.264420, brightness=0.088692, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:12.344 E/system_server( 1808): No package ID 7f found for resource ID 0x7f160000.
+05-13 11:50:12.344 W/LocaleConfig( 1808): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:12.348 D/AOC     ( 1539): A3:MSG: tmd3743_device.cc, 2643: USF: TMD3743: dbv:2131 rr:120 pwm:-1 te2:0 status:1[0] C/R/G/B/W=39.1/26.0/15.3/5.9/3
+05-13 11:50:12.354 D/AirPodsService( 4398): onHeadTrackingReceived: active=true len=81
+05-13 11:50:12.354 D/AirPodsService( 4398): headData h=0 v=0 detector=true running=false
+05-13 11:50:12.358 I/hwc-pixel-bc(  493): path=drm, id=0, level=2061, nits=170.009979, brightness=0.084562, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:12.366 I/AiAiEcho( 4707): SmartspaceNotificationPredictor no parser can handle this notification or notification is invalid
+05-13 11:50:12.366 I/hwc-pixel-bc(  493): path=drm, id=0, level=2035, nits=166.075821, brightness=0.082594, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:12.371 W/LocaleConfig( 2848): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:12.372 W/LocaleConfig( 2848): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:12.382 I/hwc-pixel-bc(  493): path=drm, id=0, level=1984, nits=158.377548, brightness=0.078742, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:12.390 I/hwc-pixel-bc(  493): path=drm, id=0, level=1959, nits=154.597351, brightness=0.076851, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:12.394 D/AirPodsService( 4398): onHeadTrackingReceived: active=true len=81
+05-13 11:50:12.395 D/AirPodsService( 4398): headData h=0 v=0 detector=true running=false
+05-13 11:50:12.401 D/AOC     ( 1539): A3:MSG: tmd3743_device.cc, 2643: USF: TMD3743: dbv:1984 rr:120 pwm:-1 te2:0 status:1[0] C/R/G/B/W=36.1/24.0/14.3/5.5/3
+05-13 11:50:12.406 I/hwc-pixel-bc(  493): path=drm, id=0, level=1912, nits=147.388031, brightness=0.073244, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:12.415 I/hwc-pixel-bc(  493): path=drm, id=0, level=1887, nits=143.726044, brightness=0.071411, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:12.425 D/AirPodsService( 4398): onHeadTrackingReceived: active=true len=81
+05-13 11:50:12.425 D/AirPodsService( 4398): headData h=0 v=0 detector=true running=false
+05-13 11:50:12.432 I/hwc-pixel-bc(  493): path=drm, id=0, level=1840, nits=136.587418, brightness=0.067840, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:12.440 I/hwc-pixel-bc(  493): path=drm, id=0, level=1817, nits=133.094620, brightness=0.066092, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:12.457 I/hwc-pixel-bc(  493): path=drm, id=0, level=1772, nits=126.231506, brightness=0.062658, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:12.457 D/AOC     ( 1539): A3:MSG: tmd3743_device.cc, 2643: USF: TMD3743: dbv:1817 rr:120 pwm:-1 te2:0 status:1[0] C/R/G/B/W=33.1/21.9/13.4/5.1/3
+05-13 11:50:12.463 D/AirPodsService( 4398): onHeadTrackingReceived: active=true len=81
+05-13 11:50:12.463 D/AirPodsService( 4398): headData h=0 v=1 detector=true running=false
+05-13 11:50:12.465 I/hwc-pixel-bc(  493): path=drm, id=0, level=1750, nits=122.874802, brightness=0.060979, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:12.482 I/hwc-pixel-bc(  493): path=drm, id=0, level=1703, nits=116.277512, brightness=0.057678, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:12.491 I/hwc-pixel-bc(  493): path=drm, id=0, level=1678, nits=113.056885, brightness=0.056066, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:12.502 E/system_server( 1808): No package ID 7f found for resource ID 0x7f160000.
+05-13 11:50:12.505 W/LocaleConfig( 1808): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:12.507 I/hwc-pixel-bc(  493): path=drm, id=0, level=1629, nits=106.734848, brightness=0.052903, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:12.507 E/system_server( 1808): No package ID 7f found for resource ID 0x7f160000.
+05-13 11:50:12.507 W/LocaleConfig( 1808): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:12.514 D/AOC     ( 1539): A3:MSG: tmd3743_device.cc, 2643: USF: TMD3743: dbv:1678 rr:120 pwm:-1 te2:0 status:1[0] C/R/G/B/W=30.9/20.4/12.7/4.8/3
+05-13 11:50:12.515 I/hwc-pixel-bc(  493): path=drm, id=0, level=1605, nits=103.650444, brightness=0.051360, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:12.525 D/AirPodsService( 4398): onHeadTrackingReceived: active=true len=81
+05-13 11:50:12.525 D/AirPodsService( 4398): headData h=0 v=0 detector=true running=false
+05-13 11:50:12.532 I/hwc-pixel-bc(  493): path=drm, id=0, level=1583, nits=100.932152, brightness=0.050000, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:12.533 I/hwc-pixel-bc(  493): path=sysfs, id=0, level=1583, nits=100.932152, brightness=0.050000, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:12.539 I/AiAiEcho( 4707): SmartspaceNotificationPredictor no parser can handle this notification or notification is invalid
+05-13 11:50:12.548 W/LocaleConfig( 2848): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:12.549 W/LocaleConfig( 2848): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:12.549 W/NotificationManager( 4398): Shedding notify (update) of NotificationKey[user=UserHandle{0}, pkg=me.kavishdevar.librepods, tag=null, id=2], rate limit (5.0) exceeded: input 35.99323, output would be 6.293023
+05-13 11:50:12.549 W/NotificationManager( 4398): Shedding cancel (dupe) of NotificationKey[user=UserHandle{0}, pkg=me.kavishdevar.librepods, tag=null, id=1], rate limit (5.0) exceeded: input 37.03418, output would be 6.386403
+05-13 11:50:12.550 D/AirPodsService( 4398): onHeadTrackingReceived: active=true len=81
+05-13 11:50:12.550 D/AirPodsService( 4398): headData h=0 v=0 detector=true running=false
+05-13 11:50:12.567 D/AOC     ( 1539): A3:MSG: tmd3743_device.cc, 2643: USF: TMD3743: dbv:1583 rr:120 pwm:-1 te2:0 status:1[0] C/R/G/B/W=29.4/19.3/12.2/4.6/2
+05-13 11:50:12.580 D/AirPodsService( 4398): onHeadTrackingReceived: active=true len=81
+05-13 11:50:12.581 D/AirPodsService( 4398): headData h=0 v=0 detector=true running=false
+05-13 11:50:12.623 I/bt_shim_scanner(31025): system/main/shim/le_scanning_manager.cc:380 BatchScanReadReports: in shim layer
+05-13 11:50:12.631 D/AirPodsService( 4398): onHeadTrackingReceived: active=true len=81
+05-13 11:50:12.632 D/AirPodsService( 4398): headData h=0 v=0 detector=true running=false
+05-13 11:50:12.653 D/AirPodsBLE( 4398): RPA verified and added to trusted list: 4E:38:8C:05:A8:72
+05-13 11:50:12.654 D/AirPodsService( 4398): New address detected
+05-13 11:50:12.654 D/AirPodsService( 4398): updateCaseBatteryFromBLE: level=46 charging=false
+05-13 11:50:12.655 D/AirPodsBLE( 4398): New AirPods device detected: 4E:38:8C:05:A8:72
+05-13 11:50:12.656 D/AirPodsService( 4398): Lid opened
+05-13 11:50:12.656 D/AirPodsService( 4398): updateCaseBatteryFromBLE: level=46 charging=false
+05-13 11:50:12.658 D/AirPodsBLE( 4398): Lid state opened (detected from new device)
+05-13 11:50:12.658 D/AirPodsBLE( 4398): RPA verified and added to trusted list: 40:76:1A:76:ED:0B
+05-13 11:50:12.659 D/AirPodsService( 4398): New address detected
+05-13 11:50:12.659 D/AirPodsService( 4398): updateCaseBatteryFromBLE: level=46 charging=false
+05-13 11:50:12.661 D/AirPodsBLE( 4398): New AirPods device detected: 40:76:1A:76:ED:0B
+05-13 11:50:12.662 D/AirPodsService( 4398): onHeadTrackingReceived: active=true len=81
+05-13 11:50:12.662 D/AirPodsService( 4398): headData h=0 v=0 detector=true running=false
+05-13 11:50:12.713 D/AirPodsService( 4398): onHeadTrackingReceived: active=true len=81
+05-13 11:50:12.713 D/AirPodsService( 4398): headData h=0 v=0 detector=true running=false
+05-13 11:50:12.746 E/system_server( 1808): No package ID 7f found for resource ID 0x7f160000.
+05-13 11:50:12.747 W/LocaleConfig( 1808): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:12.748 E/system_server( 1808): No package ID 7f found for resource ID 0x7f160000.
+05-13 11:50:12.749 W/LocaleConfig( 1808): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:12.750 D/AirPodsService( 4398): onHeadTrackingReceived: active=true len=81
+05-13 11:50:12.750 D/AirPodsService( 4398): headData h=0 v=0 detector=true running=false
+05-13 11:50:12.787 I/AiAiEcho( 4707): SmartspaceNotificationPredictor no parser can handle this notification or notification is invalid
+05-13 11:50:12.788 D/AirPodsService( 4398): onHeadTrackingReceived: active=true len=81
+05-13 11:50:12.788 D/AirPodsService( 4398): headData h=0 v=0 detector=true running=false
+05-13 11:50:12.790 W/LocaleConfig( 2848): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:12.791 W/LocaleConfig( 2848): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:12.804 I/ProcessReaperImpl( 5970): isKillable, importance=125
+05-13 11:50:12.827 D/AirPodsService( 4398): onHeadTrackingReceived: active=true len=81
+05-13 11:50:12.827 D/AirPodsService( 4398): headData h=0 v=0 detector=true running=false
+05-13 11:50:12.860 D/AirPodsService( 4398): onHeadTrackingReceived: active=true len=81
+05-13 11:50:12.860 D/AirPodsService( 4398): headData h=0 v=0 detector=true running=false
+05-13 11:50:12.913 D/AirPodsService( 4398): onHeadTrackingReceived: active=true len=81
+05-13 11:50:12.914 D/AirPodsService( 4398): headData h=0 v=-1 detector=true running=false
+05-13 11:50:12.929 I/bluetooth(31025): system/gd/hci/acl_manager/acl_scheduler.cc:209 log_try_dequeue_next_operation: Could not send next operation postponed to next iteration, stopped: false, pending_outgoing_operations_ is_empty: true, outgoing_entry_ has_value: false, incoming_connecting_address_set_ is_empty: true
+05-13 11:50:12.930 W/bluetooth(31025): system/main/shim/acl.cc:1404 OnConnectFail: Connection failed classic remote:xx:xx:xx:xx:31:88 reason:PAGE_TIMEOUT(0x04)
+05-13 11:50:12.930 I/l2c_csm (31025): system/stack/l2cap/l2c_csm.cc:247 l2c_csm_execute: Enter CSM, chnl_state:CST_CLOSED [0] event:L2CEVT_LP_CONNECT_CFM_NEG(0x1) lcid:0x0044 rcid:0x0000
+05-13 11:50:12.931 W/l2c_utils(31025): system/stack/l2cap/l2c_utils.cc:3497 l2cu_find_ccb_by_cid: p_ccb is not in use
+05-13 11:50:12.931 W/bt_l2cap(31025): system/stack/l2cap/l2c_api.cc:935 L2CA_DisconnectReq: L2CAP - no CCB for L2CA_disc_req, CID: 68
+05-13 11:50:12.931 W/stack::sdp(31025): system/stack/sdp/sdp_main.cc:328 sdp_disconnect: Unable to disconnect L2CAP peer:xx:xx:xx:xx:31:88 cid:68
+05-13 11:50:12.931 I/bt_bta_dm(31025): system/bta/dm/bta_dm_disc.cc:216 bta_dm_sdp_callback: BTA_DM_DISCOVER_ACTIVE, sdp_pending: true
+05-13 11:50:12.931 I/l2c_link(31025): system/stack/l2cap/l2c_link.cc:158 l2c_link_hci_conn_comp: Disconnecting link handle:0xffff status:HCI_ERR_PAGE_TIMEOUT
+05-13 11:50:12.931 W/btm_acl (31025): system/stack/acl/btm_acl.cc:447 btm_acl_removed: Unable to find active acl
+05-13 11:50:12.932 E/bt_bta_dm(31025): system/bta/dm/bta_dm_disc_sdp.cc:284 bta_dm_sdp_result: SDP connection failed tSDP_STATUS::SDP_CFG_FAILED
+05-13 11:50:12.932 I/bt_bta_dm(31025): system/bta/dm/bta_dm_disc.cc:751 bta_dm_disc_sm_execute: state:BTA_DM_DISCOVER_ACTIVE, event:BTA_DM_DISCOVERY_RESULT_EVT[0x2]
+05-13 11:50:12.932 I/bt_bta_dm(31025): system/bta/dm/bta_dm_disc.cc:339 bta_dm_execute_queued_discovery_request: Start pending discovery xx:xx:xx:xx:a1:a5 [0]
+05-13 11:50:12.932 I/bt_bta_dm(31025): system/bta/dm/bta_dm_disc.cc:751 bta_dm_disc_sm_execute: state:BTA_DM_DISCOVER_IDLE, event:BTA_DM_API_DISCOVER_EVT[0x0]
+05-13 11:50:12.932 I/bt_bta_dm(31025): system/bta/dm/bta_dm_disc.cc:382 bta_dm_discover_services: starting service discovery to: xx:xx:xx:xx:a1:a5, transport: BT_TRANSPORT_BR_EDR
+05-13 11:50:12.932 I/bt_bta_dm(31025): system/bta/dm/bta_dm_disc.cc:422 bta_dm_discover_services: starting SDP discovery on xx:xx:xx:xx:a1:a5
+05-13 11:50:12.932 I/bt_bta_dm(31025): system/bta/dm/bta_dm_disc_sdp.cc:317 bta_dm_sdp_find_services: services_to_search=7fffffff
+05-13 11:50:12.932 I/bt_bta_dm(31025): system/bta/dm/bta_dm_disc_sdp.cc:329 bta_dm_sdp_find_services: search UUID = 00001200-0000-1000-8000-00805f9b34fb
+05-13 11:50:12.933 W/l2c_link(31025): system/stack/l2cap/l2c_link.cc:649 l2c_link_adjust_allocation: link_xmit_data_q is null
+05-13 11:50:12.933 E/system_server( 1808): No package ID 7f found for resource ID 0x7f160000.
+05-13 11:50:12.933 I/bluetooth(31025): system/gd/hci/acl_manager/acl_scheduler.cc:247 try_dequeue_next_operation: Pending connections is not empty; so sending next connection
+05-13 11:50:12.934 W/LocaleConfig( 1808): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:12.937 I/BluetoothHciVendorSpecificJni(31025): android/app/jni/com_android_bluetooth_BluetoothHciVendorSpecific.cpp:85 onEvent: 
+05-13 11:50:12.944 E/system_server( 1808): No package ID 7f found for resource ID 0x7f160000.
+05-13 11:50:12.945 W/LocaleConfig( 1808): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:12.947 D/AirPodsService( 4398): onHeadTrackingReceived: active=true len=81
+05-13 11:50:12.947 D/AirPodsService( 4398): headData h=0 v=0 detector=true running=false
+05-13 11:50:12.955 D/AirPodsService( 4398): onHeadTrackingReceived: active=true len=81
+05-13 11:50:12.955 D/AirPodsService( 4398): headData h=0 v=0 detector=true running=false
+05-13 11:50:12.964 D/AirPodsService( 4398): onHeadTrackingReceived: active=true len=81
+05-13 11:50:12.964 D/AirPodsService( 4398): headData h=0 v=0 detector=true running=false
+05-13 11:50:12.972 D/AirPodsService( 4398): onHeadTrackingReceived: active=true len=81
+05-13 11:50:12.972 D/AirPodsService( 4398): headData h=0 v=0 detector=true running=false
+05-13 11:50:12.975 I/AiAiEcho( 4707): SmartspaceNotificationPredictor no parser can handle this notification or notification is invalid
+05-13 11:50:12.982 D/AirPodsService( 4398): onHeadTrackingReceived: active=true len=81
+05-13 11:50:12.982 D/AirPodsService( 4398): headData h=0 v=0 detector=true running=false
+05-13 11:50:12.985 W/LocaleConfig( 2848): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:12.991 W/LocaleConfig( 2848): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:13.019 D/AirPodsService( 4398): onHeadTrackingReceived: active=true len=81
+05-13 11:50:13.019 D/AirPodsService( 4398): headData h=0 v=0 detector=true running=false
+05-13 11:50:13.028 I/android.hardware.health-service.laguna( 1177): Recording a sample at time 139025
+05-13 11:50:13.034 D/AirPodsService( 4398): onHeadTrackingReceived: active=true len=81
+05-13 11:50:13.034 D/AirPodsService( 4398): headData h=0 v=0 detector=true running=false
+05-13 11:50:13.061 D/AirPodsService( 4398): onHeadTrackingReceived: active=true len=81
+05-13 11:50:13.062 D/AirPodsService( 4398): headData h=0 v=0 detector=true running=false
+05-13 11:50:13.072 D/CachedBluetoothDevice( 2848): onUuidChanged: Time since last connect/manual disconnect=686754, last connect attempt: 138338820, device: XX:XX:XX:XX:57:43
+05-13 11:50:13.083 D/BluetoothMap( 2848): getConnectionState(XX:XX:XX:XX:31:88)
+05-13 11:50:13.087 D/AidlBufferPoolAcc( 1503): evictor expired: 4, evicted: 0
+05-13 11:50:13.091 D/LocalBluetoothProfileManager( 2848): Current Profiles[HEADSET, A2DP]
+05-13 11:50:13.093 D/BluetoothMap( 2848): getConnectionState(XX:XX:XX:XX:97:86)
+05-13 11:50:13.095 D/LocalBluetoothProfileManager( 2848): New Profiles[HEADSET, A2DP]
+05-13 11:50:13.095 D/CachedBluetoothDevice( 2848): updating profiles for XX:XX:XX:XX:97:86
+05-13 11:50:13.098 D/CachedBluetoothDevice( 2848): onUuidChanged: Time since last connect/manual disconnect=516108, last connect attempt: 138509492, device: XX:XX:XX:XX:97:86
+05-13 11:50:13.102 D/BluetoothMap( 2848): getConnectionState(XX:XX:XX:XX:31:88)
+05-13 11:50:13.104 D/AirPodsService( 4398): onHeadTrackingReceived: active=true len=81
+05-13 11:50:13.104 D/AirPodsService( 4398): headData h=0 v=0 detector=true running=false
+05-13 11:50:13.105 D/AidlBufferPool( 4398): bufferpool2 0xb400007191315608 : 0(0 size) total buffers - 0(0 size) used buffers - 0/5 (recycle/alloc) - 4/22 (fetch/transfer)
+05-13 11:50:13.105 D/AidlBufferPoolAcc( 4398): evictor expired: 1, evicted: 1
+05-13 11:50:13.107 D/BluetoothMap( 2848): getConnectionState(XX:XX:XX:XX:31:88)
+05-13 11:50:13.108 D/LocalBluetoothProfileManager( 2848): Current Profiles[HEADSET, A2DP, MAP, PBAP Server]
+05-13 11:50:13.110 D/BluetoothMap( 2848): getConnectionState(XX:XX:XX:XX:31:88)
+05-13 11:50:13.117 D/LocalBluetoothProfileManager( 2848): New Profiles[HEADSET, A2DP, MAP, PBAP Server]
+05-13 11:50:13.117 D/CachedBluetoothDevice( 2848): updating profiles for XX:XX:XX:XX:31:88
+05-13 11:50:13.120 D/BluetoothMap( 2848): getConnectionState(XX:XX:XX:XX:31:88)
+05-13 11:50:13.120 D/CachedBluetoothDevice( 2848): onUuidChanged: Time since last connect/manual disconnect=139025622, last connect attempt: -1, device: XX:XX:XX:XX:31:88
+05-13 11:50:13.123 E/system_server( 1808): No package ID 7f found for resource ID 0x7f160000.
+05-13 11:50:13.124 W/LocaleConfig( 1808): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:13.125 D/LocalBluetoothProfileManager( 2848): Current Profiles[OPP, PAN]
+05-13 11:50:13.127 D/BluetoothMap( 2848): getConnectionState(XX:XX:XX:XX:A1:A5)
+05-13 11:50:13.129 D/BluetoothMap( 2848): getConnectionState(XX:XX:XX:XX:31:88)
+05-13 11:50:13.129 D/LocalBluetoothProfileManager( 2848): New Profiles[OPP, PAN]
+05-13 11:50:13.129 D/CachedBluetoothDevice( 2848): updating profiles for XX:XX:XX:XX:A1:A5
+05-13 11:50:13.130 E/system_server( 1808): No package ID 7f found for resource ID 0x7f160000.
+05-13 11:50:13.131 W/LocaleConfig( 1808): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:13.133 D/CachedBluetoothDevice( 2848): onUuidChanged: Time since last connect/manual disconnect=139025635, last connect attempt: -1, device: XX:XX:XX:XX:A1:A5
+05-13 11:50:13.135 D/AirPodsService( 4398): onHeadTrackingReceived: active=true len=81
+05-13 11:50:13.135 D/AirPodsService( 4398): headData h=0 v=0 detector=true running=false
+05-13 11:50:13.137 D/BluetoothMap( 2848): getConnectionState(XX:XX:XX:XX:31:88)
+05-13 11:50:13.140 D/BluetoothMap( 2848): getConnectionState(XX:XX:XX:XX:31:88)
+05-13 11:50:13.143 D/BluetoothMap( 2848): getConnectionState(XX:XX:XX:XX:31:88)
+05-13 11:50:13.149 D/BluetoothMap( 2848): getConnectionState(XX:XX:XX:XX:31:88)
+05-13 11:50:13.150 D/BluetoothMap( 2848): getConnectionState(XX:XX:XX:XX:31:88)
+05-13 11:50:13.157 D/BluetoothMap( 2848): getConnectionState(XX:XX:XX:XX:31:88)
+05-13 11:50:13.160 W/LocaleConfig( 2848): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:13.162 I/AiAiEcho( 4707): SmartspaceNotificationPredictor no parser can handle this notification or notification is invalid
+05-13 11:50:13.164 W/LocaleConfig( 2848): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:13.170 D/BluetoothMap( 2848): getConnectionState(XX:XX:XX:XX:31:88)
+05-13 11:50:13.197 V/DisplayPowerController[0]( 1808): Brightness [0.106229685] reason changing to: 'automatic', previous reason: 'automatic [ dim ]'.
+05-13 11:50:13.197 I/DisplayPowerController[0]( 1808): BrightnessEvent: brt=0.106229685(81.0%), nits=213.29784, lux=640.6174, reason=automatic, strat=AutomaticBrightnessStrategy, state=ON, stateReason=KEY, policy=BRIGHT, flags=, initBrt=0.05, rcmdBrt=0.106229685, preBrt=NaN, preLux=NaN, lastReadLux=638.72705, wasShortTermModelActive=false, autoBrightness=true (default), unclampedBrt=0.106229685, hbmMax=0.2997141, hbmMode=off, thrmMax=1.0, rbcStrength=41, powerFactor=1.0, physDisp=Built-in Screen(local:4619827256186712064), logicalId=0, slowChange=false, rampSpeed=0.7047244
+05-13 11:50:13.199 D/AirPodsService( 4398): onHeadTrackingReceived: active=true len=81
+05-13 11:50:13.200 D/AirPodsService( 4398): headData h=0 v=0 detector=true running=false
+05-13 11:50:13.204 D/AirPodsService( 4398): onHeadTrackingReceived: active=true len=81
+05-13 11:50:13.204 D/AirPodsService( 4398): headData h=0 v=0 detector=true running=false
+05-13 11:50:13.205 I/hwc-pixel-bc(  493): path=drm, id=0, level=1586, nits=101.265015, brightness=0.050167, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:13.213 I/hwc-pixel-bc(  493): path=drm, id=0, level=1610, nits=104.315483, brightness=0.051693, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:13.230 I/hwc-pixel-bc(  493): path=drm, id=0, level=1659, nits=110.589432, brightness=0.054832, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:13.231 D/Vibrator( 1839): waitForComplete: Vibrator is already off
+05-13 11:50:13.236 D/AirPodsService( 4398): onHeadTrackingReceived: active=true len=81
+05-13 11:50:13.236 D/AirPodsService( 4398): headData h=0 v=0 detector=true running=false
+05-13 11:50:13.237 I/PixelDisplayManager( 3141): onDisplayChanged(Built-in Screen, 0, local:4619827256186712064): screenOn=true, hbmMode=0, br=0.106229685, product=DeviceProductInfo{name=FLEB-00D-00, manufacturerPnpId=GGL, productId=0, modelYear=null, manufactureDate=ManufactureDate{week=1, year=1990}, connectionToSinkType=1, edidStructureMetadata=EdidStructureMetadata{version=0, revision=0}, videoInputType=0}
+05-13 11:50:13.238 I/hwc-pixel-bc(  493): path=drm, id=0, level=1684, nits=113.779907, brightness=0.056428, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:13.254 D/AOC     ( 1539): A3:MSG: tmd3743_device.cc, 2643: USF: TMD3743: dbv:1684 rr:120 pwm:-1 te2:0 status:1[0] C/R/G/B/W=31.0/20.5/12.7/4.8/3
+05-13 11:50:13.255 I/hwc-pixel-bc(  493): path=drm, id=0, level=1733, nits=120.293633, brightness=0.059687, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:13.263 I/hwc-pixel-bc(  493): path=drm, id=0, level=1755, nits=123.621140, brightness=0.061352, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:13.279 D/AACPManager( 4398): Sending packet: 00 00 04 00 01 00 02 00 00 00 00 00 00 00 00 00
+05-13 11:50:13.279 D/AACPManager( 4398): Sending packet: 04 00 04 00 4D 00 D7 00 00 00 00 00 00 00
+05-13 11:50:13.279 D/AACPManager( 4398): Sending packet: 04 00 04 00 0F 00 FF FF FF FF
+05-13 11:50:13.279 D/AACPManager( 4398): Requesting proximity keys of type: 1
+05-13 11:50:13.279 D/AACPManager( 4398): Sending packet: 04 00 04 00 30 00 01 00
+05-13 11:50:13.279 D/AACPManager( 4398): Sending packet: 04 00 04 00 17 00 00 00 10 00 0F 00 08 75 42 0B 08 10 10 02 1A 05 01 00 00 00 00
+05-13 11:50:13.280 I/hwc-pixel-bc(  493): path=drm, id=0, level=1799, nits=130.409103, brightness=0.064748, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:13.289 I/hwc-pixel-bc(  493): path=drm, id=0, level=1822, nits=133.880249, brightness=0.066485, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:13.306 I/hwc-pixel-bc(  493): path=drm, id=0, level=1869, nits=140.950073, brightness=0.070023, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:13.310 D/AOC     ( 1539): A3:MSG: tmd3743_device.cc, 2643: USF: TMD3743: dbv:1822 rr:120 pwm:-1 te2:0 status:1[0] C/R/G/B/W=32.4/21.4/13.1/5.0/3
+05-13 11:50:13.314 I/hwc-pixel-bc(  493): path=drm, id=0, level=1893, nits=144.552368, brightness=0.071825, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:13.314 E/system_server( 1808): No package ID 7f found for resource ID 0x7f160000.
+05-13 11:50:13.315 W/LocaleConfig( 1808): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:13.316 E/system_server( 1808): No package ID 7f found for resource ID 0x7f160000.
+05-13 11:50:13.316 W/LocaleConfig( 1808): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:13.325 D/AirPodsService( 4398): onHeadTrackingReceived: active=false len=81
+05-13 11:50:13.330 I/hwc-pixel-bc(  493): path=drm, id=0, level=1941, nits=151.909027, brightness=0.075506, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:13.338 I/AiAiEcho( 4707): SmartspaceNotificationPredictor no parser can handle this notification or notification is invalid
+05-13 11:50:13.339 I/hwc-pixel-bc(  493): path=drm, id=0, level=1966, nits=155.651733, brightness=0.077378, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:13.342 W/AACPManager( 4398): Received packet does not start with expected header: 01 00 04 00 85 00 01 00 03 00 00 00 00 00 00 00 00 00
+05-13 11:50:13.342 D/AirPodsData( 4398): Data received: 01 00 04 00 85 00 01 00 03 00 00 00 00 00 00 00 00 00
+05-13 11:50:13.348 W/LocaleConfig( 2848): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:13.351 W/LocaleConfig( 2848): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:13.355 I/hwc-pixel-bc(  493): path=drm, id=0, level=2017, nits=163.273087, brightness=0.081192, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:13.363 D/AOC     ( 1539): A3:MSG: tmd3743_device.cc, 2643: USF: TMD3743: dbv:1966 rr:120 pwm:-1 te2:0 status:1[0] C/R/G/B/W=34.9/23.1/13.9/5.3/3
+05-13 11:50:13.363 I/hwc-pixel-bc(  493): path=drm, id=0, level=2042, nits=167.136047, brightness=0.083124, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:13.379 I/hwc-pixel-bc(  493): path=drm, id=0, level=2092, nits=175.185852, brightness=0.087152, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:13.382 D/Autofill Status( 4398): Autofill popup isn't shown because autofill is not available.
+05-13 11:50:13.382 D/Autofill Status( 4398): 
+05-13 11:50:13.382 D/Autofill Status( 4398): Did you set up autofill?
+05-13 11:50:13.382 D/Autofill Status( 4398): 1. Go to Settings > System > Languages&input > Advanced > Autofill Service
+05-13 11:50:13.382 D/Autofill Status( 4398): 2. Pick a service
+05-13 11:50:13.382 D/Autofill Status( 4398): 
+05-13 11:50:13.382 D/Autofill Status( 4398): Did you add an account?
+05-13 11:50:13.382 D/Autofill Status( 4398): 1. Go to Settings > System > Languages&input > Advanced
+05-13 11:50:13.382 D/Autofill Status( 4398): 2. Click on the settings icon next to the Autofill Service
+05-13 11:50:13.382 D/Autofill Status( 4398): 3. Add your account
+05-13 11:50:13.388 I/hwc-pixel-bc(  493): path=drm, id=0, level=2114, nits=179.415451, brightness=0.089268, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:13.392 D/AACPManager( 4398): Parsing Connected Devices Response: 04 00 04 00 2E 00 01 00 01 30 E0 44 86 61 2C 02 06
+05-13 11:50:13.392 D/AirPodsParser( 4398): Connected device: 30:E0:44:86:61:2C, info1: 2, info2: 6)
+05-13 11:50:13.392 D/AirPodsData( 4398): Data received: 04 00 04 00 2E 00 01 00 01 30 E0 44 86 61 2C 02 06
+05-13 11:50:13.397 D/InsetsController( 4398): show(ime())
+05-13 11:50:13.397 I/ImeTracker( 4398): me.kavishdevar.librepods:767d67c9: onRequestShow at ORIGIN_CLIENT reason SHOW_SOFT_INPUT_BY_INSETS_API fromUser false userId 0 displayId 0
+05-13 11:50:13.397 D/InsetsController( 4398): Setting requestedVisibleTypes to 511 (was 503)
+05-13 11:50:13.401 D/Vibrator( 1839): waitForComplete: Vibrator is already off
+05-13 11:50:13.405 I/hwc-pixel-bc(  493): path=drm, id=0, level=2162, nits=188.295776, brightness=0.093711, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:13.407 I/GoogleInputMethodService( 4643): GoogleInputMethodService.onFinishInput():2259 
+05-13 11:50:13.407 I/Module  ( 4643): DeviceLockedStatusModuleProvider$Module.updateDeviceLockedStatus():103 repeatCheckTimes = 0, locked = false
+05-13 11:50:13.408 I/GoogleInputMethodService( 4643): GoogleInputMethodService.onStartInput():1446 onStartInput(EditorInfo{EditorInfo{packageName=me.kavishdevar.librepods, inputType=8001, inputTypeString=Normal[AutoCorrect], enableLearning=true, autoCorrection=true, autoComplete=true, imeOptions=2000003, privateImeOptions=null, actionName=SEARCH, actionLabel=null, initialSelStart=0, initialSelEnd=0, initialCapsMode=0, label=null, fieldId=-1, fieldName=null, extras=Bundle[mParcelledData.dataSize=404], hintText=null, hintLocales=[]}}, false)
+05-13 11:50:13.408 I/AndroidIME( 4643): LatinIMEBase.updateInputViewCoverNavigation():322 Update input view padding, isNavbarOverInputWindow=true, bottom inset=126
+05-13 11:50:13.408 I/Module  ( 4643): DeviceLockedStatusModuleProvider$Module.updateDeviceLockedStatus():103 repeatCheckTimes = 1, locked = false
+05-13 11:50:13.409 I/GoogleInputMethodService( 4643): GoogleInputMethodService.onStartInput():1446 onStartInput(EditorInfo{EditorInfo{packageName=me.kavishdevar.librepods, inputType=8001, inputTypeString=Normal[AutoCorrect], enableLearning=true, autoCorrection=true, autoComplete=true, imeOptions=2000003, privateImeOptions=null, actionName=SEARCH, actionLabel=null, initialSelStart=0, initialSelEnd=0, initialCapsMode=0, label=null, fieldId=-1, fieldName=null, extras=Bundle[mParcelledData.dataSize=404], hintText=null, hintLocales=[]}}, true)
+05-13 11:50:13.409 W/SessionManager( 4643): SessionManager.beginSession():72 Try to begin an already begun session [INPUT_SESSION], end it first
+05-13 11:50:13.409 I/AndroidIME( 4643): LatinIMEBase.updateInputViewCoverNavigation():322 Update input view padding, isNavbarOverInputWindow=true, bottom inset=126
+05-13 11:50:13.410 I/Module  ( 4643): DeviceLockedStatusModuleProvider$Module.updateDeviceLockedStatus():103 repeatCheckTimes = 1, locked = false
+05-13 11:50:13.411 W/PackageConfigPersister( 1808): App-specific configuration not found for packageName: me.kavishdevar.librepods and userId: 0
+05-13 11:50:13.411 W/PackageConfigPersister( 1808): App-specific configuration not found for packageName: me.kavishdevar.librepods and userId: 0
+05-13 11:50:13.413 I/hwc-pixel-bc(  493): path=drm, id=0, level=2186, nits=192.948364, brightness=0.096039, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:13.414 I/StylusModule( 4643): StylusModule.onUpdateToolType():774 Update tool type = 1
+05-13 11:50:13.415 I/GoogleInputMethodService( 4643): GoogleInputMethodService.onStartInputView():1532 onStartInputView(EditorInfo{EditorInfo{packageName=me.kavishdevar.librepods, inputType=8001, inputTypeString=Normal[AutoCorrect], enableLearning=true, autoCorrection=true, autoComplete=true, imeOptions=2000003, privateImeOptions=null, actionName=SEARCH, actionLabel=null, initialSelStart=0, initialSelEnd=0, initialCapsMode=0, label=null, fieldId=-1, fieldName=null, extras=Bundle[{android.support.text.emoji.emojiCompat_metadataVersion=12, androidx.core.view.inputmethod.EditorInfoCompat.STYLUS_HANDWRITING_ENABLED=true, android.support.text.emoji.emojiCompat_replaceAll=false}], hintText=null, hintLocales=[]}}, false)
+05-13 11:50:13.415 I/KeyboardHeightUtil( 4643): KeyboardHeightUtil.getOemKeyboardHeightRatio():81 systemKeyboardHeightRatio:1.000000.
+05-13 11:50:13.416 I/ImeTracker( 4398): me.kavishdevar.librepods:7c7cc829: onRequestShow at ORIGIN_CLIENT reason SHOW_SOFT_INPUT fromUser false userId 0 displayId 0
+05-13 11:50:13.416 D/InsetsController( 4398): show(ime())
+05-13 11:50:13.416 I/ImeTracker( 4398): me.kavishdevar.librepods:7c7cc829: onCancelled at PHASE_CLIENT_REPORT_REQUESTED_VISIBLE_TYPES
+05-13 11:50:13.417 D/AOC     ( 1539): A3:MSG: tmd3743_device.cc, 2643: USF: TMD3743: dbv:2162 rr:120 pwm:-1 te2:0 status:1[0] C/R/G/B/W=38.8/25.8/15.1/5.8/3
+05-13 11:50:13.418 I/AndroidIME( 4643): InputBundleManager.startInput():357 startInput2 restarting=false
+05-13 11:50:13.418 I/AndroidIME( 4643): InputBundleManager.loadActiveInputBundleId():542 loadActiveInputBundleId: es-ES, ime_spanish_spain
+05-13 11:50:13.418 I/InputBundle( 4643): InputBundle.activateIme():597 activateIme: INACTIVE, keyboardType=prime
+05-13 11:50:13.418 I/AndroidIME( 4643): AbstractIme.onActivate():95 LatinIme.onActivate() : EditorInfo = EditorInfo{packageName=me.kavishdevar.librepods, inputType=8001, inputTypeString=Normal[AutoCorrect], enableLearning=true, autoCorrection=true, autoComplete=true, imeOptions=2000003, privateImeOptions=null, actionName=SEARCH, actionLabel=null, initialSelStart=0, initialSelEnd=0, initialCapsMode=0, label=null, fieldId=-1, fieldName=null, extras=Bundle[{android.support.text.emoji.emojiCompat_metadataVersion=12, androidx.core.view.inputmethod.EditorInfoCompat.STYLUS_HANDWRITING_ENABLED=true, android.support.text.emoji.emojiCompat_replaceAll=false}], hintText=null, hintLocales=[]}, IncognitoMode = false, DeviceLocked = false
+05-13 11:50:13.419 I/InputBundle( 4643): InputBundle.consumeEvent():1051 Skip consuming an event as keyboard status is INACTIVE
+05-13 11:50:13.419 I/Delight5Facilitator( 4643): Delight5Facilitator.initializeForIme():745 initializeForIme() : Locale = [es_ES, en_US], layout = spanish
+05-13 11:50:13.419 I/NebulaeTrainingCacheMetricsProcessor( 4643): NebulaeTrainingCacheMetricsProcessor.processBeginSession():252 Begin training cache session: /
+05-13 11:50:13.419 I/LatinIme( 4643): LatinIme.updateEnableInlineSuggestionsOnDecoderSideFlags():1277 inline flag updated to:false
+05-13 11:50:13.420 I/LatinIme( 4643): LatinIme.updateEnableInlineSuggestionsOnDecoderSideFlags():1277 inline flag updated to:false
+05-13 11:50:13.420 D/BackgroundInstallControlService( 1808): Package event received: 0
+05-13 11:50:13.421 I/InputBundle( 4643): InputBundle.consumeEvent():1051 Skip consuming an event as keyboard status is INACTIVE
+05-13 11:50:13.421 I/LatinIme( 4643): LatinIme.resetInputContext():2284 resetInputContext(): reason=1, externalEditsInfo=ExternalEditsInfo{action=0, offset=-1, text=null, originalText=null, edits=null}
+05-13 11:50:13.421 I/InputBundle( 4643): InputBundle.consumeEvent():1051 Skip consuming an event as keyboard status is INACTIVE
+05-13 11:50:13.421 I/hwc-pixel-bc(  493): path=drm, id=0, level=2212, nits=197.764832, brightness=0.098449, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:13.422 I/InputBundle( 4643): InputBundle.activateKeyboard():652 activateKeyboard: ACTIVE, type=ocu[keyboardType=prime, payload=null]
+05-13 11:50:13.422 I/KeyboardWrapper( 4643): KeyboardWrapper.activateKeyboard():592 activateKeyboard(): type=prime, status=INACTIVE, imeDef=obp{stringId=ime_spanish_spain, language=es-ES, languageTag=es-ES, processedConditions={writing_helper_enable_by_word_revert=true, true=true, enable_number_row=true, device=phone, enable_pk_simulator=false}, className=com.google.android.apps.inputmethod.libs.edittracker.EditTrackingImeWrapper, label=0, keyEventInterpreter=null, inlineComposing=true, autoCapital=true, announceAutoSelectedCandidate=true, statusIcon=0, indicatorIcon=0, indicatorLabel=null, displayAppCompletions=true, extraValues=obi{#0x7f0b02e5=TypedValue{t=0x3/d=0x0 "com.google.android.apps.inputmethod.libs.latin5.LatinIme"}}, processors=odh@350c2cb, unacceptableMetaKeys=4098, languageSpecificSettings=0, asciiCapable=true, alwaysShowSuggestions=false, useAsciiPasswordKeyboard=false, keyboardGroupDef=ocq@3faa0f1, phenotypeFlagId=0, localizationLanguageTag=null, supportsInlineSuggestion=true}
+05-13 11:50:13.422 I/KeyboardManager( 4643): KeyboardManager.requestKeyboard():249 Creating keyboard prime, imeId=ime_spanish_spain, cacheKey=theme,!gsf,!pgsf,!use_system_font,BORDER,DEVICE_MODE=phone,DYNAMIC_DARK_BRIGHT_KEY,FLAVOR_DPI=XXHDPI,IS_LIGHT,KEYBOARD_WIDTH_CATEGORY=NORMAL,KEY_BORDER_SHAPE=1,LIGHT_THEME=true,PHYSICAL_DIAGONAL=5.9444714,POPUP,SCREEN_SHORTEST_WIDTH=411,SCREEN_SHORTEST_WIDTH_NO_SCALE=411,SW400DP,XXHDPI,bottom4dp,bright_key_on_dynamic_color_dark_theme=true,disable_content_suggestion,enable_popup_on_keypress=true,keyboard_height_48_mm,non_linear_scale,noshadow,overlay_builtin_dynamic_color_light_base.binarypb:gm3-light-fff7f9fd-ff002739-82a7d4e6d0d6c66f4d47757481217700,pgsans,silkpopup
+05-13 11:50:13.422 I/KeyboardDefManager( 4643): KeyboardDefManager.requestKeyboardDef():181 requestKeyboardDef(): type=prime, info=ocn{defIds=[#0x7f170600, #0x7f1708ac], defIdsCacheKey=[2132215296, 2132215980]}
+05-13 11:50:13.422 I/KeyboardDefManager( 4643): KeyboardDefManager.requestKeyboardDef():243 requestKeyboardDef(): getOrCreate from cache, info=ocn{defIds=[#0x7f170600, #0x7f1708ac], defIdsCacheKey=[2132215296, 2132215980]}
+05-13 11:50:13.422 I/KeyboardDefManager( 4643): KeyboardDefManager$1.onSuccess():277 requestKeyboardDef onSuccess(): info=ocn{defIds=[#0x7f170600, #0x7f1708ac], defIdsCacheKey=[2132215296, 2132215980]}
+05-13 11:50:13.422 I/KeyboardWrapper( 4643): KeyboardWrapper.onKeyboardReady():226 onKeyboardReady(): type=prime(prime), kb=com.google.android.apps.inputmethod.latin.keyboard.LatinPrimeKeyboard@c450bed
+05-13 11:50:13.422 I/KeyboardWrapper( 4643): KeyboardWrapper.doActivateKeyboard():624 doActivateKeyboard(): prime
+05-13 11:50:13.423 I/ersn    ( 7447): (REDACTED) HDM. appOpsListener %s %s
+05-13 11:50:13.423 I/ersn    ( 7447): (REDACTED) HDM. Ignoring irrelevant audio permission changes for package %s
+05-13 11:50:13.424 I/KeyboardViewHelper( 4643): KeyboardViewHelper.getView():180 Get view with height ratio:1.000000
+05-13 11:50:13.429 D/AACPManager( 4398): Control command received: 0d - 02
+05-13 11:50:13.429 D/AACPManager( 4398): Control command list is now: STEM_CONFIG (39) - 09, CLICK_HOLD_INTERVAL (18) - 00, DOUBLE_CLICK_INTERVAL (17) - 00, VOLUME_SWIPE_MODE (25) - 01, VOLUME_SWIPE_INTERVAL (23) - 01, CHIME_VOLUME (1f) - 42 50, CALL_MANAGEMENT_CONFIG (24) - 00 03, CONVERSATION_DETECT_CONFIG (28) - 01, ADAPTIVE_VOLUME_CONFIG (26) - 02, SSL (29) - 02, HEARING_AID (2c) - 01 02, HPS_GAIN_SWIPE (2f) - 02, HEARING_ASSIST_CONFIG (33) - 02, AUTO_ANC_STRENGTH (2e) - 5F, HRM_STATE (30) - 01, ONE_BUD_ANC_MODE (1b) - 01, SLEEP_DETECTION_CONFIG (35) - 01, PPE_TOGGLE_CONFIG (37) - 01, PPE_CAP_LEVEL_CONFIG (38) - 52, DYNAMIC_END_OF_CHARGE (3b) - 01, LISTENING_MODE (0d) - 02
+05-13 11:50:13.429 D/AACPManager( 4398): calling listener for LISTENING_MODE
+05-13 11:50:13.430 I/hwc-pixel-bc(  493): path=drm, id=0, level=2236, nits=202.730637, brightness=0.100934, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:13.431 D/AirPodsData( 4398): Data received: 04 00 04 00 09 00 0D 02 00 00 00
+05-13 11:50:13.431 I/BaseKeyboardSizeHelper( 4643): BaseKeyboardSizeHelper.calculateMaxKeyboardBodyHeight():73 leave 281 height for app when ime window height:2125, header height:126 and isFullscreenMode:false, so the max keyboard body height is:1718
+05-13 11:50:13.432 I/GlobeKeyExtension( 4643): GlobeKeyExtension.getKeyboardInitialStates():186 
+05-13 11:50:13.432 W/Keyboard( 4643): Keyboard.getKeyboardViewHelper():607 null helper is returned: keyboardDef=oci{processedConditions={show_comma_key=true, enable_more_candidates_view_for_multilingual=false, layout_9key_split=false, enable_secondary_symbols=true, pref_enable_flick_symbols=false, enable_scrub_move=true, language=es-ES, deprecate_long_press_space_for_ime_picker=false, expressions=normal, android_software_xr_api_spatial=false, variant=spanish, free_cursor=false, show_period_key=true, enable_number_row=true, device=phone, keyboard_mode=normal, show_secondary_digits=false, enable_preemptive_decode=true, enable_pk_simulator=false}, globalConditions={global_theme_key=theme,!gsf,!pgsf,!use_system_font,BORDER,DEVICE_MODE=phone,DYNAMIC_DARK_BRIGHT_KEY,FLAVOR_DPI=XXHDPI,IS_LIGHT,KEYBOARD_WIDTH_CATEGORY=NORMAL,KEY_BORDER_SHAPE=1,LIGHT_THEME=true,PHYSICAL_DIAGONAL=5.9444714,POPUP,SCREEN_SHORTEST_WIDTH=411,SCREEN_SHORTEST_WIDTH_NO_SCALE=411,SW400DP,XXHDPI,bottom4dp,bright_key_on_dynamic_color_dark_theme=true,disable_content_suggestion,enable_popup_on_keypress=true,keyboard_height_48_mm,non_linear_scale,noshadow,overlay_builtin_dynamic_color_light_base.binarypb:gm3-light-fff7f9fd-ff002739-82a7d4e6d0d6c66f4d47757481217700,pgsans,silkpopup, global_locale=es_ES, global_density_dpi=420, global_orientation=1}, className=.latin.keyboard.LatinPrimeKeyboard, resourceIds=[#0x7f170600, #0x7f1708ac], initialStates=0, keyboardViewDefs=[ocy{direction=null, id=#0x7f0b0229, isScalable=true, layoutId=#0x7f0e0268, type=BODY, touchable=true, defaultShow=true}, ocy{direction=null, id=#0x7f0b0229, isScalable=false, layoutId=#0x7f0e0218, type=FLOATING_CANDIDATES, touchable=false, defaultShow=false}, ocy{direction=LOCALE, id=#0x7f0b0229, isScalable=false, layoutId=#0x7f0e0520, type=HEADER, touchable=true, defaultShow=true}], persistentStates=0, persistentStatesPrefKey=null, popupBubbleLayoutId=#0x7f0e0611, recentKeyLayoutId=#0x0, recentKeyPopupLayoutId=#0x0, recentKeyType=null, rememberRecentKey=NONE, sessionStates=26388279066624}, type=WIDGET, helpersCreated={HEADER=nnb@bb1afdc, BODY=nnb@e6518e5, FLOATING_CANDIDATES=nnb@4bf8fba}, context.getResources().getConfiguration(): {1.5 214mcc7mnc [es_ES] ldltr sw411dp w411dp h923dp 420dpi nrml long compactNeeded hdr widecg port finger -keyb/v/h -nav/h winConfig={ mBounds=Rect(0, 0 - 1080, 2424) mAppBounds=Rect(0, 0 - 1080, 2424) mMaxBounds=Rect(0, 0 - 1080, 2424) mDisplayRotation=ROTATION_0 mWindowingMode=fullscreen mActivityType=undefined mAlwaysOnTop=undefined mRotation=ROTATION_0} s.13 fontWeightAdjustment=0}
+05-13 11:50:13.432 I/BaseKeyboardSizeHelper( 4643): BaseKeyboardSizeHelper.calculateMaxKeyboardBodyHeight():73 leave 281 height for app when ime window height:2125, header height:126 and isFullscreenMode:false, so the max keyboard body height is:1718
+05-13 11:50:13.434 I/AndroidIME( 4643): InputBundleManager.startInput():372 startInput() with ocu[keyboardType=prime, payload=null]
+05-13 11:50:13.434 I/PkModeUpdater( 4643): PkModeUpdater.onActivate():76 onActivate false true
+05-13 11:50:13.434 I/AccessoryInputModeManager( 4643): AccessoryInputModeManager.onModeStarted():346 Accessory input mode started: null
+05-13 11:50:13.434 W/SupplementaryKeyboardsWrapper( 4643): SupplementaryKeyboardsWrapper.deactivateKeyboard():162 keyboard accessory_candidates_consumer is not activated before!
+05-13 11:50:13.434 W/SupplementaryKeyboardsWrapper( 4643): SupplementaryKeyboardsWrapper.deactivateKeyboard():162 keyboard composing_text_consumer is not activated before!
+05-13 11:50:13.435 I/GlobeKeyExtension( 4643): GlobeKeyExtension.onActivate():130 
+05-13 11:50:13.435 I/JarvisAccessPointCooperativeModeHelper( 4643): JarvisAccessPointCooperativeModeHelper.onActivate():170 onActivate
+05-13 11:50:13.435 I/JarvisTriggersManager( 4643): JarvisTriggersManager.onActivate():243 onActivate
+05-13 11:50:13.435 I/JarvisHelper( 4643): JarvisHelper.activateAutoFixItChipForEditor():126 Auto fix it is allowed in app
+05-13 11:50:13.435 I/JarvisExtension( 4643): JarvisExtension.onActivate():346 onActivate
+05-13 11:50:13.436 I/KeyboardModeUtils( 4643): KeyboardModeUtils.getKeyboardBottomOffset():432 inch: 0.350000 ydpi: 421.709015 adjustKeyboardBottomByDisplaySize: false currentDensityDpi: 420 defaultDensityDpi: 420 keyboardBottomToScreenPx: 147 keyboardBottomToNavBarPx: 21 navBarHeight: 126
+05-13 11:50:13.436 I/BaseKeyboardSizeHelper( 4643): BaseKeyboardSizeHelper.calculateMaxKeyboardBodyHeight():73 leave 281 height for app when ime window height:2125, header height:126 and isFullscreenMode:false, so the max keyboard body height is:1718
+05-13 11:50:13.436 I/BaseKeyboardSizeHelper( 4643): BaseKeyboardSizeHelper.calculateMaxKeyboardBodyHeight():73 leave 281 height for app when ime window height:2125, header height:126 and isFullscreenMode:false, so the max keyboard body height is:1718
+05-13 11:50:13.436 I/AndroidIME( 4643): KeyboardViewManager.updateKeyboardBottomFrame():489 Set bottomFrameHeight = 21 while holderPaddingBottom = 21; navigationHeight = 126
+05-13 11:50:13.436 I/BaseKeyboardSizeHelper( 4643): BaseKeyboardSizeHelper.calculateMaxKeyboardBodyHeight():73 leave 281 height for app when ime window height:2125, header height:126 and isFullscreenMode:false, so the max keyboard body height is:1718
+05-13 11:50:13.436 I/KeyboardGroupDefParser( 4643): KeyboardGroupDefParser.parseKeyboardGroupDef():73 parseKeyboardGroupDef() 2132214002 -> 0_resource_name_obfuscated : WaitTime = 0 ms : RunTime = 2 ms
+05-13 11:50:13.437 I/BaseKeyboardSizeHelper( 4643): BaseKeyboardSizeHelper.calculateMaxKeyboardBodyHeight():73 leave 281 height for app when ime window height:2125, header height:126 and isFullscreenMode:false, so the max keyboard body height is:1718
+05-13 11:50:13.437 W/ExtensionWrapper( 4643): ExtensionWrapper.setExtensionViewVisibility():878 interface nqy is not activate
+05-13 11:50:13.437 I/NgaExtension( 4643): NgaExtension.onActivate():609 NgaExtension#onActivate [SDG]
+05-13 11:50:13.437 I/NgaVoiceInputHandlerSwitcher( 4643): NgaVoiceInputHandlerSwitcher.restorePrimary():234 not switching to primary. fallback is null [SDG]
+05-13 11:50:13.437 I/NgaVoiceInputHandler( 4643): NgaVoiceInputHandler.maybeCreateInputManager():255 VoiceInputHandler:activating [SDG]
+05-13 11:50:13.437 I/SpeechEnhancementLogger( 4643): SpeechEnhancementLogger.logAtInfo():24 Speech enhancement is disabled because multilang is enabled [SD]
+05-13 11:50:13.437 I/CompositeIntentClassifier( 4643): CompositeIntentClassifier.<init>():49 Determined SmartEdit intent-classifier threshold: 0.950000 [SDG]
+05-13 11:50:13.437 I/MobileBertIntentClassifier( 4643): MobileBertIntentClassifier.<init>():174 Successfully loaded native lib mobilebert_classifier_android_jni
+05-13 11:50:13.437 I/ModelessCommandDetector( 4643): ModelessCommandDetector.<init>():86 Created modeless command detector with language code es [SDG]
+05-13 11:50:13.437 W/NotificationCenter( 4643): NotificationCenter.unregisterListener():480 Listener oib@fe68e0b was not registered for notification class oic
+05-13 11:50:13.437 W/NotificationCenter( 4643): NotificationCenter.unregisterListener():480 Listener ohw@bf404e8 was not registered for notification class ohx
+05-13 11:50:13.437 I/GenAiVoiceEditManagerImpl( 4643): GenAiVoiceEditManagerImpl.<init>():199 SmartEdit fulfillment model version is: 202501200000_smartedit_serverside_ulm8b_finetune [SDG]
+05-13 11:50:13.438 I/NgaExtension( 4643): NgaExtension.onActivate():632 NgaExtension: interaction type=4 [SDG]
+05-13 11:50:13.438 I/hwc-pixel-bc(  493): path=drm, id=0, level=2258, nits=207.872665, brightness=0.103507, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:13.438 I/UniversalDictationUiProvider( 4643): UniversalDictationUiProvider.onActivate():63 onActivate() [UD]
+05-13 11:50:13.438 I/HardKeyTracker( 4643): HardKeyTracker.unregisterKeySequence():259 Unregister key sequence pbd{labelResId=2132020490, callback=fdy@1a52ea5, lastModifier=2, keyCodes=[56], actions=[0]}
+05-13 11:50:13.438 I/HardKeyTracker( 4643): HardKeyTracker.unregisterKeySequence():259 Unregister key sequence pbd{labelResId=2132020490, callback=fdy@29527a, lastModifier=0, keyCodes=[317], actions=[0]}
+05-13 11:50:13.438 I/HardKeyTracker( 4643): HardKeyTracker.registerKeySequence():201 Register key sequence pbd{labelResId=2132020490, callback=fdy@c711705, lastModifier=2, keyCodes=[56], actions=[0]}
+05-13 11:50:13.438 I/HardKeyTracker( 4643): HardKeyTracker.registerKeySequence():201 Register key sequence pbd{labelResId=2132020490, callback=fdy@408835a, lastModifier=0, keyCodes=[317], actions=[0]}
+05-13 11:50:13.438 W/AccessPointsManager( 4643): AccessPointsManager.addAccessPoint():1097 The holder controller #0x7f0b248b is not registered
+05-13 11:50:13.439 I/Module  ( 4643): DeviceLockedStatusModuleProvider$Module.updateDeviceLockedStatus():103 repeatCheckTimes = 1, locked = false
+05-13 11:50:13.440 I/DictationHelper( 4643): DictationHelper.keyboardActiveSession():102 #keyboardActiveSession [SD]
+05-13 11:50:13.440 I/HardKeyTracker( 4643): HardKeyTracker.unregisterKeySequence():259 Unregister key sequence pbd{labelResId=2132020490, callback=fdy@25f1021, lastModifier=2, keyCodes=[56], actions=[0]}
+05-13 11:50:13.440 I/HardKeyTracker( 4643): HardKeyTracker.unregisterKeySequence():259 Unregister key sequence pbd{labelResId=2132020490, callback=fdy@3ea1c46, lastModifier=0, keyCodes=[317], actions=[0]}
+05-13 11:50:13.440 I/HardKeyTracker( 4643): HardKeyTracker.registerKeySequence():201 Register key sequence pbd{labelResId=2132020490, callback=fdy@43b7b26, lastModifier=2, keyCodes=[56], actions=[0]}
+05-13 11:50:13.440 I/HardKeyTracker( 4643): HardKeyTracker.registerKeySequence():201 Register key sequence pbd{labelResId=2132020490, callback=fdy@2627514, lastModifier=0, keyCodes=[317], actions=[0]}
+05-13 11:50:13.441 I/InteractionManager( 4643): InteractionManager$startInteraction$2.invokeSuspend():37 #startInteraction [SD]
+05-13 11:50:13.441 I/HardKeyTracker( 4643): HardKeyTracker.unregisterKeySequence():259 Unregister key sequence pbd{labelResId=2132020495, callback=fdy@f3245e1, lastModifier=2, keyCodes=[32], actions=[0]}
+05-13 11:50:13.441 I/HardKeyTracker( 4643): HardKeyTracker.unregisterKeySequence():259 Unregister key sequence pbd{labelResId=2132020495, callback=fdy@7e619c7, lastModifier=0, keyCodes=[319], actions=[0]}
+05-13 11:50:13.441 I/HardKeyTracker( 4643): HardKeyTracker.registerKeySequence():201 Register key sequence pbd{labelResId=2132020495, callback=fdy@75423b2, lastModifier=2, keyCodes=[32], actions=[0]}
+05-13 11:50:13.441 I/SystemHapticSettings( 4643): SystemHapticSettings.updateSystemVibrationState():63 update vibration state: true
+05-13 11:50:13.441 I/HardKeyTracker( 4643): HardKeyTracker.registerKeySequence():201 Register key sequence pbd{labelResId=2132020495, callback=fdy@f5f9f03, lastModifier=0, keyCodes=[319], actions=[0]}
+05-13 11:50:13.441 I/HardKeyTracker( 4643): HardKeyTracker.unregisterKeySequence():259 Unregister key sequence pbd{labelResId=2132020495, callback=fdy@aac5f1d, lastModifier=2, keyCodes=[32], actions=[0]}
+05-13 11:50:13.441 I/HardKeyTracker( 4643): HardKeyTracker.unregisterKeySequence():259 Unregister key sequence pbd{labelResId=2132020495, callback=fdy@dcd8592, lastModifier=0, keyCodes=[319], actions=[0]}
+05-13 11:50:13.441 I/HardKeyTracker( 4643): HardKeyTracker.registerKeySequence():201 Register key sequence pbd{labelResId=2132020495, callback=fdy@d7bce80, lastModifier=2, keyCodes=[32], actions=[0]}
+05-13 11:50:13.441 I/HardKeyTracker( 4643): HardKeyTracker.registerKeySequence():201 Register key sequence pbd{labelResId=2132020495, callback=fdy@da21cb9, lastModifier=0, keyCodes=[319], actions=[0]}
+05-13 11:50:13.441 I/VoiceImeExtension( 4643): VoiceImeExtension.shouldStartVoiceInputAutomaticallyInCurrentInputBox():384 No private IME option set to start voice input.
+05-13 11:50:13.442 D/ImeBackCallbackSender( 4643): Register OnBackInvokedCallback with priority=-1 at app window (packageName=me.kavishdevar.librepods)
+05-13 11:50:13.445 I/Interaction( 4643): Interaction.start():57 Starting Interaction#127 [SD]
+05-13 11:50:13.446 I/KeyboardEventHandler( 4643): KeyboardEventHandler.handleKeyboardVisibilityEvent():214 Handling KeyboardVisibilityEvent: KEYBOARD_OPENED [SD]
+05-13 11:50:13.447 I/hwc-pixel-bc(  493): path=drm, id=0, level=2281, nits=213.172989, brightness=0.106159, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:13.448 I/SpeechEnhancementLogger( 4643): SpeechEnhancementLogger.logAtInfo():24 Speech enhancement is disabled because multilang is enabled [SD]
+05-13 11:50:13.448 I/PackageStatusChecker( 4643): PackageStatusChecker.isPackageSuspended():24 Current package suspended=false [SD]
+05-13 11:50:13.448 D/WindowOnBackDispatcher( 4398): setTopOnBackInvokedCallback (unwrapped): android.view.ImeBackAnimationController@413156b
+05-13 11:50:13.450 D/CoreBackPreview( 1808): Window{5759c62 u0 me.kavishdevar.librepods/me.kavishdevar.librepods.MainActivity}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@7406116, mPriority=0, mIsAnimationCallback=true, mOverrideBehavior=0}
+05-13 11:50:13.450 I/AsrProviderChoice( 4643): AsrProviderChoice.setChosenProvider():83 Setting chosen ASR provider to: 6 [SD]
+05-13 11:50:13.450 I/EligibilityChecker( 4643): EligibilityChecker.getDictationConfigEligibilityForLocale():310 Dictation is enabled. workprofile=false [SD]
+05-13 11:50:13.450 D/BackgroundInstallControlService( 1808): Package event received: 0
+05-13 11:50:13.451 I/EligibilityChecker( 4643): EligibilityChecker.getDictationConfigEligibilityForLocale():310 Dictation is enabled. workprofile=false [SD]
+05-13 11:50:13.451 I/EligibilityChecker( 4643): EligibilityChecker.checkLocaleEligibility():456 Dictation is not enabled for unsupported keyboard locale: el_GR; supported locales: es_ES,en_SG,en_AU,ja_JP,fr_BE,fr_CA,de_CH,de_BE,it_CH,de_DE,en_IN,es_US,it_IT,en_IE,fr_FR,en_US,en_CA,de_AT,fr_CH,en_GB. workprofile=false [SD]
+05-13 11:50:13.451 I/AsrProviderSelector( 4643): AsrProviderSelector.selectProvider():28 SBG path failed. Reason: 28. Trying S3 path. [SD]
+05-13 11:50:13.452 I/KeyboardEligibilityNotifier( 4643): KeyboardEligibilityNotifier.notifyEligibility():76 Keyboard notified that eligibility=ELIGIBLE [SD]
+05-13 11:50:13.452 I/KeyboardUiManagerImpl( 4643): KeyboardUiManagerImpl.onKeyboardShown():156 #onKeyboardShown scheduled [SD]
+05-13 11:50:13.452 I/KeyboardUiManagerImpl( 4643): KeyboardUiManagerImpl.onKeyboardShown():159 #onKeyboardShown [SD]
+05-13 11:50:13.452 I/KeyboardEventHandler( 4643): KeyboardEventHandler.handleFieldChangedEvent():454 Handling FieldChangedEvent: fgPkg=me.kavishdevar.librepods, fieldType=3.3e+04, interactionType=FIELD_CHANGE [SD]
+05-13 11:50:13.452 I/SpeechEnhancementLogger( 4643): SpeechEnhancementLogger.logAtInfo():24 Speech enhancement is disabled because multilang is enabled [SD]
+05-13 11:50:13.452 I/PackageStatusChecker( 4643): PackageStatusChecker.isPackageSuspended():24 Current package suspended=false [SD]
+05-13 11:50:13.454 I/AsrProviderChoice( 4643): AsrProviderChoice.setChosenProvider():83 Setting chosen ASR provider to: 6 [SD]
+05-13 11:50:13.454 I/EligibilityChecker( 4643): EligibilityChecker.getDictationConfigEligibilityForLocale():310 Dictation is enabled. workprofile=false [SD]
+05-13 11:50:13.455 I/hwc-pixel-bc(  493): path=drm, id=0, level=2282, nits=213.315201, brightness=0.106230, DimmingOn=0, Hbm=0, LhbmOn=0, OpRate=0
+05-13 11:50:13.455 I/EligibilityChecker( 4643): EligibilityChecker.getDictationConfigEligibilityForLocale():310 Dictation is enabled. workprofile=false [SD]
+05-13 11:50:13.455 I/EligibilityChecker( 4643): EligibilityChecker.checkLocaleEligibility():456 Dictation is not enabled for unsupported keyboard locale: el_GR; supported locales: es_ES,en_SG,en_AU,ja_JP,fr_BE,fr_CA,de_CH,de_BE,it_CH,de_DE,en_IN,es_US,it_IT,en_IE,fr_FR,en_US,en_CA,de_AT,fr_CH,en_GB. workprofile=false [SD]
+05-13 11:50:13.455 I/AsrProviderSelector( 4643): AsrProviderSelector.selectProvider():28 SBG path failed. Reason: 28. Trying S3 path. [SD]
+05-13 11:50:13.456 I/KeyboardEligibilityNotifier( 4643): KeyboardEligibilityNotifier.notifyEligibility():76 Keyboard notified that eligibility=ELIGIBLE [SD]
+05-13 11:50:13.465 W/TextView( 4643): onProvideContentCaptureStructure(): calling assumeLayout()
+05-13 11:50:13.466 I/KeyboardEventHandler( 4643): KeyboardEventHandler.handleJarvisState():314 Handling JarvisState. UiState=IDLE, undo_available=false, can_show_proofread_suggestion=false, can_be_activated=true, more_fixes_available=false, draft_selected_in_drafts_ui_session=false, num_fixes_available=0 [SD]
+05-13 11:50:13.466 I/GoogleInputMethodService( 4643): GoogleInputMethodService$1.onKeyboardViewShown():344 onKeyboardViewShown: keyboardType=prime, keyboardViewType=HEADER keyboardView=com.google.android.libraries.inputmethod.widgets.SoftKeyboardView{7c8f091 V.E...... ........ 0,0-1080,126 aid=6870}
+05-13 11:50:13.466 I/KeyboardUiManagerImpl( 4643): KeyboardUiManagerImpl.onJarvisState():591 #onJarvisState: # jfo@12bd197d isProofreadEnabled true [SD]
+05-13 11:50:13.466 I/BaseKeyboardSizeHelper( 4643): BaseKeyboardSizeHelper.calculateMaxKeyboardBodyHeight():73 leave 281 height for app when ime window height:2125, header height:126 and isFullscreenMode:false, so the max keyboard body height is:1718
+05-13 11:50:13.466 I/GoogleInputMethodService( 4643): GoogleInputMethodService$1.onKeyboardViewShown():344 onKeyboardViewShown: keyboardType=prime, keyboardViewType=BODY keyboardView=com.google.android.libraries.inputmethod.widgets.SoftKeyboardView{d33b569 V.E...... ........ 0,0-1080,651 aid=7000}
+05-13 11:50:13.466 I/BaseKeyboardSizeHelper( 4643): BaseKeyboardSizeHelper.calculateMaxKeyboardBodyHeight():73 leave 281 height for app when ime window height:2125, header height:126 and isFullscreenMode:false, so the max keyboard body height is:1718
+05-13 11:50:13.466 I/GlobeKeyExtension( 4643): GlobeKeyExtension$1.onKeyboardViewShown():77 maybeDisableLanguageSwitchKeyPref when the keyboard is shown
+05-13 11:50:13.466 I/GlobeKeyExtension( 4643): GlobeKeyExtension.maybeDisableLanguageSwitchKeyPref():211 maybeDisableLanguageSwitchKeyPref hasGlobeKeyBeenDisabled: true, shouldDisableLanguageSwitchKey: true
+05-13 11:50:13.466 I/NewLanguagePromptExtension( 4643): NewLanguagePromptExtension$1.onKeyboardViewShown():98 Not show new language banner: no change in enabled input method entries
+05-13 11:50:13.467 I/DynamicLayoutHandler( 4643): DynamicLayoutHandler.loadDynamicKeys():92 This isn't a dynamic layout.
+05-13 11:50:13.467 I/Delight5Decoder( 4643): Delight5DecoderWrapper.setKeyboardLayout():551 setKeyboardLayout()
+05-13 11:50:13.467 D/AirPodsService( 4398): onHeadTrackingReceived: active=false len=81
+05-13 11:50:13.467 I/KeyboardModeUtils( 4643): KeyboardModeUtils.getKeyboardBottomOffset():432 inch: 0.350000 ydpi: 421.709015 adjustKeyboardBottomByDisplaySize: false currentDensityDpi: 420 defaultDensityDpi: 420 keyboardBottomToScreenPx: 147 keyboardBottomToNavBarPx: 21 navBarHeight: 126
+05-13 11:50:13.467 I/BaseKeyboardSizeHelper( 4643): BaseKeyboardSizeHelper.calculateMaxKeyboardBodyHeight():73 leave 281 height for app when ime window height:2125, header height:126 and isFullscreenMode:false, so the max keyboard body height is:1718
+05-13 11:50:13.467 I/BaseKeyboardSizeHelper( 4643): BaseKeyboardSizeHelper.calculateMaxKeyboardBodyHeight():73 leave 281 height for app when ime window height:2125, header height:126 and isFullscreenMode:false, so the max keyboard body height is:1718
+05-13 11:50:13.467 I/AndroidIME( 4643): KeyboardViewManager.updateKeyboardBottomFrame():489 Set bottomFrameHeight = 21 while holderPaddingBottom = 21; navigationHeight = 126
+05-13 11:50:13.467 I/NgaStateManager( 4643): NgaStateManager.setAssistantDictationEligibility():188 AssistantDictationEligibility = 1 [SDG]
+05-13 11:50:13.467 I/NgaStateManager( 4643): NgaStateManager.buildConfigEligibilityPerLanguageTag():306 AssistantDictationEligibility(config, es-ES) = 1 [SDG]
+05-13 11:50:13.467 I/NgaStateManager( 4643): NgaStateManager.buildConfigEligibilityPerLanguageTag():306 AssistantDictationEligibility(config, en-US) = 1 [SDG]
+05-13 11:50:13.467 I/NgaStateManager( 4643): NgaStateManager.buildConfigEligibilityPerLanguageTag():306 AssistantDictationEligibility(config, el-GR) = 28 [SDG]
+05-13 11:50:13.467 I/NgaStateManager( 4643): NgaStateManager.setAssistantDictationEligibility():197 AssistantDictationEligibility(inputField) = 1 [SDG]
+05-13 11:50:13.467 I/NgaInputHandlerFactory( 4643): NgaInputHandlerFactory.restorePrimary():137 restoring primary [SDG]
+05-13 11:50:13.467 I/NgaVoiceInputHandlerSwitcher( 4643): NgaVoiceInputHandlerSwitcher.restorePrimary():234 not switching to primary. fallback is null [SDG]
+05-13 11:50:13.468 D/Bubbles ( 2848): BubbleController.BubblesImeListener.onImeVisibilityChanged visible=true runnable=null stackView=null
+05-13 11:50:13.469 I/NgaStateManager( 4643): NgaStateManager.setAssistantDictationEligibility():188 AssistantDictationEligibility = 1 [SDG]
+05-13 11:50:13.469 I/NgaStateManager( 4643): NgaStateManager.buildConfigEligibilityPerLanguageTag():306 AssistantDictationEligibility(config, es-ES) = 1 [SDG]
+05-13 11:50:13.469 I/NgaStateManager( 4643): NgaStateManager.buildConfigEligibilityPerLanguageTag():306 AssistantDictationEligibility(config, en-US) = 1 [SDG]
+05-13 11:50:13.469 I/NgaStateManager( 4643): NgaStateManager.buildConfigEligibilityPerLanguageTag():306 AssistantDictationEligibility(config, el-GR) = 28 [SDG]
+05-13 11:50:13.469 I/NgaStateManager( 4643): NgaStateManager.setAssistantDictationEligibility():197 AssistantDictationEligibility(inputField) = 1 [SDG]
+05-13 11:50:13.469 D/AOC     ( 1539): A3:MSG: tmd3743_device.cc, 2643: USF: TMD3743: dbv:2282 rr:120 pwm:-1 te2:0 status:1[0] C/R/G/B/W=41.4/27.7/15.9/6.2/4
+05-13 11:50:13.469 I/NgaInputHandlerFactory( 4643): NgaInputHandlerFactory.restorePrimary():137 restoring primary [SDG]
+05-13 11:50:13.469 I/NgaVoiceInputHandlerSwitcher( 4643): NgaVoiceInputHandlerSwitcher.restorePrimary():234 not switching to primary. fallback is null [SDG]
+05-13 11:50:13.470 I/twoshay.TouchContextService( 4108): Got new packet! ContextPacket{orientation: PORTRAIT, audioMode: NORMAL, adaptiveTouchSensitivity: ON, screenProtectorMode: OFF, imeState: ImeState{displayId: 0, visible: true, top: 0, left: 0, bottom: 0, right: 0}, audioDeviceInfo: TYPE_BUILTIN_EARPIECE}
+05-13 11:50:13.470 I/twoshay.TouchContextService( 4108): Got new packet! ContextPacket{orientation: PORTRAIT, audioMode: NORMAL, adaptiveTouchSensitivity: ON, screenProtectorMode: OFF, imeState: ImeState{displayId: 0, visible: true, top: 1500, left: 0, bottom: 2424, right: 1080}, audioDeviceInfo: TYPE_BUILTIN_EARPIECE}
+05-13 11:50:13.488 D/VRI[MainActivity]( 4398): WindowInsets changed: ime:[0,0,0,924] 
+05-13 11:50:13.492 W/InteractionJankMonitor( 4398): Initializing without READ_DEVICE_CONFIG permission. enabled=false, interval=1, missedFrameThreshold=3, frameTimeThreshold=64, package=me.kavishdevar.librepods
+05-13 11:50:13.502 W/SystemApisUtils( 4398): Failed to set metadata for key 12: null
+05-13 11:50:13.503 W/SystemApisUtils( 4398): Failed to set metadata for key 15: null
+05-13 11:50:13.505 W/SystemApisUtils( 4398): Failed to set metadata for key 10: null
+05-13 11:50:13.507 W/SystemApisUtils( 4398): Failed to set metadata for key 13: null
+05-13 11:50:13.508 W/SystemApisUtils( 4398): Failed to set metadata for key 11: null
+05-13 11:50:13.508 W/SystemApisUtils( 4398): Failed to set metadata for key 14: null
+05-13 11:50:13.518 D/AirPodsParser( 4398): LEFT: OPTIMIZED_CHARGING at 79% 
+05-13 11:50:13.518 D/AirPodsParser( 4398): RIGHT: OPTIMIZED_CHARGING at 78% 
+05-13 11:50:13.518 D/AirPodsParser( 4398): CASE: NOT_CHARGING at 46% 
+05-13 11:50:13.518 D/AirPodsData( 4398): Data received: 04 00 04 00 04 00 03 02 01 4E 05 01 04 01 4F 05 01 08 01 2E 02 01
+05-13 11:50:13.519 D/BluetoothAdapter( 4398): HEADSET connected
+05-13 11:50:13.519 D/AirPodsService( 4398): not setting connection policy for HEADSET, no MODIFIY_PHONE_STATE permission
+05-13 11:50:13.521 D/BluetoothAdapter( 4398): A2DP connected
+05-13 11:50:13.524 D/BluetoothA2dp( 4398): connect(XX:XX:XX:XX:97:86)
+05-13 11:50:13.526 D/AirPodsService( 4398): not setting connection policy for A2DP, no BLUETOOTH_PRIVILEGED permission. just called connect
+05-13 11:50:13.526 E/A2dpStateMachine(31025): Connected: ignoring event: CONNECT
+05-13 11:50:13.526 E/A2dpStateMachine(31025):  - unhandledMessage: msg.what=1
+05-13 11:50:13.536 D/AACPManager( 4398): Unhandled opcode received: 08
+05-13 11:50:13.536 E/system_server( 1808): No package ID 7f found for resource ID 0x7f160000.
+05-13 11:50:13.536 D/AACPManager( 4398): Unknown packet received: 04 00 04 00 08 00 02 00 01 00
+05-13 11:50:13.536 D/AirPodsData( 4398): Data received: 04 00 04 00 08 00 02 00 01 00
+05-13 11:50:13.536 W/LocaleConfig( 1808): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:13.536 E/system_server( 1808): No package ID 7f found for resource ID 0x7f160000.
+05-13 11:50:13.536 W/LocaleConfig( 1808): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:13.544 I/AiAiEcho( 4707): SmartspaceNotificationPredictor no parser can handle this notification or notification is invalid
+05-13 11:50:13.549 W/LocaleConfig( 2848): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:13.550 W/LocaleConfig( 2848): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:13.566 D/ActivityManager( 1808): sync unfroze 17096 com.google.android.googlequicksearchbox:googleapp for 10
+05-13 11:50:13.568 I/acsm    ( 7447): (REDACTED) bluetoothConnectionStateChanged. Action: %s
+05-13 11:50:13.572 D/ActivityManager( 1808): sync unfroze 13628 com.google.android.gms.unstable for 10
+05-13 11:50:13.572 D/ActivityManager( 1808): sync unfroze 13408 com.google.android.gms.ui for 10
+05-13 11:50:13.573 I/acsm    ( 7447): (REDACTED) bluetoothConnectionStateChanged. Action: %s
+05-13 11:50:13.578 I/NearbyDiscovery(28188): (REDACTED) FastPairHandler: Received action %s
+05-13 11:50:13.581 I/NearbyDiscovery(28188): (REDACTED) FastPairHandler: Received action %s
+05-13 11:50:13.582 I/NearbyDiscovery(28188): (REDACTED) FastPairHandler: Uuid fetch is done, %s
+05-13 11:50:13.583 I/NearbyDiscovery(28188): (REDACTED) FastPairHandler:  %s
+05-13 11:50:13.584 I/NearbyDiscovery(28188): (REDACTED) FastPairHandler:  %s
+05-13 11:50:13.584 I/NearbyDiscovery(28188): (REDACTED) FastPairHandler:  %s
+05-13 11:50:13.585 I/acsm    ( 7447): (REDACTED) bluetoothConnectionStateChanged. Action: %s
+05-13 11:50:13.585 I/NearbyDiscovery(28188): (REDACTED) FastPairHandler:  %s
+05-13 11:50:13.585 I/NearbyDiscovery(28188): (REDACTED) FastPairHandler:  %s
+05-13 11:50:13.585 I/NearbyDiscovery(28188): (REDACTED) FastPairHandler: Received action %s
+05-13 11:50:13.588 I/NearbyDiscovery(28188): (REDACTED) SdpManager: Add cached device, %s, forceAdd=%s
+05-13 11:50:13.589 I/NearbyDiscovery(28188): (REDACTED) FastPairHandler: Uuid fetch is done, %s
+05-13 11:50:13.589 I/NearbyDiscovery(28188): (REDACTED) FastPairHandler:  %s
+05-13 11:50:13.590 I/NearbyDiscovery(28188): (REDACTED) FastPairHandler:  %s
+05-13 11:50:13.590 I/NearbyDiscovery(28188): (REDACTED) FastPairHandler:  %s
+05-13 11:50:13.590 I/NearbyDiscovery(28188): (REDACTED) FastPairHandler:  %s
+05-13 11:50:13.590 I/NearbyDiscovery(28188): (REDACTED) FastPairHandler:  %s
+05-13 11:50:13.590 I/NearbyDiscovery(28188): (REDACTED) FastPairHandler:  %s
+05-13 11:50:13.590 I/NearbyDiscovery(28188): (REDACTED) FastPairHandler: Received action %s
+05-13 11:50:13.591 W/NotificationManager( 4398): Shedding notify (update) of NotificationKey[user=UserHandle{0}, pkg=me.kavishdevar.librepods, tag=null, id=2], rate limit (5.0) exceeded: input 45.261055, output would be 6.0416937
+05-13 11:50:13.591 I/NearbyDiscovery(28188): (REDACTED) FastPairHandler: Uuid fetch is done, %s
+05-13 11:50:13.591 I/NearbyDiscovery(28188): (REDACTED) FastPairHandler:  %s
+05-13 11:50:13.591 I/NearbyDiscovery(28188): (REDACTED) FastPairHandler:  %s
+05-13 11:50:13.591 I/NearbyDiscovery(28188): (REDACTED) FastPairHandler:  %s
+05-13 11:50:13.591 I/NearbyDiscovery(28188): (REDACTED) FastPairHandler:  %s
+05-13 11:50:13.591 I/NearbyDiscovery(28188): (REDACTED) FastPairHandler:  %s
+05-13 11:50:13.591 I/NearbyDiscovery(28188): (REDACTED) FastPairHandler:  %s
+05-13 11:50:13.591 I/NearbyDiscovery(28188): (REDACTED) FastPairHandler:  %s
+05-13 11:50:13.591 I/NearbyDiscovery(28188): (REDACTED) FastPairHandler:  %s
+05-13 11:50:13.591 I/NearbyDiscovery(28188): (REDACTED) FastPairHandler:  %s
+05-13 11:50:13.591 I/NearbyDiscovery(28188): (REDACTED) FastPairHandler:  %s
+05-13 11:50:13.592 I/NearbyDiscovery(28188): (REDACTED) FastPairHandler:  %s
+05-13 11:50:13.592 W/NotificationManager( 4398): Shedding cancel (dupe) of NotificationKey[user=UserHandle{0}, pkg=me.kavishdevar.librepods, tag=null, id=1], rate limit (5.0) exceeded: input 45.469486, output would be 6.1080694
+05-13 11:50:13.592 D/AACPManager( 4398): Unhandled opcode received: 0c
+05-13 11:50:13.593 D/AACPManager( 4398): Unknown packet received: 04 00 04 00 0C 00 4B 44 ED 22 0E 34 01 02
+05-13 11:50:13.593 D/AirPodsData( 4398): Data received: 04 00 04 00 0C 00 4B 44 ED 22 0E 34 01 02
+05-13 11:50:13.593 I/NearbyDiscovery(28188): (REDACTED) SdpManager: Add cached device, %s, forceAdd=%s
+05-13 11:50:13.594 I/NearbyDiscovery(28188): (REDACTED) SdpManager: Add cached device, %s, forceAdd=%s
+05-13 11:50:13.597 I/acsm    ( 7447): (REDACTED) bluetoothConnectionStateChanged. Action: %s
+05-13 11:50:13.613 I/NearbyFastPair(28188): WDLS created [CONTEXT service_id=265 ]
+05-13 11:50:13.614 D/BluetoothAdapter(28188): registerBluetoothConnectionCallback()
+05-13 11:50:13.614 I/NearbyShared(28188): BTConnStateMgr: BluetoothConnectionCallback registered.
+05-13 11:50:13.615 I/NearbyFastPair(28188): (REDACTED) WDLS onStartCommand: receive intent action=%s
+05-13 11:50:13.617 I/NearbyFastPair(28188): (REDACTED) WDLS onStartCommand: receive intent action=%s
+05-13 11:50:13.618 I/NearbyFastPair(28188): (REDACTED) WDLS onStartCommand: uuid fetch for %s is done
+05-13 11:50:13.622 W/TooltipLifecycleManager( 4643): TooltipLifecycleManager.dismissTooltips():153 Tooltip with id spell_check_add_to_dictionary not found in tooltipManager.
+05-13 11:50:13.627 D/AACPManager( 4398): Unhandled opcode received: 0c
+05-13 11:50:13.628 D/AACPManager( 4398): Unknown packet received: 04 00 04 00 0C 00 2C 61 86 44 E0 30 01 01
+05-13 11:50:13.628 D/AirPodsData( 4398): Data received: 04 00 04 00 0C 00 2C 61 86 44 E0 30 01 01
+05-13 11:50:13.635 D/AACPManager( 4398): Parsing Audio Source Response: 04 00 04 00 0E 00 2C 61 86 44 E0 30 00
+05-13 11:50:13.635 D/AirPodsParser( 4398): Audio source changed mac: 30:E0:44:86:61:2C, type: NONE
+05-13 11:50:13.635 D/AirPodsData( 4398): Data received: 04 00 04 00 0E 00 2C 61 86 44 E0 30 00
+05-13 11:50:13.650 I/BluetoothAdapterProperties(31025): getBondedDevices: length=4
+05-13 11:50:13.651 W/NearbyFastPair(28188): BluetoothDeviceHelper: cannot get uuids XX:XX:XX:XX:57:43 [CONTEXT service_id=265 ]
+05-13 11:50:13.654 I/NearbyFastPair(28188): (REDACTED) BluetoothDeviceHelper: bonded device %s [%s]
+05-13 11:50:13.654 I/NearbyShared(28188): (REDACTED) BTConnStateMgr: tryReconnectProxy called but proxy is not connected, try reconnect and wait, profile=%s
+05-13 11:50:13.656 D/BluetoothAdapter(28188): A2DP connected
+05-13 11:50:13.688 D/AACPManager( 4398): Parsing Connected Devices Response: 04 00 04 00 2E 00 01 00 01 30 E0 44 86 61 2C 02 06
+05-13 11:50:13.688 D/AirPodsParser( 4398): Connected device: 30:E0:44:86:61:2C, info1: 2, info2: 6)
+05-13 11:50:13.688 D/AirPodsData( 4398): Data received: 04 00 04 00 2E 00 01 00 01 30 E0 44 86 61 2C 02 06
+05-13 11:50:13.695 D/AirPodsParser( 4398): Ear Detection: 2 2
+05-13 11:50:13.696 D/MediaController( 4398): Sending pause with iPausedTheMedia: false, userPlayedTheMedia: false, isMusicActive: false, force: true
+05-13 11:50:13.697 D/AirPodsParser( 4398): inEarData: [false, false], newInEarData: [false, false]
+05-13 11:50:13.697 D/AirPodsData( 4398): Data received: 04 00 04 00 06 00 02 02
+05-13 11:50:13.701 D/AirPodsService( 4398): onHeadTrackingReceived: active=false len=81
+05-13 11:50:13.718 E/system_server( 1808): No package ID 7f found for resource ID 0x7f160000.
+05-13 11:50:13.722 W/LocaleConfig( 1808): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:13.722 E/system_server( 1808): No package ID 7f found for resource ID 0x7f160000.
+05-13 11:50:13.722 W/LocaleConfig( 1808): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:13.731 W/LocaleConfig( 2848): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:13.732 W/LocaleConfig( 2848): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:13.741 I/AiAiEcho( 4707): SmartspaceNotificationPredictor no parser can handle this notification or notification is invalid
+05-13 11:50:13.756 D/AACPManager( 4398): Parsing Proximity Keys Response: 04 00 04 00 31 00 01 01 00 10 00 0F A7 4B 5F 87 A6 0F E7 F8 18 42 87 14 64 37 CB
+05-13 11:50:13.756 D/AACPManager( 4398): Parsing Proximity Key 0
+05-13 11:50:13.756 D/AACPManager( 4398): Key Type: 1, Key Length: 16
+05-13 11:50:13.756 D/AACPManager( 4398): Parsed Proximity Key: Type: 1, Length: 16, Key: 0F A7 4B 5F 87 A6 0F E7 F8 18 42 87 14 64 37 CB
+05-13 11:50:13.756 D/AirPodsParser( 4398): Proximity keys: {IRK=[B@56a77a4}
+05-13 11:50:13.756 D/AirPodsParser( 4398): Proximity key: IRK = [B@56a77a4
+05-13 11:50:13.756 D/AirPodsData( 4398): Data received: 04 00 04 00 31 00 01 01 00 10 00 0F A7 4B 5F 87 A6 0F E7 F8 18 42 87 14 64 37 CB
+05-13 11:50:13.793 D/AirPodsService( 4398): onHeadTrackingReceived: active=false len=85
+05-13 11:50:13.793 D/AirPodsData( 4398): Data received: 04 00 04 00 17 00 00 00 10 00 49 00 08 8E 05 10 01 3A 3E 08 10 1A 3A 01 00 D8 82 10 21 32 00 00 03 04 43 3B 67 7D 32 00 00 00 00 E9 E4 1A 42 02 00 00 00 00 00 00 00 03 00 04 17 63 3C F2 FF FB FF 07 00 5F 03 61 01 85 FE 48 88 8E 39 13 14 00 00 4A 02 08 10
+05-13 11:50:13.796 I/ImeTracker( 4398): me.kavishdevar.librepods:767d67c9: onShown
+05-13 11:50:13.799 I/WifiHAL ( 1238): Creating message to get link statistics; iface = 47
+05-13 11:50:13.816 I/system_server( 1808): Background young concurrent mark compact GC freed 93MB AllocSpace bytes, 24(1260KB) LOS objects, 49% free, 99MB/194MB, paused 1.517ms,7.899ms total 224.967ms
+05-13 11:50:13.825 I/WifiHAL ( 1238): Getting cached scan results, iface handle = 0xb4000070a4a16f90
+05-13 11:50:13.825 E/WifiHAL ( 1238): Creating message to get cached scan results
+05-13 11:50:13.829 I/WifiHAL ( 1238): In GetCachedScanResultsCommand::handleResponse
+05-13 11:50:13.839 I/libbinder.BpBinder( 1808): onLastStrongRef automatically unlinking death recipients for binder (0xb4000070613789d0) with descriptor: '(not cached)'
+05-13 11:50:13.848 D/WifiHAL ( 1238): Start debug command: mType GET_FEATURE
+05-13 11:50:13.848 I/WifiHAL ( 1238): CreateRequest mType = GET_FEATURE
+05-13 11:50:13.848 D/WifiHAL ( 1238): In DebugCommand::handleResponse, mType:GET_FEATURE
+05-13 11:50:13.848 D/WifiHAL ( 1238): len = 4, expected len = 4
+05-13 11:50:13.849 I/HalDevMgr( 1808): bestIfaceCreationProposal is null, requestIface=STA, existingIface=[name=wlan0 type=STA]
+05-13 11:50:13.965 E/system_server( 1808): No package ID 7f found for resource ID 0x7f160000.
+05-13 11:50:13.966 W/LocaleConfig( 1808): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:13.972 E/system_server( 1808): No package ID 7f found for resource ID 0x7f160000.
+05-13 11:50:13.973 W/LocaleConfig( 1808): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:14.004 I/AiAiEcho( 4707): SmartspaceNotificationPredictor no parser can handle this notification or notification is invalid
+05-13 11:50:14.012 W/LocaleConfig( 2848): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:14.013 W/LocaleConfig( 2848): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:15.320 I/NearbyMediums(28188): Found Fast Ble Advertisements :
+05-13 11:50:15.320 I/NearbyMediums(28188): BleAdvertisement { version=2, socketVersion=2, isFast=true, serviceIdHash=null, data=[ 0x23 0x38 0x58 0x55 0x35 0x11 0x32 0xb6 0xfb 0x3f 0x53 0x6a 0xbd 0xd7 0x5a 0x53 0x62 0xa9 0xda 0x01 0x92 0xca 0x97 ], deviceToken=[ 0xb6 0x03 ], rxAdvertisement=null } : 1 times.
+05-13 11:50:15.320 I/NearbyMediums(28188): BleAdvertisement { version=2, socketVersion=2, isFast=true, serviceIdHash=null, data=[ 0x23 0x55 0x44 0x37 0x53 0x11 0x16 0x61 0xda 0x77 0xda 0x51 0x49 0x5d 0x8c 0xb3 0x3b 0x17 0xd5 0xf9 0x07 0x15 0x61 ], deviceToken=[ 0x3d 0x25 ], rxAdvertisement=null } : 22 times.
+05-13 11:50:15.320 I/NearbyMediums(28188): BleAdvertisement { version=2, socketVersion=2, isFast=true, serviceIdHash=null, data=[ 0x23 0x34 0x54 0x47 0x34 0x11 0x32 0xc2 0x71 0xbe 0x02 0xf5 0x0d 0xcd 0x6c 0x8f 0x16 0xa4 0x67 0xa9 0xad 0x71 0x13 ], deviceToken=[ 0x2e 0x10 ], rxAdvertisement=null } : 2 times.
+05-13 11:50:15.320 I/NearbyMediums(28188): BleAdvertisement { version=2, socketVersion=2, isFast=true, serviceIdHash=null, data=[ 0x23 0x53 0x4c 0x52 0x4b 0x11 0x32 0x14 0x2c 0x14 0x01 0xc6 0x93 0xb4 0x6c 0xf7 0xdb 0xa1 0x57 0xd5 0xd4 0x6a 0xa7 ], deviceToken=[ 0x76 0x9f ], rxAdvertisement=null } : 4 times.
+05-13 11:50:15.320 I/NearbyMediums(28188): Total 29 fast advertisements from 4 unique advertisers.
+05-13 11:50:15.321 I/NearbyMediums(28188): Current Tracked Scanning Clients are : {NearbyConnections.EnvironmentMonitor, NearbySharing, NearbyConnections.TxAdvertisement}
+05-13 11:50:15.487 I/Delight5Decoder( 4643): Delight5DecoderWrapper.setKeyboardLayout():551 setKeyboardLayout()
+05-13 11:50:15.495 I/JarvisAccessPointCooperativeModeHelper( 4643): JarvisAccessPointCooperativeModeHelper.consumeEvent():202 consumeEvent: keyCode=-20004, data=INSERT_CHARACTER
+05-13 11:50:15.495 I/JarvisAccessPointCooperativeModeHelper( 4643): JarvisAccessPointCooperativeModeHelper.updateEndExtraAccessPoint():431 isVoiceActive=false, isEmojifyAvailable=false, isAccessPointSupported=true, isCandidatesViewShown=false, isShownInBar=true, isAccessPointEnabled=true, isAccessPointDependencyReady=false, hasInputContext=true
+05-13 11:50:15.508 I/JarvisAccessPointCooperativeModeHelper( 4643): JarvisAccessPointCooperativeModeHelper.consumeEvent():202 consumeEvent: keyCode=-20004, data=INSERT_CHARACTER
+05-13 11:50:15.508 I/JarvisAccessPointCooperativeModeHelper( 4643): JarvisAccessPointCooperativeModeHelper.updateEndExtraAccessPoint():431 isVoiceActive=false, isEmojifyAvailable=false, isAccessPointSupported=true, isCandidatesViewShown=false, isShownInBar=true, isAccessPointEnabled=true, isAccessPointDependencyReady=false, hasInputContext=true
+05-13 11:50:15.569 I/native  ( 4643): I0000 00:00:1778665815.569250    4964 input-context-store.cc:340] Ignoring stale client request for FetchSuggestions
+05-13 11:50:15.570 W/InputContextProxy( 4643): InputContextProxy.applyClientDiffInternal():933 Ignore [FetchSuggestions] diff due to stale request: 5844<5846, inputStateId=5620, lastInputStateId=5620
+05-13 11:50:15.609 I/KeyboardModeUtils( 4643): KeyboardModeUtils.getKeyboardBottomOffset():432 inch: 0.350000 ydpi: 421.709015 adjustKeyboardBottomByDisplaySize: false currentDensityDpi: 420 defaultDensityDpi: 420 keyboardBottomToScreenPx: 147 keyboardBottomToNavBarPx: 21 navBarHeight: 126
+05-13 11:50:15.609 I/BaseKeyboardSizeHelper( 4643): BaseKeyboardSizeHelper.calculateMaxKeyboardBodyHeight():73 leave 281 height for app when ime window height:2125, header height:126 and isFullscreenMode:false, so the max keyboard body height is:1718
+05-13 11:50:15.609 I/BaseKeyboardSizeHelper( 4643): BaseKeyboardSizeHelper.calculateMaxKeyboardBodyHeight():73 leave 281 height for app when ime window height:2125, header height:126 and isFullscreenMode:false, so the max keyboard body height is:1718
+05-13 11:50:15.609 I/AndroidIME( 4643): KeyboardViewManager.updateKeyboardBottomFrame():489 Set bottomFrameHeight = 21 while holderPaddingBottom = 21; navigationHeight = 126
+05-13 11:50:15.612 I/JarvisAccessPointCooperativeModeHelper( 4643): JarvisAccessPointCooperativeModeHelper.consumeEvent():202 consumeEvent: keyCode=-20004, data=INSERT_CHARACTER
+05-13 11:50:15.612 I/JarvisAccessPointCooperativeModeHelper( 4643): JarvisAccessPointCooperativeModeHelper.updateEndExtraAccessPoint():431 isVoiceActive=false, isEmojifyAvailable=false, isAccessPointSupported=true, isCandidatesViewShown=true, isShownInBar=true, isAccessPointEnabled=true, isAccessPointDependencyReady=false, hasInputContext=true
+05-13 11:50:15.621 W/NearbyFastPair(28188): WDLS destroy timeout [CONTEXT service_id=265 ]
+05-13 11:50:15.622 I/JarvisAccessPointCooperativeModeHelper( 4643): JarvisAccessPointCooperativeModeHelper.consumeEvent():202 consumeEvent: keyCode=-20004, data=INSERT_CHARACTER
+05-13 11:50:15.622 I/JarvisAccessPointCooperativeModeHelper( 4643): JarvisAccessPointCooperativeModeHelper.updateEndExtraAccessPoint():431 isVoiceActive=false, isEmojifyAvailable=false, isAccessPointSupported=true, isCandidatesViewShown=true, isShownInBar=true, isAccessPointEnabled=true, isAccessPointDependencyReady=false, hasInputContext=true
+05-13 11:50:15.622 I/NearbyFastPair(28188): WDLS destroyed [CONTEXT service_id=265 ]
+05-13 11:50:15.625 I/pixel-thermal( 1737): north_therm:32.836 raw data: north_therm:32836 
+05-13 11:50:15.625 I/pixel-thermal( 1737): flash_therm:31.25 raw data: flash_therm:31250 
+05-13 11:50:15.625 I/pixel-thermal( 1737): rfpa_therm:33.343 raw data: rfpa_therm:33343 
+05-13 11:50:15.625 I/pixel-thermal( 1737): quiet_therm:33.408 raw data: quiet_therm:33408 
+05-13 11:50:15.628 I/pixel-thermal( 1737): VIRTUAL-SKIN-PREDICTION-MODEL: model_input: [32836.00 31250.00 34226.00 33343.00 35012.00 31053.00 30480.00 33408.00 31976.70 ]
+05-13 11:50:15.629 I/native  ( 1737): I0000 00:00:1778665815.629014    1758 thermal_tflite_wrapper.cc:261] ThermalTfliteInvoke
+05-13 11:50:15.633 I/pixel-thermal( 1737): VIRTUAL-SKIN-PREDICTION-MODEL: model_output: [31641.2 31691.6 31747.3 31801.6 31862.3 31929 32005.7 32069.2 32133.9 32201 ]
+05-13 11:50:15.634 I/pixel-thermal( 1737): VIRTUAL-SKIN-PREDICTION-MODEL: predicted_value: [31641.2 31691.6 31747.3 31801.6 31862.3 31929 32005.7 32069.2 32133.9 32201 ]
+05-13 11:50:15.636 I/pixel-thermal( 1737): EARLY-WARNING-SENSOR:0 raw data: EARLY-EMERGENCY-WARNING-SENSOR:0 EARLY-SHUTDOWN-WARNING-SENSOR:0 EARLY-WARNING-SENSOR:0 VIRTUAL-SKIN:31976.7 VIRTUAL-SKIN-EQ:31976.7 VIRTUAL-SKIN-LEGACY:32611.2 VIRTUAL-SKIN-LEGACY-MODEL-DIFF:639.773 VIRTUAL-SKIN-LEGACY-SHUTDOWN:0 VIRTUAL-SKIN-MODEL:31971.4 VIRTUAL-SKIN-MODEL-CLAMPED:31971.4 VIRTUAL-SKIN-MODEL-LEGACY-DIFF:-639.773 VIRTUAL-SKIN-MODEL-UPDATED:31976.7 VIRTUAL-SKIN-MODEL-UPPER-CLAMPED:31971.4 VIRTUAL-SKIN-PREDICTION-MODEL:31641.2 VIRTUAL-SKIN-SUB-0:32611.2 VIRTUAL-SKIN-SUB-1:32526 VIRTUAL-SKIN-SUB-2:32126.5 VIRTUAL-SKIN-SUB-3:32329.3 VIRTUAL-SKIN-SUB-4:32026.2 VT-FORECAST-30SEC:31881.3 VT-FORECAST-60SEC:32172.2 VT_LEGACY_WEIGHT:0 VT_MODEL_WEIGHT:1 charging_therm:35012 disp0_therm:31053 flash_therm:31250 north_therm:32836 quiet_therm:33408 rfpa_therm:33343 soc_therm:34226 usb_pwr_therm:30480 
+05-13 11:50:15.637 I/native  ( 4643): I0000 00:00:1778665815.637474    4964 input-context-store.cc:340] Ignoring stale client request for FetchSuggestions
+05-13 11:50:15.638 W/InputContextProxy( 4643): InputContextProxy.applyClientDiffInternal():933 Ignore [FetchSuggestions] diff due to stale request: 5848<5849, inputStateId=5623, lastInputStateId=5623
+05-13 11:50:15.641 I/JarvisAccessPointCooperativeModeHelper( 4643): JarvisAccessPointCooperativeModeHelper.consumeEvent():202 consumeEvent: keyCode=-20004, data=INSERT_CHARACTER
+05-13 11:50:15.641 I/JarvisAccessPointCooperativeModeHelper( 4643): JarvisAccessPointCooperativeModeHelper.updateEndExtraAccessPoint():431 isVoiceActive=false, isEmojifyAvailable=false, isAccessPointSupported=true, isCandidatesViewShown=true, isShownInBar=true, isAccessPointEnabled=true, isAccessPointDependencyReady=false, hasInputContext=true
+05-13 11:50:15.643 D/AOC     ( 1539): A3:MSG: controller.cc, 933: SysMem: ipc: C-F1-Ar, cmd ID: 0x00c8, tag: 0x7e, rc: 0
+05-13 11:50:15.643 D/AOC     ( 1539): A3:MSG: controller.cc, 933: SysMem: ipc: C-F1-Ar, cmd ID: 0x00c8, tag: 0x7f, rc: 0
+05-13 11:50:15.646 I/JarvisAccessPointCooperativeModeHelper( 4643): JarvisAccessPointCooperativeModeHelper.consumeEvent():202 consumeEvent: keyCode=-20004, data=INSERT_CHARACTER
+05-13 11:50:15.646 I/JarvisAccessPointCooperativeModeHelper( 4643): JarvisAccessPointCooperativeModeHelper.updateEndExtraAccessPoint():431 isVoiceActive=false, isEmojifyAvailable=false, isAccessPointSupported=true, isCandidatesViewShown=true, isShownInBar=true, isAccessPointEnabled=true, isAccessPointDependencyReady=false, hasInputContext=true
+05-13 11:50:15.648 I/NearbyFastPair(28188): WDLS created [CONTEXT service_id=265 ]
+05-13 11:50:15.650 I/NearbyShared(28188): (REDACTED) BTConnStateMgr: onServiceConnected with profile %d.
+05-13 11:50:15.652 I/NearbyShared(28188): (REDACTED) BTConnStateMgr: tryReconnectProxy reconnect profile %d successful. Latency=%dms
+05-13 11:50:15.652 I/NearbyShared(28188): (REDACTED) BTConnStateMgr: tryReconnectProxy called but proxy is not connected, try reconnect and wait, profile=%s
+05-13 11:50:15.653 D/BluetoothAdapter(28188): HEADSET connected
+05-13 11:50:15.659 I/NearbyShared(28188): (REDACTED) BTConnStateMgr: onServiceConnected with profile %d.
+05-13 11:50:15.659 I/NearbyShared(28188): (REDACTED) BTConnStateMgr: tryReconnectProxy reconnect profile %d successful. Latency=%dms
+05-13 11:50:15.665 I/native  ( 4643): I0000 00:00:1778665815.665334    4964 input-context-store.cc:340] Ignoring stale client request for FetchSuggestions
+05-13 11:50:15.665 W/InputContextProxy( 4643): InputContextProxy.applyClientDiffInternal():933 Ignore [FetchSuggestions] diff due to stale request: 5850<5854, inputStateId=5625, lastInputStateId=5625
+05-13 11:50:15.666 D/BluetoothAdapter(28188): registerBluetoothConnectionCallback()
+05-13 11:50:15.666 I/NearbyShared(28188): BTConnStateMgr: BluetoothConnectionCallback registered.
+05-13 11:50:15.667 I/NearbyFastPair(28188): (REDACTED) WDLS onStartCommand: receive intent action=%s
+05-13 11:50:15.667 I/NearbyFastPair(28188): (REDACTED) WDLS onStartCommand: uuid fetch for %s is done
+05-13 11:50:15.677 I/BluetoothAdapterProperties(31025): getBondedDevices: length=4
+05-13 11:50:15.677 I/NearbyShared(28188): (REDACTED) ServiceBinder: bind service %s:%s, state=%s
+05-13 11:50:15.679 W/NearbyFastPair(28188): BluetoothDeviceHelper: cannot get uuids XX:XX:XX:XX:57:43 [CONTEXT service_id=265 ]
+05-13 11:50:15.683 I/NearbyFastPair(28188): (REDACTED) BluetoothDeviceHelper: bonded device %s [%s]
+05-13 11:50:15.683 I/NearbyShared(28188): (REDACTED) BTConnStateMgr: tryReconnectProxy called but proxy is not connected, try reconnect and wait, profile=%s
+05-13 11:50:15.685 D/BluetoothAdapter(28188): A2DP connected
+05-13 11:50:15.686 I/KeyboardModeUtils( 4643): KeyboardModeUtils.getKeyboardBottomOffset():432 inch: 0.350000 ydpi: 421.709015 adjustKeyboardBottomByDisplaySize: false currentDensityDpi: 420 defaultDensityDpi: 420 keyboardBottomToScreenPx: 147 keyboardBottomToNavBarPx: 21 navBarHeight: 126
+05-13 11:50:15.686 I/NearbyShared(28188): (REDACTED) BTConnStateMgr: onServiceConnected with profile %d.
+05-13 11:50:15.686 I/BaseKeyboardSizeHelper( 4643): BaseKeyboardSizeHelper.calculateMaxKeyboardBodyHeight():73 leave 281 height for app when ime window height:2125, header height:126 and isFullscreenMode:false, so the max keyboard body height is:1718
+05-13 11:50:15.686 I/BaseKeyboardSizeHelper( 4643): BaseKeyboardSizeHelper.calculateMaxKeyboardBodyHeight():73 leave 281 height for app when ime window height:2125, header height:126 and isFullscreenMode:false, so the max keyboard body height is:1718
+05-13 11:50:15.686 I/NearbyShared(28188): (REDACTED) BTConnStateMgr: tryReconnectProxy reconnect profile %d successful. Latency=%dms
+05-13 11:50:15.686 I/AndroidIME( 4643): KeyboardViewManager.updateKeyboardBottomFrame():489 Set bottomFrameHeight = 21 while holderPaddingBottom = 21; navigationHeight = 126
+05-13 11:50:15.686 I/NearbyShared(28188): (REDACTED) BTConnStateMgr: tryReconnectProxy called but proxy is not connected, try reconnect and wait, profile=%s
+05-13 11:50:15.687 D/BluetoothAdapter(28188): HEADSET connected
+05-13 11:50:15.691 I/NearbyShared(28188): (REDACTED) ServiceBinder: bind service %s:%s, state=%s
+05-13 11:50:15.692 I/NearbyShared(28188): (REDACTED) BTConnStateMgr: onServiceConnected with profile %d.
+05-13 11:50:15.692 I/NearbyShared(28188): (REDACTED) BTConnStateMgr: tryReconnectProxy reconnect profile %d successful. Latency=%dms
+05-13 11:50:15.704 I/NearbyShared(28188): (REDACTED) ServiceBinder: bind service %s:%s, state=%s
+05-13 11:50:15.716 I/NearbyShared(28188): (REDACTED) ServiceBinder: bind service %s:%s, state=%s
+05-13 11:50:15.717 I/NearbyShared(28188): (REDACTED) ServiceBinder: bind service %s:%s, state=%s
+05-13 11:50:15.721 I/NearbyFastPair(28188): (REDACTED) WDLS updateIsTriangleState: hasNearbyNodes %s, hasBondedHeadset %s
+05-13 11:50:15.722 D/BluetoothAdapter(28188): A2DP disconnected
+05-13 11:50:15.722 D/BluetoothAdapter(28188): HEADSET disconnected
+05-13 11:50:15.723 I/NearbyShared(28188): (REDACTED) BTConnStateMgr: onServiceDisconnected with profile %d.
+05-13 11:50:15.725 D/BluetoothAdapter(28188): unregisterBluetoothConnectionCallback()
+05-13 11:50:15.725 I/NearbyShared(28188): (REDACTED) ServiceBinder: unbind service %s
+05-13 11:50:15.725 I/NearbyShared(28188): (REDACTED) BTConnStateMgr: onServiceDisconnected with profile %d.
+05-13 11:50:15.736 I/NearbyShared(28188): (REDACTED) ServiceBinder: bind service %s:%s, state=%s
+05-13 11:50:15.744 I/NearbyShared(28188): (REDACTED) ServiceBinder: bind service %s:%s, state=%s
+05-13 11:50:15.753 I/NearbyShared(28188): (REDACTED) ServiceBinder: bind service %s:%s, state=%s
+05-13 11:50:15.759 I/NearbyFastPair(28188): (REDACTED) WDLS updateIsTriangleState: hasNearbyNodes %s, hasBondedHeadset %s
+05-13 11:50:15.762 I/NearbyFastPair(28188): (REDACTED) WDLS onStartCommand: receive intent action=%s
+05-13 11:50:15.763 I/NearbyFastPair(28188): (REDACTED) WDLS onStartCommand: uuid fetch for %s is done
+05-13 11:50:15.770 I/BluetoothAdapterProperties(31025): getBondedDevices: length=4
+05-13 11:50:15.773 W/NearbyFastPair(28188): BluetoothDeviceHelper: cannot get uuids XX:XX:XX:XX:57:43 [CONTEXT service_id=265 ]
+05-13 11:50:15.779 I/NearbyFastPair(28188): (REDACTED) BluetoothDeviceHelper: bonded device %s [%s]
+05-13 11:50:15.799 I/NearbyShared(28188): (REDACTED) ServiceBinder: bind service %s:%s, state=%s
+05-13 11:50:15.809 I/ProcessReaperImpl( 5970): isKillable, importance=125
+05-13 11:50:15.817 I/NearbyShared(28188): (REDACTED) ServiceBinder: bind service %s:%s, state=%s
+05-13 11:50:15.827 I/NearbyShared(28188): (REDACTED) ServiceBinder: bind service %s:%s, state=%s
+05-13 11:50:15.840 I/NearbyShared(28188): (REDACTED) ServiceBinder: bind service %s:%s, state=%s
+05-13 11:50:15.848 I/NearbyFastPair(28188): (REDACTED) WDLS updateIsTriangleState: hasNearbyNodes %s, hasBondedHeadset %s
+05-13 11:50:15.850 I/NearbyFastPair(28188): (REDACTED) WDLS onStartCommand: receive intent action=%s
+05-13 11:50:15.851 I/NearbyFastPair(28188): (REDACTED) WDLS onStartCommand: receive intent action=%s
+05-13 11:50:15.853 D/BluetoothAdapter(28188): A2DP disconnected
+05-13 11:50:15.853 D/BluetoothAdapter(28188): HEADSET disconnected
+05-13 11:50:15.854 D/BluetoothAdapter(28188): unregisterBluetoothConnectionCallback()
+05-13 11:50:15.855 I/NearbyShared(28188): (REDACTED) ServiceBinder: unbind service %s
+05-13 11:50:15.861 I/NearbyFastPair(28188): WDLS destroyed [CONTEXT service_id=265 ]
+05-13 11:50:15.871 I/NearbyFastPair(28188): WDLS created [CONTEXT service_id=265 ]
+05-13 11:50:15.872 D/BluetoothAdapter(28188): registerBluetoothConnectionCallback()
+05-13 11:50:15.872 I/NearbyShared(28188): BTConnStateMgr: BluetoothConnectionCallback registered.
+05-13 11:50:15.872 I/NearbyShared(28188): (REDACTED) BTConnStateMgr: onServiceDisconnected with profile %d.
+05-13 11:50:15.873 I/NearbyShared(28188): (REDACTED) BTConnStateMgr: onServiceDisconnected with profile %d.
+05-13 11:50:15.878 I/NearbyFastPair(28188): (REDACTED) WDLS onStartCommand: receive intent action=%s
+05-13 11:50:15.882 D/BluetoothAdapter(28188): unregisterBluetoothConnectionCallback()
+05-13 11:50:15.882 I/NearbyShared(28188): (REDACTED) ServiceBinder: %s is already unbind
+05-13 11:50:15.884 I/NearbyFastPair(28188): WDLS destroyed [CONTEXT service_id=265 ]
+05-13 11:50:16.001 D/TemperatureStateSource( 3014): sequence=5904 actualDelay=10001
+05-13 11:50:16.002 D/TemperatureStateSource( 3014): Reading temperature: sequence=5905
+05-13 11:50:16.004 I/pixel-thermal( 1737): VIRTUAL-SKIN:31.9767 raw data: VIRTUAL-SKIN:31976.7 
+05-13 11:50:16.006 D/TemperatureStateSource( 3014): getDeviceTemperatures: sequence=5905 deviceTemperatureType=3 temperatureSource=0 temperatures=[31.9767]
+05-13 11:50:16.006 D/BusinessScope( 3014): Enqueuing the block
+05-13 11:50:16.006 D/TemperatureStateSource( 3014): sequence=5905 waitTime=10000
+05-13 11:50:16.007 D/BusinessScope( 3014): Start running the #20348 block
+05-13 11:50:16.007 D/BusinessScope( 3014): Enqueuing the block
+05-13 11:50:16.007 D/ImpulseStateSource( 3014): Notify clients: 10170
+05-13 11:50:16.007 D/BusinessScope( 3014): Finish running the #20348 block
+05-13 11:50:16.007 D/BusinessScope( 3014): Start running the #20349 block
+05-13 11:50:16.007 D/BusinessScope( 3014): Finish running the #20349 block
+05-13 11:50:16.279 V/NotificationManagerService.NotificationListeners( 1808): Not registering ComponentInfo{me.kavishdevar.librepods/me.kavishdevar.librepods.services.TeamsNotifListener} is already bound
+05-13 11:50:16.280 V/NotificationManagerService.NotificationListeners( 1808): Not registering ComponentInfo{me.kavishdevar.librepods/me.kavishdevar.librepods.services.NotificationAnnouncementService} is already bound
+05-13 11:50:16.858 I/WifiHAL ( 1238): Creating message to get link statistics; iface = 47
+05-13 11:50:16.959 E/libbinder.IPCThreadState( 1238): binder thread pool (1 threads) starved for 101 ms
+05-13 11:50:16.961 I/WifiHAL ( 1238): Getting cached scan results, iface handle = 0xb4000070a4a16f90
+05-13 11:50:16.961 E/WifiHAL ( 1238): Creating message to get cached scan results
+05-13 11:50:16.964 I/WifiHAL ( 1238): In GetCachedScanResultsCommand::handleResponse
+05-13 11:50:16.996 D/WifiHAL ( 1238): Start debug command: mType GET_FEATURE
+05-13 11:50:16.996 I/WifiHAL ( 1238): CreateRequest mType = GET_FEATURE
+05-13 11:50:16.997 D/WifiHAL ( 1238): In DebugCommand::handleResponse, mType:GET_FEATURE
+05-13 11:50:16.997 D/WifiHAL ( 1238): len = 4, expected len = 4
+05-13 11:50:17.004 I/HalDevMgr( 1808): bestIfaceCreationProposal is null, requestIface=STA, existingIface=[name=wlan0 type=STA]
+05-13 11:50:17.098 D/AirPodsBLE( 4398): No broadcasts for 2500ms, forcing lid state to closed
+05-13 11:50:17.099 D/AirPodsService( 4398): Lid closed
+05-13 11:50:17.578 W/AACPManager( 4398): Received HEADTRACKING packet too short: 04 00 04 00 17 00 00 04 00 00 2C 00 06 00 00 05 41 50 00 00 00 80 00 00 41 4F 50 00 00 80 00 00 52 54 50 00 00 80 00 00 42 54 4D 00 00 80 00 00 44 53 50 31 00 80 00 00
+05-13 11:50:17.578 D/AirPodsData( 4398): Data received: 04 00 04 00 17 00 00 04 00 00 2C 00 06 00 00 05 41 50 00 00 00 80 00 00 41 4F 50 00 00 80 00 00 52 54 50 00 00 80 00 00 42 54 4D 00 00 80 00 00 44 53 50 31 00 80 00 00
+05-13 11:50:17.587 W/devar.librepods( 4398): userfaultfd: MOVE ioctl seems unsupported: Connection timed out
+05-13 11:50:17.714 I/pixel-thermal( 1737): soc_therm:34.209 raw data: soc_therm:34209 
+05-13 11:50:17.720 I/pixel-thermal( 1737): VIRTUAL-SKIN-MODEL: model_input: [35036.00 31066.00 31255.00 32845.00 33435.00 33365.00 34209.00 30486.00 ]
+05-13 11:50:17.720 I/native  ( 1737): I0000 00:00:1778665817.720480    1758 thermal_tflite_wrapper.cc:261] ThermalTfliteInvoke
+05-13 11:50:17.720 I/pixel-thermal( 1737): VIRTUAL-SKIN-MODEL: model_output: [32045.2 ]
+05-13 11:50:17.720 I/pixel-thermal( 1737): VIRTUAL-SKIN-MODEL: predicted_value: [32045.2 ]
+05-13 11:50:17.721 I/pixel-thermal( 1737): VIRTUAL-SKIN-CPU-HIGH:32.0041 raw data: VIRTUAL-SKIN:32004.1 VIRTUAL-SKIN-CPU-HIGH:32004.1 VIRTUAL-SKIN-EQ:32004.1 VIRTUAL-SKIN-LEGACY:32626.5 VIRTUAL-SKIN-LEGACY-MODEL-DIFF:581.318 VIRTUAL-SKIN-LEGACY-SHUTDOWN:0 VIRTUAL-SKIN-MODEL:32045.2 VIRTUAL-SKIN-MODEL-CLAMPED:32045.2 VIRTUAL-SKIN-MODEL-LEGACY-DIFF:-581.318 VIRTUAL-SKIN-MODEL-UPDATED:32004.1 VIRTUAL-SKIN-MODEL-UPPER-CLAMPED:32045.2 VIRTUAL-SKIN-SUB-0:32626.5 VIRTUAL-SKIN-SUB-1:32537.2 VIRTUAL-SKIN-SUB-2:32137.1 VIRTUAL-SKIN-SUB-3:32339 VIRTUAL-SKIN-SUB-4:32032.3 VT_LEGACY_WEIGHT:0 VT_MODEL_WEIGHT:1 charging_therm:35036 disp0_therm:31066 flash_therm:31255 north_therm:32845 quiet_therm:33435 rfpa_therm:33365 soc_therm:34209 usb_pwr_therm:30486 
+05-13 11:50:17.721 I/pixel-thermal( 1737): VIRTUAL-SKIN:32.0041 raw data: VIRTUAL-SKIN:32004.1 
+05-13 11:50:17.722 I/pixel-thermal( 1737): VIRTUAL-SKIN-SPEAKER-MODEL: model_input: [35036.00 31066.00 31255.00 32845.00 33435.00 33365.00 34209.00 30486.00 ]
+05-13 11:50:17.722 I/native  ( 1737): I0000 00:00:1778665817.722607    1758 thermal_tflite_wrapper.cc:261] ThermalTfliteInvoke
+05-13 11:50:17.722 I/pixel-thermal( 1737): VIRTUAL-SKIN-SPEAKER-MODEL: model_output: [31090.2 ]
+05-13 11:50:17.722 I/pixel-thermal( 1737): VIRTUAL-SKIN-SPEAKER-MODEL: predicted_value: [31090.2 ]
+05-13 11:50:17.723 I/pixel-thermal( 1737): VIRTUAL-SKIN-SPEAKER:31.1112 raw data: VIRTUAL-SKIN-SPEAKER:31111.2 VIRTUAL-SKIN-SPEAKER-LEGACY:31910.7 VIRTUAL-SKIN-SPEAKER-LEGACY-MODEL-DIFF:820.551 VIRTUAL-SKIN-SPEAKER-MODEL:31090.2 VIRTUAL-SKIN-SPEAKER-MODEL-CLAMPED:31090.2 VIRTUAL-SKIN-SPEAKER-MODEL-LEGACY-DIFF:-820.551 VIRTUAL-SKIN-SPEAKER-MODEL-UPPER-CLAMPED:31090.2 VIRTUAL-SKIN-SPEAKER-SUB-0:31910.7 VIRTUAL-SKIN-SPEAKER-SUB-1:31860.3 VT_SPEAKER_LEGACY_WEIGHT:0 VT_SPEAKER_MODEL_WEIGHT:1 charging_therm:35036 disp0_therm:31066 flash_therm:31255 north_therm:32845 quiet_therm:33435 rfpa_therm:33365 soc_therm:34209 usb_pwr_therm:30486 
+05-13 11:50:17.723 I/pixel-thermal( 1737): disp0_therm:31.066 raw data: disp0_therm:31066 
+05-13 11:50:17.723 I/pixel-thermal( 1737): VIRTUAL-SKIN-CPU-LIGHT-ODPM:32.0041 raw data: VIRTUAL-SKIN:32004.1 VIRTUAL-SKIN-CPU-LIGHT-ODPM:32004.1 
+05-13 11:50:17.723 I/pixel-thermal( 1737): cellular-emergency:32.0041 raw data: VIRTUAL-SKIN:32004.1 cellular-emergency:32004.1 
+05-13 11:50:17.724 I/pixel-thermal( 1737): BG-TASKS-THROTTLING-HINT:0 raw data: BG-TASKS-THROTTLING-EXP-PROPERTY:0 BG-TASKS-THROTTLING-HINT:0 BG_TASKS_THROTTLING_COUNT:1 IS_BG_TASKS_THROTTLING_ACTIVE:0 IS_CHARGING:1 VIRTUAL-SKIN:32004.1 thb_hda:54 
+05-13 11:50:17.724 I/pixel-thermal( 1737): VIRTUAL-SKIN-CPU-MID:32.0041 raw data: VIRTUAL-SKIN:32004.1 VIRTUAL-SKIN-CPU-MID:32004.1 
+05-13 11:50:17.724 I/pixel-thermal( 1737): VIRTUAL-SKIN-HINT:32.0041 raw data: VIRTUAL-SKIN:32004.1 VIRTUAL-SKIN-HINT:32004.1 
+05-13 11:50:17.725 I/pixel-thermal( 1737): VIRTUAL-SKIN-SOC:32.0041 raw data: VIRTUAL-SKIN:32004.1 VIRTUAL-SKIN-SOC:32004.1 
+05-13 11:50:17.725 I/pixel-thermal( 1737): VIRTUAL-SKIN-CPU-ODPM:32.0041 raw data: VIRTUAL-SKIN:32004.1 VIRTUAL-SKIN-CPU-ODPM:32004.1 
+05-13 11:50:17.725 I/pixel-thermal( 1737): VIRTUAL-SKIN-CHARGE-WIRED:32.0041 raw data: NO_WLC:1 VIRTUAL-SKIN-CHARGE:32004.1 VIRTUAL-SKIN-CHARGE-WIRED:32004.1 VIRTUAL-SKIN-EQ:32004.1 WLC_CHECK:1 thb_hda:54 
+05-13 11:50:17.726 I/pixel-thermal( 1737): STATS-UPDATOR:0 raw data: EXTREME-CONDITION-POWER-MONITOR-44C:0 EXTREME-CONDITION-POWER-MONITOR-45C:0 EXTREME-CONDITION-POWER-MONITOR-46C:0 EXTREME_WORKLOAD_ODPM:1192.54 STATS-UPDATOR:0 VIRTUAL-SKIN:32004.1 VIRTUAL-SKIN-44C:0 VIRTUAL-SKIN-45C:0 VIRTUAL-SKIN-46C:0 VIRTUAL-SKIN-PREDICTION-MODEL:31641.2 VT-FORECAST-30SEC-BACK:31663.9 VT-FORECAST-60SEC-BACK:31977.1 VT-FORECAST-ERROR-30SEC:-340.145 VT-FORECAST-ERROR-60SEC:-27 VT-FORECAST-ERROR-NOW:-347.803 VT-FORECAST-NOW:31656.3 
+05-13 11:50:17.726 I/pixel-thermal( 1737): VIRTUAL-SKIN-CHARGE-PERSIST:32.0041 raw data: VIRTUAL-SKIN-CHARGE:32004.1 VIRTUAL-SKIN-CHARGE-PERSIST:32004.1 
+05-13 11:50:17.784 E/system_server( 1808): No package ID 7f found for resource ID 0x7f160000.
+05-13 11:50:17.785 W/LocaleConfig( 1808): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:17.791 E/system_server( 1808): No package ID 7f found for resource ID 0x7f160000.
+05-13 11:50:17.791 W/LocaleConfig( 1808): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:17.824 I/AiAiEcho( 4707): SmartspaceNotificationPredictor no parser can handle this notification or notification is invalid
+05-13 11:50:17.829 W/LocaleConfig( 2848): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:17.830 W/LocaleConfig( 2848): The resource file pointed to by the given resource ID isn't found.
+05-13 11:50:17.833 W/libbinder.IPCThreadState( 1808): Sending oneway calls to frozen process.
+05-13 11:50:17.834 W/libbinder.IPCThreadState( 1808): Sending oneway calls to frozen process.
+05-13 11:50:17.834 W/libbinder.IPCThreadState( 1808): Sending oneway calls to frozen process.
+05-13 11:50:17.834 W/libbinder.IPCThreadState( 1808): Sending oneway calls to frozen process.
+05-13 11:50:17.871 E/LibrePods( 4398): search tap label=Volume Control route=category/controls?focus=controlsConfiguration focusSection=controlsConfiguration
+05-13 11:50:17.986 D/WindowOnBackDispatcher( 4398): setTopOnBackInvokedCallback (unwrapped): androidx.navigationevent.OnBackInvokedInput$createOnBackAnimationCallback$1@4cfd46b
+05-13 11:50:17.986 D/CoreBackPreview( 1808): Window{5759c62 u0 me.kavishdevar.librepods/me.kavishdevar.librepods.MainActivity}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@9e166fd, mPriority=0, mIsAnimationCallback=true, mOverrideBehavior=0}
+05-13 11:50:18.037 D/AirPodsService( 4398): Service started with intent action: null
+05-13 11:50:18.063 D/InsetsController( 4398): hide(ime())
+05-13 11:50:18.063 I/ImeTracker( 4398): me.kavishdevar.librepods:d95ff9d5: onRequestHide at ORIGIN_CLIENT reason HIDE_SOFT_INPUT_BY_INSETS_API fromUser false userId 0 displayId 0
+05-13 11:50:18.063 D/InsetsController( 4398): Setting requestedVisibleTypes to 503 (was 511)
+05-13 11:50:18.065 I/ImeTracker( 1808): system_server:31f8fa5f: onRequestShow at ORIGIN_SERVER reason IME_REQUESTED_CHANGED_LISTENER fromUser false displayId 0
+05-13 11:50:18.065 D/VRI[MainActivity]( 4398): WindowInsets changed: ime:null 
+05-13 11:50:18.067 D/Bubbles ( 2848): BubbleController.BubblesImeListener.onImeVisibilityChanged visible=false runnable=null stackView=null
+05-13 11:50:18.070 I/BluetoothHciVendorSpecificJni(31025): android/app/jni/com_android_bluetooth_BluetoothHciVendorSpecific.cpp:85 onEvent: 
+05-13 11:50:18.070 I/bluetooth(31025): system/gd/hci/acl_manager/acl_scheduler.cc:209 log_try_dequeue_next_operation: Could not send next operation postponed to next iteration, stopped: false, pending_outgoing_operations_ is_empty: true, outgoing_entry_ has_value: false, incoming_connecting_address_set_ is_empty: true
+05-13 11:50:18.070 W/bluetooth(31025): system/main/shim/acl.cc:1404 OnConnectFail: Connection failed classic remote:xx:xx:xx:xx:a1:a5 reason:PAGE_TIMEOUT(0x04)
+05-13 11:50:18.071 I/l2c_csm (31025): system/stack/l2cap/l2c_csm.cc:247 l2c_csm_execute: Enter CSM, chnl_state:CST_CLOSED [0] event:L2CEVT_LP_CONNECT_CFM_NEG(0x1) lcid:0x0071 rcid:0x0000
+05-13 11:50:18.071 W/l2c_utils(31025): system/stack/l2cap/l2c_utils.cc:3497 l2cu_find_ccb_by_cid: p_ccb is not in use
+05-13 11:50:18.071 W/bt_l2cap(31025): system/stack/l2cap/l2c_api.cc:935 L2CA_DisconnectReq: L2CAP - no CCB for L2CA_disc_req, CID: 113
+05-13 11:50:18.071 W/stack::sdp(31025): system/stack/sdp/sdp_main.cc:328 sdp_disconnect: Unable to disconnect L2CAP peer:xx:xx:xx:xx:a1:a5 cid:113
+05-13 11:50:18.071 I/bt_bta_dm(31025): system/bta/dm/bta_dm_disc.cc:216 bta_dm_sdp_callback: BTA_DM_DISCOVER_ACTIVE, sdp_pending: true
+05-13 11:50:18.071 I/l2c_link(31025): system/stack/l2cap/l2c_link.cc:158 l2c_link_hci_conn_comp: Disconnecting link handle:0xffff status:HCI_ERR_PAGE_TIMEOUT
+05-13 11:50:18.071 W/btm_acl (31025): system/stack/acl/btm_acl.cc:447 btm_acl_removed: Unable to find active acl
+05-13 11:50:18.071 E/bt_bta_dm(31025): system/bta/dm/bta_dm_disc_sdp.cc:284 bta_dm_sdp_result: SDP connection failed tSDP_STATUS::SDP_CFG_FAILED
+05-13 11:50:18.071 I/bt_bta_dm(31025): system/bta/dm/bta_dm_disc.cc:751 bta_dm_disc_sm_execute: state:BTA_DM_DISCOVER_ACTIVE, event:BTA_DM_DISCOVERY_RESULT_EVT[0x2]
+05-13 11:50:18.071 I/bt_bta_dm(31025): system/bta/dm/bta_dm_disc.cc:333 bta_dm_execute_queued_discovery_request: No more service discovery queued
+05-13 11:50:18.079 I/ImeTracker( 1808): system_server:cf79ad74: onRequestShow at ORIGIN_SERVER reason CONTROLS_CHANGED fromUser false displayId 0
+05-13 11:50:18.086 I/GoogleInputMethodService( 4643): GoogleInputMethodService.onStartInput():1446 onStartInput(EditorInfo{EditorInfo{packageName=me.kavishdevar.librepods, inputType=0, inputTypeString=NULL, enableLearning=false, autoCorrection=false, autoComplete=false, imeOptions=0, privateImeOptions=null, actionName=UNSPECIFIED, actionLabel=null, initialSelStart=-1, initialSelEnd=-1, initialCapsMode=0, label=null, fieldId=0, fieldName=null, extras=null, hintText=null, hintLocales=[]}}, true)
+05-13 11:50:18.086 W/SessionManager( 4643): SessionManager.beginSession():72 Try to begin an already begun session [INPUT_SESSION], end it first
+05-13 11:50:18.086 W/SessionManager( 4643): SessionManager.endSession():119 Child session [INPUT_VIEW_SESSION] is not ended while ending session [{INPUT_VIEW_SESSION=1778665813415, TRAINING_CACHE_SESSION=1778665813419, INPUT_SESSION=1778665813409, IME_SESSION=1778665813418}], ending it now.
+05-13 11:50:18.086 W/SessionManager( 4643): SessionManager.endSession():119 Child session [IME_SESSION] is not ended while ending session [{INPUT_VIEW_SESSION=1778665813415, TRAINING_CACHE_SESSION=1778665813419, INPUT_SESSION=1778665813409, IME_SESSION=1778665813418}], ending it now.
+05-13 11:50:18.086 I/AndroidIME( 4643): LatinIMEBase.updateInputViewCoverNavigation():322 Update input view padding, isNavbarOverInputWindow=true, bottom inset=126
+05-13 11:50:18.087 I/Module  ( 4643): DeviceLockedStatusModuleProvider$Module.updateDeviceLockedStatus():103 repeatCheckTimes = 1, locked = false
+05-13 11:50:18.087 I/GoogleInputMethodService( 4643): GoogleInputMethodService.onStartInputView():1532 onStartInputView(EditorInfo{EditorInfo{packageName=me.kavishdevar.librepods, inputType=0, inputTypeString=NULL, enableLearning=false, autoCorrection=false, autoComplete=false, imeOptions=0, privateImeOptions=null, actionName=UNSPECIFIED, actionLabel=null, initialSelStart=-1, initialSelEnd=-1, initialCapsMode=0, label=null, fieldId=0, fieldName=null, extras=null, hintText=null, hintLocales=[]}}, true)
+05-13 11:50:18.088 W/PackageConfigPersister( 1808): App-specific configuration not found for packageName: me.kavishdevar.librepods and userId: 0
+05-13 11:50:18.089 I/InputBundle( 4643): InputBundle.consumeEvent():1051 Skip consuming an event as keyboard status is INACTIVE
+05-13 11:50:18.089 I/ImeTracker( 1808): system_server:31f8fa5f: onCancelled at PHASE_SERVER_ALREADY_VISIBLE
+05-13 11:50:18.089 I/AndroidIME( 4643): AbstractIme.onDeactivate():213 LatinIme.onDeactivate()
+05-13 11:50:18.089 W/SessionManager( 4643): SessionManager.endSession():111 Try to end a not begun session [IME_SESSION].
+05-13 11:50:18.089 I/KeyboardHeightUtil( 4643): KeyboardHeightUtil.getOemKeyboardHeightRatio():81 systemKeyboardHeightRatio:1.000000.
+05-13 11:50:18.090 I/NebulaeTrainingCacheMetricsProcessor( 4643): NebulaeTrainingCacheMetricsProcessor.processEndSession():616 End training cache session: /
+05-13 11:50:18.090 I/NebulaeTrainingCacheMetricsProcessor( 4643): NebulaeTrainingCacheMetricsProcessor.processEndSession():657 No input action collection in this session, skip logging.
+05-13 11:50:18.090 I/twoshay.TouchContextService( 4108): Got new packet! ContextPacket{orientation: PORTRAIT, audioMode: NORMAL, adaptiveTouchSensitivity: ON, screenProtectorMode: OFF, imeState: ImeState{displayId: 0, visible: false, top: 0, left: 0, bottom: 0, right: 0}, audioDeviceInfo: TYPE_BUILTIN_EARPIECE}
+05-13 11:50:18.139 I/bt_shim_scanner(31025): system/main/shim/le_scanning_manager.cc:380 BatchScanReadReports: in shim layer
+05-13 11:50:18.169 E/LibrePods( 4398): sectionTrack.onGlobPos key=pressActions rootTop=456.0 scrollVal=0 offset=456.0
+05-13 11:50:18.172 E/LibrePods( 4398): sectionTrack.onGlobPos key=listeningMode rootTop=1494.0 scrollVal=0 offset=1494.0
+05-13 11:50:18.176 E/LibrePods( 4398): sectionTrack.onGlobPos key=callControls rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:50:18.180 E/LibrePods( 4398): sectionTrack.onGlobPos key=controlsConfiguration rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:50:18.202 E/LibrePods( 4398): sectionTrack.onGlobPos key=pressActions rootTop=456.0 scrollVal=0 offset=456.0
+05-13 11:50:18.203 E/LibrePods( 4398): sectionTrack.onGlobPos key=listeningMode rootTop=1494.0 scrollVal=0 offset=1494.0
+05-13 11:50:18.204 E/LibrePods( 4398): sectionTrack.onGlobPos key=callControls rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:50:18.205 E/LibrePods( 4398): sectionTrack.onGlobPos key=controlsConfiguration rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:50:18.211 E/LibrePods( 4398): === SCROLL START focusSection=controlsConfiguration topPaddingPx=340.99997
+05-13 11:50:18.213 D/CallControlSettings( 4398): Call control flipped: false
+05-13 11:50:18.225 E/LibrePods( 4398): sectionTrack.onGlobPos key=pressActions rootTop=456.0 scrollVal=0 offset=456.0
+05-13 11:50:18.226 E/LibrePods( 4398): sectionTrack.onGlobPos key=listeningMode rootTop=1494.0 scrollVal=0 offset=1494.0
+05-13 11:50:18.226 E/LibrePods( 4398): sectionTrack.onGlobPos key=callControls rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:50:18.227 E/LibrePods( 4398): sectionTrack.onGlobPos key=controlsConfiguration rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:50:18.234 I/ImeTracker( 4398): system_server:cf79ad74: onCancelled at PHASE_CLIENT_ON_CONTROLS_CHANGED
+05-13 11:50:18.234 D/AirPodsService( 4398): Device status changed
+05-13 11:50:18.234 D/AirPodsService( 4398): updateCaseBatteryFromBLE: level=46 charging=false
+05-13 11:50:18.234 W/InputConnectionWrapper( 4643): InputConnectionWrapper.recordDuration():1689 IPC IC_GET_SURROUNDING_TEXT took 145 ms
+05-13 11:50:18.234 I/InputContextChangeTracker( 4643): InputContextChangeTracker.fixLyingSelectionRangeFromSurroundingText():1678 fixLyingSelectionRangeFromSurroundingText(): [-1, -1]([-1, -1]) -> [0, 0]([0, 0])
+05-13 11:50:18.235 I/AndroidIME( 4643): InputBundleManager.startInput():357 startInput2 restarting=true
+05-13 11:50:18.235 I/AndroidIME( 4643): InputBundleManager.loadActiveInputBundleId():542 loadActiveInputBundleId: und-Latn-x-password, password
+05-13 11:50:18.235 I/InputBundle( 4643): InputBundle.activateIme():597 activateIme: INACTIVE, keyboardType=prime
+05-13 11:50:18.235 I/AndroidIME( 4643): AbstractIme.onActivate():95 PasswordIme.onActivate() : EditorInfo = EditorInfo{packageName=me.kavishdevar.librepods, inputType=0, inputTypeString=NULL, enableLearning=false, autoCorrection=false, autoComplete=false, imeOptions=0, privateImeOptions=null, actionName=UNSPECIFIED, actionLabel=null, initialSelStart=-1, initialSelEnd=-1, initialCapsMode=0, label=null, fieldId=0, fieldName=null, extras=null, hintText=null, hintLocales=[]}, IncognitoMode = false, DeviceLocked = false
+05-13 11:50:18.235 I/InputBundle( 4643): InputBundle.activateKeyboard():652 activateKeyboard: ACTIVE, type=ocu[keyboardType=prime, payload=null]
+05-13 11:50:18.235 I/KeyboardWrapper( 4643): KeyboardWrapper.activateKeyboard():592 activateKeyboard(): type=prime, status=INACTIVE, imeDef=obp{stringId=password, language=und-Latn-x-password, languageTag=und-Latn-x-password, processedConditions={writing_helper_enable_by_word_revert=true, variant=spanish, true=true, language=es-ES, enable_number_row=true, device=phone, enable_number_row_in_password=true, enable_pk_simulator=false}, className=com.google.android.libraries.inputmethod.ime.password.PasswordIme, label=2132019351, keyEventInterpreter=null, inlineComposing=true, autoCapital=true, announceAutoSelectedCandidate=true, statusIcon=0, indicatorIcon=0, indicatorLabel=null, displayAppCompletions=false, extraValues=obi{}, processors=odh@350c2cb, unacceptableMetaKeys=4098, languageSpecificSettings=0, asciiCapable=false, alwaysShowSuggestions=false, useAsciiPasswordKeyboard=false, keyboardGroupDef=ocq@5db251, phenotypeFlagId=0, localizationLanguageTag=null, supportsInlineSuggestion=false}
+05-13 11:50:18.235 I/KeyboardManager( 4643): KeyboardManager.requestKeyboard():249 Creating keyboard prime, imeId=password, cacheKey=theme,!gsf,!pgsf,!use_system_font,BORDER,DEVICE_MODE=phone,DYNAMIC_DARK_BRIGHT_KEY,FLAVOR_DPI=XXHDPI,IS_LIGHT,KEYBOARD_WIDTH_CATEGORY=NORMAL,KEY_BORDER_SHAPE=1,LIGHT_THEME=true,PHYSICAL_DIAGONAL=5.9444714,POPUP,SCREEN_SHORTEST_WIDTH=411,SCREEN_SHORTEST_WIDTH_NO_SCALE=411,SW400DP,XXHDPI,bottom4dp,bright_key_on_dynamic_color_dark_theme=true,disable_content_suggestion,enable_popup_on_keypress=true,keyboard_height_48_mm,non_linear_scale,noshadow,overlay_builtin_dynamic_color_light_base.binarypb:gm3-light-fff7f9fd-ff002739-82a7d4e6d0d6c66f4d47757481217700,pgsans,silkpopup
+05-13 11:50:18.236 I/KeyboardDefManager( 4643): KeyboardDefManager.requestKeyboardDef():181 requestKeyboardDef(): type=prime, info=ocn{defIds=[#0x7f170600, #0x7f1708ac, #0x7f1706ba], defIdsCacheKey=[2132215296, 2132215980, 2132215482]}
+05-13 11:50:18.236 I/KeyboardDefManager( 4643): KeyboardDefManager.requestKeyboardDef():243 requestKeyboardDef(): getOrCreate from cache, info=ocn{defIds=[#0x7f170600, #0x7f1708ac, #0x7f1706ba], defIdsCacheKey=[2132215296, 2132215980, 2132215482]}
+05-13 11:50:18.236 D/AirPodsService( 4398): Device status changed
+05-13 11:50:18.236 D/AirPodsService( 4398): updateCaseBatteryFromBLE: level=46 charging=false
+05-13 11:50:18.236 I/KeyboardDefManager( 4643): KeyboardDefManager$1.onSuccess():277 requestKeyboardDef onSuccess(): info=ocn{defIds=[#0x7f170600, #0x7f1708ac, #0x7f1706ba], defIdsCacheKey=[2132215296, 2132215980, 2132215482]}
+05-13 11:50:18.236 I/KeyboardWrapper( 4643): KeyboardWrapper.onKeyboardReady():226 onKeyboardReady(): type=prime(prime), kb=com.google.android.apps.inputmethod.latin.keyboard.LatinPasswordKeyboard@e047fd5
+05-13 11:50:18.236 I/KeyboardWrapper( 4643): KeyboardWrapper.doActivateKeyboard():624 doActivateKeyboard(): prime
+05-13 11:50:18.241 I/KeyboardViewHelper( 4643): KeyboardViewHelper.getView():180 Get view with height ratio:1.000000
+05-13 11:50:18.243 I/BaseKeyboardSizeHelper( 4643): BaseKeyboardSizeHelper.calculateMaxKeyboardBodyHeight():73 leave 281 height for app when ime window height:2125, header height:126 and isFullscreenMode:false, so the max keyboard body height is:1718
+05-13 11:50:18.243 W/TooltipLifecycleManager( 4643): TooltipLifecycleManager.dismissTooltips():153 Tooltip with id undo_access_point_promotion_banner not found in tooltipManager.
+05-13 11:50:18.244 I/GlobeKeyExtension( 4643): GlobeKeyExtension.getKeyboardInitialStates():186 
+05-13 11:50:18.244 W/Keyboard( 4643): Keyboard.getKeyboardViewHelper():607 null helper is returned: keyboardDef=oci{processedConditions={show_comma_key=true, enable_more_candidates_view_for_multilingual=false, layout_9key_split=false, enable_secondary_symbols=true, pref_enable_flick_symbols=false, enable_scrub_move=true, language=es-ES, deprecate_long_press_space_for_ime_picker=false, show_suggestion_strip=true, expressions=normal, android_software_xr_api_spatial=false, variant=spanish, free_cursor=false, show_period_key=true, enable_number_row=true, device=phone, keyboard_mode=normal, show_secondary_digits=false, enable_preemptive_decode=true, enable_pk_simulator=false}, globalConditions={global_theme_key=theme,!gsf,!pgsf,!use_system_font,BORDER,DEVICE_MODE=phone,DYNAMIC_DARK_BRIGHT_KEY,FLAVOR_DPI=XXHDPI,IS_LIGHT,KEYBOARD_WIDTH_CATEGORY=NORMAL,KEY_BORDER_SHAPE=1,LIGHT_THEME=true,PHYSICAL_DIAGONAL=5.9444714,POPUP,SCREEN_SHORTEST_WIDTH=411,SCREEN_SHORTEST_WIDTH_NO_SCALE=411,SW400DP,XXHDPI,bottom4dp,bright_key_on_dynamic_color_dark_theme=true,disable_content_suggestion,enable_popup_on_keypress=true,keyboard_height_48_mm,non_linear_scale,noshadow,overlay_builtin_dynamic_color_light_base.binarypb:gm3-light-fff7f9fd-ff002739-82a7d4e6d0d6c66f4d47757481217700,pgsans,silkpopup, global_locale=es_ES, global_density_dpi=420, global_orientation=1}, className=.latin.keyboard.LatinPasswordKeyboard, resourceIds=[#0x7f170600, #0x7f1708ac, #0x7f1706ba], initialStates=0, keyboardViewDefs=[ocy{direction=null, id=#0x7f0b0229, isScalable=true, layoutId=#0x7f0e0268, type=BODY, touchable=true, defaultShow=true}, ocy{direction=null, id=#0x7f0b0229, isScalable=false, layoutId=#0x7f0e0218, type=FLOATING_CANDIDATES, touchable=false, defaultShow=false}, ocy{direction=LOCALE, id=#0x7f0b0229, isScalable=false, layoutId=#0x7f0e0520, type=HEADER, touchable=true, defaultShow=true}], persistentStates=0, persistentStatesPrefKey=null, popupBubbleLayoutId=#0x7f0e0611, recentKeyLayoutId=#0x0, recentKeyPopupLayoutId=#0x0, recentKeyType=null, rememberRecentKey=NONE, sessionStates=26388279066624}, type=WIDGET, helpersCreated={HEADER=nnb@b94bb9a, BODY=nnb@298fccb, FLOATING_CANDIDATES=nnb@82baca8}, context.getResources().getConfiguration(): {1.5 214mcc7mnc [es_ES] ldltr sw411dp w411dp h923dp 420dpi nrml long compactNeeded hdr widecg port finger -keyb/v/h -nav/h winConfig={ mBounds=Rect(0, 0 - 1080, 2424) mAppBounds=Rect(0, 0 - 1080, 2424) mMaxBounds=Rect(0, 0 - 1080, 2424) mDisplayRotation=ROTATION_0 mWindowingMode=fullscreen mActivityType=undefined mAlwaysOnTop=undefined mRotation=ROTATION_0} s.13 fontWeightAdjustment=0}
+05-13 11:50:18.244 I/BaseKeyboardSizeHelper( 4643): BaseKeyboardSizeHelper.calculateMaxKeyboardBodyHeight():73 leave 281 height for app when ime window height:2125, header height:126 and isFullscreenMode:false, so the max keyboard body height is:1718
+05-13 11:50:18.244 I/AndroidIME( 4643): InputBundleManager.startInput():372 startInput() with ocu[keyboardType=prime, payload=null]
+05-13 11:50:18.245 W/SupplementaryKeyboardsWrapper( 4643): SupplementaryKeyboardsWrapper.deactivateKeyboard():162 keyboard composing_text_consumer is not activated before!
+05-13 11:50:18.245 I/GlobeKeyExtension( 4643): GlobeKeyExtension.onDeactivate():154 
+05-13 11:50:18.245 I/JarvisExtension( 4643): JarvisExtension.onDeactivate():1155 onDeactivate
+05-13 11:50:18.245 I/JarvisTriggersManager( 4643): JarvisTriggersManager.onDeactivate():785 onDeactivate
+05-13 11:50:18.246 I/NgaExtension( 4643): NgaExtension.onDeactivate():647 NgaExtension#onDeactivate [SDG]
+05-13 11:50:18.246 I/NgaDataShareClient( 4643): NgaDataShareClient.sendCorrectionsAndEndSession():412 endDataPushSession() [SDG]
+05-13 11:50:18.246 I/HardKeyTracker( 4643): HardKeyTracker.unregisterKeySequence():259 Unregister key sequence pbd{labelResId=2132020495, callback=fdy@75423b2, lastModifier=2, keyCodes=[32], actions=[0]}
+05-13 11:50:18.246 I/HardKeyTracker( 4643): HardKeyTracker.unregisterKeySequence():259 Unregister key sequence pbd{labelResId=2132020495, callback=fdy@f5f9f03, lastModifier=0, keyCodes=[319], actions=[0]}
+05-13 11:50:18.246 I/NgaDataShareClient( 4643): NgaDataShareClient.sendCorrectionsList():420 sendCorrectionsList() [SDG]
+05-13 11:50:18.246 I/HardKeyTracker( 4643): HardKeyTracker.registerKeySequence():201 Register key sequence pbd{labelResId=2132020495, callback=fdy@34e0a01, lastModifier=2, keyCodes=[32], actions=[0]}
+05-13 11:50:18.246 I/HardKeyTracker( 4643): HardKeyTracker.registerKeySequence():201 Register key sequence pbd{labelResId=2132020495, callback=fdy@d0cc0a6, lastModifier=0, keyCodes=[319], actions=[0]}
+05-13 11:50:18.246 W/NgaDataShareClient( 4643): NgaDataShareClient.getClientInfo():504 null TriggerApplicationId provided. [SDG]
+05-13 11:50:18.246 W/NotificationCenter( 4643): NotificationCenter.unregisterListener():480 Listener hcj@6b90251 was not registered for notification class nky
+05-13 11:50:18.246 W/NotificationCenter( 4643): NotificationCenter.unregisterListener():480 Listener hci@720dab6 was not registered for notification class nfa
+05-13 11:50:18.246 I/DataShareHelper( 4643): DataShareHelper.shareCorrections():24 shareCorrections() [SD]
+05-13 11:50:18.246 I/HardKeyTracker( 4643): HardKeyTracker.unregisterKeySequence():259 Unregister key sequence pbd{labelResId=2132020495, callback=fdy@d7bce80, lastModifier=2, keyCodes=[32], actions=[0]}
+05-13 11:50:18.246 I/HardKeyTracker( 4643): HardKeyTracker.unregisterKeySequence():259 Unregister key sequence pbd{labelResId=2132020495, callback=fdy@da21cb9, lastModifier=0, keyCodes=[319], actions=[0]}
+05-13 11:50:18.246 I/HardKeyTracker( 4643): HardKeyTracker.registerKeySequence():201 Register key sequence pbd{labelResId=2132020495, callback=fdy@f90453d, lastModifier=2, keyCodes=[32], actions=[0]}
+05-13 11:50:18.246 I/HardKeyTracker( 4643): HardKeyTracker.registerKeySequence():201 Register key sequence pbd{labelResId=2132020495, callback=fdy@fb44132, lastModifier=0, keyCodes=[319], actions=[0]}
+05-13 11:50:18.246 W/NotificationCenter( 4643): NotificationCenter.unregisterListener():480 Listener hax@57ec42 was not registered for notification class nfa
+05-13 11:50:18.247 I/NgaVoiceInputHandler( 4643): NgaVoiceInputHandler.shutdownInternalLegacy():337 VoiceInputHandler:deactivating [SDG]
+05-13 11:50:18.247 W/NotificationCenter( 4643): NotificationCenter.unregisterListener():480 Listener ohw@bf404e8 was not registered for notification class ohx
+05-13 11:50:18.247 I/SmartEdit( 4643): SmartEdit.unloadModels():144 SmartEdit: unloading models [SDG]
+05-13 11:50:18.247 I/NgaInputManager( 4643): NgaInputManager.onDeactivate():482 SmartEdit: unloading models false [SDG]
+05-13 11:50:18.247 W/AutoCloseableReference( 4643): AutoCloseablePhantomReference.close():42 close() is invoked more than once
+05-13 11:50:18.247 I/KeyboardEventHandler( 4643): KeyboardEventHandler.handleKeyboardVisibilityEvent():214 Handling KeyboardVisibilityEvent: KEYBOARD_CLOSED [SD]
+05-13 11:50:18.248 I/PkModeUpdater( 4643): PkModeUpdater.onActivate():76 onActivate false true
+05-13 11:50:18.248 I/AccessoryInputModeManager( 4643): AccessoryInputModeManager.onModeStarted():346 Accessory input mode started: null
+05-13 11:50:18.248 W/SupplementaryKeyboardsWrapper( 4643): SupplementaryKeyboardsWrapper.deactivateKeyboard():162 keyboard accessory_candidates_consumer is not activated before!
+05-13 11:50:18.249 W/SupplementaryKeyboardsWrapper( 4643): SupplementaryKeyboardsWrapper.deactivateKeyboard():162 keyboard composing_text_consumer is not activated before!
+05-13 11:50:18.249 I/ContactPromoExtension( 4643): ContactPromoExtension.onActivate():81 Not activated ContactPromoExtension: not a normal text input box.
+05-13 11:50:18.249 I/GlobeKeyExtension( 4643): GlobeKeyExtension.onActivate():130 
+05-13 11:50:18.249 I/JarvisAccessPointCooperativeModeHelper( 4643): JarvisAccessPointCooperativeModeHelper.onActivate():170 onActivate
+05-13 11:50:18.249 I/JarvisTriggersManager( 4643): JarvisTriggersManager.onActivate():243 onActivate
+05-13 11:50:18.250 I/JarvisHelper( 4643): JarvisHelper.activateAutoFixItChipForEditor():120 Disable Fix it button as the editor does not support AC
+05-13 11:50:18.250 I/JarvisExtension( 4643): JarvisExtension.onActivate():346 onActivate
+05-13 11:50:18.250 I/KeyboardGroupDefParser( 4643): KeyboardGroupDefParser.parseKeyboardGroupDef():73 parseKeyboardGroupDef() 2132214002 -> 0_resource_name_obfuscated : WaitTime = 0 ms : RunTime = 0 ms
+05-13 11:50:18.250 I/KeyboardModeUtils( 4643): KeyboardModeUtils.getKeyboardBottomOffset():432 inch: 0.350000 ydpi: 421.709015 adjustKeyboardBottomByDisplaySize: false currentDensityDpi: 420 defaultDensityDpi: 420 keyboardBottomToScreenPx: 147 keyboardBottomToNavBarPx: 21 navBarHeight: 126
+05-13 11:50:18.250 I/BaseKeyboardSizeHelper( 4643): BaseKeyboardSizeHelper.calculateMaxKeyboardBodyHeight():73 leave 281 height for app when ime window height:2125, header height:126 and isFullscreenMode:false, so the max keyboard body height is:1718
+05-13 11:50:18.250 I/BaseKeyboardSizeHelper( 4643): BaseKeyboardSizeHelper.calculateMaxKeyboardBodyHeight():73 leave 281 height for app when ime window height:2125, header height:126 and isFullscreenMode:false, so the max keyboard body height is:1718
+05-13 11:50:18.250 I/AndroidIME( 4643): KeyboardViewManager.updateKeyboardBottomFrame():489 Set bottomFrameHeight = 21 while holderPaddingBottom = 21; navigationHeight = 126
+05-13 11:50:18.250 I/BaseKeyboardSizeHelper( 4643): BaseKeyboardSizeHelper.calculateMaxKeyboardBodyHeight():73 leave 281 height for app when ime window height:2125, header height:126 and isFullscreenMode:false, so the max keyboard body height is:1718
+05-13 11:50:18.251 I/BaseKeyboardSizeHelper( 4643): BaseKeyboardSizeHelper.calculateMaxKeyboardBodyHeight():73 leave 281 height for app when ime window height:2125, header height:126 and isFullscreenMode:false, so the max keyboard body height is:1718
+05-13 11:50:18.251 W/ExtensionWrapper( 4643): ExtensionWrapper.setExtensionViewVisibility():878 interface nqy is not activate
+05-13 11:50:18.251 I/NewLanguagePromptExtension( 4643): NewLanguagePromptExtension.onActivate():189 Not activated NewLanguagePromptExtension: not a normal text input box.
+05-13 11:50:18.251 I/NgaExtension( 4643): NgaExtension.onActivate():609 NgaExtension#onActivate [SDG]
+05-13 11:50:18.251 I/NgaVoiceInputHandlerSwitcher( 4643): NgaVoiceInputHandlerSwitcher.restorePrimary():234 not switching to primary. fallback is null [SDG]
+05-13 11:50:18.251 I/NgaVoiceInputHandler( 4643): NgaVoiceInputHandler.maybeCreateInputManager():255 VoiceInputHandler:activating [SDG]
+05-13 11:50:18.251 I/SpeechEnhancementLogger( 4643): SpeechEnhancementLogger.logAtInfo():24 Speech enhancement is disabled because multilang is enabled [SD]
+05-13 11:50:18.251 I/CompositeIntentClassifier( 4643): CompositeIntentClassifier.<init>():49 Determined SmartEdit intent-classifier threshold: 0.950000 [SDG]
+05-13 11:50:18.251 I/MobileBertIntentClassifier( 4643): MobileBertIntentClassifier.<init>():174 Successfully loaded native lib mobilebert_classifier_android_jni
+05-13 11:50:18.251 I/ModelessCommandDetector( 4643): ModelessCommandDetector.<init>():86 Created modeless command detector with language code es [SDG]
+05-13 11:50:18.251 W/NotificationCenter( 4643): NotificationCenter.unregisterListener():480 Listener oib@fe68e0b was not registered for notification class oic
+05-13 11:50:18.251 W/NotificationCenter( 4643): NotificationCenter.unregisterListener():480 Listener ohw@bf404e8 was not registered for notification class ohx
+05-13 11:50:18.251 I/GenAiVoiceEditManagerImpl( 4643): GenAiVoiceEditManagerImpl.<init>():199 SmartEdit fulfillment model version is: 202501200000_smartedit_serverside_ulm8b_finetune [SDG]
+05-13 11:50:18.251 I/HardKeyTracker( 4643): HardKeyTracker.unregisterKeySequence():259 Unregister key sequence pbd{labelResId=2132020495, callback=fdy@34e0a01, lastModifier=2, keyCodes=[32], actions=[0]}
+05-13 11:50:18.251 I/HardKeyTracker( 4643): HardKeyTracker.unregisterKeySequence():259 Unregister key sequence pbd{labelResId=2132020495, callback=fdy@d0cc0a6, lastModifier=0, keyCodes=[319], actions=[0]}
+05-13 11:50:18.251 I/HardKeyTracker( 4643): HardKeyTracker.registerKeySequence():201 Register key sequence pbd{labelResId=2132020495, callback=fdy@318432e, lastModifier=2, keyCodes=[32], actions=[0]}
+05-13 11:50:18.252 I/HardKeyTracker( 4643): HardKeyTracker.registerKeySequence():201 Register key sequence pbd{labelResId=2132020495, callback=fdy@960cecf, lastModifier=0, keyCodes=[319], actions=[0]}
+05-13 11:50:18.252 I/HardKeyTracker( 4643): HardKeyTracker.unregisterKeySequence():259 Unregister key sequence pbd{labelResId=2132020495, callback=fdy@f90453d, lastModifier=2, keyCodes=[32], actions=[0]}
+05-13 11:50:18.252 I/HardKeyTracker( 4643): HardKeyTracker.unregisterKeySequence():259 Unregister key sequence pbd{labelResId=2132020495, callback=fdy@fb44132, lastModifier=0, keyCodes=[319], actions=[0]}
+05-13 11:50:18.252 I/HardKeyTracker( 4643): HardKeyTracker.registerKeySequence():201 Register key sequence pbd{labelResId=2132020495, callback=fdy@55505c, lastModifier=2, keyCodes=[32], actions=[0]}
+05-13 11:50:18.252 I/HardKeyTracker( 4643): HardKeyTracker.registerKeySequence():201 Register key sequence pbd{labelResId=2132020495, callback=fdy@5f76f65, lastModifier=0, keyCodes=[319], actions=[0]}
+05-13 11:50:18.252 I/NgaExtension( 4643): NgaExtension.onActivate():632 NgaExtension: interaction type=4 [SDG]
+05-13 11:50:18.253 I/HardKeyTracker( 4643): HardKeyTracker.unregisterKeySequence():259 Unregister key sequence pbd{labelResId=2132020490, callback=fdy@c711705, lastModifier=2, keyCodes=[56], actions=[0]}
+05-13 11:50:18.253 I/HardKeyTracker( 4643): HardKeyTracker.unregisterKeySequence():259 Unregister key sequence pbd{labelResId=2132020490, callback=fdy@408835a, lastModifier=0, keyCodes=[317], actions=[0]}
+05-13 11:50:18.253 I/HardKeyTracker( 4643): HardKeyTracker.registerKeySequence():201 Register key sequence pbd{labelResId=2132020490, callback=fdy@b69643a, lastModifier=2, keyCodes=[56], actions=[0]}
+05-13 11:50:18.253 I/HardKeyTracker( 4643): HardKeyTracker.registerKeySequence():201 Register key sequence pbd{labelResId=2132020490, callback=fdy@74588eb, lastModifier=0, keyCodes=[317], actions=[0]}
+05-13 11:50:18.253 W/AccessPointsManager( 4643): AccessPointsManager.addAccessPoint():1097 The holder controller #0x7f0b248b is not registered
+05-13 11:50:18.253 I/Module  ( 4643): DeviceLockedStatusModuleProvider$Module.updateDeviceLockedStatus():103 repeatCheckTimes = 1, locked = false
+05-13 11:50:18.254 I/HardKeyTracker( 4643): HardKeyTracker.unregisterKeySequence():259 Unregister key sequence pbd{labelResId=2132020490, callback=fdy@43b7b26, lastModifier=2, keyCodes=[56], actions=[0]}
+05-13 11:50:18.254 I/HardKeyTracker( 4643): HardKeyTracker.unregisterKeySequence():259 Unregister key sequence pbd{labelResId=2132020490, callback=fdy@2627514, lastModifier=0, keyCodes=[317], actions=[0]}
+05-13 11:50:18.254 I/HardKeyTracker( 4643): HardKeyTracker.registerKeySequence():201 Register key sequence pbd{labelResId=2132020490, callback=fdy@e749ce1, lastModifier=2, keyCodes=[56], actions=[0]}
+05-13 11:50:18.254 I/HardKeyTracker( 4643): HardKeyTracker.registerKeySequence():201 Register key sequence pbd{labelResId=2132020490, callback=fdy@6798a06, lastModifier=0, keyCodes=[317], actions=[0]}
+05-13 11:50:18.254 I/VoiceImeExtension( 4643): VoiceImeExtension.shouldStartVoiceInputAutomaticallyInCurrentInputBox():384 No private IME option set to start voice input.
+05-13 11:50:18.255 I/StylusModule( 4643): StylusModule.onUpdateToolType():774 Update tool type = 1
+05-13 11:50:18.256 I/SystemHapticSettings( 4643): SystemHapticSettings.updateSystemVibrationState():63 update vibration state: true
+05-13 11:50:18.259 I/KeyboardEventHandler( 4643): KeyboardEventHandler.handleKeyboardVisibilityEvent():214 Handling KeyboardVisibilityEvent: KEYBOARD_OPENED [SD]
+05-13 11:50:18.260 I/SpeechEnhancementLogger( 4643): SpeechEnhancementLogger.logAtInfo():24 Speech enhancement is disabled because multilang is enabled [SD]
+05-13 11:50:18.260 I/PackageStatusChecker( 4643): PackageStatusChecker.isPackageSuspended():24 Current package suspended=false [SD]
+05-13 11:50:18.260 E/LibrePods( 4398): sectionTrack.onGlobPos key=pressActions rootTop=456.0 scrollVal=0 offset=456.0
+05-13 11:50:18.261 E/LibrePods( 4398): sectionTrack.onGlobPos key=listeningMode rootTop=1494.0 scrollVal=0 offset=1494.0
+05-13 11:50:18.261 W/TextView( 4643): onProvideContentCaptureStructure(): calling assumeLayout()
+05-13 11:50:18.262 E/LibrePods( 4398): sectionTrack.onGlobPos key=callControls rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:50:18.262 I/AsrProviderChoice( 4643): AsrProviderChoice.setChosenProvider():83 Setting chosen ASR provider to: 6 [SD]
+05-13 11:50:18.262 I/GoogleInputMethodService( 4643): GoogleInputMethodService$1.onKeyboardViewShown():344 onKeyboardViewShown: keyboardType=prime, keyboardViewType=HEADER keyboardView=com.google.android.libraries.inputmethod.widgets.SoftKeyboardView{7c8f091 V.E...... ........ 0,0-1080,126 aid=6870}
+05-13 11:50:18.262 I/EligibilityChecker( 4643): EligibilityChecker.getDictationConfigEligibilityForLocale():310 Dictation is enabled. workprofile=false [SD]
+05-13 11:50:18.262 I/BaseKeyboardSizeHelper( 4643): BaseKeyboardSizeHelper.calculateMaxKeyboardBodyHeight():73 leave 281 height for app when ime window height:2125, header height:126 and isFullscreenMode:false, so the max keyboard body height is:1718
+05-13 11:50:18.262 I/GoogleInputMethodService( 4643): GoogleInputMethodService$1.onKeyboardViewShown():344 onKeyboardViewShown: keyboardType=prime, keyboardViewType=BODY keyboardView=com.google.android.libraries.inputmethod.widgets.SoftKeyboardView{d33b569 V.E...... ........ 0,0-1080,651 aid=7000}
+05-13 11:50:18.262 I/BaseKeyboardSizeHelper( 4643): BaseKeyboardSizeHelper.calculateMaxKeyboardBodyHeight():73 leave 281 height for app when ime window height:2125, header height:126 and isFullscreenMode:false, so the max keyboard body height is:1718
+05-13 11:50:18.262 I/GlobeKeyExtension( 4643): GlobeKeyExtension$1.onKeyboardViewShown():77 maybeDisableLanguageSwitchKeyPref when the keyboard is shown
+05-13 11:50:18.262 I/GlobeKeyExtension( 4643): GlobeKeyExtension.maybeDisableLanguageSwitchKeyPref():211 maybeDisableLanguageSwitchKeyPref hasGlobeKeyBeenDisabled: true, shouldDisableLanguageSwitchKey: true
+05-13 11:50:18.262 I/NewLanguagePromptExtension( 4643): NewLanguagePromptExtension$1.onKeyboardViewShown():88 Not show new language banner: not prime keyboard, or the extension not activated.
+05-13 11:50:18.262 E/LibrePods( 4398): sectionTrack.onGlobPos key=controlsConfiguration rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:50:18.262 I/KeyboardModeUtils( 4643): KeyboardModeUtils.getKeyboardBottomOffset():432 inch: 0.350000 ydpi: 421.709015 adjustKeyboardBottomByDisplaySize: false currentDensityDpi: 420 defaultDensityDpi: 420 keyboardBottomToScreenPx: 147 keyboardBottomToNavBarPx: 21 navBarHeight: 126
+05-13 11:50:18.263 I/BaseKeyboardSizeHelper( 4643): BaseKeyboardSizeHelper.calculateMaxKeyboardBodyHeight():73 leave 281 height for app when ime window height:2125, header height:126 and isFullscreenMode:false, so the max keyboard body height is:1718
+05-13 11:50:18.263 I/BaseKeyboardSizeHelper( 4643): BaseKeyboardSizeHelper.calculateMaxKeyboardBodyHeight():73 leave 281 height for app when ime window height:2125, header height:126 and isFullscreenMode:false, so the max keyboard body height is:1718
+05-13 11:50:18.263 I/AndroidIME( 4643): KeyboardViewManager.updateKeyboardBottomFrame():489 Set bottomFrameHeight = 21 while holderPaddingBottom = 21; navigationHeight = 126
+05-13 11:50:18.264 I/EligibilityChecker( 4643): EligibilityChecker.getDictationConfigEligibilityForLocale():310 Dictation is enabled. workprofile=false [SD]
+05-13 11:50:18.264 I/EligibilityChecker( 4643): EligibilityChecker.checkLocaleEligibility():456 Dictation is not enabled for unsupported keyboard locale: el_GR; supported locales: es_ES,en_SG,en_AU,ja_JP,fr_BE,fr_CA,de_CH,de_BE,it_CH,de_DE,en_IN,es_US,it_IT,en_IE,fr_FR,en_US,en_CA,de_AT,fr_CH,en_GB. workprofile=false [SD]
+05-13 11:50:18.264 I/AsrProviderSelector( 4643): AsrProviderSelector.selectProvider():28 SBG path failed. Reason: 28. Trying S3 path. [SD]
+05-13 11:50:18.265 I/EligibilityUtilKt( 4643): EligibilityUtilKt.isDictationSupportedInInputField():92 Field type is not set, assuming supported input field. [SD]
+05-13 11:50:18.265 I/KeyboardEligibilityNotifier( 4643): KeyboardEligibilityNotifier.notifyEligibility():76 Keyboard notified that eligibility=ELIGIBLE [SD]
+05-13 11:50:18.265 I/NgaStateManager( 4643): NgaStateManager.setAssistantDictationEligibility():188 AssistantDictationEligibility = 1 [SDG]
+05-13 11:50:18.265 I/NgaStateManager( 4643): NgaStateManager.buildConfigEligibilityPerLanguageTag():306 AssistantDictationEligibility(config, es-ES) = 1 [SDG]
+05-13 11:50:18.265 I/NgaStateManager( 4643): NgaStateManager.buildConfigEligibilityPerLanguageTag():306 AssistantDictationEligibility(config, en-US) = 1 [SDG]
+05-13 11:50:18.265 I/KeyboardUiManagerImpl( 4643): KeyboardUiManagerImpl.onKeyboardShownAgain():170 #onKeyboardShownAgain scheduled [SD]
+05-13 11:50:18.265 I/NgaStateManager( 4643): NgaStateManager.buildConfigEligibilityPerLanguageTag():306 AssistantDictationEligibility(config, el-GR) = 28 [SDG]
+05-13 11:50:18.266 I/KeyboardUiManagerImpl( 4643): KeyboardUiManagerImpl.onKeyboardShownAgain():173 #onKeyboardShownAgain [SD]
+05-13 11:50:18.266 I/NgaStateManager( 4643): NgaStateManager.setAssistantDictationEligibility():197 AssistantDictationEligibility(inputField) = 1 [SDG]
+05-13 11:50:18.266 I/NgaInputHandlerFactory( 4643): NgaInputHandlerFactory.restorePrimary():137 restoring primary [SDG]
+05-13 11:50:18.266 I/NgaVoiceInputHandlerSwitcher( 4643): NgaVoiceInputHandlerSwitcher.restorePrimary():234 not switching to primary. fallback is null [SDG]
+05-13 11:50:18.266 I/KeyboardEventHandler( 4643): KeyboardEventHandler.handleFieldChangedEvent():454 Handling FieldChangedEvent: fgPkg=me.kavishdevar.librepods, fieldType=0, interactionType=FIELD_CHANGE [SD]
+05-13 11:50:18.266 I/PackageStatusChecker( 4643): PackageStatusChecker.isPackageSuspended():24 Current package suspended=false [SD]
+05-13 11:50:18.267 I/SpeechEnhancementLogger( 4643): SpeechEnhancementLogger.logAtInfo():24 Speech enhancement is disabled because multilang is enabled [SD]
+05-13 11:50:18.268 I/AsrProviderChoice( 4643): AsrProviderChoice.setChosenProvider():83 Setting chosen ASR provider to: 6 [SD]
+05-13 11:50:18.268 I/EligibilityChecker( 4643): EligibilityChecker.getDictationConfigEligibilityForLocale():310 Dictation is enabled. workprofile=false [SD]
+05-13 11:50:18.272 I/EligibilityChecker( 4643): EligibilityChecker.getDictationConfigEligibilityForLocale():310 Dictation is enabled. workprofile=false [SD]
+05-13 11:50:18.272 I/EligibilityChecker( 4643): EligibilityChecker.checkLocaleEligibility():456 Dictation is not enabled for unsupported keyboard locale: el_GR; supported locales: es_ES,en_SG,en_AU,ja_JP,fr_BE,fr_CA,de_CH,de_BE,it_CH,de_DE,en_IN,es_US,it_IT,en_IE,fr_FR,en_US,en_CA,de_AT,fr_CH,en_GB. workprofile=false [SD]
+05-13 11:50:18.272 I/AsrProviderSelector( 4643): AsrProviderSelector.selectProvider():28 SBG path failed. Reason: 28. Trying S3 path. [SD]
+05-13 11:50:18.272 I/EligibilityUtilKt( 4643): EligibilityUtilKt.isDictationSupportedInInputField():92 Field type is not set, assuming supported input field. [SD]
+05-13 11:50:18.273 I/KeyboardEligibilityNotifier( 4643): KeyboardEligibilityNotifier.notifyEligibility():76 Keyboard notified that eligibility=ELIGIBLE [SD]
+05-13 11:50:18.274 I/NgaStateManager( 4643): NgaStateManager.setAssistantDictationEligibility():188 AssistantDictationEligibility = 1 [SDG]
+05-13 11:50:18.274 I/NgaStateManager( 4643): NgaStateManager.buildConfigEligibilityPerLanguageTag():306 AssistantDictationEligibility(config, es-ES) = 1 [SDG]
+05-13 11:50:18.274 I/NgaStateManager( 4643): NgaStateManager.buildConfigEligibilityPerLanguageTag():306 AssistantDictationEligibility(config, en-US) = 1 [SDG]
+05-13 11:50:18.274 I/NgaStateManager( 4643): NgaStateManager.buildConfigEligibilityPerLanguageTag():306 AssistantDictationEligibility(config, el-GR) = 28 [SDG]
+05-13 11:50:18.274 I/KeyboardEventHandler( 4643): KeyboardEventHandler.handleJarvisState():314 Handling JarvisState. UiState=IDLE, undo_available=false, can_show_proofread_suggestion=false, can_be_activated=false, more_fixes_available=false, draft_selected_in_drafts_ui_session=false, num_fixes_available=0 [SD]
+05-13 11:50:18.274 I/NgaStateManager( 4643): NgaStateManager.setAssistantDictationEligibility():197 AssistantDictationEligibility(inputField) = 1 [SDG]
+05-13 11:50:18.274 I/NgaInputHandlerFactory( 4643): NgaInputHandlerFactory.restorePrimary():137 restoring primary [SDG]
+05-13 11:50:18.274 I/NgaVoiceInputHandlerSwitcher( 4643): NgaVoiceInputHandlerSwitcher.restorePrimary():234 not switching to primary. fallback is null [SDG]
+05-13 11:50:18.274 I/KeyboardUiManagerImpl( 4643): KeyboardUiManagerImpl.onJarvisState():591 #onJarvisState: # jfo@8f21a7fb isProofreadEnabled true [SD]
+05-13 11:50:18.274 I/KeyboardEventHandler( 4643): KeyboardEventHandler.handleJarvisState():314 Handling JarvisState. UiState=IDLE, undo_available=false, can_show_proofread_suggestion=false, can_be_activated=true, more_fixes_available=false, draft_selected_in_drafts_ui_session=false, num_fixes_available=0 [SD]
+05-13 11:50:18.274 I/KeyboardUiManagerImpl( 4643): KeyboardUiManagerImpl.onJarvisState():591 #onJarvisState: # jfo@12bd197d isProofreadEnabled true [SD]
+05-13 11:50:18.275 E/LibrePods( 4398): sectionTrack.onGlobPos key=pressActions rootTop=456.0 scrollVal=0 offset=456.0
+05-13 11:50:18.276 E/LibrePods( 4398): sectionTrack.onGlobPos key=listeningMode rootTop=1494.0 scrollVal=0 offset=1494.0
+05-13 11:50:18.277 E/LibrePods( 4398): sectionTrack.onGlobPos key=callControls rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:50:18.278 E/LibrePods( 4398): sectionTrack.onGlobPos key=controlsConfiguration rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:50:18.290 E/LibrePods( 4398): sectionTrack.onGlobPos key=pressActions rootTop=456.0 scrollVal=0 offset=456.0
+05-13 11:50:18.291 E/LibrePods( 4398): sectionTrack.onGlobPos key=listeningMode rootTop=1494.0 scrollVal=0 offset=1494.0
+05-13 11:50:18.291 E/LibrePods( 4398): sectionTrack.onGlobPos key=callControls rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:50:18.292 E/LibrePods( 4398): sectionTrack.onGlobPos key=controlsConfiguration rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:50:18.303 E/LibrePods( 4398): sectionTrack.onGlobPos key=pressActions rootTop=456.0 scrollVal=0 offset=456.0
+05-13 11:50:18.304 E/LibrePods( 4398): sectionTrack.onGlobPos key=listeningMode rootTop=1494.0 scrollVal=0 offset=1494.0
+05-13 11:50:18.304 E/LibrePods( 4398): sectionTrack.onGlobPos key=callControls rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:50:18.305 E/LibrePods( 4398): sectionTrack.onGlobPos key=controlsConfiguration rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:50:18.317 E/LibrePods( 4398): sectionTrack.onGlobPos key=pressActions rootTop=456.0 scrollVal=0 offset=456.0
+05-13 11:50:18.318 E/LibrePods( 4398): sectionTrack.onGlobPos key=listeningMode rootTop=1494.0 scrollVal=0 offset=1494.0
+05-13 11:50:18.318 E/LibrePods( 4398): sectionTrack.onGlobPos key=callControls rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:50:18.321 E/LibrePods( 4398): sectionTrack.onGlobPos key=controlsConfiguration rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:50:18.338 E/LibrePods( 4398): sectionTrack.onGlobPos key=pressActions rootTop=456.0 scrollVal=0 offset=456.0
+05-13 11:50:18.339 E/LibrePods( 4398): sectionTrack.onGlobPos key=listeningMode rootTop=1494.0 scrollVal=0 offset=1494.0
+05-13 11:50:18.340 E/LibrePods( 4398): sectionTrack.onGlobPos key=callControls rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:50:18.340 E/LibrePods( 4398): sectionTrack.onGlobPos key=controlsConfiguration rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:50:18.349 E/LibrePods( 4398): sectionTrack.onGlobPos key=pressActions rootTop=456.0 scrollVal=0 offset=456.0
+05-13 11:50:18.350 E/LibrePods( 4398): sectionTrack.onGlobPos key=listeningMode rootTop=1494.0 scrollVal=0 offset=1494.0
+05-13 11:50:18.350 E/LibrePods( 4398): sectionTrack.onGlobPos key=callControls rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:50:18.351 E/LibrePods( 4398): sectionTrack.onGlobPos key=controlsConfiguration rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:50:18.377 E/LibrePods( 4398): sectionTrack.onGlobPos key=pressActions rootTop=456.0 scrollVal=0 offset=456.0
+05-13 11:50:18.378 E/LibrePods( 4398): sectionTrack.onGlobPos key=listeningMode rootTop=1494.0 scrollVal=0 offset=1494.0
+05-13 11:50:18.378 E/LibrePods( 4398): sectionTrack.onGlobPos key=callControls rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:50:18.379 E/LibrePods( 4398): sectionTrack.onGlobPos key=controlsConfiguration rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:50:18.384 E/LibrePods( 4398): sectionTrack.onGlobPos key=pressActions rootTop=456.0 scrollVal=0 offset=456.0
+05-13 11:50:18.384 E/LibrePods( 4398): sectionTrack.onGlobPos key=listeningMode rootTop=1494.0 scrollVal=0 offset=1494.0
+05-13 11:50:18.385 E/LibrePods( 4398): sectionTrack.onGlobPos key=callControls rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:50:18.385 E/LibrePods( 4398): sectionTrack.onGlobPos key=controlsConfiguration rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:50:18.394 E/LibrePods( 4398): sectionTrack.onGlobPos key=pressActions rootTop=456.0 scrollVal=0 offset=456.0
+05-13 11:50:18.395 E/LibrePods( 4398): sectionTrack.onGlobPos key=listeningMode rootTop=1494.0 scrollVal=0 offset=1494.0
+05-13 11:50:18.395 E/LibrePods( 4398): sectionTrack.onGlobPos key=callControls rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:50:18.396 E/LibrePods( 4398): sectionTrack.onGlobPos key=controlsConfiguration rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:50:18.506 I/GoogleInputMethodService( 4643): GoogleInputMethodService.onFinishInputView():1661 onFinishInputView(false)
+05-13 11:50:18.507 W/SupplementaryKeyboardsWrapper( 4643): SupplementaryKeyboardsWrapper.deactivateKeyboard():162 keyboard composing_text_consumer is not activated before!
+05-13 11:50:18.507 I/GlobeKeyExtension( 4643): GlobeKeyExtension.onDeactivate():154 
+05-13 11:50:18.507 I/JarvisExtension( 4643): JarvisExtension.onDeactivate():1155 onDeactivate
+05-13 11:50:18.507 I/JarvisTriggersManager( 4643): JarvisTriggersManager.onDeactivate():785 onDeactivate
+05-13 11:50:18.508 I/NgaExtension( 4643): NgaExtension.onDeactivate():647 NgaExtension#onDeactivate [SDG]
+05-13 11:50:18.508 I/NgaDataShareClient( 4643): NgaDataShareClient.sendCorrectionsAndEndSession():412 endDataPushSession() [SDG]
+05-13 11:50:18.508 I/HardKeyTracker( 4643): HardKeyTracker.unregisterKeySequence():259 Unregister key sequence pbd{labelResId=2132020495, callback=fdy@318432e, lastModifier=2, keyCodes=[32], actions=[0]}
+05-13 11:50:18.508 I/NgaDataShareClient( 4643): NgaDataShareClient.sendCorrectionsList():420 sendCorrectionsList() [SDG]
+05-13 11:50:18.508 I/HardKeyTracker( 4643): HardKeyTracker.unregisterKeySequence():259 Unregister key sequence pbd{labelResId=2132020495, callback=fdy@960cecf, lastModifier=0, keyCodes=[319], actions=[0]}
+05-13 11:50:18.508 W/NgaDataShareClient( 4643): NgaDataShareClient.getClientInfo():504 null TriggerApplicationId provided. [SDG]
+05-13 11:50:18.508 I/HardKeyTracker( 4643): HardKeyTracker.registerKeySequence():201 Register key sequence pbd{labelResId=2132020495, callback=fdy@d14b7dd, lastModifier=2, keyCodes=[32], actions=[0]}
+05-13 11:50:18.508 I/HardKeyTracker( 4643): HardKeyTracker.registerKeySequence():201 Register key sequence pbd{labelResId=2132020495, callback=fdy@bd07223, lastModifier=0, keyCodes=[319], actions=[0]}
+05-13 11:50:18.508 W/NotificationCenter( 4643): NotificationCenter.unregisterListener():480 Listener hcj@6b90251 was not registered for notification class nky
+05-13 11:50:18.508 W/NotificationCenter( 4643): NotificationCenter.unregisterListener():480 Listener hci@720dab6 was not registered for notification class nfa
+05-13 11:50:18.508 I/DataShareHelper( 4643): DataShareHelper.shareCorrections():24 shareCorrections() [SD]
+05-13 11:50:18.508 I/HardKeyTracker( 4643): HardKeyTracker.unregisterKeySequence():259 Unregister key sequence pbd{labelResId=2132020495, callback=fdy@55505c, lastModifier=2, keyCodes=[32], actions=[0]}
+05-13 11:50:18.508 I/HardKeyTracker( 4643): HardKeyTracker.unregisterKeySequence():259 Unregister key sequence pbd{labelResId=2132020495, callback=fdy@5f76f65, lastModifier=0, keyCodes=[319], actions=[0]}
+05-13 11:50:18.508 I/HardKeyTracker( 4643): HardKeyTracker.registerKeySequence():201 Register key sequence pbd{labelResId=2132020495, callback=fdy@129f4d9, lastModifier=2, keyCodes=[32], actions=[0]}
+05-13 11:50:18.508 I/HardKeyTracker( 4643): HardKeyTracker.registerKeySequence():201 Register key sequence pbd{labelResId=2132020495, callback=fdy@4d8e9e, lastModifier=0, keyCodes=[319], actions=[0]}
+05-13 11:50:18.509 W/NotificationCenter( 4643): NotificationCenter.unregisterListener():480 Listener hax@57ec42 was not registered for notification class nfa
+05-13 11:50:18.509 W/TooltipLifecycleManager( 4643): TooltipLifecycleManager.dismissTooltips():153 Tooltip with id spell_check_add_to_dictionary not found in tooltipManager.
+05-13 11:50:18.509 I/KeyboardEventHandler( 4643): KeyboardEventHandler.handleKeyboardVisibilityEvent():214 Handling KeyboardVisibilityEvent: KEYBOARD_CLOSED [SD]
+05-13 11:50:18.509 I/NgaVoiceInputHandler( 4643): NgaVoiceInputHandler.shutdownInternalLegacy():337 VoiceInputHandler:deactivating [SDG]
+05-13 11:50:18.509 W/NotificationCenter( 4643): NotificationCenter.unregisterListener():480 Listener ohw@bf404e8 was not registered for notification class ohx
+05-13 11:50:18.509 I/SmartEdit( 4643): SmartEdit.unloadModels():144 SmartEdit: unloading models [SDG]
+05-13 11:50:18.509 I/NgaInputManager( 4643): NgaInputManager.onDeactivate():482 SmartEdit: unloading models false [SDG]
+05-13 11:50:18.509 I/UniversalDictationUiProvider( 4643): UniversalDictationUiProvider.onDeactivate():69 onDeactivate() [UD]
+05-13 11:50:18.510 I/AndroidIME( 4643): AbstractIme.onDeactivate():213 PasswordIme.onDeactivate()
+05-13 11:50:18.510 W/AutoCloseableReference( 4643): AutoCloseablePhantomReference.close():42 close() is invoked more than once
+05-13 11:50:18.511 W/TooltipLifecycleManager( 4643): TooltipLifecycleManager.dismissTooltips():153 Tooltip with id undo_access_point_promotion_banner not found in tooltipManager.
+05-13 11:50:18.511 D/HintManagerService( 1808): Sent cleanup message for uid 10197
+05-13 11:50:18.511 D/ImeBackCallbackSender( 4643): Unregister OnBackInvokedCallback at app window (packageName=me.kavishdevar.librepods)
+05-13 11:50:18.511 I/ImeTracker( 4643): me.kavishdevar.librepods:d95ff9d5: onHidden
+05-13 11:50:18.515 I/KeyboardModeUtils( 4643): KeyboardModeUtils.getKeyboardBottomOffset():432 inch: 0.350000 ydpi: 421.709015 adjustKeyboardBottomByDisplaySize: false currentDensityDpi: 420 defaultDensityDpi: 420 keyboardBottomToScreenPx: 147 keyboardBottomToNavBarPx: 21 navBarHeight: 126
+05-13 11:50:18.515 I/KeyboardEventHandler( 4643): KeyboardEventHandler.handleJarvisState():314 Handling JarvisState. UiState=IDLE, undo_available=false, can_show_proofread_suggestion=false, can_be_activated=false, more_fixes_available=false, draft_selected_in_drafts_ui_session=false, num_fixes_available=0 [SD]
+05-13 11:50:18.515 I/BaseKeyboardSizeHelper( 4643): BaseKeyboardSizeHelper.calculateMaxKeyboardBodyHeight():73 leave 281 height for app when ime window height:2125, header height:126 and isFullscreenMode:false, so the max keyboard body height is:1718
+05-13 11:50:18.515 I/KeyboardUiManagerImpl( 4643): KeyboardUiManagerImpl.onJarvisState():591 #onJarvisState: # jfo@8f21a7fb isProofreadEnabled true [SD]
+05-13 11:50:18.515 I/BaseKeyboardSizeHelper( 4643): BaseKeyboardSizeHelper.calculateMaxKeyboardBodyHeight():73 leave 281 height for app when ime window height:2125, header height:126 and isFullscreenMode:false, so the max keyboard body height is:1718
+05-13 11:50:18.515 I/AndroidIME( 4643): KeyboardViewManager.updateKeyboardBottomFrame():489 Set bottomFrameHeight = 21 while holderPaddingBottom = 21; navigationHeight = 126
+05-13 11:50:18.520 E/powerhal-libperfmgr(  667): Error: shouldn't report duration during pause state.
+05-13 11:50:18.813 I/ProcessReaperImpl( 5970): isKillable, importance=125
+05-13 11:50:19.020 W/TooltipLifecycleManager( 4643): TooltipLifecycleManager.dismissTooltips():153 Tooltip with id undo_access_point_promotion_banner not found in tooltipManager.
+05-13 11:50:19.039 I/ImeTracker( 1808): system_server:4c81a41a: onRequestHide at ORIGIN_SERVER reason IME_REQUESTED_CHANGED_LISTENER fromUser false displayId 0
+05-13 11:50:19.040 I/ImeTracker( 1808): system_server:4c81a41a: onCancelled at PHASE_SERVER_SHOULD_HIDE
+05-13 11:50:19.112 I/KeyboardEventHandler( 4643): KeyboardEventHandler.handleKeyboardHidden():293 Keyboard closed, ending dictation. [SD]
+05-13 11:50:19.452 I/NearbyDiscovery(28188): (REDACTED) DiscoveryService onStartCommand action: %s
+05-13 11:50:19.461 D/BackgroundInstallControlService( 1808): Package event received: 0
+05-13 11:50:19.467 I/NearbyDiscovery(28188): FastPairApiHandler: trigger firmware update check [CONTEXT service_id=265 ]
+05-13 11:50:19.468 I/NearbyDiscovery(28188): (REDACTED) FastPairApiHandler: Send result, package=(%s), requestType=(%s), status=(%s)
+05-13 11:50:19.511 I/KeyboardActiveSessionStreamManager( 4643): KeyboardActiveSessionStreamManager.closeStream():125 Closing stream. [SDG]
+05-13 11:50:19.512 I/Interaction( 4643): Interaction$KeyboardEventStreamObserver.onCompleted():141 Interaction#127 completed by the client [SD]
+05-13 11:50:19.514 I/Interaction( 4643): Interaction.shutdownAndForget$java_com_google_android_libraries_inputmethod_voice_smartdictation_service_interaction_interaction():92 Shutting down Interaction#127 [SD]
+05-13 11:50:19.515 I/KeyboardActiveSessionStreamManager( 4643): KeyboardActiveSessionStreamManager$AssistantEventObserver.onCompleted():275 Assistant event stream completed. [SDG]
+05-13 11:50:19.515 I/InteractionManager( 4643): InteractionManager.forgetInteraction$java_com_google_android_libraries_inputmethod_voice_smartdictation_service_interaction_interaction():50 Forgetting Interaction#127 [SD]
+05-13 11:50:19.516 D/HintManagerService( 1808): Starts cleaning for 10197
+05-13 11:50:19.516 I/ersn    ( 7447): (REDACTED) HDM. appOpsListener %s %s
+05-13 11:50:19.517 I/ersn    ( 7447): (REDACTED) HDM. Ignoring irrelevant audio permission changes for package %s
+05-13 11:50:19.542 D/WM-SessionHandler(17096): Unbinding service
+05-13 11:50:19.553 D/WM-RemoteWMgr.Connectio(17096): Binding died
+05-13 11:50:19.557 D/WM-RemoteWorkManagerCli(17096): Cleaning up.
+05-13 11:50:20.012 I/WifiHAL ( 1238): Creating message to get link statistics; iface = 47
+05-13 11:50:20.075 I/WifiHAL ( 1238): Getting cached scan results, iface handle = 0xb4000070a4a16f90
+05-13 11:50:20.075 E/WifiHAL ( 1238): Creating message to get cached scan results
+05-13 11:50:20.081 I/WifiHAL ( 1238): In GetCachedScanResultsCommand::handleResponse
+05-13 11:50:20.090 D/ActivityManager( 1808): freezing 30774 com.microsoft.office.outlook
+05-13 11:50:20.096 D/ActivityManager( 1808): freezing 6488 com.microsoft.windowsintune.companyportal:omadm_client_process
+05-13 11:50:20.126 D/InetDiagMessage( 1808): Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET, states=14
+05-13 11:50:20.134 D/InetDiagMessage( 1808): Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET6, states=14
+05-13 11:50:20.135 D/InetDiagMessage( 1808): Destroyed live tcp sockets for uids={10320} in 32ms
+05-13 11:50:20.142 D/InetDiagMessage( 1808): Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET, states=14
+05-13 11:50:20.147 D/WifiHAL ( 1238): Start debug command: mType GET_FEATURE
+05-13 11:50:20.147 I/WifiHAL ( 1238): CreateRequest mType = GET_FEATURE
+05-13 11:50:20.147 D/WifiHAL ( 1238): In DebugCommand::handleResponse, mType:GET_FEATURE
+05-13 11:50:20.148 D/WifiHAL ( 1238): len = 4, expected len = 4
+05-13 11:50:20.148 D/InetDiagMessage( 1808): Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET6, states=14
+05-13 11:50:20.149 D/InetDiagMessage( 1808): Destroyed live tcp sockets for uids={10394} in 13ms
+05-13 11:50:20.154 I/HalDevMgr( 1808): bestIfaceCreationProposal is null, requestIface=STA, existingIface=[name=wlan0 type=STA]
+05-13 11:50:21.326 E/LibrePods( 4398):   scrollTarget=0 (targetY=0.0 - topPadding=340.99997 + 32)
+05-13 11:50:21.330 E/LibrePods( 4398):   scrollState.value BEFORE=0
+05-13 11:50:21.334 I/NearbyDiscovery(28188): (REDACTED) DiscoveryService onStartCommand action: %s
+05-13 11:50:21.335 I/NearbyDiscovery(28188): FastPairApiHandler: trigger firmware update check [CONTEXT service_id=265 ]
+05-13 11:50:21.340 D/BackgroundInstallControlService( 1808): Package event received: 0
+05-13 11:50:21.342 E/LibrePods( 4398):   scrollState.value AFTER=0
+05-13 11:50:21.344 I/NearbyDiscovery(28188): (REDACTED) FastPairApiHandler: Send result, package=(%s), requestType=(%s), status=(%s)
+05-13 11:50:21.498 E/LibrePods( 4398):   highlight SET to controlsConfiguration
+05-13 11:50:21.640 I/devar.librepods( 4398): Compiler allocated 6768KB to compile void me.kavishdevar.librepods.presentation.screens.CategoryScreenKt.ControlsContent(me.kavishdevar.librepods.presentation.viewmodel.AirPodsUiState, me.kavishdevar.librepods.presentation.viewmodel.AirPodsViewModel, androidx.navigation.NavController, android.content.SharedPreferences, boolean, me.kavishdevar.librepods.presentation.screens.SectionFocus, androidx.compose.runtime.Composer, int, int)
+05-13 11:50:21.816 I/ProcessReaperImpl( 5970): isKillable, importance=125
+05-13 11:50:22.127 I/NearbyDiscovery(28188): (REDACTED) DiscoveryService onStartCommand action: %s
+05-13 11:50:22.131 D/BackgroundInstallControlService( 1808): Package event received: 0
+05-13 11:50:22.133 I/NearbyDiscovery(28188): FastPairApiHandler: trigger firmware update check [CONTEXT service_id=265 ]
+05-13 11:50:22.134 I/NearbyDiscovery(28188): (REDACTED) FastPairApiHandler: Send result, package=(%s), requestType=(%s), status=(%s)
+05-13 11:50:22.542 I/bt_btm_pm(31025): system/stack/acl/btm_pm.cc:259 BTM_SetPowerMode: Setting power mode for peer:xx:xx:xx:xx:97:86 current_mode:immediate:active[0] new_mode:forced:sniff[2]
+05-13 11:50:22.542 I/bt_btm_pm(31025): system/stack/acl/btm_pm.cc:550 btm_pm_snd_md_req: Switching from immediate:active[0x00] to immediate:sniff[0x02]
+05-13 11:50:22.623 I/bt_btm_pm(31025): system/stack/acl/btm_pm.cc:697 btm_pm_proc_mode_change: Power mode switched from immediate:pending[5] to immediate:sniff[2]
+05-13 11:50:22.644 D/ApfFilter( 2974): (wlan0): Ignoring RA RA fe80::ead1:1bff:fea0:f03a -> ff02::1 0s  which matches RA fe80::ead1:1bff:fea0:f03a -> ff02::1 0s 
+05-13 11:50:22.668 I/pixel-thermal( 1737): north_therm:32.856 raw data: north_therm:32856 
+05-13 11:50:22.670 I/pixel-thermal( 1737): flash_therm:31.259 raw data: flash_therm:31259 
+05-13 11:50:22.670 I/pixel-thermal( 1737): rfpa_therm:33.406 raw data: rfpa_therm:33406 
+05-13 11:50:22.671 I/pixel-thermal( 1737): quiet_therm:33.468 raw data: quiet_therm:33468 
+05-13 11:50:22.676 I/pixel-thermal( 1737): VIRTUAL-SKIN-PREDICTION-MODEL: model_input: [32856.00 31259.00 34210.00 33406.00 35055.00 31075.00 30496.00 33468.00 32020.52 ]
+05-13 11:50:22.676 I/native  ( 1737): I0000 00:00:1778665822.676558    1758 thermal_tflite_wrapper.cc:261] ThermalTfliteInvoke
+05-13 11:50:22.677 I/pixel-thermal( 1737): VIRTUAL-SKIN-PREDICTION-MODEL: model_output: [31694.8 31741.6 31793.7 31844.3 31902.1 31966.2 32040.3 32102 32164.5 32229.8 ]
+05-13 11:50:22.677 I/pixel-thermal( 1737): VIRTUAL-SKIN-PREDICTION-MODEL: predicted_value: [31694.8 31741.6 31793.7 31844.3 31902.1 31966.2 32040.3 32102 32164.5 32229.8 ]
+05-13 11:50:22.677 I/pixel-thermal( 1737): EARLY-WARNING-SENSOR:0 raw data: EARLY-EMERGENCY-WARNING-SENSOR:0 EARLY-SHUTDOWN-WARNING-SENSOR:0 EARLY-WARNING-SENSOR:0 VIRTUAL-SKIN:32020.5 VIRTUAL-SKIN-EQ:32020.5 VIRTUAL-SKIN-LEGACY:32642.3 VIRTUAL-SKIN-LEGACY-MODEL-DIFF:597.096 VIRTUAL-SKIN-LEGACY-SHUTDOWN:0 VIRTUAL-SKIN-MODEL:32045.2 VIRTUAL-SKIN-MODEL-CLAMPED:32045.2 VIRTUAL-SKIN-MODEL-LEGACY-DIFF:-597.096 VIRTUAL-SKIN-MODEL-UPDATED:32020.5 VIRTUAL-SKIN-MODEL-UPPER-CLAMPED:32045.2 VIRTUAL-SKIN-PREDICTION-MODEL:31694.8 VIRTUAL-SKIN-SUB-0:32642.3 VIRTUAL-SKIN-SUB-1:32548.2 VIRTUAL-SKIN-SUB-2:32152.5 VIRTUAL-SKIN-SUB-3:32353.2 VIRTUAL-SKIN-SUB-4:32039.7 VT-FORECAST-30SEC:31920.4 VT-FORECAST-60SEC:32201.8 VT_LEGACY_WEIGHT:0 VT_MODEL_WEIGHT:1 charging_therm:35055 disp0_therm:31075 flash_therm:31259 north_therm:32856 quiet_therm:33468 rfpa_therm:33406 soc_therm:34210 usb_pwr_therm:30496 

@@ -354,10 +354,10 @@ private fun ModeSelectorRow(
                         indication = null,
                         enabled = enabled
                     ) { onSelect(mode) }
-                    .padding(vertical = 10.dp),
+                    .padding(vertical = 16.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text(label, style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium,
+                Text(label, style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Medium,
                     fontFamily = SfPro, color = if (enabled) fg else fg.copy(0.4f)))
             }
         }

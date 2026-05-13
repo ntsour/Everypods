@@ -1,0 +1,82 @@
+--------- beginning of main
+05-13 11:41:44.222 32323 32323 E LibrePods: search tap label=Volume Control route=category/controls?focus=controlsConfiguration focusSection=controlsConfiguration
+05-13 11:41:44.554 32323 32323 E LibrePods: sectionTrack.onGlobPos key=pressActions rootTop=488.0 scrollVal=0 offset=488.0
+05-13 11:41:44.556 32323 32323 E LibrePods: sectionTrack.onGlobPos key=listeningMode rootTop=1558.0 scrollVal=0 offset=1558.0
+05-13 11:41:44.556 32323 32323 E LibrePods: sectionTrack.onGlobPos key=callControls rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:41:44.557 32323 32323 E LibrePods: sectionTrack.onGlobPos key=controlsConfiguration rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:41:44.573 32323 32323 E LibrePods: sectionTrack.onGlobPos key=pressActions rootTop=488.0 scrollVal=0 offset=488.0
+05-13 11:41:44.574 32323 32323 E LibrePods: sectionTrack.onGlobPos key=listeningMode rootTop=1558.0 scrollVal=0 offset=1558.0
+05-13 11:41:44.575 32323 32323 E LibrePods: sectionTrack.onGlobPos key=callControls rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:41:44.575 32323 32323 E LibrePods: sectionTrack.onGlobPos key=controlsConfiguration rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:41:44.582 32323 32323 E LibrePods: === SCROLL START focusSection=controlsConfiguration topPaddingPx=340.99997
+05-13 11:41:44.582 32323 32323 E LibrePods:   targetY found after 1 tries: 0.0
+05-13 11:41:44.582 32323 32323 E LibrePods:   targetY found after 2 tries: 0.0
+05-13 11:41:44.583 32323 32323 E LibrePods:   targetY found after 3 tries: 0.0
+05-13 11:41:44.583 32323 32323 E LibrePods:   targetY found after 4 tries: 0.0
+05-13 11:41:44.583 32323 32323 E LibrePods:   targetY found after 5 tries: 0.0
+05-13 11:41:44.583 32323 32323 E LibrePods:   targetY found after 6 tries: 0.0
+05-13 11:41:44.584 32323 32323 E LibrePods:   targetY found after 7 tries: 0.0
+05-13 11:41:44.584 32323 32323 E LibrePods:   targetY found after 8 tries: 0.0
+05-13 11:41:44.584 32323 32323 E LibrePods:   targetY found after 9 tries: 0.0
+05-13 11:41:44.584 32323 32323 E LibrePods:   targetY found after 10 tries: 0.0
+05-13 11:41:44.585 32323 32323 E LibrePods:   targetY found after 11 tries: 0.0
+05-13 11:41:44.585 32323 32323 E LibrePods:   targetY found after 12 tries: 0.0
+05-13 11:41:44.585 32323 32323 E LibrePods:   targetY found after 13 tries: 0.0
+05-13 11:41:44.585 32323 32323 E LibrePods:   targetY found after 14 tries: 0.0
+05-13 11:41:44.586 32323 32323 E LibrePods:   targetY found after 15 tries: 0.0
+05-13 11:41:44.586 32323 32323 E LibrePods:   targetY found after 16 tries: 0.0
+05-13 11:41:44.586 32323 32323 E LibrePods:   targetY found after 17 tries: 0.0
+05-13 11:41:44.586 32323 32323 E LibrePods:   targetY found after 18 tries: 0.0
+05-13 11:41:44.586 32323 32323 E LibrePods:   targetY found after 19 tries: 0.0
+05-13 11:41:44.587 32323 32323 E LibrePods:   targetY found after 20 tries: 0.0
+05-13 11:41:44.587 32323 32323 E LibrePods:   targetY found after 21 tries: 0.0
+05-13 11:41:44.587 32323 32323 E LibrePods:   targetY found after 22 tries: 0.0
+05-13 11:41:44.587 32323 32323 E LibrePods:   targetY found after 23 tries: 0.0
+05-13 11:41:44.588 32323 32323 E LibrePods:   targetY found after 24 tries: 0.0
+05-13 11:41:44.588 32323 32323 E LibrePods:   targetY found after 25 tries: 0.0
+05-13 11:41:44.588 32323 32323 E LibrePods:   targetY found after 26 tries: 0.0
+05-13 11:41:44.589 32323 32323 E LibrePods:   targetY found after 27 tries: 0.0
+05-13 11:41:44.589 32323 32323 E LibrePods:   targetY found after 28 tries: 0.0
+05-13 11:41:44.589 32323 32323 E LibrePods:   targetY found after 29 tries: 0.0
+05-13 11:41:44.589 32323 32323 E LibrePods:   targetY found after 30 tries: 0.0
+05-13 11:41:44.590 32323 32323 E LibrePods:   scrollTarget=0 (targetY=0.0 - topPadding=340.99997 + 32)
+05-13 11:41:44.590 32323 32323 E LibrePods:   scrollState.value BEFORE=0
+05-13 11:41:44.606 32323 32323 E LibrePods: sectionTrack.onGlobPos key=pressActions rootTop=488.0 scrollVal=0 offset=488.0
+05-13 11:41:44.607 32323 32323 E LibrePods: sectionTrack.onGlobPos key=listeningMode rootTop=1558.0 scrollVal=0 offset=1558.0
+05-13 11:41:44.608 32323 32323 E LibrePods: sectionTrack.onGlobPos key=callControls rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:41:44.608 32323 32323 E LibrePods: sectionTrack.onGlobPos key=controlsConfiguration rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:41:44.633 32323 32323 E LibrePods:   scrollState.value AFTER=0
+05-13 11:41:44.643 32323 32323 E LibrePods: sectionTrack.onGlobPos key=pressActions rootTop=488.0 scrollVal=0 offset=488.0
+05-13 11:41:44.644 32323 32323 E LibrePods: sectionTrack.onGlobPos key=listeningMode rootTop=1558.0 scrollVal=0 offset=1558.0
+05-13 11:41:44.645 32323 32323 E LibrePods: sectionTrack.onGlobPos key=callControls rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:41:44.646 32323 32323 E LibrePods: sectionTrack.onGlobPos key=controlsConfiguration rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:41:44.659 32323 32323 E LibrePods: sectionTrack.onGlobPos key=pressActions rootTop=488.0 scrollVal=0 offset=488.0
+05-13 11:41:44.660 32323 32323 E LibrePods: sectionTrack.onGlobPos key=listeningMode rootTop=1558.0 scrollVal=0 offset=1558.0
+05-13 11:41:44.661 32323 32323 E LibrePods: sectionTrack.onGlobPos key=callControls rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:41:44.661 32323 32323 E LibrePods: sectionTrack.onGlobPos key=controlsConfiguration rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:41:44.673 32323 32323 E LibrePods: sectionTrack.onGlobPos key=pressActions rootTop=488.0 scrollVal=0 offset=488.0
+05-13 11:41:44.674 32323 32323 E LibrePods: sectionTrack.onGlobPos key=listeningMode rootTop=1558.0 scrollVal=0 offset=1558.0
+05-13 11:41:44.675 32323 32323 E LibrePods: sectionTrack.onGlobPos key=callControls rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:41:44.676 32323 32323 E LibrePods: sectionTrack.onGlobPos key=controlsConfiguration rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:41:44.689 32323 32323 E LibrePods: sectionTrack.onGlobPos key=pressActions rootTop=488.0 scrollVal=0 offset=488.0
+05-13 11:41:44.690 32323 32323 E LibrePods: sectionTrack.onGlobPos key=listeningMode rootTop=1558.0 scrollVal=0 offset=1558.0
+05-13 11:41:44.691 32323 32323 E LibrePods: sectionTrack.onGlobPos key=callControls rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:41:44.692 32323 32323 E LibrePods: sectionTrack.onGlobPos key=controlsConfiguration rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:41:44.713 32323 32323 E LibrePods: sectionTrack.onGlobPos key=pressActions rootTop=488.0 scrollVal=0 offset=488.0
+05-13 11:41:44.714 32323 32323 E LibrePods: sectionTrack.onGlobPos key=listeningMode rootTop=1558.0 scrollVal=0 offset=1558.0
+05-13 11:41:44.715 32323 32323 E LibrePods: sectionTrack.onGlobPos key=callControls rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:41:44.715 32323 32323 E LibrePods: sectionTrack.onGlobPos key=controlsConfiguration rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:41:44.757 32323 32323 E LibrePods: sectionTrack.onGlobPos key=pressActions rootTop=488.0 scrollVal=0 offset=488.0
+05-13 11:41:44.758 32323 32323 E LibrePods: sectionTrack.onGlobPos key=listeningMode rootTop=1558.0 scrollVal=0 offset=1558.0
+05-13 11:41:44.759 32323 32323 E LibrePods: sectionTrack.onGlobPos key=callControls rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:41:44.760 32323 32323 E LibrePods: sectionTrack.onGlobPos key=controlsConfiguration rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:41:44.764 32323 32323 E LibrePods: sectionTrack.onGlobPos key=pressActions rootTop=488.0 scrollVal=0 offset=488.0
+05-13 11:41:44.765 32323 32323 E LibrePods: sectionTrack.onGlobPos key=listeningMode rootTop=1558.0 scrollVal=0 offset=1558.0
+05-13 11:41:44.766 32323 32323 E LibrePods: sectionTrack.onGlobPos key=callControls rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:41:44.766 32323 32323 E LibrePods: sectionTrack.onGlobPos key=controlsConfiguration rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:41:44.777 32323 32323 E LibrePods: sectionTrack.onGlobPos key=pressActions rootTop=488.0 scrollVal=0 offset=488.0
+05-13 11:41:44.778 32323 32323 E LibrePods: sectionTrack.onGlobPos key=listeningMode rootTop=1558.0 scrollVal=0 offset=1558.0
+05-13 11:41:44.778 32323 32323 E LibrePods: sectionTrack.onGlobPos key=callControls rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:41:44.779 32323 32323 E LibrePods: sectionTrack.onGlobPos key=controlsConfiguration rootTop=0.0 scrollVal=0 offset=0.0
+05-13 11:41:44.784 32323 32323 E LibrePods:   highlight SET to controlsConfiguration
+05-13 11:41:47.287 32323 32323 E LibrePods:   highlight CLEARED

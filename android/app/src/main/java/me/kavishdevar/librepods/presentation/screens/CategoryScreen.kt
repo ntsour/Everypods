@@ -607,9 +607,8 @@ private fun SmartContent(
     val cardColor    = if (dark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
     val scope        = rememberCoroutineScope()
 
+    // Gym Mode Card (separate card)
     Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp))) {
-
-        // Gym Mode - unified card with toggle, timer, and press actions
         var gymModeEnabled by remember { mutableStateOf(GymModePrefs.isEnabled(context)) }
         
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
@@ -684,15 +683,19 @@ private fun SmartContent(
                 MenuNavRow("Configure Gym Press Actions", dark) { navController.navigate("gym_press_actions") }
             }
         }
-        MenuDivider()
+    }
 
+    // Rest of Smart Features in another outer Column
+    Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp))) {
         // Notification Announcements
         MenuNavRow("Notification Announcements", dark) { navController.navigate("notification_announcements") }
         MenuDivider()
 
         // Find my Case (proximity finder — works even when buds are out of case)
         MenuNavRow("Find my Case", dark, subtitle = "Locate your AirPods case via Bluetooth signal") { navController.navigate("proximity_finder") }
+    }
 
+    Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp))) {
         // Head Gestures
         if (capabilities.contains(Capability.HEAD_GESTURES)) {
             MenuDivider()
@@ -867,7 +870,6 @@ private fun SmartContent(
                 Text("No timer running", style = captionStyle(dark))
             }
         }
-
     }
 }
 
