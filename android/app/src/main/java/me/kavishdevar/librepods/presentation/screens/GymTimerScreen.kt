@@ -120,7 +120,8 @@ fun GymTimerScreen() {
                     fontFamily = SfPro, color = if (dark) Color.White else Color.Black))
                 Spacer(Modifier.height(8.dp))
                 ModeSelectorRow(timerMode, timerState, dark) { selectedMode ->
-                    if (timerState == GymTimer.State.IDLE) {
+                    // Allow mode change when idle or when paused (timer finished)
+                    if (timerState == GymTimer.State.IDLE || timerState == GymTimer.State.PAUSED) {
                         GymTimer.setMode(selectedMode)
                         timerMode = selectedMode
                     }
