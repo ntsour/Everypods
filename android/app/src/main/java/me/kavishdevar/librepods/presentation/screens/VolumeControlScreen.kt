@@ -81,11 +81,11 @@ fun VolumeControlScreen(viewModel: AirPodsViewModel) {
                     fontSize = 13.sp, fontWeight = FontWeight.SemiBold, fontFamily = SfPro,
                     color = if (dark) Color.White.copy(0.5f) else Color.Black.copy(0.5f)
                 ))
+                Text(stringResource(R.string.volume_swipe_speed_description), style = captionStyle(dark))
                 Spacer(Modifier.height(8.dp))
                 StyledSelectList(items = volumeSwipeSpeedOptions.map { (value, label) ->
                     SelectItem(
                         label,
-                        description = if (value == 1.toByte()) stringResource(R.string.volume_swipe_speed_description) else null,
                         selected = selectedByte(AACPManager.Companion.ControlCommandIdentifiers.VOLUME_SWIPE_INTERVAL) == value ||
                             (value == 1.toByte() && selectedByte(AACPManager.Companion.ControlCommandIdentifiers.VOLUME_SWIPE_INTERVAL) == null),
                         enabled = state.isPremium,

@@ -354,10 +354,11 @@ internal fun ControlsConfigurationContent(
 
     Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
         ConfigSubheader(stringResource(R.string.press_speed), dark)
+        Text(stringResource(R.string.press_speed_description), style = captionStyle(dark))
+        Spacer(Modifier.height(4.dp))
         StyledSelectList(items = pressSpeedOptions.map { (value, label) ->
             SelectItem(
                 label,
-                description = if (value == 0.toByte()) stringResource(R.string.press_speed_description) else null,
                 selected = selectedByte(AACPManager.Companion.ControlCommandIdentifiers.DOUBLE_CLICK_INTERVAL) == value ||
                     (value == 0.toByte() && selectedByte(AACPManager.Companion.ControlCommandIdentifiers.DOUBLE_CLICK_INTERVAL) == null),
                 enabled = state.isPremium,
@@ -372,10 +373,11 @@ internal fun ControlsConfigurationContent(
 
         MenuDivider()
         ConfigSubheader(stringResource(R.string.press_and_hold_duration), dark)
+        Text(stringResource(R.string.press_and_hold_duration_description), style = captionStyle(dark))
+        Spacer(Modifier.height(4.dp))
         StyledSelectList(items = pressAndHoldDurationOptions.map { (value, label) ->
             SelectItem(
                 label,
-                description = if (value == 0.toByte()) stringResource(R.string.press_and_hold_duration_description) else null,
                 selected = selectedByte(AACPManager.Companion.ControlCommandIdentifiers.CLICK_HOLD_INTERVAL) == value ||
                     (value == 0.toByte() && selectedByte(AACPManager.Companion.ControlCommandIdentifiers.CLICK_HOLD_INTERVAL) == null),
                 enabled = state.isPremium,
@@ -469,10 +471,11 @@ internal fun ControlsConfigurationContent(
 
             MenuDivider()
             ConfigSubheader(stringResource(R.string.volume_swipe_speed), dark)
+            Text(stringResource(R.string.volume_swipe_speed_description), style = captionStyle(dark))
+            Spacer(Modifier.height(4.dp))
             StyledSelectList(items = volumeSwipeSpeedOptions.map { (value, label) ->
                 SelectItem(
                     label,
-                    description = if (value == 1.toByte()) stringResource(R.string.volume_swipe_speed_description) else null,
                     selected = selectedByte(AACPManager.Companion.ControlCommandIdentifiers.VOLUME_SWIPE_INTERVAL) == value ||
                         (value == 1.toByte() && selectedByte(AACPManager.Companion.ControlCommandIdentifiers.VOLUME_SWIPE_INTERVAL) == null),
                     enabled = state.isPremium,
