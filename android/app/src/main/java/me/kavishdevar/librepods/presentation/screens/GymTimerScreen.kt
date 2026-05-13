@@ -220,7 +220,11 @@ fun GymTimerScreen() {
                 StyledButton(
                     onClick = {
                         when {
-                            isFinished -> GymTimer.reset()  // If finished, reset instead of resume
+                            isFinished -> {
+                                // If finished, reset and immediately start new timer
+                                GymTimer.reset()
+                                GymTimer.start()
+                            }
                             timerState == GymTimer.State.IDLE -> GymTimer.start()
                             timerState == GymTimer.State.RUNNING -> GymTimer.pause()
                             timerState == GymTimer.State.PAUSED -> GymTimer.start()
