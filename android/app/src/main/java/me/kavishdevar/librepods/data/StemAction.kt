@@ -26,7 +26,10 @@ enum class StemAction {
     NEXT_TRACK,
     DIGITAL_ASSISTANT,
     CYCLE_NOISE_CONTROL_MODES,
-    MUTE_CALL;
+    MUTE_CALL,
+    GYM_TIMER_START_STOP,
+    GYM_TIMER_LAP,
+    GYM_TIMER_RESET;
     companion object {
         fun fromString(action: String): StemAction? {
             return entries.find { it.name == action }

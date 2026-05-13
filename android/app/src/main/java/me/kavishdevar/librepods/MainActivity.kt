@@ -171,6 +171,8 @@ import me.kavishdevar.librepods.presentation.screens.XposedSettingsScreen
 import me.kavishdevar.librepods.presentation.screens.EmailSupportScreen
 import me.kavishdevar.librepods.presentation.screens.DiscordCommunityScreen
 import me.kavishdevar.librepods.presentation.screens.GitHubIssuesScreen
+import me.kavishdevar.librepods.presentation.screens.GymPressActionsScreen
+import me.kavishdevar.librepods.presentation.screens.GymTimerScreen
 import me.kavishdevar.librepods.presentation.theme.LibrePodsTheme
 import me.kavishdevar.librepods.presentation.viewmodel.AirPodsViewModel
 import me.kavishdevar.librepods.presentation.viewmodel.AppSettingsViewModel
@@ -712,6 +714,12 @@ fun Main() {
                     }
                     composable("github_issues") {
                         GitHubIssuesScreen()
+                    }
+                    composable("gym_press_actions") {
+                        if (airPodsViewModel != null) GymPressActionsScreen(airPodsViewModel)
+                    }
+                    composable("gym_timer") {
+                        GymTimerScreen()
                     }
                 }
             }

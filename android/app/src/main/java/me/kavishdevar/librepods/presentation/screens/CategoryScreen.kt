@@ -122,6 +122,8 @@ import me.kavishdevar.librepods.presentation.viewmodel.AirPodsViewModel
 import me.kavishdevar.librepods.presentation.viewmodel.AppSettingsUiState
 import me.kavishdevar.librepods.presentation.viewmodel.AppSettingsViewModel
 import me.kavishdevar.librepods.services.AppListenerService
+import me.kavishdevar.librepods.utils.GymModePrefs
+import me.kavishdevar.librepods.utils.GymTimer
 import me.kavishdevar.librepods.utils.SleepTimer
 import me.kavishdevar.librepods.utils.SmartFeaturesPrefs
 import me.kavishdevar.librepods.utils.XposedState
@@ -607,6 +609,83 @@ private fun SmartContent(
 
     Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp))) {
 
+        // Gym Mode - unified card with toggle, timer, and press actions
+        var gymModeEnabled by remember { mutableStateOf(GymModePrefs.isEnabled(context)) }
+        
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
+            // Toggle
+            StyledToggle(
+                label = "🏋️ Gym Mode",
+                description = "Alternate stem actions for workouts",
+                checked = gymModeEnabled,
+                onCheckedChange = {
+                    gymModeEnabled = it
+                    GymModePrefs.setEnabled(context, it)
+                },
+                independent = true
+            )
+            
+            // Gym Timer row (always visible, but disabled when off)
+            if (gymModeEnabled) {
+                Spacer(Modifier.height(8.dp))
+                MenuDivider()
+                Spacer(Modifier.height(8.dp))
+                
+                val gymTimerMode = GymTimer.mode()
+                val gymTimerState = when (GymTimer.state()) {
+                    GymTimer.State.IDLE -> {
+                        val modeLabel = when (gymTimerMode) {
+                            GymTimer.Mode.COUNTDOWN -> "Countdown ready"
+                            GymTimer.Mode.STOPWATCH -> "Stopwatch ready"
+                            GymTimer.Mode.HIIT -> "HIIT ready"
+                        }
+                        modeLabel
+                    }
+                    GymTimer.State.RUNNING -> {
+                        when (gymTimerMode) {
+                            GymTimer.Mode.COUNTDOWN -> {
+                                val r = GymTimer.countdownRemainingMs() / 1000
+                                String.format("Running %02d:%02d", r / 60, r % 60)
+                            }
+                            GymTimer.Mode.STOPWATCH -> {
+                                val e = GymTimer.elapsedMs() / 1000
+                                String.format("Running %02d:%02d", e / 60, e % 60)
+                            }
+                            GymTimer.Mode.HIIT -> {
+                                val (phase, round, remaining) = GymTimer.hiitPhaseInfo()
+                                String.format("${phase.name} R%d %02d:%02d", round, remaining / 60000, (remaining % 60000) / 1000)
+                            }
+                        }
+                    }
+                    GymTimer.State.PAUSED -> {
+                        when (gymTimerMode) {
+                            GymTimer.Mode.COUNTDOWN -> {
+                                val r = GymTimer.countdownRemainingMs() / 1000
+                                String.format("Paused %02d:%02d", r / 60, r % 60)
+                            }
+                            GymTimer.Mode.STOPWATCH -> {
+                                val e = GymTimer.elapsedMs() / 1000
+                                String.format("Paused %02d:%02d", e / 60, e % 60)
+                            }
+                            GymTimer.Mode.HIIT -> {
+                                val (phase, round, remaining) = GymTimer.hiitPhaseInfo()
+                                String.format("Paused ${phase.name} R%d", round)
+                            }
+                        }
+                    }
+                }
+                MenuNavRow("Gym Timer", dark, subtitle = gymTimerState) { navController.navigate("gym_timer") }
+                
+                Spacer(Modifier.height(8.dp))
+                MenuDivider()
+                Spacer(Modifier.height(8.dp))
+                
+                // Configure Gym Press Actions row
+                MenuNavRow("Configure Gym Press Actions", dark) { navController.navigate("gym_press_actions") }
+            }
+        }
+        MenuDivider()
+
         // Notification Announcements
         MenuNavRow("Notification Announcements", dark) { navController.navigate("notification_announcements") }
         MenuDivider()
@@ -788,6 +867,7 @@ private fun SmartContent(
                 Text("No timer running", style = captionStyle(dark))
             }
         }
+
     }
 }
 

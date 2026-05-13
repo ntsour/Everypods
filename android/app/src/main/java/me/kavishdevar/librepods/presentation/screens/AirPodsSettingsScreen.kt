@@ -181,6 +181,8 @@ private fun buildSearchIndex(): List<SearchableItem> = listOf(
     SearchableItem("Call Controls",            "AirPods Controls", "controls", "call_controls", keywords = listOf("answer", "end call", "mute")),
     SearchableItem("Volume Control",           "AirPods Controls", "controls", "controls_configuration", keywords = listOf("swipe", "touch")),
     SearchableItem("Controls Configuration",   "AirPods Controls", "controls", "controls_configuration", keywords = listOf("press speed", "hold duration", "tone")),
+    SearchableItem("Gym Mode",                 "AirPods Controls", "controls", "category/controls", keywords = listOf("workout", "fitness", "stem", "timer")),
+    SearchableItem("Gym Press Actions",        "AirPods Controls", "controls", "gym_press_actions", keywords = listOf("workout", "fitness", "stem")),
     // AirPods Settings
     SearchableItem("Device Name",              "AirPods Settings", "settings", "rename", keywords = listOf("rename", "bluetooth name")),
     SearchableItem("Hearing Aid",              "AirPods Settings", "settings", "hearing_aid", keywords = listOf("amplification", "audiogram")),
@@ -199,6 +201,7 @@ private fun buildSearchIndex(): List<SearchableItem> = listOf(
     SearchableItem("Resume Media After Call",  "Smart Features", "smart", "smart_automation", keywords = listOf("auto resume", "playback")),
     SearchableItem("Battery Alerts",           "Smart Features", "smart", "smart_automation", keywords = listOf("low battery", "speak", "announce")),
     SearchableItem("Sleep Timer",              "Smart Features", "smart", "sleep_timer", keywords = listOf("auto stop", "timer")),
+    SearchableItem("Gym Timer",                "Smart Features", "smart", "gym_timer", keywords = listOf("stopwatch", "workout", "fitness")),
     // App Settings
     SearchableItem("Battery in Widget",        "App Settings", "appsettings", "phone_battery", keywords = listOf("widget")),
     SearchableItem("Pop-up Animations",        "App Settings", "appsettings", "popup_animations", keywords = listOf("animation", "connect")),

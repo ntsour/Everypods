@@ -635,6 +635,22 @@ class AirPodsViewModel(
         }
     }
 
+    fun setGymPressAction(side: String, pressType: me.kavishdevar.librepods.bluetooth.AACPManager.Companion.StemPressType, action: StemAction) {
+        val sideLower = side.lowercase()
+        val pressShort = when (pressType) {
+            me.kavishdevar.librepods.bluetooth.AACPManager.Companion.StemPressType.DOUBLE_PRESS -> "double"
+            me.kavishdevar.librepods.bluetooth.AACPManager.Companion.StemPressType.TRIPLE_PRESS -> "triple"
+            me.kavishdevar.librepods.bluetooth.AACPManager.Companion.StemPressType.LONG_PRESS -> "long"
+            else -> return
+        }
+        val prefKey = "gym_${sideLower}_${pressShort}_press_action"
+        sharedPreferences.edit { putString(prefKey, action.name) }
+    }
+
+    fun setGymModeEnabled(enabled: Boolean) {
+        sharedPreferences.edit { putBoolean("gym_mode_enabled", enabled) }
+    }
+
     private fun countEnabledModes(byteValue: Int): Int {
         var count = 0
         if ((byteValue and 0x01) != 0) count++

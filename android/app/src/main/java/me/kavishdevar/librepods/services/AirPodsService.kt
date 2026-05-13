@@ -105,7 +105,10 @@ import me.kavishdevar.librepods.presentation.widgets.BatteryWidget
 import me.kavishdevar.librepods.presentation.widgets.NoiseControlWidget
 import me.kavishdevar.librepods.utils.GestureDetector
 import me.kavishdevar.librepods.utils.HeadTracking
+import me.kavishdevar.librepods.utils.AnnouncementPrefs
 import me.kavishdevar.librepods.utils.ElevenLabsEngine
+import me.kavishdevar.librepods.utils.GymModePrefs
+import me.kavishdevar.librepods.utils.GymTimer
 import me.kavishdevar.librepods.utils.TtsEngine
 import me.kavishdevar.librepods.utils.MediaController
 import me.kavishdevar.librepods.utils.SystemApisUtils
@@ -199,6 +202,15 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         var rightLongPressAction: StemAction = StemAction.defaultActions[StemPressType.LONG_PRESS]!!,
 
         var cameraAction: StemPressType? = null,
+
+        // Gym mode
+        var gymModeEnabled: Boolean = false,
+        var leftGymDoublePressAction: StemAction = StemAction.GYM_TIMER_START_STOP,
+        var rightGymDoublePressAction: StemAction = StemAction.GYM_TIMER_START_STOP,
+        var leftGymTriplePressAction: StemAction = StemAction.GYM_TIMER_LAP,
+        var rightGymTriplePressAction: StemAction = StemAction.GYM_TIMER_LAP,
+        var leftGymLongPressAction: StemAction = StemAction.GYM_TIMER_RESET,
+        var rightGymLongPressAction: StemAction = StemAction.GYM_TIMER_RESET,
 
         // AirPods device information
         var airpodsName: String = "",
@@ -930,23 +942,24 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         // announcement is playing (stop reading), and forward to normal action
         // when silent. The app handles PLAY_PAUSE via MediaController, so
         // the default behavior is identical to firmware-native handling.
+        val gymMode = config.gymModeEnabled
         val singlePressCustomized = true
-        val doublePressCustomized = inCall ||
+        val doublePressCustomized = inCall || gymMode ||
             isCustomAction(config.leftDoublePressAction, doublePressDefault) || isCustomAction(
                 config.rightDoublePressAction, doublePressDefault
             )
-        val triplePressCustomized =
+        val triplePressCustomized = gymMode ||
             isCustomAction(config.leftTriplePressAction, triplePressDefault) || isCustomAction(
                 config.rightTriplePressAction, triplePressDefault
             )
-        val longPressCustomized = isCustomAction(
+        val longPressCustomized = gymMode || isCustomAction(
             config.leftLongPressAction, longPressDefault
         ) || isCustomAction(
             config.rightLongPressAction, longPressDefault
         ) || (cameraActive && config.cameraAction == StemPressType.LONG_PRESS)
         Log.d(
             TAG,
-            "Setting up stem actions: inCall=$inCall, Single=$singlePressCustomized, Double=$doublePressCustomized, Triple=$triplePressCustomized, Long=$longPressCustomized"
+            "Setting up stem actions: inCall=$inCall, gymMode=$gymMode, Single=$singlePressCustomized, Double=$doublePressCustomized, Triple=$triplePressCustomized, Long=$longPressCustomized"
         )
         aacpManager.sendStemConfigPacket(
             singlePressCustomized,
@@ -1300,9 +1313,21 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     ): StemAction? {
         return when (type) {
             StemPressType.SINGLE_PRESS -> if (bud == AACPManager.Companion.StemPressBudType.LEFT) config.leftSinglePressAction else config.rightSinglePressAction
-            StemPressType.DOUBLE_PRESS -> if (bud == AACPManager.Companion.StemPressBudType.LEFT) config.leftDoublePressAction else config.rightDoublePressAction
-            StemPressType.TRIPLE_PRESS -> if (bud == AACPManager.Companion.StemPressBudType.LEFT) config.leftTriplePressAction else config.rightTriplePressAction
-            StemPressType.LONG_PRESS -> if (bud == AACPManager.Companion.StemPressBudType.LEFT) config.leftLongPressAction else config.rightLongPressAction
+            StemPressType.DOUBLE_PRESS -> if (config.gymModeEnabled) {
+                if (bud == AACPManager.Companion.StemPressBudType.LEFT) config.leftGymDoublePressAction else config.rightGymDoublePressAction
+            } else {
+                if (bud == AACPManager.Companion.StemPressBudType.LEFT) config.leftDoublePressAction else config.rightDoublePressAction
+            }
+            StemPressType.TRIPLE_PRESS -> if (config.gymModeEnabled) {
+                if (bud == AACPManager.Companion.StemPressBudType.LEFT) config.leftGymTriplePressAction else config.rightGymTriplePressAction
+            } else {
+                if (bud == AACPManager.Companion.StemPressBudType.LEFT) config.leftTriplePressAction else config.rightTriplePressAction
+            }
+            StemPressType.LONG_PRESS -> if (config.gymModeEnabled) {
+                if (bud == AACPManager.Companion.StemPressBudType.LEFT) config.leftGymLongPressAction else config.rightGymLongPressAction
+            } else {
+                if (bud == AACPManager.Companion.StemPressBudType.LEFT) config.leftLongPressAction else config.rightLongPressAction
+            }
         }
     }
 
@@ -1346,7 +1371,85 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             }
 
             StemAction.MUTE_CALL -> toggleMicMute()
+
+            StemAction.GYM_TIMER_START_STOP -> {
+                val wasRunning = GymTimer.state() == GymTimer.State.RUNNING
+                GymTimer.startStop()
+                if (sharedPreferences.getBoolean("gym_voice_announcements_enabled", true)) {
+                    val text = when (GymTimer.state()) {
+                        GymTimer.State.RUNNING -> if (wasRunning) "Resumed." else "Started."
+                        GymTimer.State.PAUSED -> {
+                            val elapsed = GymTimer.elapsedMs()
+                            val mins = elapsed / 60000
+                            val secs = (elapsed % 60000) / 1000
+                            "Paused. ${if (mins > 0) "$mins minute${if (mins > 1) "s" else ""} " else ""}${secs} second${if (secs != 1L) "s" else ""}."
+                        }
+                        GymTimer.State.IDLE -> "Stopped."
+                    }
+                    announceGymText(text)
+                }
+            }
+            StemAction.GYM_TIMER_LAP -> {
+                GymTimer.lap()
+                if (sharedPreferences.getBoolean("gym_voice_announcements_enabled", true)) {
+                    val lap = GymTimer.laps().lastOrNull()
+                    if (lap != null) {
+                        val splitSec = lap.splitMs / 1000
+                        announceGymText("Lap ${lap.number}. $splitSec seconds.")
+                    }
+                }
+            }
+            StemAction.GYM_TIMER_RESET -> {
+                val hadElapsed = GymTimer.elapsedMs() > 0
+                GymTimer.reset()
+                if (hadElapsed && sharedPreferences.getBoolean("gym_voice_announcements_enabled", true)) {
+                    announceGymText("Timer reset.")
+                }
+            }
         }
+    }
+
+    private fun announceGymModeToggle() {
+        if (!sharedPreferences.getBoolean("gym_voice_announcements_enabled", true)) return
+        val text = if (config.gymModeEnabled) {
+            val modeName = when (GymTimer.mode()) {
+                GymTimer.Mode.COUNTDOWN -> "Countdown timer"
+                GymTimer.Mode.STOPWATCH -> "Stopwatch"
+                GymTimer.Mode.HIIT -> "HIIT timer"
+            }
+            "Gym Mode on. $modeName ready. Double press to start."
+        } else "Gym Mode off."
+        announceGymText(text)
+    }
+
+    /**
+     * Routes gym timer announcements through the same TTS configuration as
+     * notification announcements (ElevenLabs vs System TTS, language, voice).
+     */
+    private fun announceGymText(text: String) {
+        val engine = AnnouncementPrefs.ttsEngine(this)
+        val languageForSystemTts = AnnouncementPrefs.languageForText(this, text)
+        val elevenLabsLanguageCode = AnnouncementPrefs.elevenLabsLanguageCode(this)
+        if (engine == AnnouncementPrefs.TTS_ENGINE_ELEVENLABS) {
+            val apiKey = AnnouncementPrefs.elevenLabsApiKey(this)
+            val voiceId = AnnouncementPrefs.elevenLabsVoiceId(this)
+            if (apiKey.isNotBlank()) {
+                ElevenLabsEngine.speak(
+                    context = this,
+                    text = text,
+                    apiKey = apiKey,
+                    voiceId = voiceId,
+                    languageCode = elevenLabsLanguageCode,
+                    onFallback = { reason ->
+                        Log.w(TAG, "ElevenLabs failed ($reason), falling back to system TTS")
+                        TtsEngine.speak(this, text, languageForSystemTts)
+                    }
+                )
+                return
+            }
+            Log.w(TAG, "ElevenLabs selected but no API key — using system TTS")
+        }
+        TtsEngine.speak(this, text, languageForSystemTts)
     }
 
     /**
@@ -1616,6 +1719,33 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             cameraAction = sharedPreferences.getString("camera_action", null)
                 ?.let { StemPressType.valueOf(it) },
 
+            // Gym mode
+            gymModeEnabled = sharedPreferences.getBoolean("gym_mode_enabled", false),
+            leftGymDoublePressAction = StemAction.fromString(
+                sharedPreferences.getString("gym_left_double_press_action", "GYM_TIMER_START_STOP")
+                    ?: "GYM_TIMER_START_STOP"
+            )!!,
+            rightGymDoublePressAction = StemAction.fromString(
+                sharedPreferences.getString("gym_right_double_press_action", "GYM_TIMER_START_STOP")
+                    ?: "GYM_TIMER_START_STOP"
+            )!!,
+            leftGymTriplePressAction = StemAction.fromString(
+                sharedPreferences.getString("gym_left_triple_press_action", "GYM_TIMER_LAP")
+                    ?: "GYM_TIMER_LAP"
+            )!!,
+            rightGymTriplePressAction = StemAction.fromString(
+                sharedPreferences.getString("gym_right_triple_press_action", "GYM_TIMER_LAP")
+                    ?: "GYM_TIMER_LAP"
+            )!!,
+            leftGymLongPressAction = StemAction.fromString(
+                sharedPreferences.getString("gym_left_long_press_action", "GYM_TIMER_RESET")
+                    ?: "GYM_TIMER_RESET"
+            )!!,
+            rightGymLongPressAction = StemAction.fromString(
+                sharedPreferences.getString("gym_right_long_press_action", "GYM_TIMER_RESET")
+                    ?: "GYM_TIMER_RESET"
+            )!!,
+
             // AirPods device information
             airpodsName = sharedPreferences.getString("airpods_name", "") ?: "",
             airpodsModelNumber = sharedPreferences.getString("airpods_model_number", "") ?: "",
@@ -1636,6 +1766,20 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
             selfMacAddress = sharedPreferences.getString("self_mac_address", "") ?: ""
         )
+
+        // Setup Gym Timer announcements listener
+        setupGymTimerAnnouncementsListener()
+    }
+
+    private fun setupGymTimerAnnouncementsListener() {
+        GymTimer.addListener {
+            if (GymModePrefs.voiceAnnouncementsEnabled(this@AirPodsService)) {
+                val announcements = GymTimer.pollAnnouncements()
+                for (text in announcements) {
+                    announceGymText(text)
+                }
+            }
+        }
     }
 
     override fun onSharedPreferenceChanged(preferences: SharedPreferences?, key: String?) {
@@ -1745,6 +1889,49 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
             "camera_action" -> config.cameraAction =
                 preferences.getString(key, null)?.let { StemPressType.valueOf(it) }
+
+            "gym_mode_enabled" -> {
+                config.gymModeEnabled = preferences.getBoolean(key, false)
+                setupStemActions()
+                announceGymModeToggle()
+            }
+
+            "gym_left_double_press_action" -> {
+                config.leftGymDoublePressAction = StemAction.fromString(
+                    preferences.getString(key, "GYM_TIMER_START_STOP") ?: "GYM_TIMER_START_STOP"
+                )!!
+                setupStemActions()
+            }
+            "gym_right_double_press_action" -> {
+                config.rightGymDoublePressAction = StemAction.fromString(
+                    preferences.getString(key, "GYM_TIMER_START_STOP") ?: "GYM_TIMER_START_STOP"
+                )!!
+                setupStemActions()
+            }
+            "gym_left_triple_press_action" -> {
+                config.leftGymTriplePressAction = StemAction.fromString(
+                    preferences.getString(key, "GYM_TIMER_LAP") ?: "GYM_TIMER_LAP"
+                )!!
+                setupStemActions()
+            }
+            "gym_right_triple_press_action" -> {
+                config.rightGymTriplePressAction = StemAction.fromString(
+                    preferences.getString(key, "GYM_TIMER_LAP") ?: "GYM_TIMER_LAP"
+                )!!
+                setupStemActions()
+            }
+            "gym_left_long_press_action" -> {
+                config.leftGymLongPressAction = StemAction.fromString(
+                    preferences.getString(key, "GYM_TIMER_RESET") ?: "GYM_TIMER_RESET"
+                )!!
+                setupStemActions()
+            }
+            "gym_right_long_press_action" -> {
+                config.rightGymLongPressAction = StemAction.fromString(
+                    preferences.getString(key, "GYM_TIMER_RESET") ?: "GYM_TIMER_RESET"
+                )!!
+                setupStemActions()
+            }
 
             // AirPods device information
             "airpods_name" -> config.airpodsName = preferences.getString(key, "") ?: ""
