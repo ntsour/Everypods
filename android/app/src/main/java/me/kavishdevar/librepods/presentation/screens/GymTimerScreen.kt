@@ -383,15 +383,17 @@ private fun CountdownSettings(
         Spacer(Modifier.height(12.dp))
         
         // Quick seconds (sub-minute timers)
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("Quick", style = bodyStyle(dark), modifier = Modifier.weight(1f))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(Modifier.fillMaxWidth()) {
+            Text("Quick", style = bodyStyle(dark))
+            Spacer(Modifier.height(6.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf(10, 15, 20, 30, 45, 60).forEach { s ->
                     val selected = durationSec == s
                     val bg = if (selected) Color(0xFF0A84FF) else if (dark) Color(0xFF2C2C2E) else Color(0xFFF2F2F7)
                     val fg = if (selected) Color.White else if (dark) Color.White else Color.Black
                     Box(
                         modifier = Modifier
+                            .weight(1f)
                             .background(bg, RoundedCornerShape(8.dp))
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
@@ -399,19 +401,21 @@ private fun CountdownSettings(
                             ) {
                                 onDurationChange(s)
                             }
-                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                            .padding(horizontal = 10.dp, vertical = 4.dp),
+                        contentAlignment = Alignment.Center
                     ) {
                         Text("${s}s", style = TextStyle(fontSize = 12.sp, fontFamily = SfPro, color = fg))
                     }
                 }
             }
         }
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(12.dp))
         
         // Minutes
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("Minutes", style = bodyStyle(dark), modifier = Modifier.weight(1f))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.fillMaxWidth()) {
+            Text("Minutes", style = bodyStyle(dark))
+            Spacer(Modifier.height(6.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(1, 2, 3, 5, 10).forEach { m ->
                     val s = m * 60
                     val selected = durationSec == s
@@ -419,6 +423,7 @@ private fun CountdownSettings(
                     val fg = if (selected) Color.White else if (dark) Color.White else Color.Black
                     Box(
                         modifier = Modifier
+                            .weight(1f)
                             .background(bg, RoundedCornerShape(8.dp))
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
@@ -426,18 +431,21 @@ private fun CountdownSettings(
                             ) {
                                 onDurationChange(s)
                             }
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        contentAlignment = Alignment.Center
                     ) {
                         Text("${m}m", style = TextStyle(fontSize = 13.sp, fontFamily = SfPro, color = fg))
                     }
                 }
             }
         }
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(12.dp))
+        
         // Seconds
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("Seconds", style = bodyStyle(dark), modifier = Modifier.weight(1f))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.fillMaxWidth()) {
+            Text("Seconds", style = bodyStyle(dark))
+            Spacer(Modifier.height(6.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(0, 15, 30, 45).forEach { s ->
                     val total = (durationSec / 60) * 60 + s
                     val selected = durationSec == total
@@ -445,6 +453,7 @@ private fun CountdownSettings(
                     val fg = if (selected) Color.White else if (dark) Color.White else Color.Black
                     Box(
                         modifier = Modifier
+                            .weight(1f)
                             .background(bg, RoundedCornerShape(8.dp))
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
@@ -452,7 +461,8 @@ private fun CountdownSettings(
                             ) {
                                 onDurationChange(total)
                             }
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        contentAlignment = Alignment.Center
                     ) {
                         Text("${s}s", style = TextStyle(fontSize = 13.sp, fontFamily = SfPro, color = fg))
                     }
