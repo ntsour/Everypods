@@ -12,6 +12,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.testTag
 import androidx.navigation.NavController
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
@@ -34,6 +35,7 @@ fun AudioSettingsScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .testTag("dest_audio_settings")
                 .hazeSource(hazeState)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp)

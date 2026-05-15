@@ -66,6 +66,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.testTag
 import androidx.navigation.NavController
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import dev.chrisbanes.haze.hazeSource
@@ -113,6 +114,7 @@ fun ProximityFinderScreen(navController: NavController) {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
+                .testTag("dest_proximity_finder")
                 .hazeSource(hazeState)
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)

@@ -371,7 +371,9 @@ fun NewControlCenterDialogContent(
                 initialMode = NoiseControlMode.TRANSPARENCY
             }
             currentAncMode = initialMode
-            isConvAwarenessEnabled = sharedPreferences.getBoolean("conversational_awareness", true)
+            isConvAwarenessEnabled = it.aacpManager.controlCommandStatusList
+                .find { c -> c.identifier == AACPManager.Companion.ControlCommandIdentifiers.CONVERSATION_DETECT_CONFIG }
+                ?.value?.getOrNull(0) == 0x01.toByte()
             Log.d("QSActivity", "Initial ANC: $currentAncMode, ConvAware: $isConvAwarenessEnabled")
         }
 

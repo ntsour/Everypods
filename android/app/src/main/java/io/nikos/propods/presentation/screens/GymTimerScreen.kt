@@ -57,6 +57,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.testTag
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
@@ -107,6 +108,7 @@ fun GymTimerScreen() {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .testTag("dest_gym_timer")
                 .hazeSource(hazeState)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),

@@ -92,6 +92,7 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -159,13 +160,16 @@ internal const val DisabledAlpha = 0.45f
 internal val SfPro get()         = FontFamily(Font(R.font.sf_pro))
 
 // ─── Searchable menu item ─────────────────────────────────────────────────────
-private data class SearchableItem(
+data class SearchableItem(
     val label: String,
     val category: String,
     val categoryKey: String,
     val directRoute: String,
+    val anchor: String? = null,
     val keywords: List<String> = emptyList(),
 )
+
+val searchIndex: List<SearchableItem> by lazy { buildSearchIndex() }
 
 private fun buildSearchIndex(): List<SearchableItem> = listOf(
     // AirPods Controls
@@ -181,7 +185,7 @@ private fun buildSearchIndex(): List<SearchableItem> = listOf(
     SearchableItem("Call Controls",            "AirPods Controls", "controls", "call_controls", keywords = listOf("answer", "end call", "mute")),
     SearchableItem("Volume Control",           "AirPods Controls", "controls", "controls_configuration", keywords = listOf("swipe", "touch")),
     SearchableItem("Controls Configuration",   "AirPods Controls", "controls", "controls_configuration", keywords = listOf("press speed", "hold duration", "tone")),
-    SearchableItem("Gym Mode",                 "AirPods Controls", "controls", "category/controls", keywords = listOf("workout", "fitness", "stem", "timer")),
+    SearchableItem("Gym Mode",                 "Smart Features", "smart", "category/smart", anchor = "gym_mode", keywords = listOf("workout", "fitness", "stem", "timer")),
     SearchableItem("Gym Press Actions",        "AirPods Controls", "controls", "gym_press_actions", keywords = listOf("workout", "fitness", "stem")),
     // AirPods Settings
     SearchableItem("Device Name",              "AirPods Settings", "settings", "rename", keywords = listOf("rename", "bluetooth name")),
@@ -422,6 +426,7 @@ fun AirPodsSettingsScreen(
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                         keyboardActions = KeyboardActions(onSearch = {}),
                         modifier = Modifier.weight(1f)
+                            .testTag("search_input")
                             .focusRequester(searchFocusRequester)
                             .background(if (dark) Color(0xFF2C2C2E) else Color(0xFFE5E5EA), RoundedCornerShape(10.dp))
                             .padding(horizontal = 12.dp, vertical = 8.dp),
@@ -434,7 +439,7 @@ fun AirPodsSettingsScreen(
                     StyledIconButton(onClick = { searchActive = false; searchQuery = "" }, icon = "􀆄", backdrop = scaffoldBackdrop)
                 }
             } else {
-                StyledIconButton(onClick = { searchActive = true }, icon = "􀊫", backdrop = scaffoldBackdrop)
+                StyledIconButton(onClick = { searchActive = true }, icon = "􀊫", backdrop = scaffoldBackdrop, modifier = Modifier.testTag("nav_settings_search_button"))
             }
         }) else emptyList(),
         snackbarHostState = snackbarHostState
@@ -459,7 +464,10 @@ fun AirPodsSettingsScreen(
                                 Modifier.fillMaxWidth()
                                     .clickable(remember { MutableInteractionSource() }, null) {
                                         searchActive = false; searchQuery = ""
-                                        navController.navigate(item.directRoute)
+                                        val target = if (item.anchor != null)
+                                            "${item.directRoute}?anchor=${item.anchor}"
+                                        else item.directRoute
+                                        navController.navigate(target)
                                     }
                                     .padding(horizontal = 16.dp, vertical = 12.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically

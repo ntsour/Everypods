@@ -22,6 +22,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.testTag
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import io.nikos.propods.presentation.components.StyledButton
@@ -39,6 +40,7 @@ fun GitHubIssuesScreen() {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .testTag("dest_github_issues")
                 .hazeSource(hazeState)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp)

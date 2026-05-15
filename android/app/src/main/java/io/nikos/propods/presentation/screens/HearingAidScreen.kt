@@ -56,6 +56,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.testTag
 import androidx.navigation.NavController
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
@@ -111,6 +112,7 @@ fun HearingAidScreen(viewModel: AirPodsViewModel, navController: NavController) 
                 .layerBackdrop(backdrop)
                 .hazeSource(hazeState)
                 .fillMaxSize()
+                .testTag("dest_hearing_aid")
                 .verticalScroll(verticalScrollState)
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)

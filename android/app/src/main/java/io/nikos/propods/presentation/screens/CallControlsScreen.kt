@@ -13,6 +13,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.testTag
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
@@ -33,6 +34,7 @@ fun CallControlsScreen(viewModel: AirPodsViewModel) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .testTag("dest_call_controls")
                 .hazeSource(hazeState)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp)

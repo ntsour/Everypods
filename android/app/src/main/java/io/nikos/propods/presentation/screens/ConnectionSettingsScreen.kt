@@ -12,6 +12,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.testTag
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import io.nikos.propods.presentation.components.ConnectionSettings
@@ -27,6 +28,7 @@ fun ConnectionSettingsScreen(viewModel: AirPodsViewModel) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .testTag("dest_connection_settings")
                 .hazeSource(hazeState)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp)

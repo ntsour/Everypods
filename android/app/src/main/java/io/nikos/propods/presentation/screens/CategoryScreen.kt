@@ -49,11 +49,15 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.SnapshotMutationPolicy
 import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -71,6 +75,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -80,6 +85,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -152,12 +158,24 @@ internal val categoryEmojis = mapOf(
 
 
 
+/**
+ * Registry that lets nested sections register their Y position inside the scrollable column.
+ * The owning CategoryScreen reads it to animate-scroll to a target anchor on entry.
+ */
+internal class AnchorRegistry {
+    val positions = mutableStateMapOf<String, Int>()
+}
+
+internal val LocalAnchorRegistry = androidx.compose.runtime.compositionLocalOf<AnchorRegistry?> { null }
+internal val LocalActiveAnchor = androidx.compose.runtime.compositionLocalOf<String?> { null }
+
 @Composable
 fun CategoryScreen(
     viewModel: AirPodsViewModel,
     appSettingsViewModel: AppSettingsViewModel,
     navController: NavController,
     categoryKey: String,
+    anchor: String? = null,
 ) {
     val state    by viewModel.uiState.collectAsState()
     val appState by appSettingsViewModel.uiState.collectAsState()
@@ -166,27 +184,83 @@ fun CategoryScreen(
     val sharedPrefs = context.getSharedPreferences("settings", MODE_PRIVATE)
     val title = categoryTitles[categoryKey] ?: categoryKey
 
-    StyledScaffold(title = title) { topPadding, hazeState, bottomPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .hazeSource(hazeState)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Spacer(Modifier.height(topPadding))
-            when (categoryKey) {
-                "controls"    -> ControlsContent(state, viewModel, navController, sharedPrefs, dark)
-                "settings"    -> SettingsContent(state, appState, viewModel, appSettingsViewModel, navController, dark)
-                "smart"       -> SmartContent(state, viewModel, navController, sharedPrefs, dark)
-                "appsettings" -> AppSettingsContent(appState, appSettingsViewModel, navController, dark)
-                "audio"       -> AudioContent(state, appState, viewModel, appSettingsViewModel, navController, dark)
-                "help"        -> HelpContent(state, navController, dark)
+    val anchorRegistry = remember { AnchorRegistry() }
+    val scrollState = rememberScrollState()
+    var didScroll by remember(anchor) { mutableStateOf(false) }
+
+    LaunchedEffect(anchor, anchorRegistry.positions[anchor]) {
+        if (anchor == null || didScroll) return@LaunchedEffect
+        val y = anchorRegistry.positions[anchor] ?: return@LaunchedEffect
+        // Wait one frame so layout settles, then scroll.
+        scrollState.animateScrollTo((scrollState.value + y - 200).coerceAtLeast(0))
+        didScroll = true
+    }
+
+    androidx.compose.runtime.CompositionLocalProvider(
+        LocalAnchorRegistry provides anchorRegistry,
+        LocalActiveAnchor provides anchor,
+    ) {
+        StyledScaffold(title = title) { topPadding, hazeState, bottomPadding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .testTag("dest_category/$categoryKey")
+                    .hazeSource(hazeState)
+                    .verticalScroll(scrollState)
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Spacer(Modifier.height(topPadding))
+                when (categoryKey) {
+                    "controls"    -> ControlsContent(state, viewModel, navController, sharedPrefs, dark)
+                    "settings"    -> SettingsContent(state, appState, viewModel, appSettingsViewModel, navController, dark)
+                    "smart"       -> SmartContent(state, viewModel, navController, sharedPrefs, dark)
+                    "appsettings" -> AppSettingsContent(appState, appSettingsViewModel, navController, dark)
+                    "audio"       -> AudioContent(state, appState, viewModel, appSettingsViewModel, navController, dark)
+                    "help"        -> HelpContent(state, navController, dark)
+                }
+                Spacer(Modifier.height(bottomPadding))
             }
-            Spacer(Modifier.height(bottomPadding))
         }
     }
+}
+
+/**
+ * Reusable composable that:
+ *  - Registers its Y position in the active AnchorRegistry.
+ *  - Briefly pulses a highlight background when its id == active anchor.
+ */
+@Composable
+internal fun AnchorWrapper(
+    id: String,
+    content: @Composable (Modifier) -> Unit,
+) {
+    val registry = LocalAnchorRegistry.current
+    val active = LocalActiveAnchor.current
+    val isTarget = active == id
+
+    // Auto-fade after a brief pulse: trigger a tween back to transparent.
+    var pulsed by remember(id, active) { mutableStateOf(false) }
+    LaunchedEffect(isTarget) {
+        if (isTarget && !pulsed) {
+            kotlinx.coroutines.delay(1400)
+            pulsed = true
+        }
+    }
+    val animated by animateColorAsState(
+        targetValue = if (isTarget && !pulsed) Color(0x550A84FF) else Color.Transparent,
+        animationSpec = tween(durationMillis = 700),
+        label = "anchorPulse",
+    )
+
+    val mod = Modifier
+        .onGloballyPositioned { coords ->
+            registry?.positions?.set(id, coords.boundsInWindow().top.toInt())
+        }
+        .testTag("anchor_$id")
+        .background(animated, RoundedCornerShape(18.dp))
+
+    content(mod)
 }
 
 // ─── 1. AirPods Controls ─────────────────────────────────────────────────────
@@ -609,7 +683,8 @@ private fun SmartContent(
     val scope        = rememberCoroutineScope()
 
     // Gym Mode Card (separate card)
-    Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp))) {
+    AnchorWrapper(id = "gym_mode") { highlightMod ->
+        Column(Modifier.fillMaxWidth().then(highlightMod).background(cardColor, RoundedCornerShape(18.dp))) {
         var gymModeEnabled by remember { mutableStateOf(GymModePrefs.isEnabled(context)) }
         
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
@@ -684,7 +759,8 @@ private fun SmartContent(
                 MenuNavRow("Configure Gym Press Actions", dark) { navController.navigate("gym_press_actions") }
             }
         }
-    }
+        } // end AnchorWrapper Column
+    } // end AnchorWrapper
 
     // Rest of Smart Features in another outer Column
     Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp))) {

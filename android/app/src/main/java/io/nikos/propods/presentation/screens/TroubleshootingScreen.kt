@@ -83,6 +83,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.testTag
 import androidx.core.content.FileProvider
 import androidx.navigation.NavController
 import com.kyant.backdrop.backdrops.layerBackdrop
@@ -213,6 +214,7 @@ fun TroubleshootingScreen(navController: NavController) {
 
     Box(
         modifier = Modifier.fillMaxSize()
+.testTag("dest_troubleshooting")
     ) {
         StyledScaffold(
             title = stringResource(R.string.troubleshooting)

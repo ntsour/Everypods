@@ -36,9 +36,9 @@
     <string name="back">Back</string>
     <string name="customizations">Customizations</string>
     <string name="relative_conversational_awareness_volume">Relative volume</string>
-    <string name="relative_conversational_awareness_volume_description">Reduces to a percentage of the current volume instead of the maximum volume.</string>
+    <string name="relative_conversational_awareness_volume_description">When on, the slider becomes a reduction (e.g. 40% means \"reduce current volume to 40% of itself\") instead of an absolute target.</string>
     <string name="conversational_awareness_pause_music">Pause Music</string>
-    <string name="conversational_awareness_pause_music_description">When you start speaking, music will be paused.</string>
+    <string name="conversational_awareness_pause_music_description">When you start speaking, music will be paused instead of just lowered.</string>
     <string name="appwidget_text">EXAMPLE</string>
     <string name="add_widget">Add widget</string>
     <string name="noise_control_widget_description">Control Noise Control Mode directly from your Home Screen.</string>
@@ -145,7 +145,9 @@
     <string name="show_bottom_sheet_popup_description">Show the iOS-style modal popup at the bottom when AirPods connect.</string>
     <string name="show_island_popup">Dynamic Island popup</string>
     <string name="show_island_popup_description">Show the Dynamic Island-style popup at the top for connection and takeover events.</string>
-    <string name="conversational_awareness_volume">Conversational Awareness Volume</string>
+    <string name="conversational_awareness_volume">Target media volume during conversation</string>
+    <string name="conversational_awareness_volume_description">When you speak, media volume is set to this level (% of maximum). When you stop, it returns to where it was.</string>
+    <string name="conversational_awareness_master_description">Lower media volume (and optionally pause music) when you start speaking. Required for the options below.</string>
     <string name="quick_settings_tile">Quick Settings Tile</string>
     <string name="open_dialog_for_controlling">Open dialog for controlling</string>
     <string name="open_dialog_for_controlling_description">If disabled, clicking on the QS will cycle through modes. If enabled, it will show a dialog for controlling noise control mode and conversational awareness</string>

@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.testTag
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import io.nikos.propods.bluetooth.AACPManager
@@ -46,6 +47,7 @@ fun SmartAutomationScreen(viewModel: AirPodsViewModel) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .testTag("dest_smart_automation")
                 .hazeSource(hazeState)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp)

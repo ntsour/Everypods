@@ -65,6 +65,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.testTag
 import androidx.core.app.ActivityCompat
 import io.nikos.propods.R
 import io.nikos.propods.presentation.components.StyledScaffold
@@ -173,7 +174,8 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
     // ── UI ───────────────────────────────────────────────────────────────
     StyledScaffold(title = "Permissions") { topPadding, _, bottomPadding ->
         Column(
-            Modifier.fillMaxSize().verticalScroll(scrollState).padding(horizontal = 16.dp),
+            Modifier.fillMaxSize()
+.testTag("dest_permissions").verticalScroll(scrollState).padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Spacer(Modifier.height(topPadding))

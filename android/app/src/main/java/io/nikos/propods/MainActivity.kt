@@ -107,9 +107,11 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.edit
 import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.MultiplePermissionsState
 import com.google.accompanist.permissions.isGranted
@@ -620,13 +622,25 @@ fun Main() {
                         // Smart features are now inlined in the main menu.
                         // Route kept so any existing deep-link or back-stack reference doesn't crash.
                     }
-                    composable("category/{key}") { entry ->
+                    composable(
+                        route = "category/{key}?anchor={anchor}",
+                        arguments = listOf(
+                            navArgument("key") { type = NavType.StringType },
+                            navArgument("anchor") {
+                                type = NavType.StringType
+                                nullable = true
+                                defaultValue = null
+                            },
+                        ),
+                    ) { entry ->
                         val key = entry.arguments?.getString("key") ?: "controls"
+                        val anchor = entry.arguments?.getString("anchor")
                         if (airPodsViewModel != null) CategoryScreen(
                             viewModel = airPodsViewModel,
                             appSettingsViewModel = viewModel(),
                             navController = navController,
                             categoryKey = key,
+                            anchor = anchor,
                         )
                     }
                     composable("press_actions") {

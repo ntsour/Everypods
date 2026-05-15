@@ -579,9 +579,6 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 if (!contains("long_press_transparency")) putBoolean(
                     "long_press_transparency", true
                 )
-                if (!contains("conversational_awareness")) putBoolean(
-                    "conversational_awareness", true
-                )
                 if (!contains("relative_conversational_awareness_volume")) putBoolean(
                     "relative_conversational_awareness_volume", true
                 )

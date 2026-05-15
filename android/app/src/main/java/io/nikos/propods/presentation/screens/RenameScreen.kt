@@ -39,6 +39,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.testTag
 import androidx.core.content.edit
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import io.nikos.propods.R
@@ -75,6 +76,7 @@ fun RenameScreen(viewModel: AirPodsViewModel) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .testTag("dest_rename")
                 .padding(horizontal = 16.dp)
         ) {
             Spacer(modifier = Modifier.height(spacerHeight))

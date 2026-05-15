@@ -33,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.testTag
 import androidx.navigation.NavController
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
@@ -60,6 +61,7 @@ fun OpenSourceLicensesScreen(navController: NavController) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .testTag("dest_open_source_licenses")
                 .layerBackdrop(backdrop)
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)

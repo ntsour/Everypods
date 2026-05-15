@@ -44,6 +44,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.testTag
 import androidx.navigation.NavController
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
@@ -68,6 +69,7 @@ fun AdaptiveStrengthScreen(viewModel: AirPodsViewModel, navController: NavContro
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .testTag("dest_adaptive_audio")
                 .layerBackdrop(backdrop)
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
