@@ -700,7 +700,7 @@ private fun SmartContent(
         // Head Gestures
         if (capabilities.contains(Capability.HEAD_GESTURES)) {
             MenuDivider()
-            val headOn = sharedPrefs.getBoolean("head_gestures_enabled", true) &&
+            val headOn = sharedPrefs.getBoolean("head_gestures_enabled", false) &&
                 (sharedPrefs.getBoolean("head_gestures_answer_call", true) || sharedPrefs.getBoolean("head_gestures_mute_call", true))
             MenuNavRow("Head Gestures — ${if (headOn) "On" else "Off"}", dark) { navController.navigate("head_tracking") }
         }

@@ -33,7 +33,7 @@ data class AppSettingsUiState(
     val vendorIdHook: Boolean = false,
     val isPremium: Boolean = false,
     val connectionSuccessful: Boolean = false,
-    val showBottomSheetPopup: Boolean = true,
+    val showBottomSheetPopup: Boolean = false,
     val showIslandPopup: Boolean = true
 )
 
@@ -89,7 +89,7 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
                 cameraPackageValue = sharedPreferences.getString("custom_camera_package", "") ?: "",
                 vendorIdHook = xposedRemotePref.getBoolean("vendor_id_hook", false),
                 connectionSuccessful = sharedPreferences.getBoolean("connection_successful", false),
-                showBottomSheetPopup = sharedPreferences.getBoolean("show_bottom_sheet_popup", true),
+                showBottomSheetPopup = sharedPreferences.getBoolean("show_bottom_sheet_popup", false),
                 showIslandPopup = sharedPreferences.getBoolean("show_island_popup", true)
             )
         }

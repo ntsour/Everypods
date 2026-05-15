@@ -172,7 +172,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         var showPhoneBatteryInWidget: Boolean = true,
         var relativeConversationalAwarenessVolume: Boolean = true,
         // Master switch — when false, all head gesture features are disabled.
-        var headGesturesEnabled: Boolean = true,
+        var headGesturesEnabled: Boolean = false,
         // Nod/shake answers/declines an incoming (ringing) call.
         var headGesturesAnswerCall: Boolean = true,
         // Shake mutes the mic and nod unmutes during an active call.
@@ -651,7 +651,6 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     "right_long_press_action",
                     StemAction.defaultActions[StemPressType.LONG_PRESS]!!.name
                 )
-                if (!contains("camera_action")) putString("camera_action", "SINGLE_PRESS")
 
             }
         }
@@ -1703,7 +1702,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             relativeConversationalAwarenessVolume = sharedPreferences.getBoolean(
                 "relative_conversational_awareness_volume", true
             ),
-            headGesturesEnabled = sharedPreferences.getBoolean("head_gestures_enabled", true),
+            headGesturesEnabled = sharedPreferences.getBoolean("head_gestures_enabled", false),
             headGesturesAnswerCall = sharedPreferences.getBoolean("head_gestures_answer_call", true),
             headGesturesMuteCall = sharedPreferences.getBoolean("head_gestures_mute_call", true),
             disconnectWhenNotWearing = sharedPreferences.getBoolean(
@@ -1862,7 +1861,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             "relative_conversational_awareness_volume" -> config.relativeConversationalAwarenessVolume =
                 preferences.getBoolean(key, true)
 
-            "head_gestures_enabled" -> config.headGesturesEnabled = preferences.getBoolean(key, true)
+            "head_gestures_enabled" -> config.headGesturesEnabled = preferences.getBoolean(key, false)
             "head_gestures_answer_call" -> config.headGesturesAnswerCall = preferences.getBoolean(key, true)
             "head_gestures_mute_call" -> config.headGesturesMuteCall = preferences.getBoolean(key, true)
             "disconnect_when_not_wearing" -> config.disconnectWhenNotWearing =
@@ -2089,7 +2088,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
     var popupShown = false
     fun showPopup(service: Service, name: String) {
-        if (!sharedPreferences.getBoolean("show_bottom_sheet_popup", true)) {
+        if (!sharedPreferences.getBoolean("show_bottom_sheet_popup", false)) {
             return
         }
         if (!Settings.canDrawOverlays(service)) {

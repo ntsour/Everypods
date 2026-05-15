@@ -34,7 +34,7 @@ import kotlinx.coroutines.launch
 import io.nikos.propods.R
 
 class FOSSBillingProvider(context: Context): BillingProvider {
-    private val _isPremium = MutableStateFlow(false)
+    private val _isPremium = MutableStateFlow(true)
     override val isPremium: StateFlow<Boolean> = _isPremium
 
     private val _price = MutableStateFlow(context.getString(R.string.name_your_own_price))
@@ -64,10 +64,7 @@ class FOSSBillingProvider(context: Context): BillingProvider {
     }
 
     override fun queryPurchases() {
-        val stored = sharedPreferences.getBoolean("foss_upgraded", false)
-        if (stored != _isPremium.value) {
-            _isPremium.value = stored
-        }
+        _isPremium.value = true
     }
 
     override fun restorePurchases() {

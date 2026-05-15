@@ -111,6 +111,7 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
     var overlayGranted      by remember { mutableStateOf(false) }
     var notifAccessGranted  by remember { mutableStateOf(false) }
     var cameraAccessGranted by remember { mutableStateOf(false) }
+    var callLogGranted      by remember { mutableStateOf(false) }
 
     fun refreshAll() {
         btGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
@@ -126,6 +127,7 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
         overlayGranted      = Settings.canDrawOverlays(context)
         notifAccessGranted  = CallNotifListener.isAccessGranted(context)
         cameraAccessGranted = isAppListenerEnabled()
+        callLogGranted      = isGranted(Manifest.permission.READ_CALL_LOG)
     }
 
     LaunchedEffect(Unit) {
@@ -142,12 +144,6 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
         while (true) {
             kotlinx.coroutines.delay(1000)
             refreshAll()
-            // Auto-advance when critical permissions are granted: overlay + all standard perms
-            val allStandardGranted = btGranted && locationGranted && notifGranted && phoneGranted && contactsGranted
-            if (allStandardGranted && overlayGranted && onPermissionsGranted != null) {
-                onPermissionsGranted()
-                return@LaunchedEffect
-            }
         }
     }
 
@@ -231,6 +227,44 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
                 ) { grantRuntime(arrayOf(Manifest.permission.READ_CONTACTS)) }
             }
 
+            // ── Grant all outstanding permissions ────────────────────────
+            val locationNeeded = Build.VERSION.SDK_INT < Build.VERSION_CODES.S && !locationGranted
+            val notifNeeded = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !notifGranted
+            val anyCriticalMissing = !btGranted || locationNeeded || notifNeeded || !phoneGranted || !contactsGranted
+            if (anyCriticalMissing) {
+                Button(
+                    onClick = {
+                        val toRequest = buildList {
+                            if (!btGranted) {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                    add(Manifest.permission.BLUETOOTH_CONNECT)
+                                    add(Manifest.permission.BLUETOOTH_SCAN)
+                                    add(Manifest.permission.BLUETOOTH_ADVERTISE)
+                                } else {
+                                    add(Manifest.permission.BLUETOOTH)
+                                    add(Manifest.permission.BLUETOOTH_ADMIN)
+                                }
+                            }
+                            if (locationNeeded) add(Manifest.permission.ACCESS_FINE_LOCATION)
+                            if (notifNeeded) add(Manifest.permission.POST_NOTIFICATIONS)
+                            if (!phoneGranted) {
+                                add(Manifest.permission.READ_PHONE_STATE)
+                                add(Manifest.permission.ANSWER_PHONE_CALLS)
+                            }
+                            if (!contactsGranted) add(Manifest.permission.READ_CONTACTS)
+                        }
+                        if (toRequest.isNotEmpty()) multiLauncher.launch(toRequest.toTypedArray())
+                    },
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = accent),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Text("Grant Required Permissions",
+                        style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium,
+                            fontFamily = PermSfPro, color = Color.White))
+                }
+            }
+
             // ── SPECIAL PERMISSIONS ──────────────────────────────────────
             SectionTitle("Special Access", textColor)
 
@@ -253,7 +287,7 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
             Column(Modifier.fillMaxWidth().background(cardBg, RoundedCornerShape(18.dp))) {
                 PermissionRow(
                     title = "Display Over Other Apps",
-                    description = "Show popup animation when AirPods connect",
+                    description = "Show Dynamic Island popup when AirPods connect",
                     granted = overlayGranted, dark = dark, accent = accent, green = green
                 ) {
                     context.startActivity(
@@ -285,43 +319,23 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
                             .apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
                     }
                 }
+                RowDivider()
+                PermissionRow(
+                    title = "Call Log",
+                    description = "See call history for notification announcements",
+                    granted = callLogGranted, dark = dark, accent = accent, green = green
+                ) { grantRuntime(arrayOf(Manifest.permission.READ_CALL_LOG)) }
             }
 
-            // ── Grant all outstanding standard permissions ────────────────
-            val locationNeeded = Build.VERSION.SDK_INT < Build.VERSION_CODES.S && !locationGranted
-    val anyStandardMissing = !btGranted || locationNeeded ||
-                (!notifGranted && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) ||
-                !phoneGranted || !contactsGranted
-            if (anyStandardMissing) {
+            // Continue button for first-launch flow
+            if (onPermissionsGranted != null) {
                 Button(
-                    onClick = {
-                        val toRequest = buildList {
-                            if (!btGranted) {
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                    add(Manifest.permission.BLUETOOTH_CONNECT)
-                                    add(Manifest.permission.BLUETOOTH_SCAN)
-                                    add(Manifest.permission.BLUETOOTH_ADVERTISE)
-                                } else {
-                                    add(Manifest.permission.BLUETOOTH)
-                                    add(Manifest.permission.BLUETOOTH_ADMIN)
-                                }
-                            }
-                            if (locationNeeded) add(Manifest.permission.ACCESS_FINE_LOCATION)
-                            if (!notifGranted && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
-                                add(Manifest.permission.POST_NOTIFICATIONS)
-                            if (!phoneGranted) {
-                                add(Manifest.permission.READ_PHONE_STATE)
-                                add(Manifest.permission.ANSWER_PHONE_CALLS)
-                            }
-                            if (!contactsGranted) add(Manifest.permission.READ_CONTACTS)
-                        }
-                        if (toRequest.isNotEmpty()) multiLauncher.launch(toRequest.toTypedArray())
-                    },
+                    onClick = { onPermissionsGranted() },
                     modifier = Modifier.fillMaxWidth().height(52.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = accent),
                     shape = RoundedCornerShape(14.dp)
                 ) {
-                    Text("Grant All Standard Permissions",
+                    Text("Continue",
                         style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium,
                             fontFamily = PermSfPro, color = Color.White))
                 }

@@ -486,39 +486,8 @@ fun Main() {
 
     val isConnected = remember { mutableStateOf(false) }
 
-    var canDrawOverlays by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
-    val overlaySkipped = remember {
-        mutableStateOf(
-            context.getSharedPreferences("settings", MODE_PRIVATE)
-                .getBoolean("overlay_permission_skipped", false)
-        )
-    }
-
-    val bluetoothPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        listOf(
-            "android.permission.BLUETOOTH_CONNECT",
-            "android.permission.BLUETOOTH_SCAN",
-            "android.permission.BLUETOOTH",
-            "android.permission.BLUETOOTH_ADMIN",
-            "android.permission.BLUETOOTH_ADVERTISE"
-        )
-    } else {
-        listOf(
-            "android.permission.BLUETOOTH",
-            "android.permission.BLUETOOTH_ADMIN",
-            "android.permission.ACCESS_FINE_LOCATION"
-        )
-    }
-    val otherPermissions = listOf(
-        "android.permission.POST_NOTIFICATIONS",
-        "android.permission.READ_PHONE_STATE",
-        "android.permission.ANSWER_PHONE_CALLS"
-    )
-    val allPermissions = bluetoothPermissions + otherPermissions
-
-    val permissionState = rememberMultiplePermissionsState(
-        permissions = allPermissions
-    )
+    val prefs = context.getSharedPreferences("settings", MODE_PRIVATE)
+    val isFirstLaunch = remember { !prefs.getBoolean("permissions_completed", false) }
 
     val airPodsService = remember { mutableStateOf<AirPodsService?>(null) }
 
@@ -533,17 +502,10 @@ fun Main() {
         }
     }
 
-    LaunchedEffect(Unit) {
-        canDrawOverlays = Settings.canDrawOverlays(context)
-    }
+    val startDestination = if (isFirstLaunch) "permissions" else "settings"
+    val navController = rememberNavController()
 
-    if (permissionState.allPermissionsGranted && (canDrawOverlays || overlaySkipped.value)) {
-
-        val navController = rememberNavController()
-
-        Box(
-            modifier = Modifier.fillMaxSize()
-        ) {
+    Box(modifier = Modifier.fillMaxSize()) {
             val backButtonBackdrop = rememberLayerBackdrop()
             Box(
                 modifier = Modifier
@@ -553,7 +515,7 @@ fun Main() {
             ) {
                 NavHost(
                     navController = navController,
-                    startDestination = "settings",
+                    startDestination = startDestination,
                     enterTransition = {
                         slideInHorizontally(
                             initialOffsetX = { it }, animationSpec = tween(durationMillis = 300)
@@ -637,9 +599,13 @@ fun Main() {
                         PurchaseScreen(purchaseViewModel, navController)
                     }
                     composable("permissions") {
-                        AppPermissionsScreen(onPermissionsGranted = {
-                            navController.popBackStack()
-                        })
+                        val onGranted: (() -> Unit)? = if (isFirstLaunch) ({
+                            prefs.edit().putBoolean("permissions_completed", true).apply()
+                            navController.navigate("settings") {
+                                popUpTo("permissions") { inclusive = true }
+                            }
+                        }) else null
+                        AppPermissionsScreen(onPermissionsGranted = onGranted)
                     }
                     composable("notification_announcements") {
                         NotificationAnnouncementsScreen(navController)
@@ -783,372 +749,5 @@ fun Main() {
         if (airPodsService.value?.isConnected() == true) {
             isConnected.value = true
         }
-    } else {
-        PermissionsScreen(
-            permissionState = permissionState,
-            canDrawOverlays = canDrawOverlays,
-            onOverlaySettingsReturn = { canDrawOverlays = Settings.canDrawOverlays(context) })
-    }
 }
 
-@OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
-@Composable
-fun PermissionsScreen(
-    permissionState: MultiplePermissionsState,
-    canDrawOverlays: Boolean,
-    onOverlaySettingsReturn: () -> Unit
-) {
-    val context = LocalContext.current
-    val isDarkTheme = isSystemInDarkTheme()
-    val backgroundColor = if (isDarkTheme) Color(0xFF1C1C1E) else Color.White
-    val textColor = if (isDarkTheme) Color.White else Color.Black
-    val accentColor = if (isDarkTheme) Color(0xFF007AFF) else Color(0xFF3C6DF5)
-
-    val scrollState = rememberScrollState()
-
-    val basicPermissionsGranted = permissionState.permissions.all { it.status.isGranted }
-
-    var notifAccessGranted by remember { mutableStateOf(CallNotifListener.isAccessGranted(context)) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            kotlinx.coroutines.delay(1000)
-            notifAccessGranted = CallNotifListener.isAccessGranted(context)
-        }
-    }
-
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 1f, targetValue = 1.05f, animationSpec = infiniteRepeatable(
-            animation = tween(1000), repeatMode = RepeatMode.Reverse
-        ), label = "pulse scale"
-    )
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(if (isDarkTheme) Color.Black else Color(0xFFF2F2F7))
-            .padding(16.dp)
-            .verticalScroll(scrollState), horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(180.dp), contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "\uDBC2\uDEB7", style = TextStyle(
-                    fontSize = 48.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily(Font(R.font.sf_pro)),
-                    color = textColor,
-                    textAlign = TextAlign.Center
-                )
-            )
-            Canvas(
-                modifier = Modifier
-                    .size(120.dp)
-                    .scale(pulseScale)
-            ) {
-                val radius = size.minDimension / 2.2f
-                val centerX = size.width / 2
-                val centerY = size.height / 2
-
-                rotate(degrees = 45f) {
-                    drawCircle(
-                        color = accentColor.copy(alpha = 0.1f),
-                        radius = radius * 1.3f,
-                        center = Offset(centerX, centerY)
-                    )
-
-                    drawCircle(
-                        color = accentColor.copy(alpha = 0.2f),
-                        radius = radius * 1.1f,
-                        center = Offset(centerX, centerY)
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = "Permission Required", style = TextStyle(
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                fontFamily = FontFamily(Font(R.font.sf_pro)),
-                color = textColor,
-                textAlign = TextAlign.Center
-            ), modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = stringResource(R.string.permissions_required), style = TextStyle(
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Normal,
-                fontFamily = FontFamily(Font(R.font.sf_pro)),
-                color = textColor.copy(alpha = 0.7f),
-                textAlign = TextAlign.Center
-            ), modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        PermissionCard(
-            title = "Bluetooth Permissions",
-            description = "Required to communicate with your AirPods",
-            icon = ImageVector.vectorResource(id = R.drawable.ic_bluetooth),
-            isGranted = permissionState.permissions.filter {
-                it.permission.contains("BLUETOOTH")
-            }.all { it.status.isGranted },
-            backgroundColor = backgroundColor,
-            textColor = textColor,
-            accentColor = accentColor
-        )
-
-        PermissionCard(
-            title = "Notification Permission",
-            description = "To show battery status",
-            icon = Icons.Default.Notifications,
-            isGranted = permissionState.permissions.find {
-                it.permission == "android.permission.POST_NOTIFICATIONS"
-            }?.status?.isGranted == true,
-            backgroundColor = backgroundColor,
-            textColor = textColor,
-            accentColor = accentColor
-        )
-
-        PermissionCard(
-            title = "Phone Permissions",
-            description = "For answering calls with Head Gestures",
-            icon = Icons.Default.Phone,
-            isGranted = permissionState.permissions.filter {
-                it.permission.contains("PHONE") || it.permission.contains("CALLS")
-            }.all { it.status.isGranted },
-            backgroundColor = backgroundColor,
-            textColor = textColor,
-            accentColor = accentColor
-        )
-
-        PermissionCard(
-            title = "Display Over Other Apps",
-            description = "For popup animations when AirPods connect",
-            icon = ImageVector.vectorResource(id = R.drawable.ic_layers),
-            isGranted = canDrawOverlays,
-            backgroundColor = backgroundColor,
-            textColor = textColor,
-            accentColor = accentColor
-        )
-
-        PermissionCard(
-            title = "Notification Access",
-            description = "To sync mute state with Microsoft Teams",
-            icon = Icons.Default.Notifications,
-            isGranted = notifAccessGranted,
-            backgroundColor = backgroundColor,
-            textColor = textColor,
-            accentColor = accentColor
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Button(
-            onClick = {
-                permissionState.launchMultiplePermissionRequest()
-                if (!notifAccessGranted) {
-                    CallNotifListener.openAccessSettings(context)
-                }
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(55.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = accentColor
-            ),
-            shape = RoundedCornerShape(8.dp)
-        ) {
-            Text(
-                "Ask for regular permissions",
-                style = TextStyle(
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    fontFamily = FontFamily(Font(R.font.sf_pro)),
-                    color = Color.White
-                ),
-            )
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Button(
-            onClick = {
-                val intent = Intent(
-                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                    "package:${context.packageName}".toUri()
-                )
-                context.startActivity(intent)
-                onOverlaySettingsReturn()
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(55.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = if (canDrawOverlays) Color.Gray else accentColor
-            ),
-            enabled = !canDrawOverlays,
-            shape = RoundedCornerShape(8.dp)
-        ) {
-            Text(
-                if (canDrawOverlays) "Overlay Permission Granted" else "Grant Overlay Permission",
-                style = TextStyle(
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    fontFamily = FontFamily(Font(R.font.sf_pro)),
-                    color = Color.White
-                ),
-            )
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Button(
-            onClick = { CallNotifListener.openAccessSettings(context) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(55.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = if (notifAccessGranted) Color.Gray else accentColor
-            ),
-            enabled = !notifAccessGranted,
-            shape = RoundedCornerShape(8.dp)
-        ) {
-            Text(
-                if (notifAccessGranted) "Notification Access Granted" else "Grant Notification Access",
-                style = TextStyle(
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    fontFamily = FontFamily(Font(R.font.sf_pro)),
-                    color = Color.White
-                ),
-            )
-        }
-
-        if (!canDrawOverlays && basicPermissionsGranted) {
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Button(
-                onClick = {
-                    context.getSharedPreferences("settings", MODE_PRIVATE).edit {
-                        putBoolean("overlay_permission_skipped", true)
-                    }
-
-                    val intent = Intent(context, MainActivity::class.java)
-                    intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                    context.startActivity(intent)
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(55.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF757575)
-                ),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Text(
-                    "Continue without overlay",
-                    style = TextStyle(
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium,
-                        fontFamily = FontFamily(Font(R.font.sf_pro)),
-                        color = Color.White
-                    ),
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun PermissionCard(
-    title: String,
-    description: String,
-    icon: ImageVector,
-    isGranted: Boolean,
-    backgroundColor: Color,
-    textColor: Color,
-    accentColor: Color
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = backgroundColor
-        ),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(
-                        if (isGranted) accentColor.copy(alpha = 0.15f) else Color.Gray.copy(
-                            alpha = 0.15f
-                        )
-                    ), contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = title,
-                    tint = if (isGranted) accentColor else Color.Gray,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = 16.dp)
-            ) {
-                Text(
-                    text = title, style = TextStyle(
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium,
-                        fontFamily = FontFamily(Font(R.font.sf_pro)),
-                        color = textColor
-                    )
-                )
-
-                Text(
-                    text = description, style = TextStyle(
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Normal,
-                        fontFamily = FontFamily(Font(R.font.sf_pro)),
-                        color = textColor.copy(alpha = 0.6f)
-                    )
-                )
-            }
-
-            Box(
-                modifier = Modifier
-                    .size(24.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(if (isGranted) Color(0xFF4CAF50) else Color.Gray),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = if (isGranted) "✓" else "!", style = TextStyle(
-                        fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White
-                    )
-                )
-            }
-        }
-    }
-}

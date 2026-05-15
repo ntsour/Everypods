@@ -74,7 +74,7 @@ data class AirPodsUiState(
     val version3: String = "",
 
     val headTrackingActive: Boolean = false,
-    val headGesturesEnabled: Boolean = true,
+    val headGesturesEnabled: Boolean = false,
     val headGesturesAnswerCall: Boolean = true,
     val headGesturesMuteCall: Boolean = true,
 
@@ -93,7 +93,7 @@ data class AirPodsUiState(
     val isPremium: Boolean = false,
     val vendorIdHook: Boolean = false,
 
-    val dynamicEndOfCharge: Boolean = false,
+    val dynamicEndOfCharge: Boolean = true,
 
     val connectionSuccessful: Boolean = false,
     
@@ -148,6 +148,7 @@ class AirPodsViewModel(
         loadControlList()
         observeATT()
         if (isDemoMode) activateDemoMode()
+        refreshInitialData()
     }
 
     private fun checkRootPermissions() {
@@ -362,7 +363,7 @@ class AirPodsViewModel(
             sharedPreferences.getBoolean("automatic_ear_detection", true)
         val automaticConnectionEnabled =
             sharedPreferences.getBoolean("automatic_connection_ctrl_cmd", true)
-        val headGesturesEnabled = sharedPreferences.getBoolean("head_gestures_enabled", true)
+        val headGesturesEnabled = sharedPreferences.getBoolean("head_gestures_enabled", false)
         val headGesturesAnswerCall = sharedPreferences.getBoolean("head_gestures_answer_call", true)
         val headGesturesMuteCall = sharedPreferences.getBoolean("head_gestures_mute_call", true)
         val leftAction = StemAction.valueOf(
@@ -378,7 +379,7 @@ class AirPodsViewModel(
             ) ?: "CYCLE_NOISE_CONTROL_MODES"
         )
         val vendorIdHook = xposedRemotePref.getBoolean("vendor_id_hook", false)
-        val dynamicEndOfCharge = sharedPreferences.getBoolean("dynamic_end_of_charge", false)
+        val dynamicEndOfCharge = sharedPreferences.getBoolean("dynamic_end_of_charge", true)
 
         val connectionSuccessful = sharedPreferences.getBoolean("connection_successful", false)
 
