@@ -397,6 +397,14 @@ fun AppSettingsScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            NavigationButton(
+                to = "permissions",
+                name = "Manage Permissions",
+                navController = navController,
+                independent = true,
+                description = "Grant or revoke app permissions"
+            )
+
             Box(
                 modifier = Modifier
                     .background(if (isDarkTheme) Color.Black else Color(0xFFF2F2F7))
