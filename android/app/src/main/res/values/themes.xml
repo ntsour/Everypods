@@ -2,7 +2,7 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Base application theme. -->
-    <style name="Theme.AndroPods" parent="Theme.AppCompat.DayNight">
+    <style name="Theme.ProPods" parent="Theme.AppCompat.DayNight">
         <!-- Customize your light theme here. -->
         <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
          <item name="android:windowLightStatusBar" >true</item>
@@ -27,12 +27,12 @@
         <item name="android:windowBlurBehindRadius" tools:targetApi="s">32dp</item> <!-- Optional: Adjust radius -->
     </style>
 
-  <style name="Theme.AndroPods.AppWidgetContainerParent" parent="@android:style/Theme.DeviceDefault">
+  <style name="Theme.ProPods.AppWidgetContainerParent" parent="@android:style/Theme.DeviceDefault">
     <item name="appWidgetRadius">32dp</item>
     <item name="appWidgetPadding">0dp</item>
   </style>
 
-  <style name="Theme.AndroPods.AppWidgetContainer" parent="Theme.AndroPods.AppWidgetContainerParent">
+  <style name="Theme.ProPods.AppWidgetContainer" parent="Theme.ProPods.AppWidgetContainerParent">
     <item name="appWidgetPadding">0dp</item>
   </style>
 </resources>

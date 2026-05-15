@@ -23,11 +23,11 @@ android {
             keyPassword = props["RELEASE_KEY_PASSWORD"] as String
         }
     }
-    namespace = "io.nikos.andropods"
+    namespace = "io.nikos.propods"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "io.nikos.andropods"
+        applicationId = "io.nikos.propods"
         minSdk = 33
         targetSdk = 37
         versionCode = 50

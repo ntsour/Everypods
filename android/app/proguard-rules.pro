@@ -20,4 +20,4 @@
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
 
--keep class io.nikos.andropods.utils.KotlinModule { *; }
+-keep class io.nikos.propods.utils.KotlinModule { *; }
