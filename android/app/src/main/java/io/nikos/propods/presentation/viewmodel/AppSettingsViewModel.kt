@@ -16,7 +16,7 @@ import kotlin.math.roundToInt
 
 data class AppSettingsUiState(
     val showPhoneBatteryInWidget: Boolean = false,
-    val conversationalAwarenessPauseMusicEnabled: Boolean = false,
+    val conversationalAwarenessPauseMusicEnabled: Boolean = true,
     val relativeConversationalAwarenessVolumeEnabled: Boolean = true,
     val disconnectWhenNotWearing: Boolean = false,
     val takeoverWhenDisconnected: Boolean = false,
@@ -75,7 +75,7 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
         _uiState.update { currentState ->
             currentState.copy(
                 showPhoneBatteryInWidget = sharedPreferences.getBoolean("show_phone_battery_in_widget", false),
-                conversationalAwarenessPauseMusicEnabled = sharedPreferences.getBoolean("conversational_awareness_pause_music", false),
+                conversationalAwarenessPauseMusicEnabled = sharedPreferences.getBoolean("conversational_awareness_pause_music", true),
                 relativeConversationalAwarenessVolumeEnabled = sharedPreferences.getBoolean("relative_conversational_awareness_volume", true),
                 disconnectWhenNotWearing = sharedPreferences.getBoolean("disconnect_when_not_wearing", false),
                 takeoverWhenDisconnected = sharedPreferences.getBoolean("takeover_when_disconnected", false),

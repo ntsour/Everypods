@@ -443,6 +443,10 @@ class AirPodsViewModel(
             val saved = sharedPreferences.getInt("long_press_byte", 0b0111)
             map[ControlCommandIdentifiers.LISTENING_MODE_CONFIGS] = byteArrayOf(saved.toByte())
         }
+        if (!map.containsKey(ControlCommandIdentifiers.CONVERSATION_DETECT_CONFIG)) {
+            val saved = sharedPreferences.getBoolean("conversation_detect_config", true)
+            map[ControlCommandIdentifiers.CONVERSATION_DETECT_CONFIG] = byteArrayOf(if (saved) 0x01 else 0x02)
+        }
         _uiState.update {
             it.copy(controlStates = map)
         }
