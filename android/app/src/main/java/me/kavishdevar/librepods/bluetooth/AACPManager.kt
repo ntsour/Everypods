@@ -21,6 +21,7 @@
 package me.kavishdevar.librepods.bluetooth
 
 import android.util.Log
+import me.kavishdevar.librepods.bluetooth.connection.DeferredHandshakeAckSource
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.io.encoding.ExperimentalEncodingApi
@@ -272,6 +273,13 @@ class AACPManager {
 
     private var callback: PacketCallback? = null
 
+    /**
+     * Connection engine's handshake-ack source. When non-null, the first valid
+     * frame received after a [DeferredHandshakeAckSource.reset] gates the engine's
+     * transition to [me.kavishdevar.librepods.bluetooth.connection.ConnectionState.Connected].
+     */
+    var handshakeAckSource: DeferredHandshakeAckSource? = null
+
     fun setPacketCallback(callback: PacketCallback) {
         this.callback = callback
     }
@@ -405,6 +413,10 @@ class AACPManager {
             )
             return
         }
+
+        // Header passed + packet length sane = peer is actually speaking AACP back at us.
+        // Signal the handshake-ack gate so the connection engine can promote to Connected.
+        handshakeAckSource?.signalReceived()
 
         when (val opcode = packet[4]) {
             Opcodes.BATTERY_INFO -> {
