@@ -637,7 +637,9 @@ fun Main() {
                         PurchaseScreen(purchaseViewModel, navController)
                     }
                     composable("permissions") {
-                        AppPermissionsScreen()
+                        AppPermissionsScreen(onPermissionsGranted = {
+                            navController.popBackStack()
+                        })
                     }
                     composable("notification_announcements") {
                         NotificationAnnouncementsScreen(navController)

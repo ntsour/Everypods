@@ -74,7 +74,7 @@ import io.nikos.propods.services.CallNotifListener
 private val PermSfPro get() = FontFamily(Font(R.font.sf_pro))
 
 @Composable
-fun AppPermissionsScreen() {
+fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
     val context     = LocalContext.current
     val dark        = isSystemInDarkTheme()
     val cardBg      = if (dark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
@@ -139,7 +139,16 @@ fun AppPermissionsScreen() {
                 .apply()
         }
         refreshAll()
-        while (true) { kotlinx.coroutines.delay(1000); refreshAll() }
+        while (true) {
+            kotlinx.coroutines.delay(1000)
+            refreshAll()
+            // Auto-advance when critical permissions are granted: overlay + all standard perms
+            val allStandardGranted = btGranted && locationGranted && notifGranted && phoneGranted && contactsGranted
+            if (allStandardGranted && overlayGranted && onPermissionsGranted != null) {
+                onPermissionsGranted()
+                return@LaunchedEffect
+            }
+        }
     }
 
     // ── Launchers ────────────────────────────────────────────────────────
