@@ -591,27 +591,37 @@ private fun SettingsContent(
         // ── Ungated ───────────────────────────────────────────────────────────
         MenuNavRow("Device Name", dark, subtitle = state.deviceName) { navController.navigate("rename") }
 
-        // Conversation Awareness (no gate — moved above Xposed-gated items)
+        // Conversation Awareness
+        val caEnabled = state.controlStates[
+            AACPManager.Companion.ControlCommandIdentifiers.CONVERSATION_DETECT_CONFIG
+        ]?.getOrNull(0) == 0x01.toByte()
         MenuDivider()
         MenuSectionHeader("Conversation Awareness", dark)
         Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+            StyledToggle(label = stringResource(R.string.conversational_awareness),
+                description = stringResource(R.string.conversational_awareness_master_description),
+                checked = caEnabled && state.isPremium,
+                onCheckedChange = { viewModel.setControlCommandBoolean(AACPManager.Companion.ControlCommandIdentifiers.CONVERSATION_DETECT_CONFIG, it) },
+                independent = true, enabled = state.isPremium)
+            Spacer(Modifier.height(4.dp))
+            val subEnabled = caEnabled && appState.isPremium
             StyledToggle(label = stringResource(R.string.conversational_awareness_pause_music),
                 description = stringResource(R.string.conversational_awareness_pause_music_description),
                 checked = appState.conversationalAwarenessPauseMusicEnabled,
                 onCheckedChange = appSettingsViewModel::setConversationalAwarenessPauseMusicEnabled,
-                independent = true, enabled = appState.isPremium)
+                independent = true, enabled = subEnabled)
             Spacer(Modifier.height(4.dp))
             StyledToggle(label = stringResource(R.string.relative_conversational_awareness_volume),
                 description = stringResource(R.string.relative_conversational_awareness_volume_description),
                 checked = appState.relativeConversationalAwarenessVolumeEnabled,
                 onCheckedChange = appSettingsViewModel::setRelativeConversationalAwarenessVolumeEnabled,
-                independent = true, enabled = appState.isPremium)
+                independent = true, enabled = subEnabled)
             Spacer(Modifier.height(4.dp))
             StyledSlider(label = stringResource(R.string.conversational_awareness_volume),
                 value = appState.conversationalAwarenessVolume, valueRange = 10f..85f,
                 snapPoints = listOf(44f), startLabel = "10%", endLabel = "85%",
                 onValueChange = { appSettingsViewModel.setConversationalAwarenessVolume(it) },
-                independent = true, enabled = appState.isPremium)
+                independent = true, enabled = subEnabled)
         }
 
         // ── ⚠ Xposed-gated ────────────────────────────────────────────────────
