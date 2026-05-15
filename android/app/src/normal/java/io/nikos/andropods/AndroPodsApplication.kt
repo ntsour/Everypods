@@ -7,7 +7,7 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import io.nikos.andropods.billing.BillingManager
 import io.nikos.andropods.billing.BillingProviderFactory
 
-class LibrePodsApplication: Application(), DefaultLifecycleObserver {
+class AndroPodsApplication: Application(), DefaultLifecycleObserver {
     override fun onCreate() {
         BillingManager.provider = BillingProviderFactory.create(this)
         ProcessLifecycleOwner.get().lifecycle.addObserver(this)

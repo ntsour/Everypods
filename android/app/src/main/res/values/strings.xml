@@ -1,5 +1,5 @@
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
-    <string name="app_name" translatable="false">LibrePods</string>
+    <string name="app_name" translatable="false">AndroPods</string>
     <string name="app_description">Liberate your AirPods from Apple\'s ecosystem.</string>
     <string name="app_widget_description">See your AirPods battery status right from your home screen!</string>
     <string name="accessibility">Accessibility</string>
@@ -186,7 +186,7 @@
     <string name="custom_camera_package">Custom Camera appid</string>
     <string name="custom_camera_package_set_success">Custom camera appid set successfully</string>
     <string name="app_listener_service_label">Camera listener</string>
-    <string name="app_listener_service_description">Listener service for LibrePods to detect when the camera is active to activate camera control on AirPods.</string>
+    <string name="app_listener_service_description">Listener service for AndroPods to detect when the camera is active to activate camera control on AirPods.</string>
     <string name="open_source_licenses">Open Source Licenses</string>
     <string name="hearing_test">Update Hearing Test</string>
     <string name="update_hearing_test">Update Hearing Test Result</string>
@@ -228,7 +228,7 @@
     <string name="automatic_connection_description">Enable and customize automatic connection to AirPods.</string>
     <string name="customizations_description">Get access to app customizations, including phone battery in widget, conversational awareness volume, and many more upcoming customization features.</string>
     <string name="support_the_development">Support the development</string>
-    <string name="support_development_description">LibrePods is developed by a single developer. Upgrading helps keep the app alive.</string>
+    <string name="support_development_description">AndroPods is developed by a single developer. Upgrading helps keep the app alive.</string>
     <string name="feature_availability_disclaimer">Feature availability depends on your AirPods model and firmware version.</string>
     <string name="contact">Contact</string>
     <string name="email">E-Mail</string>

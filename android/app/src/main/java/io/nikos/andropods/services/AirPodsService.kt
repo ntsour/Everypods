@@ -1,6 +1,6 @@
 /*
-    LibrePods - AirPods liberated from Apple’s ecosystem
-    Copyright (C) 2025 LibrePods contributors
+    AndroPods - AirPods liberated from Apple’s ecosystem
+    Copyright (C) 2025 AndroPods contributors
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -2243,7 +2243,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             .setSmallIcon(R.drawable.airpods).setContentTitle("AirPods Connection Issue")
             .setContentText("Unable to connect to AirPods over L2CAP").setStyle(
                 NotificationCompat.BigTextStyle().bigText(
-                    "Your AirPods are connected via Bluetooth, but LibrePods couldn't connect to AirPods using L2CAP. Error: $errorMessage"
+                    "Your AirPods are connected via Bluetooth, but AndroPods couldn't connect to AirPods using L2CAP. Error: $errorMessage"
                 )
             ).setContentIntent(pendingIntent).setCategory(Notification.CATEGORY_ERROR)
             .setPriority(NotificationCompat.PRIORITY_HIGH).setAutoCancel(true).build()

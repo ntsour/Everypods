@@ -1,6 +1,6 @@
 /*
-    LibrePods - AirPods liberated from Apple’s ecosystem
-    Copyright (C) 2025 LibrePods contributors
+    AndroPods - AirPods liberated from Apple’s ecosystem
+    Copyright (C) 2025 AndroPods contributors
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -173,7 +173,7 @@ import io.nikos.andropods.presentation.screens.DiscordCommunityScreen
 import io.nikos.andropods.presentation.screens.GitHubIssuesScreen
 import io.nikos.andropods.presentation.screens.GymPressActionsScreen
 import io.nikos.andropods.presentation.screens.GymTimerScreen
-import io.nikos.andropods.presentation.theme.LibrePodsTheme
+import io.nikos.andropods.presentation.theme.AndroPodsTheme
 import io.nikos.andropods.presentation.viewmodel.AirPodsViewModel
 import io.nikos.andropods.presentation.viewmodel.AppSettingsViewModel
 import io.nikos.andropods.presentation.viewmodel.PurchaseViewModel
@@ -203,7 +203,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         setContent {
-            LibrePodsTheme {
+            AndroPodsTheme {
                 Main()
             }
         }

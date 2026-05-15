@@ -1,6 +1,6 @@
 /*
-    LibrePods - AirPods liberated from Apple's ecosystem
-    Copyright (C) 2025 LibrePods contributors
+    AndroPods - AirPods liberated from Apple's ecosystem
+    Copyright (C) 2025 AndroPods contributors
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -174,7 +174,7 @@ fun AppPermissionsScreen() {
             Spacer(Modifier.height(topPadding))
 
             Text(
-                "Grant the permissions LibrePods needs to function correctly.",
+                "Grant the permissions AndroPods needs to function correctly.",
                 style = TextStyle(fontSize = 14.sp, fontFamily = PermSfPro, color = textColor.copy(0.6f))
             )
 
@@ -235,7 +235,7 @@ fun AppPermissionsScreen() {
             ) {
                 Text("⚠", style = TextStyle(fontSize = 14.sp, color = orange))
                 Text(
-                    "Special permissions give LibrePods deeper system access. They are used " +
+                    "Special permissions give AndroPods deeper system access. They are used " +
                     "only for the features described below. You can revoke them at any time in system settings.",
                     style = TextStyle(fontSize = 12.sp, fontFamily = PermSfPro, color = orange)
                 )

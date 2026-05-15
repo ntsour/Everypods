@@ -1,6 +1,6 @@
 /*
-    LibrePods - AirPods liberated from Apple’s ecosystem
-    Copyright (C) 2025 LibrePods contributors
+    AndroPods - AirPods liberated from Apple’s ecosystem
+    Copyright (C) 2025 AndroPods contributors
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -92,7 +92,7 @@ import io.nikos.andropods.presentation.components.VerticalVolumeSlider
 import io.nikos.andropods.data.AirPodsNotifications
 import io.nikos.andropods.data.NoiseControlMode
 import io.nikos.andropods.services.AirPodsService
-import io.nikos.andropods.presentation.theme.LibrePodsTheme
+import io.nikos.andropods.presentation.theme.AndroPodsTheme
 import io.nikos.andropods.bluetooth.AACPManager
 import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlin.math.abs
@@ -111,7 +111,7 @@ class QuickSettingsDialogActivity : ComponentActivity() {
             isBound = true
             Log.d("QSActivity", "Service bound")
             setContent {
-                LibrePodsTheme {
+                AndroPodsTheme {
                     DraggableDismissBox(
                         onDismiss = { finish() },
                         onlyCollapseWhenClicked = {
@@ -155,7 +155,7 @@ class QuickSettingsDialogActivity : ComponentActivity() {
         }
 
         setContent {
-            LibrePodsTheme {
+            AndroPodsTheme {
                 DraggableDismissBox(
                     onDismiss = { finish() },
                     onlyCollapseWhenClicked = {

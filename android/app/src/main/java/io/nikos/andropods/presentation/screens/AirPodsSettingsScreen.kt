@@ -1,6 +1,6 @@
 /*
-    LibrePods - AirPods liberated from Apple's ecosystem
-    Copyright (C) 2025 LibrePods contributors
+    AndroPods - AirPods liberated from Apple's ecosystem
+    Copyright (C) 2025 AndroPods contributors
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -512,7 +512,7 @@ fun AirPodsSettingsScreen(
                         val intent = Intent(Intent.ACTION_SENDTO).apply {
                             data = "mailto:".toUri()
                             putExtra(Intent.EXTRA_EMAIL, arrayOf("contact@kavish.xyz"))
-                            putExtra(Intent.EXTRA_SUBJECT, "LibrePods: ${subjectState.text}")
+                            putExtra(Intent.EXTRA_SUBJECT, "AndroPods: ${subjectState.text}")
                             putExtra(Intent.EXTRA_TEXT,
                                 "${descriptionState.text}\n\n----------" +
                                 "\nMANUFACTURER: ${Build.MANUFACTURER}" +

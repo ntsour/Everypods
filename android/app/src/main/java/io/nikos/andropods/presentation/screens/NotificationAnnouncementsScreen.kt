@@ -1,6 +1,6 @@
 /*
-    LibrePods - AirPods liberated from Apple's ecosystem
-    Copyright (C) 2025 LibrePods contributors
+    AndroPods - AirPods liberated from Apple's ecosystem
+    Copyright (C) 2025 AndroPods contributors
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -200,7 +200,7 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
                     label = "Notification access",
                     granted = notifAccess,
                     hint = if (!notifAccess)
-                        "Enable \"LibrePods Notification Announcements\" in the list (LibrePods has two entries — pick this one, not Teams Mute Sync)."
+                        "Enable \"AndroPods Notification Announcements\" in the list (AndroPods has two entries — pick this one, not Teams Mute Sync)."
                     else null,
                     onClick = { NotificationAnnouncementService.openAccessSettings(context) }
                 )

@@ -11,7 +11,7 @@ import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
 import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam
 
-private const val TAG = "LibrePodsHook"
+private const val TAG = "AndroPodsHook"
 
 @SuppressLint("DiscouragedApi", "PrivateApi")
 class KotlinModule: XposedModule() {

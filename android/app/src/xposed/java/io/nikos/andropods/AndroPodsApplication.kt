@@ -11,7 +11,7 @@ import io.nikos.andropods.billing.BillingProviderFactory
 import io.nikos.andropods.utils.XposedServiceHolder
 import io.nikos.andropods.utils.XposedState
 
-class LibrePodsApplication: Application(), XposedServiceHelper.OnServiceListener, DefaultLifecycleObserver {
+class AndroPodsApplication: Application(), XposedServiceHelper.OnServiceListener, DefaultLifecycleObserver {
     override fun onCreate() {
         XposedServiceHelper.registerListener(this)
         BillingManager.provider = BillingProviderFactory.create(this)

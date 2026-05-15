@@ -1,6 +1,6 @@
 /*
-    LibrePods - AirPods liberated from Apple's ecosystem
-    Copyright (C) 2025 LibrePods contributors
+    AndroPods - AirPods liberated from Apple's ecosystem
+    Copyright (C) 2025 AndroPods contributors
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -199,7 +199,7 @@ object TtsEngine {
         if (wakeLock?.isHeld == true) return
         try {
             val pm = ctx.getSystemService(Context.POWER_SERVICE) as PowerManager
-            val wl = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "LibrePods:TtsEngine")
+            val wl = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "AndroPods:TtsEngine")
             wl.setReferenceCounted(false)
             wl.acquire(15_000L)  // safety upper bound; usually released in onDone
             wakeLock = wl

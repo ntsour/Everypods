@@ -1,6 +1,6 @@
 /*
-    LibrePods - AirPods liberated from Apple’s ecosystem
-    Copyright (C) 2025 LibrePods contributors
+    AndroPods - AirPods liberated from Apple’s ecosystem
+    Copyright (C) 2025 AndroPods contributors
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
 */
 
  /* This is a very basic ATT (Attribute Protocol) implementation. I have only implemented
-  * what is necessary for LibrePods to function, i.e. reading and writing characteristics,
+  * what is necessary for AndroPods to function, i.e. reading and writing characteristics,
   * and receiving notifications. It is not a complete implementation of the ATT protocol.
  */
 

@@ -1,6 +1,6 @@
 /*
-    LibrePods - AirPods liberated from Apple's ecosystem
-    Copyright (C) 2025 LibrePods contributors
+    AndroPods - AirPods liberated from Apple's ecosystem
+    Copyright (C) 2025 AndroPods contributors
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -44,7 +44,7 @@ import io.nikos.andropods.utils.TtsEngine
  *
  * Requires Notification access (Settings → Apps → Special access → Notification
  * access). The same grant flow used for CallNotifListener applies — the user
- * must enable LibrePods in that list.
+ * must enable AndroPods in that list.
  */
 class NotificationAnnouncementService : NotificationListenerService() {
 
