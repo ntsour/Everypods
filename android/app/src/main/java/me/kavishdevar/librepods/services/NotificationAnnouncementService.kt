@@ -43,7 +43,7 @@ import me.kavishdevar.librepods.utils.TtsEngine
  * pass; per-app filtering and quiet hours come in Phase C.
  *
  * Requires Notification access (Settings → Apps → Special access → Notification
- * access). The same grant flow used for TeamsNotifListener applies — the user
+ * access). The same grant flow used for CallNotifListener applies — the user
  * must enable LibrePods in that list.
  */
 class NotificationAnnouncementService : NotificationListenerService() {
@@ -68,7 +68,7 @@ class NotificationAnnouncementService : NotificationListenerService() {
             ) ?: return false
             // Each NotificationListenerService in the manifest gets its own entry in
             // Android's Notification Access settings (distinguished by android:label).
-            // We need THIS specific service enabled; TeamsNotifListener being on
+            // We need THIS specific service enabled; CallNotifListener being on
             // doesn't bind us. Trim() each entry — Settings.Secure value can have
             // trailing newlines.
             val cn = "${context.packageName}/${NotificationAnnouncementService::class.java.name}"

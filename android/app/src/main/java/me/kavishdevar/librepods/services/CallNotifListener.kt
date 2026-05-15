@@ -26,24 +26,25 @@ import android.service.notification.StatusBarNotification
 import android.util.Log
 
 /**
- * Watches the ongoing-call notification posted by Microsoft Teams (and a few
- * variants) and caches the action PendingIntents. AirPodsService can then call
- * [setMuted] / [hangUp] to fire the right one — Teams reacts as if the user
- * tapped the button in the notification, keeping its in-app UI in sync.
+ * Watches ongoing-call notifications from VoIP apps (Teams, Viber, ...) and
+ * caches their action PendingIntents. AirPodsService can then call [setMuted] /
+ * [hangUp] to fire the right one — the app reacts as if the user tapped the
+ * button in the notification, keeping its in-app UI in sync.
  *
  * Requires the user to grant Notification access (Settings → Apps → Special
  * access → Notification access). Use [isAccessGranted] / [openAccessSettings]
  * from UI to drive the grant flow.
  */
-class TeamsNotifListener : NotificationListenerService() {
+class CallNotifListener : NotificationListenerService() {
 
     companion object {
-        private const val TAG = "TeamsNotifListener"
+        private const val TAG = "CallNotifListener"
 
-        private val TEAMS_PACKAGES = setOf(
+        private val WATCHED_PACKAGES = setOf(
             "com.microsoft.teams",
             "com.microsoft.teams.ipphone",
             "com.microsoft.teams2",
+            "com.viber.voip",
         )
 
         @Volatile private var muteAction: Notification.Action? = null
@@ -55,7 +56,7 @@ class TeamsNotifListener : NotificationListenerService() {
             val flat = Settings.Secure.getString(
                 context.contentResolver, "enabled_notification_listeners"
             ) ?: return false
-            val cn = "${context.packageName}/${TeamsNotifListener::class.java.name}"
+            val cn = "${context.packageName}/${CallNotifListener::class.java.name}"
             return flat.split(":").any { it.trim() == cn }
         }
 
@@ -113,7 +114,7 @@ class TeamsNotifListener : NotificationListenerService() {
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
-        if (sbn.packageName !in TEAMS_PACKAGES) return
+        if (sbn.packageName !in WATCHED_PACKAGES) return
         if (sbn.key == lastSeenKey) {
             Log.d(TAG, "Call notification removed; clearing cached actions")
             muteAction = null
@@ -124,7 +125,7 @@ class TeamsNotifListener : NotificationListenerService() {
     }
 
     private fun handle(sbn: StatusBarNotification) {
-        if (sbn.packageName !in TEAMS_PACKAGES) return
+        if (sbn.packageName !in WATCHED_PACKAGES) return
         val n = sbn.notification ?: return
         val actions = n.actions ?: return
 

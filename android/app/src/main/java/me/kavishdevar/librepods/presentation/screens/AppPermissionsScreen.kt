@@ -69,7 +69,7 @@ import androidx.core.app.ActivityCompat
 import me.kavishdevar.librepods.R
 import me.kavishdevar.librepods.presentation.components.StyledScaffold
 import me.kavishdevar.librepods.services.AppListenerService
-import me.kavishdevar.librepods.services.TeamsNotifListener
+import me.kavishdevar.librepods.services.CallNotifListener
 
 private val PermSfPro get() = FontFamily(Font(R.font.sf_pro))
 
@@ -124,7 +124,7 @@ fun AppPermissionsScreen() {
         phoneGranted        = isGranted(Manifest.permission.READ_PHONE_STATE) && isGranted(Manifest.permission.ANSWER_PHONE_CALLS)
         contactsGranted     = isGranted(Manifest.permission.READ_CONTACTS)
         overlayGranted      = Settings.canDrawOverlays(context)
-        notifAccessGranted  = TeamsNotifListener.isAccessGranted(context)
+        notifAccessGranted  = CallNotifListener.isAccessGranted(context)
         cameraAccessGranted = isAppListenerEnabled()
     }
 
@@ -256,9 +256,9 @@ fun AppPermissionsScreen() {
                 RowDivider()
                 PermissionRow(
                     title = "Notification Access",
-                    description = "Sync mute state with Teams; announce notifications aloud",
+                    description = "Sync mute state with Teams/Viber; announce notifications aloud",
                     granted = notifAccessGranted, dark = dark, accent = accent, green = green
-                ) { TeamsNotifListener.openAccessSettings(context) }
+                ) { CallNotifListener.openAccessSettings(context) }
                 RowDivider()
                 PermissionRow(
                     title = "Accessibility — Camera Listener",

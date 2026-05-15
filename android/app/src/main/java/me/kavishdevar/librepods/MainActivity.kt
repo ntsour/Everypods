@@ -178,7 +178,7 @@ import me.kavishdevar.librepods.presentation.viewmodel.AirPodsViewModel
 import me.kavishdevar.librepods.presentation.viewmodel.AppSettingsViewModel
 import me.kavishdevar.librepods.presentation.viewmodel.PurchaseViewModel
 import me.kavishdevar.librepods.services.AirPodsService
-import me.kavishdevar.librepods.services.TeamsNotifListener
+import me.kavishdevar.librepods.services.CallNotifListener
 import me.kavishdevar.librepods.utils.XposedState
 import me.kavishdevar.librepods.utils.isSupported
 import kotlin.io.encoding.ExperimentalEncodingApi
@@ -806,11 +806,11 @@ fun PermissionsScreen(
 
     val basicPermissionsGranted = permissionState.permissions.all { it.status.isGranted }
 
-    var notifAccessGranted by remember { mutableStateOf(TeamsNotifListener.isAccessGranted(context)) }
+    var notifAccessGranted by remember { mutableStateOf(CallNotifListener.isAccessGranted(context)) }
     LaunchedEffect(Unit) {
         while (true) {
             kotlinx.coroutines.delay(1000)
-            notifAccessGranted = TeamsNotifListener.isAccessGranted(context)
+            notifAccessGranted = CallNotifListener.isAccessGranted(context)
         }
     }
 
@@ -955,7 +955,7 @@ fun PermissionsScreen(
             onClick = {
                 permissionState.launchMultiplePermissionRequest()
                 if (!notifAccessGranted) {
-                    TeamsNotifListener.openAccessSettings(context)
+                    CallNotifListener.openAccessSettings(context)
                 }
             },
             modifier = Modifier
@@ -1011,7 +1011,7 @@ fun PermissionsScreen(
         Spacer(modifier = Modifier.height(12.dp))
 
         Button(
-            onClick = { TeamsNotifListener.openAccessSettings(context) },
+            onClick = { CallNotifListener.openAccessSettings(context) },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(55.dp),

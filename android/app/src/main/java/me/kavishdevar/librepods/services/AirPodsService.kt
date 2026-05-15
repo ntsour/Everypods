@@ -1560,7 +1560,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         // Sync Teams' in-app mute UI by firing the Mute/Unmute action from its
         // ongoing-call notification. Teams on Android skips the Telecom framework,
         // so this notification-listener route is the only path that works.
-        TeamsNotifListener.setMuted(nowMuted)
+        CallNotifListener.setMuted(nowMuted)
 
         // Same confirmation tone as head gestures: confirm_no for mute, confirm_yes for unmute.
         initGestureDetector()
@@ -2643,7 +2643,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             if (!accepted) {
                 if (!audioManager.isMicrophoneMute) {
                     audioManager.setMicrophoneMute(true)
-                    TeamsNotifListener.setMuted(true)
+                    CallNotifListener.setMuted(true)
                     sendToast("Mic muted")
                     Log.d(TAG, "Gesture mute: shake → muted")
                     startMutedReminder()
@@ -2651,7 +2651,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             } else {
                 if (audioManager.isMicrophoneMute) {
                     audioManager.setMicrophoneMute(false)
-                    TeamsNotifListener.setMuted(false)
+                    CallNotifListener.setMuted(false)
                     sendToast("Mic unmuted")
                     Log.d(TAG, "Gesture unmute: nod → unmuted")
                     stopMutedReminder()
@@ -2735,7 +2735,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         // own Hang up notification action first; fall back to a HEADSETHOOK media
         // key event for other VoIP apps.
         if (!telecomEnded) {
-            val teamsHandled = TeamsNotifListener.hangUp()
+            val teamsHandled = CallNotifListener.hangUp()
             if (teamsHandled) {
                 Log.d(TAG, "rejectCall: ended via Teams notification action")
                 sendToast("Teams call ended")
