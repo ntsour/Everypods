@@ -209,13 +209,19 @@ object MediaController {
 
     @Synchronized
     fun sendPlayPause() {
-        if (audioManager.isMusicActive) {
-            Log.d("MediaController", "Sending pause because music is active")
-            sendPause()
-        } else {
-            Log.d("MediaController", "Sending play because music is not active")
-            sendPlay()
-        }
+        val wasActive = audioManager.isMusicActive
+        Log.d("MediaController", "Sending play/pause toggle (wasActive=$wasActive)")
+        audioManager.dispatchMediaKeyEvent(
+            KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)
+        )
+        audioManager.dispatchMediaKeyEvent(
+            KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)
+        )
+        lastSelfActionAt = SystemClock.uptimeMillis()
+        // If music was active, this press paused it → remember so auto-resume on ear-in works.
+        // If music was not active, this press is a play → clear the pause flag.
+        iPausedTheMedia = wasActive
+        if (wasActive) userPlayedTheMedia = false
     }
 
     @Synchronized

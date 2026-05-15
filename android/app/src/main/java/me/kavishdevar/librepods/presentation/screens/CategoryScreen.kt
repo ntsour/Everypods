@@ -229,6 +229,7 @@ private fun ControlsContent(
             ExternalSectionHeader("Stem Actions", dark)
             Column(
                 Modifier.fillMaxWidth()
+                    .background(cardColor, RoundedCornerShape(18.dp))
                     .padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {

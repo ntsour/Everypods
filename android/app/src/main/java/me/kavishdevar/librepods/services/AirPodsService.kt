@@ -1009,14 +1009,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         // the default behavior is identical to firmware-native handling.
         val gymMode = config.gymModeEnabled
         val singlePressCustomized = true
-        val doublePressCustomized = inCall || gymMode ||
-            isCustomAction(config.leftDoublePressAction, doublePressDefault) || isCustomAction(
-                config.rightDoublePressAction, doublePressDefault
-            )
-        val triplePressCustomized = gymMode ||
-            isCustomAction(config.leftTriplePressAction, triplePressDefault) || isCustomAction(
-                config.rightTriplePressAction, triplePressDefault
-            )
+        val doublePressCustomized = true
+        val triplePressCustomized = true
         val longPressCustomized = gymMode || isCustomAction(
             config.leftLongPressAction, longPressDefault
         ) || isCustomAction(

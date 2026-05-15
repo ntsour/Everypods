@@ -437,10 +437,13 @@ class AirPodsViewModel(
     }
 
     private fun loadControlList() {
+        val map = controlRepo.getMap().toMutableMap()
+        if (!map.containsKey(ControlCommandIdentifiers.LISTENING_MODE_CONFIGS)) {
+            val saved = sharedPreferences.getInt("long_press_byte", 0b0111)
+            map[ControlCommandIdentifiers.LISTENING_MODE_CONFIGS] = byteArrayOf(saved.toByte())
+        }
         _uiState.update {
-            it.copy(
-                controlStates = controlRepo.getMap()
-            )
+            it.copy(controlStates = map)
         }
     }
 
