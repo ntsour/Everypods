@@ -6,5 +6,5 @@
     android:canPerformGestures="true"
     android:label="@string/app_listener_service_label"
     android:description="@string/app_listener_service_description"
-    android:settingsActivity="me.kavishdevar.librepods.MainActivity"
+    android:settingsActivity="io.nikos.andropods.MainActivity"
     android:accessibilityFlags="flagReportViewIds"/>
