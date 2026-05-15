@@ -121,6 +121,13 @@ class NotificationAnnouncementService : NotificationListenerService() {
         announceText(text)
     }
 
+    private fun isMediaStyleNotification(n: Notification): Boolean {
+        val extras = n.extras ?: return false
+        if (extras.containsKey(Notification.EXTRA_MEDIA_SESSION)) return true
+        val template = extras.getString(Notification.EXTRA_TEMPLATE) ?: return false
+        return template.contains("MediaStyle")
+    }
+
     private fun isDuplicateAnnouncement(sbn: StatusBarNotification, text: String): Boolean {
         val now = System.currentTimeMillis()
         synchronized(recentAnnouncements) {
@@ -154,6 +161,11 @@ class NotificationAnnouncementService : NotificationListenerService() {
         if (n.flags and Notification.FLAG_ONGOING_EVENT != 0) return false
         if (n.flags and Notification.FLAG_FOREGROUND_SERVICE != 0) return false
         if (n.flags and Notification.FLAG_GROUP_SUMMARY != 0) return false
+
+        if (isMediaStyleNotification(n)) {
+            Log.d(TAG, "Skip ${sbn.packageName} — media-style playback notification")
+            return false
+        }
 
         if (!AnnouncementPrefs.isEnabled(applicationContext)) return false
         // Per-app opt-out: default on. User can silence specific apps via "Choose apps".
