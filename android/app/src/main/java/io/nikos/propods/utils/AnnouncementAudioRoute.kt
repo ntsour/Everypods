@@ -19,50 +19,17 @@
 package io.nikos.propods.utils
 
 import android.content.Context
-import android.media.AudioDeviceInfo
-import android.media.AudioManager
-import android.media.MediaRouter
 import android.util.Log
+import io.nikos.propods.services.ServiceManager
 
 object AnnouncementAudioRoute {
     private const val TAG = "AnnouncementRoute"
 
-    fun canAnnounceToAirPods(context: Context): Boolean = canAnnounceToBluetoothAudio(context)
-
-    fun canAnnounceToBluetoothAudio(context: Context): Boolean {
-        val appContext = context.applicationContext
-        val audioManager = appContext
-            .getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        val mediaRouter = appContext
-            .getSystemService(Context.MEDIA_ROUTER_SERVICE) as MediaRouter
-
-        val selectedRoute = mediaRouter.getSelectedRoute(MediaRouter.ROUTE_TYPE_LIVE_AUDIO)
-        val selectedRouteIsBluetooth =
-            selectedRoute?.deviceType == MediaRouter.RouteInfo.DEVICE_TYPE_BLUETOOTH
-
-        val availableBluetoothOutputs = audioManager
-            .getDevices(AudioManager.GET_DEVICES_OUTPUTS)
-            .filter { it.isBluetoothAudioSink() }
-
-        if (!selectedRouteIsBluetooth) {
-            Log.d(
-                TAG,
-                "Skipping announcement: selected media route is not Bluetooth " +
-                    "(selected=${selectedRoute?.name}:${selectedRoute?.deviceType}, " +
-                    "btOutputs=${availableBluetoothOutputs.map { it.routeLabel() }})"
-            )
+    fun canAnnounceToAirPods(context: Context): Boolean {
+        val connected = ServiceManager.getService()?.isConnected() == true
+        if (!connected) {
+            Log.d(TAG, "Skipping announcement — AirPods not connected (AACP)")
         }
-        return selectedRouteIsBluetooth && availableBluetoothOutputs.isNotEmpty()
-    }
-
-    private fun AudioDeviceInfo.isBluetoothAudioSink(): Boolean {
-        return type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
-            type == AudioDeviceInfo.TYPE_BLE_HEADSET ||
-            type == AudioDeviceInfo.TYPE_BLE_SPEAKER ||
-            type == AudioDeviceInfo.TYPE_HEARING_AID
-    }
-
-    private fun AudioDeviceInfo.routeLabel(): String {
-        return "${productName ?: "unknown"}:${type}"
+        return connected
     }
 }
