@@ -20,8 +20,8 @@
 
 package io.nikos.propods.services
 
-//import io.nikos.propods.utils.CrossDevice
-//import io.nikos.propods.utils.CrossDevicePackets
+import io.nikos.propods.utils.CrossDevice
+import io.nikos.propods.utils.CrossDevicePackets
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Notification
@@ -708,11 +708,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 "settings", MODE_PRIVATE
             )
         )
-//        Log.d(TAG, "Initializing CrossDevice")
-//        CoroutineScope(Dispatchers.IO).launch {
-//            CrossDevice.init(this@AirPodsService)
-//            Log.d(TAG, "CrossDevice initialized")
-//        }
+        Log.d(TAG, "Initializing CrossDevice")
+        CrossDevice.init(this@AirPodsService)
 
         sharedPreferences = getSharedPreferences("settings", MODE_PRIVATE)
         macAddress = sharedPreferences.getString("mac_address", "") ?: ""
@@ -1042,8 +1039,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                         .getString("name", device?.name),
                     batteryNotification.getBattery()
                 )
-//                CrossDevice.sendRemotePacket(batteryInfo)
-//                CrossDevice.batteryBytes = batteryInfo
+                CrossDevice.sendRemotePacket(batteryInfo)
+                CrossDevice.batteryBytes = batteryInfo
 
                 for (battery in batteryNotification.getBattery()) {
                     Log.d(
@@ -3167,10 +3164,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         }
 
         Log.d(TAG, "Taking over audio")
-//        CrossDevice.sendRemotePacket(CrossDevicePackets.REQUEST_DISCONNECT.packet)
+        CrossDevice.sendRemotePacket(CrossDevicePackets.REQUEST_DISCONNECT.packet)
         Log.d(TAG, macAddress)
 
-//        sharedPreferences.edit { putBoolean("CrossDeviceIsAvailable", false) }
+        CrossDevice.isAvailable = false
         val bluetoothManager = getSystemService(BluetoothManager::class.java)
         val bluetoothAdapter = bluetoothManager.adapter
         device = bluetoothAdapter.bondedDevices.find {
@@ -3202,7 +3199,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             IslandType.TAKING_OVER
         )
 
-//        CrossDevice.isAvailable = false
+        CrossDevice.isAvailable = false
     }
 
     private fun createBluetoothSocket(
@@ -3679,8 +3676,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
             override fun onServiceDisconnected(profile: Int) {}
         }, BluetoothProfile.A2DP)
-//        isConnectedLocally = false
-//        CrossDevice.isAvailable = true
+        CrossDevice.isAvailable = true
+        CrossDevice.notifyDisconnected()
     }
 
     fun disconnectAirPods() {
@@ -3748,16 +3745,16 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }
 
     fun getBattery(): List<Battery> {
-//        if (!isConnectedLocally && CrossDevice.isAvailable) {
-//            batteryNotification.setBattery(CrossDevice.batteryBytes)
-//        }
+        if (!isConnected() && CrossDevice.isAvailable && CrossDevice.batteryBytes.isNotEmpty()) {
+            batteryNotification.setBattery(CrossDevice.batteryBytes)
+        }
         return batteryNotification.getBattery()
     }
 
     fun getANC(): Int {
-//        if (!isConnectedLocally && CrossDevice.isAvailable) {
-//            ancNotification.setStatus(CrossDevice.ancBytes)
-//        }
+        if (!isConnected() && CrossDevice.isAvailable && CrossDevice.ancBytes.isNotEmpty()) {
+            ancNotification.setStatus(CrossDevice.ancBytes)
+        }
         return ancNotification.status
     }
 
@@ -3955,8 +3952,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         } catch (e: Exception) {
             e.printStackTrace()
         }
-//        isConnectedLocally = false
-//        CrossDevice.isAvailable = true
+        CrossDevice.isAvailable = true
+        CrossDevice.close()
         super.onDestroy()
     }
 
