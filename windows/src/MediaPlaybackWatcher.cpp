@@ -109,6 +109,54 @@ bool MediaPlaybackWatcher::anyPlaying() const {
     return false;
 }
 
+bool MediaPlaybackWatcher::tryPauseActive() {
+    if (!m_manager) return false;
+    try {
+        auto session = m_manager.GetCurrentSession();
+        if (!session) {
+            log::debug("tryPauseActive: no current session");
+            return false;
+        }
+        auto status = session.GetPlaybackInfo().PlaybackStatus();
+        if (status != Playing) {
+            log::debug("tryPauseActive: current session not playing (status={})", (int)status);
+            return false;
+        }
+        log::info("Pausing local media session: {}", to_string(session.SourceAppUserModelId()));
+        bool ok = session.TryPauseAsync().get();
+        if (!ok) log::warn("TryPauseAsync returned false (app may not support pause)");
+        return ok;
+    } catch (const hresult_error& e) {
+        log::warn("tryPauseActive failed: 0x{:08X} {}",
+            (std::uint32_t)e.code().value, to_string(e.message()));
+        return false;
+    }
+}
+
+bool MediaPlaybackWatcher::tryPlayActive() {
+    if (!m_manager) return false;
+    try {
+        auto session = m_manager.GetCurrentSession();
+        if (!session) {
+            log::debug("tryPlayActive: no current session");
+            return false;
+        }
+        auto status = session.GetPlaybackInfo().PlaybackStatus();
+        if (status == Playing) {
+            log::debug("tryPlayActive: current session already playing");
+            return true;
+        }
+        log::info("Resuming local media session: {}", to_string(session.SourceAppUserModelId()));
+        bool ok = session.TryPlayAsync().get();
+        if (!ok) log::warn("TryPlayAsync returned false (app may not support play)");
+        return ok;
+    } catch (const hresult_error& e) {
+        log::warn("tryPlayActive failed: 0x{:08X} {}",
+            (std::uint32_t)e.code().value, to_string(e.message()));
+        return false;
+    }
+}
+
 void MediaPlaybackWatcher::emitIfChanged() {
     bool playing;
     {

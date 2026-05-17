@@ -7,6 +7,7 @@
 
 #include "AirPodsConnector.hpp"
 #include "BluetoothRfcommClient.hpp"
+#include "MediaPlaybackWatcher.hpp"
 
 namespace librepods {
 
@@ -20,7 +21,9 @@ class HandoverController {
 public:
     using StateChangedCallback = std::function<void(OwnershipState)>;
 
-    HandoverController(BluetoothRfcommClient& rfcomm, AirPodsConnector& airpods);
+    HandoverController(BluetoothRfcommClient& rfcomm,
+                       AirPodsConnector& airpods,
+                       MediaPlaybackWatcher& media);
 
     void setOnStateChanged(StateChangedCallback cb) { m_onStateChanged = std::move(cb); }
 
@@ -36,6 +39,7 @@ private:
 
     BluetoothRfcommClient& m_rfcomm;
     AirPodsConnector& m_airpods;
+    MediaPlaybackWatcher& m_media;
 
     std::atomic<OwnershipState> m_state{OwnershipState::Unknown};
 

@@ -159,8 +159,8 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int) {
 
     AirPodsConnector airpods{settings.airpodsAddress.value_or(0)};
     BluetoothRfcommClient rfcomm;
-    HandoverController controller{rfcomm, airpods};
     MediaPlaybackWatcher media;
+    HandoverController controller{rfcomm, airpods, media};
     TrayIcon tray;
 
     if (!tray.create(hInstance)) return 1;

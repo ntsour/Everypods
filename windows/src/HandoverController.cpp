@@ -9,8 +9,9 @@ namespace librepods {
 
 HandoverController::HandoverController(
     BluetoothRfcommClient& rfcomm,
-    AirPodsConnector& airpods)
-    : m_rfcomm(rfcomm), m_airpods(airpods) {}
+    AirPodsConnector& airpods,
+    MediaPlaybackWatcher& media)
+    : m_rfcomm(rfcomm), m_airpods(airpods), m_media(media) {}
 
 void HandoverController::setState(OwnershipState s) {
     auto previous = m_state.exchange(s);
@@ -56,6 +57,11 @@ void HandoverController::onMediaPlayingChanged(bool playing) {
     }
 
     log::info("Media started on Windows; requesting handover from Android");
+
+    // Pause local media so audio doesn't leak through PC speakers during the
+    // ~1s while AirPods are migrating. We'll resume it once we've claimed them.
+    const bool paused = m_media.tryPauseActive();
+
     if (m_rfcomm.isConnected()) {
         m_rfcomm.sendPacket(crossdevice::kRequestDisconnect);
     } else {
@@ -73,6 +79,17 @@ void HandoverController::onMediaPlayingChanged(bool playing) {
         }
         // Make AirPods the default audio render + capture device.
         m_airpods.setAsDefaultAudioDevice();
+
+        // Resume whatever we paused above, now that AirPods are the active route.
+        // Small delay lets the audio stack settle on the new endpoint first.
+        if (paused) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(250));
+            m_media.tryPlayActive();
+        }
+    } else if (paused) {
+        // Takeover failed — resume on whatever route we have so we don't leave
+        // the user with paused media for no reason.
+        m_media.tryPlayActive();
     }
 }
 
@@ -95,6 +112,10 @@ void HandoverController::onIncomingPacket(std::span<const std::uint8_t> data) {
                 break;
             }
             log::info("Android requested handover; disconnecting AirPods locally");
+            // Pause local media before the AirPods leave so audio doesn't suddenly
+            // route to (and play through) the PC speakers. The destination
+            // (Android) will resume its own media on its end.
+            m_media.tryPauseActive();
             m_airpods.disconnect();
             setState(OwnershipState::RemoteAndroid);
             m_lastLostOwnership = std::chrono::steady_clock::now();

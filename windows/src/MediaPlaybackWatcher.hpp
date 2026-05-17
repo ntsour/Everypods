@@ -27,6 +27,12 @@ public:
     void start();
     void stop();
 
+    // Send transport commands to the OS's currently-focused media session. Used
+    // by HandoverController to pause/resume local media around a handover so
+    // audio doesn't briefly leak through PC speakers during the ACL switch.
+    bool tryPauseActive();
+    bool tryPlayActive();
+
 private:
     void rebuildSubscriptions();
     bool anyPlaying() const;
