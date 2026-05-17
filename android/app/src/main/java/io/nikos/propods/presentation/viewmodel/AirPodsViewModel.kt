@@ -50,6 +50,7 @@ import io.nikos.propods.data.ControlCommandRepository
 import io.nikos.propods.data.StemAction
 import io.nikos.propods.data.XposedRemotePrefProvider
 import io.nikos.propods.services.AirPodsService
+import io.nikos.propods.utils.CrossDevice
 
 @Suppress("ArrayInDataClass")
 data class AirPodsUiState(
@@ -82,6 +83,7 @@ data class AirPodsUiState(
 
     val automaticEarDetectionEnabled: Boolean = true,
     val automaticConnectionEnabled: Boolean = true,
+    val crossDeviceEnabled: Boolean = false,
 
     val leftAction: StemAction = StemAction.CYCLE_NOISE_CONTROL_MODES,
     val rightAction: StemAction = StemAction.CYCLE_NOISE_CONTROL_MODES,
@@ -363,6 +365,8 @@ class AirPodsViewModel(
             sharedPreferences.getBoolean("automatic_ear_detection", true)
         val automaticConnectionEnabled =
             sharedPreferences.getBoolean("automatic_connection_ctrl_cmd", true)
+        val crossDeviceEnabled =
+            sharedPreferences.getBoolean("cross_device_enabled", false)
         val headGesturesEnabled = sharedPreferences.getBoolean("head_gestures_enabled", false)
         val headGesturesAnswerCall = sharedPreferences.getBoolean("head_gestures_answer_call", true)
         val headGesturesMuteCall = sharedPreferences.getBoolean("head_gestures_mute_call", true)
@@ -388,6 +392,7 @@ class AirPodsViewModel(
                 offListeningMode = offListeningModeEnabled,
                 automaticEarDetectionEnabled = automaticEarDetectionEnabled,
                 automaticConnectionEnabled = automaticConnectionEnabled,
+                crossDeviceEnabled = crossDeviceEnabled,
                 headGesturesEnabled = headGesturesEnabled,
                 headGesturesAnswerCall = headGesturesAnswerCall,
                 headGesturesMuteCall = headGesturesMuteCall,
@@ -569,6 +574,11 @@ class AirPodsViewModel(
                 automaticConnectionEnabled = enabled
             )
         }
+    }
+
+    fun setCrossDeviceEnabled(enabled: Boolean) {
+        CrossDevice.setEnabled(appContext, enabled)
+        _uiState.update { it.copy(crossDeviceEnabled = enabled) }
     }
 
     fun activateDemoMode() {

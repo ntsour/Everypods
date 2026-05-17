@@ -1,5 +1,5 @@
 /*
-    ProPods - AirPods liberated from Apple’s ecosystem
+    ProPods - AirPods liberated from Apple's ecosystem
     Copyright (C) 2025 ProPods contributors
 
     This program is free software: you can redistribute it and/or modify
@@ -37,6 +37,8 @@ import kotlin.io.encoding.ExperimentalEncodingApi
 
 @Composable
 fun ConnectionSettings(
+    crossDeviceEnabled: Boolean,
+    onCrossDeviceChanged: (Boolean) -> Unit,
     automaticEarDetectionEnabled: Boolean,
     onAutomaticEarDetectionChanged: (Boolean) -> Unit,
     automaticConnectionEnabled: Boolean,
@@ -51,6 +53,20 @@ fun ConnectionSettings(
             .background(backgroundColor, RoundedCornerShape(28.dp))
             .padding(top = 2.dp)
     ) {
+        StyledToggle(
+            label = stringResource(R.string.cross_device_handover),
+            description = stringResource(R.string.cross_device_handover_description),
+            independent = false,
+            checked = crossDeviceEnabled,
+            onCheckedChange = onCrossDeviceChanged
+        )
+        HorizontalDivider(
+            thickness = 1.dp,
+            color = Color(0x40888888),
+            modifier = Modifier
+                .padding(horizontal = 12.dp)
+        )
+
         StyledToggle(
             label = stringResource(R.string.ear_detection),
             independent = false,

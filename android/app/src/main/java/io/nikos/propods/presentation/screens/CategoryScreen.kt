@@ -1043,6 +1043,8 @@ private fun AudioContent(
         MenuDivider()
         Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
             ConnectionSettings(
+                crossDeviceEnabled = state.crossDeviceEnabled,
+                onCrossDeviceChanged = { viewModel.setCrossDeviceEnabled(it) },
                 automaticEarDetectionEnabled = state.automaticEarDetectionEnabled,
                 onAutomaticEarDetectionChanged = { viewModel.setAutomaticEarDetectionEnabled(it) },
                 automaticConnectionEnabled = state.automaticConnectionEnabled,
@@ -1068,20 +1070,20 @@ private fun AudioContent(
         MenuDivider()
         MenuSectionHeader(stringResource(R.string.takeover_airpods_state), dark)
         Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-            StyledToggle(label = stringResource(R.string.takeover_disconnected), description = stringResource(R.string.takeover_disconnected_desc), checked = appState.takeoverWhenDisconnected, onCheckedChange = appSettingsViewModel::setTakeoverWhenDisconnected, independent = true, enabled = appState.isPremium)
+            StyledToggle(label = stringResource(R.string.takeover_disconnected), description = stringResource(R.string.takeover_disconnected_desc), checked = appState.takeoverWhenDisconnected, onCheckedChange = appSettingsViewModel::setTakeoverWhenDisconnected, independent = true)
             Spacer(Modifier.height(4.dp))
-            StyledToggle(label = stringResource(R.string.takeover_idle), description = stringResource(R.string.takeover_idle_desc), checked = appState.takeoverWhenIdle, onCheckedChange = appSettingsViewModel::setTakeoverWhenIdle, independent = true, enabled = appState.isPremium)
+            StyledToggle(label = stringResource(R.string.takeover_idle), description = stringResource(R.string.takeover_idle_desc), checked = appState.takeoverWhenIdle, onCheckedChange = appSettingsViewModel::setTakeoverWhenIdle, independent = true)
             Spacer(Modifier.height(4.dp))
-            StyledToggle(label = stringResource(R.string.takeover_music), description = stringResource(R.string.takeover_music_desc), checked = appState.takeoverWhenMusic, onCheckedChange = appSettingsViewModel::setTakeoverWhenMusic, independent = true, enabled = appState.isPremium)
+            StyledToggle(label = stringResource(R.string.takeover_music), description = stringResource(R.string.takeover_music_desc), checked = appState.takeoverWhenMusic, onCheckedChange = appSettingsViewModel::setTakeoverWhenMusic, independent = true)
             Spacer(Modifier.height(4.dp))
-            StyledToggle(label = stringResource(R.string.takeover_call), description = stringResource(R.string.takeover_call_desc), checked = appState.takeoverWhenCall, onCheckedChange = appSettingsViewModel::setTakeoverWhenCall, independent = true, enabled = appState.isPremium)
+            StyledToggle(label = stringResource(R.string.takeover_call), description = stringResource(R.string.takeover_call_desc), checked = appState.takeoverWhenCall, onCheckedChange = appSettingsViewModel::setTakeoverWhenCall, independent = true)
         }
         MenuDivider()
         MenuSectionHeader(stringResource(R.string.takeover_phone_state), dark)
         Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-            StyledToggle(label = stringResource(R.string.takeover_ringing_call), description = stringResource(R.string.takeover_ringing_call_desc), checked = appState.takeoverWhenRingingCall, onCheckedChange = appSettingsViewModel::setTakeoverWhenRingingCall, independent = true, enabled = appState.isPremium)
+            StyledToggle(label = stringResource(R.string.takeover_ringing_call), description = stringResource(R.string.takeover_ringing_call_desc), checked = appState.takeoverWhenRingingCall, onCheckedChange = appSettingsViewModel::setTakeoverWhenRingingCall, independent = true)
             Spacer(Modifier.height(4.dp))
-            StyledToggle(label = stringResource(R.string.takeover_media_start), description = stringResource(R.string.takeover_media_start_desc), checked = appState.takeoverWhenMediaStart, onCheckedChange = appSettingsViewModel::setTakeoverWhenMediaStart, independent = true, enabled = appState.isPremium)
+            StyledToggle(label = stringResource(R.string.takeover_media_start), description = stringResource(R.string.takeover_media_start_desc), checked = appState.takeoverWhenMediaStart, onCheckedChange = appSettingsViewModel::setTakeoverWhenMediaStart, independent = true)
         }
     }
 }

@@ -53,6 +53,7 @@ object CrossDevice {
 
     @Volatile private var serverSocket: BluetoothServerSocket? = null
     @Volatile private var clientSocket: BluetoothSocket? = null
+    @Volatile private var isServerRunning: Boolean = false
 
     @SuppressLint("MissingPermission")
     fun init(context: Context) {
@@ -72,6 +73,11 @@ object CrossDevice {
 
     @SuppressLint("MissingPermission")
     private fun startServer(adapter: android.bluetooth.BluetoothAdapter) {
+        if (isServerRunning) {
+            Log.d(TAG, "Server already running, skipping start")
+            return
+        }
+        isServerRunning = true
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 serverSocket = adapter.listenUsingRfcommWithServiceRecord("ProPodsCrossDevice", UUID_CROSS_DEVICE)
@@ -228,5 +234,20 @@ object CrossDevice {
         serverSocket = null
         clientSocket = null
         isAvailable = false
+        isEnabled = false
+        isServerRunning = false
+    }
+
+    @SuppressLint("MissingPermission")
+    fun setEnabled(context: Context, enabled: Boolean) {
+        context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean("cross_device_enabled", enabled)
+            .apply()
+        if (enabled) {
+            init(context)
+        } else {
+            close()
+        }
     }
 }

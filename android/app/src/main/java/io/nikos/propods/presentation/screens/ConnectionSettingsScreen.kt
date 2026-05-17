@@ -36,6 +36,8 @@ fun ConnectionSettingsScreen(viewModel: AirPodsViewModel) {
             Spacer(Modifier.height(topPadding))
             
             ConnectionSettings(
+                crossDeviceEnabled = state.crossDeviceEnabled,
+                onCrossDeviceChanged = viewModel::setCrossDeviceEnabled,
                 automaticEarDetectionEnabled = state.automaticEarDetectionEnabled,
                 onAutomaticEarDetectionChanged = viewModel::setAutomaticEarDetectionEnabled,
                 automaticConnectionEnabled = state.automaticConnectionEnabled,
