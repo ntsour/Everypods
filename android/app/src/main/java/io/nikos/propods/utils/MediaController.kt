@@ -20,9 +20,14 @@
 
 package io.nikos.propods.utils
 
+import android.content.ComponentName
+import android.content.Context
 import android.content.SharedPreferences
+import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.AudioPlaybackConfiguration
+import android.media.session.MediaSessionManager
+import android.media.session.PlaybackState
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -30,6 +35,7 @@ import android.os.SystemClock
 import android.util.Log
 import android.view.KeyEvent
 import androidx.annotation.RequiresApi
+import io.nikos.propods.services.NotificationAnnouncementService
 import io.nikos.propods.services.ServiceManager
 import kotlin.io.encoding.ExperimentalEncodingApi
 
@@ -66,7 +72,14 @@ object MediaController {
     private var lastPlayWithReplay: Boolean = false
     private var lastPlayTime: Long = 0L
 
-    fun initialize(audioManager: AudioManager, sharedPreferences: SharedPreferences) {
+    // MediaSession-based detection (covers apps hidden from AudioPlaybackCallback by audio
+    // hardening, e.g. Pocket Casts with FLAG_NO_MEDIA_PROJECTION). Sessions are addressable
+    // because the app already has BIND_NOTIFICATION_LISTENER_SERVICE permission.
+    private var mediaSessionManager: MediaSessionManager? = null
+    private val sessionCallbacks = mutableMapOf<android.media.session.MediaController, android.media.session.MediaController.Callback>()
+    private val sessionLastState = mutableMapOf<android.media.session.MediaController, Int>()
+
+    fun initialize(audioManager: AudioManager, sharedPreferences: SharedPreferences, context: Context? = null) {
         if (this::audioManager.isInitialized) {
             return
         }
@@ -94,6 +107,111 @@ object MediaController {
         sharedPreferences.registerOnSharedPreferenceChangeListener(preferenceChangeListener)
 
         audioManager.registerAudioPlaybackCallback(cb, null)
+
+        // Also subscribe to MediaSessionManager to catch apps that AudioPlaybackCallback misses.
+        if (context != null) initMediaSessions(context)
+    }
+
+    private fun initMediaSessions(context: Context) {
+        try {
+            val msm = context.getSystemService(Context.MEDIA_SESSION_SERVICE) as? MediaSessionManager
+            if (msm == null) {
+                Log.w("MediaController", "MediaSessionManager not available")
+                return
+            }
+            mediaSessionManager = msm
+            val listenerComponent = ComponentName(context, NotificationAnnouncementService::class.java)
+
+            val onSessionsChanged = MediaSessionManager.OnActiveSessionsChangedListener { controllers ->
+                if (controllers == null) return@OnActiveSessionsChangedListener
+                Log.d("MediaController", "Active media sessions changed: ${controllers.size}")
+                // Stop tracking sessions that are gone.
+                val current = controllers.toSet()
+                val gone = sessionCallbacks.keys - current
+                for (g in gone) {
+                    runCatching { g.unregisterCallback(sessionCallbacks[g]!!) }
+                    sessionCallbacks.remove(g)
+                    sessionLastState.remove(g)
+                }
+                // Track new sessions.
+                for (ctrl in controllers) {
+                    if (sessionCallbacks.containsKey(ctrl)) continue
+                    trackSession(ctrl)
+                }
+            }
+
+            // Prime with currently active sessions, then subscribe to changes.
+            val initial = runCatching { msm.getActiveSessions(listenerComponent) }.getOrNull().orEmpty()
+            Log.d("MediaController", "Initial active media sessions: ${initial.size}")
+            for (ctrl in initial) trackSession(ctrl)
+            msm.addOnActiveSessionsChangedListener(onSessionsChanged, listenerComponent, handler)
+        } catch (t: Throwable) {
+            Log.w("MediaController", "MediaSession setup failed: ${t.message}")
+        }
+    }
+
+    private fun trackSession(ctrl: android.media.session.MediaController) {
+        val pkg = ctrl.packageName
+        val startState = ctrl.playbackState?.state ?: PlaybackState.STATE_NONE
+        sessionLastState[ctrl] = startState
+        Log.d("MediaController", "Tracking media session: $pkg initialState=$startState")
+
+        val cb = object : android.media.session.MediaController.Callback() {
+            override fun onPlaybackStateChanged(state: PlaybackState?) {
+                val newState = state?.state ?: PlaybackState.STATE_NONE
+                val prev = sessionLastState[ctrl] ?: PlaybackState.STATE_NONE
+                sessionLastState[ctrl] = newState
+                Log.d("MediaController", "[session $pkg] state $prev → $newState")
+                if (newState == PlaybackState.STATE_PLAYING && prev != PlaybackState.STATE_PLAYING) {
+                    onSessionStartedPlaying(ctrl)
+                }
+            }
+
+            override fun onSessionDestroyed() {
+                Log.d("MediaController", "[session $pkg] destroyed")
+                sessionCallbacks.remove(ctrl)
+                sessionLastState.remove(ctrl)
+            }
+        }
+        ctrl.registerCallback(cb, handler)
+        sessionCallbacks[ctrl] = cb
+
+        // If session is already PLAYING when we attach (e.g. app launched before us),
+        // honor it once. Otherwise we'd miss apps that started before MediaController init.
+        if (startState == PlaybackState.STATE_PLAYING) {
+            handler.post { onSessionStartedPlaying(ctrl) }
+        }
+    }
+
+    private fun onSessionStartedPlaying(ctrl: android.media.session.MediaController) {
+        val pkg = ctrl.packageName ?: "(?)"
+        val usage = ctrl.playbackInfo?.audioAttributes?.usage
+        Log.d("MediaController", "[session $pkg] STATE_PLAYING usage=$usage")
+
+        // Same gates the AudioPlaybackCallback path uses.
+        if (usage != null && usage != AudioAttributes.USAGE_MEDIA) {
+            Log.d("MediaController", "  ignoring: usage is not USAGE_MEDIA")
+            return
+        }
+        val now = SystemClock.uptimeMillis()
+        if (now - lastSelfActionAt < SELF_ACTION_IGNORE_MS) {
+            Log.d("MediaController", "  ignoring: within self-action window")
+            return
+        }
+        if (recentlyLostOwnership) {
+            Log.d("MediaController", "  ignoring: recentlyLostOwnership=true (anti-pingpong)")
+            return
+        }
+        if (pausedWhileTakingOver) {
+            Log.d("MediaController", "  ignoring: pausedWhileTakingOver=true")
+            return
+        }
+        if (iPausedTheMedia) {
+            Log.d("MediaController", "  ignoring: iPausedTheMedia=true (we paused this ourselves)")
+            return
+        }
+        Log.d("MediaController", "  → requesting takeOver(\"music\") from MediaSession event")
+        ServiceManager.getService()?.takeOver("music")
     }
 
     val cb = object : AudioManager.AudioPlaybackCallback() {
@@ -126,23 +244,26 @@ object MediaController {
             }
 
             Log.d("MediaController", "Configs received: ${configs?.size ?: 0} configurations")
-            val currentActiveContentTypes = configs?.flatMap { config ->
+            // Inspect both usage and contentType. Many apps (Pocket Casts, etc.) leave
+            // contentType=UNKNOWN but always set usage=USAGE_MEDIA for media playback.
+            data class AttrPair(val usage: Int, val contentType: Int)
+            val activeAttrs = configs?.mapNotNull { config ->
                 Log.d("MediaController", "Processing config: ${config}, audioAttributes: ${config.audioAttributes}")
                 config.audioAttributes?.let { attrs ->
-                    val contentType = attrs.contentType
-                    Log.d("MediaController", "Config content type: $contentType")
-                    listOf(contentType)
-                } ?: run {
-                    Log.d("MediaController", "Config has no audioAttributes")
-                    emptyList()
+                    Log.d("MediaController", "Config usage=${attrs.usage} contentType=${attrs.contentType}")
+                    AttrPair(attrs.usage, attrs.contentType)
                 }
             }?.toSet() ?: emptySet()
 
-            Log.d("MediaController", "Current active content types: $currentActiveContentTypes")
+            Log.d("MediaController", "Active audio attrs: $activeAttrs")
 
-            val hasNewMusicOrMovie = currentActiveContentTypes.any { contentType ->
-                contentType == android.media.AudioAttributes.CONTENT_TYPE_MUSIC ||
-                contentType == android.media.AudioAttributes.CONTENT_TYPE_MOVIE
+            val hasNewMusicOrMovie = activeAttrs.any { a ->
+                // Primary signal: usage=USAGE_MEDIA covers music, podcasts, movies, audiobooks.
+                a.usage == android.media.AudioAttributes.USAGE_MEDIA ||
+                // Fallback: explicit content type for older/odd apps.
+                a.contentType == android.media.AudioAttributes.CONTENT_TYPE_MUSIC ||
+                a.contentType == android.media.AudioAttributes.CONTENT_TYPE_MOVIE ||
+                a.contentType == android.media.AudioAttributes.CONTENT_TYPE_SPEECH
             }
 
             Log.d("MediaController", "Has new music or movie: $hasNewMusicOrMovie")

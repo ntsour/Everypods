@@ -706,7 +706,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         MediaController.initialize(
             audioManager, this@AirPodsService.getSharedPreferences(
                 "settings", MODE_PRIVATE
-            )
+            ),
+            this@AirPodsService
         )
         Log.d(TAG, "Initializing CrossDevice")
         CrossDevice.init(this@AirPodsService)
@@ -3043,8 +3044,12 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         Log.d(
             TAG, "owns connection: $ownsConnection"
         )
-        if (!::socket.isInitialized) return
-        if (socket.isConnected) {
+        // Only the local-hijack path needs the L2CAP socket. If it isn't initialized
+        // (AirPods have never been connected to this phone in this process lifetime,
+        // e.g. AirPods are currently on a CrossDevice peer like Windows), still
+        // fall through to the CrossDevice path below.
+        val socketReady = ::socket.isInitialized && socket.isConnected
+        if (socketReady) {
             if (!XposedRemotePrefProvider.create().getBoolean("vendor_id_hook", false) || ownsConnection == 0) {
                 Log.d(TAG, "not taking over, vendorid is probably not set to apple")
                 return
@@ -3158,6 +3163,15 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         if (takingOverFor == "music") {
             Log.d(TAG, "Pausing music so that it doesn't play through speakers")
             MediaController.pausedWhileTakingOver = true
+            // Safety net: ensure the flag clears even if the takeover handshake doesn't
+            // complete cleanly. Without this, a stuck flag silently blocks all future
+            // media-start takeover events. 8 s is plenty for the ACL+L2CAP path.
+            Handler(Looper.getMainLooper()).postDelayed({
+                if (MediaController.pausedWhileTakingOver) {
+                    Log.d(TAG, "Clearing stale pausedWhileTakingOver after 8s timeout")
+                    MediaController.pausedWhileTakingOver = false
+                }
+            }, 8000)
             MediaController.sendPause(true)
         } else {
             handleIncomingCallOnceConnected = true
@@ -3650,9 +3664,16 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
     fun disconnectForCD() {
         if (!this::socket.isInitialized) return
+        // Anti-pingpong: when ownership moves to a CrossDevice peer (e.g. Windows),
+        // suppress local takeover attempts for 3 s. Mirrors the AACP path at
+        // onOwnershipChangeReceived(false), which is not reached for CrossDevice peers.
+        MediaController.recentlyLostOwnership = true
+        Handler(Looper.getMainLooper()).postDelayed({
+            MediaController.recentlyLostOwnership = false
+        }, 3000)
         socket.close()
         MediaController.pausedWhileTakingOver = false
-        Log.d(TAG, "Disconnected from AirPods, showing island.")
+        Log.d(TAG, "Disconnected from AirPods (CrossDevice handover), recentlyLostOwnership=true for 3s")
         showIsland(
             this,
             batteryNotification.getBattery()
