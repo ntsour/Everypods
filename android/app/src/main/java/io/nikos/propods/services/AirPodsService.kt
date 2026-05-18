@@ -3228,9 +3228,13 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             "Hanging Up" -> config.takeoverWhenCall
             // Fallback for the cross-device claim case: when AirPods are connected to a
             // peer device (not us), BLE proximity packets are suppressed and we have no
-            // local connectionState. Treat a peer-reported AIRPODS_CONNECTED as license
-            // to attempt takeover, gated on the user's "music" preference.
-            else -> if (CrossDevice.isAvailable) config.takeoverWhenMusic else false
+            // local connectionState. Use the peer's reported audio state to pick the
+            // correct gate: if Windows has an active call/meeting session, respect the
+            // user's "takeover during call" preference; otherwise use "takeover during music".
+            else -> if (CrossDevice.isAvailable) {
+                if (CrossDevice.peerAudioActive) config.takeoverWhenCall
+                else config.takeoverWhenMusic
+            } else false
         }
 
         if (!shouldTakeOver) {
@@ -3776,11 +3780,32 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         )
         val bluetoothAdapter = getSystemService(BluetoothManager::class.java).adapter
         bluetoothAdapter.getProfileProxy(this, object : BluetoothProfile.ServiceListener {
+            @SuppressLint("MissingPermission")
             override fun onServiceConnected(profile: Int, proxy: BluetoothProfile) {
                 if (profile == BluetoothProfile.A2DP) {
-                    val connectedDevices = proxy.connectedDevices
-                    if (connectedDevices.isNotEmpty()) {
-                        MediaController.sendPause()
+                    MediaController.sendPause()
+                    // Explicitly drop the A2DP profile connection so AirPods fully
+                    // release from this device before the peer (e.g. Windows) connects.
+                    // Without this, closing only the AACP socket leaves A2DP up and
+                    // the peer cannot claim audio.
+                    // BluetoothA2dp.disconnect() is @SystemApi (hidden); call via reflection.
+                    val a2dp = proxy as android.bluetooth.BluetoothA2dp
+                    if (checkSelfPermission("android.permission.BLUETOOTH_PRIVILEGED")
+                            == PackageManager.PERMISSION_GRANTED) {
+                        try {
+                            val disconnectMethod = a2dp.javaClass.getDeclaredMethod(
+                                "disconnect", android.bluetooth.BluetoothDevice::class.java
+                            )
+                            disconnectMethod.isAccessible = true
+                            a2dp.connectedDevices.forEach { dev ->
+                                disconnectMethod.invoke(a2dp, dev)
+                                Log.d(TAG, "disconnectForCD: A2DP disconnected ${dev.address}")
+                            }
+                        } catch (e: Exception) {
+                            Log.w(TAG, "disconnectForCD: A2DP disconnect via reflection failed: ${e.message}")
+                        }
+                    } else {
+                        Log.w(TAG, "disconnectForCD: no BLUETOOTH_PRIVILEGED, skipping A2DP disconnect")
                     }
                 }
                 bluetoothAdapter.closeProfileProxy(profile, proxy)

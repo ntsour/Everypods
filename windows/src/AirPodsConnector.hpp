@@ -21,6 +21,11 @@ public:
     // connection state (true = ACL link up to this PC right now).
     bool isClassicallyConnected();
 
+    // True when at least one non-system audio session is in the Active state on
+    // the AirPods render endpoint (i.e. a call, meeting, or other app is actively
+    // using the AirPods for audio output right now).
+    bool hasActiveAudioSessions();
+
     // Make the AirPods the default audio output (render) and input (capture) device
     // at all roles (Console/Multimedia/Communications). Polls for up to ~4 seconds
     // because audio endpoints register asynchronously after the ACL link comes up.

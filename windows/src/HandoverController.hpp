@@ -4,6 +4,7 @@
 #include <chrono>
 #include <functional>
 #include <mutex>
+#include <thread>
 
 #include "AirPodsConnector.hpp"
 #include "BluetoothRfcommClient.hpp"
@@ -24,6 +25,7 @@ public:
     HandoverController(BluetoothRfcommClient& rfcomm,
                        AirPodsConnector& airpods,
                        MediaPlaybackWatcher& media);
+    ~HandoverController();
 
     void setOnStateChanged(StateChangedCallback cb) { m_onStateChanged = std::move(cb); }
 
@@ -36,6 +38,7 @@ public:
 private:
     void setState(OwnershipState s);
     bool withinDebounceWindow();
+    void startAudioWatcher();
 
     BluetoothRfcommClient& m_rfcomm;
     AirPodsConnector& m_airpods;
@@ -55,6 +58,11 @@ private:
     // Sender-side anti-pingpong: when we lose ownership (Android takes over),
     // suppress our own media-start handover for 3 s in case Spotify/Chrome auto-resumes.
     std::chrono::steady_clock::time_point m_lastLostOwnership{};
+
+    // Audio session watcher: background thread that polls for active audio on the
+    // AirPods endpoint and signals state changes to connected Android peers.
+    std::atomic<bool> m_watcherRunning{false};
+    std::thread m_watcherThread;
 
     StateChangedCallback m_onStateChanged;
 };

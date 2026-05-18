@@ -11,7 +11,55 @@ HandoverController::HandoverController(
     BluetoothRfcommClient& rfcomm,
     AirPodsConnector& airpods,
     MediaPlaybackWatcher& media)
-    : m_rfcomm(rfcomm), m_airpods(airpods), m_media(media) {}
+    : m_rfcomm(rfcomm), m_airpods(airpods), m_media(media)
+{
+    startAudioWatcher();
+}
+
+HandoverController::~HandoverController() {
+    m_watcherRunning.store(false);
+    if (m_watcherThread.joinable()) m_watcherThread.join();
+}
+
+void HandoverController::startAudioWatcher() {
+    m_watcherRunning.store(true);
+    m_watcherThread = std::thread([this]() {
+        try {
+            winrt::init_apartment(winrt::apartment_type::multi_threaded);
+        } catch (const std::exception& e) {
+            log::warn("Audio watcher: failed to init WinRT apartment: {}", e.what());
+            return;  // Exit thread, but don't crash the app
+        }
+
+        bool lastActive = false;
+        while (m_watcherRunning.load()) {
+            try {
+                // Only meaningful when AirPods are connected to this PC.
+                bool active = m_airpods.isClassicallyConnected()
+                           && m_airpods.hasActiveAudioSessions();
+
+                if (active != lastActive) {
+                    lastActive = active;
+                    log::info("Windows audio session: {}", active ? "ACTIVE (call/meeting)" : "IDLE");
+                    // Notify all connected Android peers so they can gate takeover on the
+                    // user's "takeover during call" preference instead of "takeover during music".
+                    if (m_rfcomm.isConnected()) {
+                        m_rfcomm.sendPacket(active ? crossdevice::kWindowsAudioActive
+                                                   : crossdevice::kWindowsAudioIdle);
+                    }
+                }
+            } catch (const std::exception& e) {
+                log::warn("Audio watcher: exception during poll: {}", e.what());
+                // Continue polling, don't crash
+            }
+
+            // Sliced sleep so shutdown is responsive (50 ms × 10 = 500 ms poll interval).
+            for (int i = 0; i < 10 && m_watcherRunning.load(); ++i) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            }
+        }
+    });
+}
 
 void HandoverController::setState(OwnershipState s) {
     auto previous = m_state.exchange(s);
@@ -59,7 +107,7 @@ void HandoverController::onMediaPlayingChanged(bool playing) {
     log::info("Media started on Windows; requesting handover from Android");
 
     // Pause local media so audio doesn't leak through PC speakers during the
-    // ~1s while AirPods are migrating. We'll resume it once we've claimed them.
+    // ~1-2s while AirPods are migrating. We'll resume it once we've claimed them.
     const bool paused = m_media.tryPauseActive();
 
     if (m_rfcomm.isConnected()) {
@@ -68,29 +116,34 @@ void HandoverController::onMediaPlayingChanged(bool playing) {
         log::warn("Peer not connected; cannot send REQUEST_DISCONNECT, proceeding to local connect anyway");
     }
 
-    // Give Android time to release the ACL link to the AirPods, then claim it.
-    // 300ms is often too short; 800ms is safer for AirPods to fully release.
-    std::this_thread::sleep_for(std::chrono::milliseconds(800));
-    if (m_airpods.connect()) {
-        setState(OwnershipState::LocalPc);
-        m_lastLocalTakeover = std::chrono::steady_clock::now();
-        if (m_rfcomm.isConnected()) {
-            m_rfcomm.sendPacket(crossdevice::kAirPodsConnected);
-        }
-        // Make AirPods the default audio render + capture device.
-        m_airpods.setAsDefaultAudioDevice();
+    // Dispatch all blocking work (sleep + BT connect + audio endpoint poll) to a
+    // detached thread. The WinRT media-callback thread must not be blocked: the
+    // runtime will terminate a callback thread that doesn't return promptly, causing
+    // a crash. 1500ms gives Android enough time to drop both AACP and A2DP.
+    std::thread([this, paused]() {
+        winrt::init_apartment(winrt::apartment_type::multi_threaded);
+        std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+        if (m_airpods.connect()) {
+            setState(OwnershipState::LocalPc);
+            m_lastLocalTakeover = std::chrono::steady_clock::now();
+            if (m_rfcomm.isConnected()) {
+                m_rfcomm.sendPacket(crossdevice::kAirPodsConnected);
+            }
+            // Make AirPods the default audio render + capture device.
+            m_airpods.setAsDefaultAudioDevice();
 
-        // Resume whatever we paused above, now that AirPods are the active route.
-        // Small delay lets the audio stack settle on the new endpoint first.
-        if (paused) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(250));
+            // Resume whatever we paused above, now that AirPods are the active route.
+            // Small delay lets the audio stack settle on the new endpoint first.
+            if (paused) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(250));
+                m_media.tryPlayActive();
+            }
+        } else if (paused) {
+            // Takeover failed — resume on whatever route we have so we don't leave
+            // the user with paused media for no reason.
             m_media.tryPlayActive();
         }
-    } else if (paused) {
-        // Takeover failed — resume on whatever route we have so we don't leave
-        // the user with paused media for no reason.
-        m_media.tryPlayActive();
-    }
+    }).detach();
 }
 
 void HandoverController::onIncomingPacket(std::span<const std::uint8_t> data) {
@@ -111,11 +164,28 @@ void HandoverController::onIncomingPacket(std::span<const std::uint8_t> data) {
                 }
                 break;
             }
+            // Protect active audio sessions (Teams call, Zoom meeting, etc.).
+            // The audio watcher already sent kWindowsAudioActive so Android should
+            // have gated on takeoverWhenCall, but guard here too for races.
+            if (m_airpods.isClassicallyConnected() && m_airpods.hasActiveAudioSessions()) {
+                log::info("Android requested handover but a call/meeting is active on Windows — rejecting");
+                if (m_rfcomm.isConnected()) {
+                    m_rfcomm.sendPacket(kAirPodsConnected);  // re-assert
+                }
+                break;
+            }
             log::info("Android requested handover; disconnecting AirPods locally");
             // Pause local media before the AirPods leave so audio doesn't suddenly
             // route to (and play through) the PC speakers. The destination
             // (Android) will resume its own media on its end.
-            m_media.tryPauseActive();
+            // Try multiple strategies to handle different media players (browsers, apps, etc).
+            if (!m_media.tryPauseActive()) {
+                log::debug("Single-session pause failed; trying all sessions...");
+                if (!m_media.tryPauseAllSessions()) {
+                    log::debug("All-sessions pause failed; falling back to media key...");
+                    m_media.tryPauseViaMediaKey();
+                }
+            }
             m_airpods.disconnect();
             setState(OwnershipState::RemoteAndroid);
             m_lastLostOwnership = std::chrono::steady_clock::now();
@@ -151,6 +221,12 @@ void HandoverController::onIncomingPacket(std::span<const std::uint8_t> data) {
 
         case Incoming::RelayHeader:
             log::debug("Peer relayed AACP packet — Windows v1 ignores AACP relay");
+            break;
+
+        case Incoming::WindowsAudioActive:
+        case Incoming::WindowsAudioIdle:
+            // These packets flow Windows → Android only; ignore if received from Android.
+            log::debug("Ignoring audio-state packet from Android (not expected)");
             break;
 
         case Incoming::Unknown:

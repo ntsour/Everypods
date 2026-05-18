@@ -15,6 +15,7 @@
 
 #include <mmreg.h>
 #include <mmdeviceapi.h>
+#include <audiopolicy.h>
 #include <functiondiscoverykeys_devpkey.h>
 #include <propvarutil.h>
 #include <wrl/client.h>
@@ -343,6 +344,48 @@ bool AirPodsConnector::setAsDefaultAudioDevice() {
 
     if (weInited) CoUninitialize();
     return !renderHits.empty();
+}
+
+bool AirPodsConnector::hasActiveAudioSessions() {
+    HRESULT coInitHr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+    const bool weInited = (coInitHr == S_OK);
+
+    bool active = false;
+
+    ComPtr<IMMDeviceEnumerator> enumerator;
+    HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
+                                  __uuidof(IMMDeviceEnumerator), (void**)enumerator.GetAddressOf());
+    if (SUCCEEDED(hr)) {
+        // Check the render (output) endpoint — calls and meetings produce output audio.
+        for (auto& ep : findAirPodsEndpoints(enumerator.Get(), eRender)) {
+            if (ep.state != DEVICE_STATE_ACTIVE) continue;
+            ComPtr<IMMDevice> dev;
+            if (FAILED(enumerator->GetDevice(ep.id.c_str(), &dev))) continue;
+
+            ComPtr<IAudioSessionManager2> mgr;
+            if (FAILED(dev->Activate(__uuidof(IAudioSessionManager2), CLSCTX_ALL,
+                                     nullptr, (void**)mgr.GetAddressOf()))) continue;
+
+            ComPtr<IAudioSessionEnumerator> sessions;
+            if (FAILED(mgr->GetSessionEnumerator(&sessions))) continue;
+
+            int count = 0;
+            sessions->GetCount(&count);
+            for (int i = 0; i < count && !active; ++i) {
+                ComPtr<IAudioSessionControl> ctrl;
+                if (FAILED(sessions->GetSession(i, &ctrl))) continue;
+                AudioSessionState state{};
+                if (SUCCEEDED(ctrl->GetState(&state)) && state == AudioSessionStateActive) {
+                    active = true;
+                    log::debug("hasActiveAudioSessions: found active session on AirPods render endpoint");
+                }
+            }
+            if (active) break;
+        }
+    }
+
+    if (weInited) CoUninitialize();
+    return active;
 }
 
 bool AirPodsConnector::isClassicallyConnected() {

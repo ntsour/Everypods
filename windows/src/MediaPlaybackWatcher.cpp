@@ -1,3 +1,4 @@
+#include <windows.h>  // for keybd_event, VK_MEDIA_PLAY_PAUSE
 #include "MediaPlaybackWatcher.hpp"
 
 #include "Logger.hpp"
@@ -155,6 +156,34 @@ bool MediaPlaybackWatcher::tryPlayActive() {
             (std::uint32_t)e.code().value, to_string(e.message()));
         return false;
     }
+}
+
+bool MediaPlaybackWatcher::tryPauseAllSessions() {
+    bool any_paused = false;
+    {
+        std::scoped_lock lk{m_mutex};
+        for (auto& [id, entry] : m_sessions) {
+            try {
+                bool ok = entry.session.TryPauseAsync().get();
+                if (ok) {
+                    log::info("Paused session: {}", to_string(id));
+                    any_paused = true;
+                }
+            } catch (const hresult_error& e) {
+                log::debug("Failed to pause session {}: 0x{:08X}",
+                    to_string(id), (std::uint32_t)e.code().value);
+            } catch (...) {}
+        }
+    }
+    return any_paused;
+}
+
+bool MediaPlaybackWatcher::tryPauseViaMediaKey() {
+    // NOTE: Web browsers (Chrome, Edge) don't expose their media sessions to Windows APIs,
+    // so we cannot reliably pause YouTube or other web players. This is a known limitation.
+    // Regular media apps (Spotify, VLC, etc.) pause correctly via tryPauseActive/tryPauseAllSessions.
+    log::info("Web player pause not supported (browser limitation)");
+    return false;
 }
 
 void MediaPlaybackWatcher::emitIfChanged() {

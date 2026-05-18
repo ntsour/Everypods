@@ -101,10 +101,18 @@ object CrossDeviceClient {
         when {
             raw.contentEquals(CrossDevicePackets.REQUEST_DISCONNECT.packet) ->
                 ServiceManager.getService()?.disconnectForCD()
+            raw.contentEquals(CrossDevicePackets.REQUEST_HANDOVER.packet) -> {
+                ServiceManager.getService()?.markPeerTakeoverAttempt()
+                ServiceManager.getService()?.disconnectForCD()
+            }
             raw.contentEquals(CrossDevicePackets.AIRPODS_CONNECTED.packet) ->
                 CrossDevice.isAvailable = true
             raw.contentEquals(CrossDevicePackets.AIRPODS_DISCONNECTED.packet) ->
                 CrossDevice.isAvailable = false
+            raw.contentEquals(CrossDevicePackets.WINDOWS_AUDIO_ACTIVE.packet) ->
+                CrossDevice.peerAudioActive = true
+            raw.contentEquals(CrossDevicePackets.WINDOWS_AUDIO_IDLE.packet) ->
+                CrossDevice.peerAudioActive = false
         }
     }
 

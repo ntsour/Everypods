@@ -42,6 +42,9 @@ enum class CrossDevicePackets(val packet: ByteArray) {
     REQUEST_CONNECTION_STATUS(byteArrayOf(0x00, 0x02, 0x00, 0x03)),
     REQUEST_HANDOVER(byteArrayOf(0x00, 0x02, 0x00, 0x04)),
     AIRPODS_DATA_HEADER(byteArrayOf(0x00, 0x04, 0x00, 0x01)),
+    // Windows → Android: whether a call/meeting is actively using AirPods on Windows.
+    WINDOWS_AUDIO_ACTIVE(byteArrayOf(0x00, 0x03, 0x00, 0x01)),
+    WINDOWS_AUDIO_IDLE(byteArrayOf(0x00, 0x03, 0x00, 0x00)),
 }
 
 object CrossDevice {
@@ -50,6 +53,8 @@ object CrossDevice {
 
     var isEnabled: Boolean = false
     var isAvailable: Boolean = false  // true = AirPods are on the remote device, not us
+    /** True when Windows has reported an active audio session (call/meeting) on the AirPods endpoint. */
+    var peerAudioActive: Boolean = false
     var batteryBytes: ByteArray = byteArrayOf()
     var ancBytes: ByteArray = byteArrayOf()
 
@@ -185,6 +190,14 @@ object CrossDevice {
                     else
                         CrossDevicePackets.AIRPODS_DISCONNECTED.packet
                 )
+            }
+            raw.contentEquals(CrossDevicePackets.WINDOWS_AUDIO_ACTIVE.packet) -> {
+                peerAudioActive = true
+                Log.d(TAG, "Windows reports active audio session (call/meeting in progress)")
+            }
+            raw.contentEquals(CrossDevicePackets.WINDOWS_AUDIO_IDLE.packet) -> {
+                peerAudioActive = false
+                Log.d(TAG, "Windows reports audio session idle")
             }
             raw.size >= 4 && raw.sliceArray(0..3)
                 .contentEquals(CrossDevicePackets.AIRPODS_DATA_HEADER.packet) -> {

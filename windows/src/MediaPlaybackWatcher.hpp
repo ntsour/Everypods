@@ -33,6 +33,14 @@ public:
     bool tryPauseActive();
     bool tryPlayActive();
 
+    // Fallback pause: try all registered sessions (some web players don't expose
+    // via GetCurrentSession). Returns true if any session was paused.
+    bool tryPauseAllSessions();
+
+    // Last-resort pause: send global media pause key. Works for any app that
+    // respects media keys (most do). Returns true.
+    bool tryPauseViaMediaKey();
+
 private:
     void rebuildSubscriptions();
     bool anyPlaying() const;
