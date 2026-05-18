@@ -738,6 +738,16 @@ private fun DisconnectedScreen(
             }
         }
 
+        item(key = "connection_settings") {
+            Column(Modifier.fillMaxWidth().background(cardBg, RoundedCornerShape(18.dp)).padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Connection Settings", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = textColor.copy(0.6f), fontFamily = SfPro))
+                Text("Configure Bluetooth and cross-device settings.", style = TextStyle(fontSize = 14.sp, fontFamily = SfPro, color = textColor.copy(0.55f)))
+                StyledButton(onClick = { navController.navigate("connection_settings") }, backdrop = backdrop, modifier = Modifier.fillMaxWidth()) {
+                    Text("Open Settings", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro, color = textColor))
+                }
+            }
+        }
+
         if (state.connectionSuccessful) {
             item(key = "reconnect") {
                 Column(Modifier.fillMaxWidth().background(cardBg, RoundedCornerShape(18.dp)).padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
