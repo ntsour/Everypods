@@ -31,6 +31,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.io.IOException
 import java.util.UUID
+import java.util.concurrent.CopyOnWriteArrayList
 
 enum class CrossDevicePackets(val packet: ByteArray) {
     AIRPODS_CONNECTED(byteArrayOf(0x00, 0x01, 0x00, 0x01)),
@@ -52,12 +53,12 @@ object CrossDevice {
     var batteryBytes: ByteArray = byteArrayOf()
     var ancBytes: ByteArray = byteArrayOf()
 
-    /** True when either the RFCOMM server has a connected client or our client is connected. */
-    @Volatile var isServerClientConnected: Boolean = false
+    /** True when at least one RFCOMM client is connected to our server, or our client is connected. */
+    val isServerClientConnected: Boolean get() = clientSockets.isNotEmpty()
     val isPeerConnected: Boolean get() = isServerClientConnected || CrossDeviceClient.isConnected
 
     @Volatile private var serverSocket: BluetoothServerSocket? = null
-    @Volatile private var clientSocket: BluetoothSocket? = null
+    private val clientSockets = CopyOnWriteArrayList<BluetoothSocket>()
     @Volatile private var isServerRunning: Boolean = false
 
     @SuppressLint("MissingPermission")
@@ -96,7 +97,7 @@ object CrossDevice {
                 Log.e(TAG, "Failed to open RFCOMM server: ${e.message}")
                 return@launch
             }
-            // Accept loop — restarts after each client disconnects
+            // Accept loop — each client gets its own coroutine so multiple can be active at once
             while (true) {
                 val socket = try {
                     serverSocket?.accept() ?: break
@@ -104,22 +105,22 @@ object CrossDevice {
                     Log.d(TAG, "Server socket closed: ${e.message}")
                     break
                 }
-                Log.d(TAG, "Client connected: ${socket.remoteDevice.address}")
-                clientSocket?.runCatching { close() }
-                clientSocket = socket
-                isServerClientConnected = true
-                handleClientConnection(socket)  // blocks until client disconnects
+                Log.d(TAG, "Client connected: ${socket.remoteDevice.address} (${clientSockets.size + 1} total)")
+                clientSockets.add(socket)
+                CoroutineScope(Dispatchers.IO).launch { handleClientConnection(socket) }
             }
         }
     }
 
     private fun handleClientConnection(socket: BluetoothSocket) {
+        val addr = socket.remoteDevice.address
         val ctx = ServiceManager.getService()?.applicationContext
         ctx?.sendBroadcast(
             Intent("io.nikos.propods.AIRPODS_CONNECTED_REMOTELY").setPackage(ctx.packageName)
         )
-        // Tell the remote side whether we currently hold the AirPods connection
-        sendRemotePacket(
+        // Tell only this new client our current AirPods state
+        sendToSocket(
+            socket,
             if (ServiceManager.getService()?.isConnected() == true)
                 CrossDevicePackets.AIRPODS_CONNECTED.packet
             else
@@ -131,7 +132,7 @@ object CrossDevice {
             val bytes = try {
                 socket.inputStream.read(buffer)
             } catch (e: IOException) {
-                Log.d(TAG, "Client read error (disconnected): ${e.message}")
+                Log.d(TAG, "Client $addr read error (disconnected): ${e.message}")
                 break
             }
             if (bytes == -1) break
@@ -139,15 +140,16 @@ object CrossDevice {
         }
 
         socket.runCatching { close() }
-        clientSocket = null
-        isServerClientConnected = false
-        isAvailable = false
+        clientSockets.remove(socket)
+        Log.d(TAG, "Client $addr removed (${clientSockets.size} remaining)")
 
-        val appCtx = ServiceManager.getService()?.applicationContext
-        appCtx?.sendBroadcast(
-            Intent("io.nikos.propods.AIRPODS_DISCONNECTED_REMOTELY").setPackage(appCtx.packageName)
-        )
-        // Loop in startServer will automatically call accept() again for the next client
+        if (clientSockets.isEmpty()) {
+            isAvailable = false
+            val appCtx = ServiceManager.getService()?.applicationContext
+            appCtx?.sendBroadcast(
+                Intent("io.nikos.propods.AIRPODS_DISCONNECTED_REMOTELY").setPackage(appCtx.packageName)
+            )
+        }
     }
 
     private fun processPacket(raw: ByteArray) {
@@ -235,13 +237,22 @@ object CrossDevice {
 
     fun sendRemotePacket(data: ByteArray) {
         if (data.isEmpty()) return
-        val socket = clientSocket ?: return
+        val dead = mutableListOf<BluetoothSocket>()
+        for (socket in clientSockets) {
+            sendToSocket(socket, data) { dead.add(socket) }
+        }
+        if (dead.isNotEmpty()) clientSockets.removeAll(dead)
+    }
+
+    private fun sendToSocket(socket: BluetoothSocket, data: ByteArray, onFail: (() -> Unit)? = null) {
+        val hex = data.joinToString("") { "%02x".format(it) }
         try {
             socket.outputStream.write(data)
             socket.outputStream.flush()
-            Log.d(TAG, "Sent: ${data.joinToString("") { "%02x".format(it) }}")
+            Log.d(TAG, "Sent to ${socket.remoteDevice.address}: $hex")
         } catch (e: IOException) {
-            Log.w(TAG, "Failed to send packet: ${e.message}")
+            Log.w(TAG, "Failed to send to ${socket.remoteDevice.address}: ${e.message}")
+            onFail?.invoke()
         }
     }
 
@@ -257,10 +268,9 @@ object CrossDevice {
     fun close() {
         CrossDeviceClient.stop()
         serverSocket?.runCatching { close() }
-        clientSocket?.runCatching { close() }
+        clientSockets.forEach { it.runCatching { close() } }
+        clientSockets.clear()
         serverSocket = null
-        clientSocket = null
-        isServerClientConnected = false
         isAvailable = false
         isEnabled = false
         isServerRunning = false
