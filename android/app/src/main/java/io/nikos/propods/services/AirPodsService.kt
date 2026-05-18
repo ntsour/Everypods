@@ -21,6 +21,7 @@
 package io.nikos.propods.services
 
 import io.nikos.propods.utils.CrossDevice
+import io.nikos.propods.utils.CrossDeviceClient
 import io.nikos.propods.utils.CrossDevicePackets
 import android.Manifest
 import android.annotation.SuppressLint
@@ -269,8 +270,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
          * 30 s window: long enough for the iPhone/Mac that just took over the L2CAP
          * slot to finish its own handshake without us slamming a competing connect.
          */
-        const val PEER_DROP_COOLDOWN_MS: Long = 30_000L
+        const val PEER_DROP_COOLDOWN_MS: Long = 10_000L
         @Volatile @JvmStatic var peerDropCooldownUntilMs: Long = 0L
+        @Volatile @JvmStatic var peerRequestedDisconnectMs: Long = 0L
 
         /**
          * Last A2DP-connected status for the AirPods MAC, refreshed by [refreshA2dpState].
@@ -811,6 +813,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             addAction("android.bluetooth.device.action.ACL_DISCONNECTED")
             addAction("android.bluetooth.device.action.BOND_STATE_CHANGED")
             addAction("android.bluetooth.device.action.NAME_CHANGED")
+            addAction("android.bluetooth.device.action.UUID")
             addAction("android.bluetooth.adapter.action.CONNECTION_STATE_CHANGED")
             addAction("android.bluetooth.adapter.action.STATE_CHANGED")
             addAction("android.bluetooth.headset.profile.action.CONNECTION_STATE_CHANGED")
@@ -821,7 +824,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
         connectionReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
+                Log.d(TAG, "connectionReceiver.onReceive: action=${intent?.action}")
                 if (intent?.action == AirPodsNotifications.AIRPODS_CONNECTION_DETECTED) {
+                    Log.d(TAG, "AIRPODS_CONNECTION_DETECTED received!")
                     device = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                         intent.getParcelableExtra("device", BluetoothDevice::class.java)!!
                     } else {
@@ -1109,7 +1114,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     MediaController.recentlyLostOwnership = true
                     Handler(Looper.getMainLooper()).postDelayed({
                         MediaController.recentlyLostOwnership = false
-                    }, 3000)
+                    }, 1000)
                     Log.d(TAG, "ownership lost")
                     MediaController.sendPause()
                     MediaController.pausedForOtherDevice = true
@@ -2960,38 +2965,106 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             val name = context?.getSharedPreferences("settings", MODE_PRIVATE)
                 ?.getString("name", bluetoothDevice?.name)
             if (bluetoothDevice != null && !action.isNullOrEmpty()) {
-                Log.d(TAG, "Received bluetooth connection broadcast: action=$action")
+                Log.d(TAG, "Received bluetooth connection broadcast: action=$action, device=${bluetoothDevice.address}")
                 if (BluetoothDevice.ACTION_ACL_CONNECTED == action) {
                     val uuid = ParcelUuid.fromString("74ec2172-0bad-4d01-8f77-997b2be0722a")
-                    bluetoothDevice.fetchUuidsWithSdp()
-                    if (bluetoothDevice.uuids != null) {
-                        if (bluetoothDevice.uuids.contains(uuid)) {
-                            val intent = Intent(AirPodsNotifications.AIRPODS_CONNECTION_DETECTED)
-                            intent.putExtra("name", name)
-                            intent.putExtra("device", bluetoothDevice)
-                            context?.sendBroadcast(intent)
-                        }
+                    if (bluetoothDevice.uuids != null && bluetoothDevice.uuids.contains(uuid)) {
+                        // UUIDs already cached — fire immediately
+                        Log.d(TAG, "UUIDs already cached for ${bluetoothDevice.address}")
+                        val intent = Intent(AirPodsNotifications.AIRPODS_CONNECTION_DETECTED)
+                        intent.putExtra("name", name)
+                        intent.putExtra("device", bluetoothDevice)
+                        context?.sendBroadcast(intent)
+                    } else {
+                        // UUIDs not cached yet — trigger async SDP; ACTION_UUID will follow
+                        Log.d(TAG, "UUIDs not cached for ${bluetoothDevice.address}, calling fetchUuidsWithSdp()")
+                        bluetoothDevice.fetchUuidsWithSdp()
+                        // Fallback: if ACTION_UUID doesn't fire (older Android versions),
+                        // check again after SDP should complete (2s) to see if UUIDs got cached
+                        Handler(Looper.getMainLooper()).postDelayed({
+                            Log.d(TAG, "SDP timeout check for ${bluetoothDevice.address}")
+                            if (bluetoothDevice.uuids != null && bluetoothDevice.uuids.contains(uuid)) {
+                                Log.d(TAG, "SDP fallback: UUIDs now cached for ${bluetoothDevice.address}, firing broadcast")
+                                val detectedIntent = Intent(AirPodsNotifications.AIRPODS_CONNECTION_DETECTED)
+                                detectedIntent.putExtra("name", name)
+                                detectedIntent.putExtra("device", bluetoothDevice)
+                                detectedIntent.setPackage(context?.packageName)
+                                context?.sendBroadcast(detectedIntent)
+                            } else {
+                                Log.w(TAG, "SDP fallback: UUIDs still not cached for ${bluetoothDevice.address}")
+                            }
+                        }, 2_000L)
+                    }
+                } else if (BluetoothDevice.ACTION_UUID == action) {
+                    // Fires after fetchUuidsWithSdp() completes — catches devices whose UUID
+                    // cache was empty at ACL_CONNECTED time (e.g. first connection on a new device)
+                    val uuid = ParcelUuid.fromString("74ec2172-0bad-4d01-8f77-997b2be0722a")
+                    @Suppress("UNCHECKED_CAST")
+                    val uuids = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        intent.getParcelableArrayExtra(BluetoothDevice.EXTRA_UUID, ParcelUuid::class.java)
+                    } else {
+                        intent.getParcelableArrayExtra(BluetoothDevice.EXTRA_UUID) as? Array<ParcelUuid>
+                    }
+                    Log.d(TAG, "ACTION_UUID received for ${bluetoothDevice.address}, uuids=${uuids?.map { it.uuid }}")
+                    if (uuids != null && uuids.contains(uuid)) {
+                        Log.d(TAG, "AirPods UUID found in ACTION_UUID for ${bluetoothDevice.address}")
+                        val detectedIntent = Intent(AirPodsNotifications.AIRPODS_CONNECTION_DETECTED)
+                        detectedIntent.putExtra("name", name)
+                        detectedIntent.putExtra("device", bluetoothDevice)
+                        detectedIntent.setPackage(context?.packageName)
+                        context?.sendBroadcast(detectedIntent)
                     }
                 } else if (BluetoothDevice.ACTION_ACL_DISCONNECTED == action) {
                     // The OS dropped the ACL link for this device. If it's our AirPods,
                     // fire the internal AIRPODS_DISCONNECTED broadcast so our connection
-                    // receiver closes the L2CAP socket. Also arm the peer-drop cooldown
-                    // so we don't immediately re-grab the L2CAP slot from whatever
-                    // device just took it.
+                    // receiver closes the L2CAP socket. Only arm cooldown if a peer actually
+                    // requested the disconnect (via REQUEST_DISCONNECT in last 2 seconds).
                     val savedMac = context?.getSharedPreferences("settings", MODE_PRIVATE)
                         ?.getString("mac_address", null)
                     if (savedMac != null && bluetoothDevice.address == savedMac) {
+                        val now = System.currentTimeMillis()
+                        val peerTookOver = now < peerRequestedDisconnectMs + 2_000L
                         Log.d(
                             TAG,
-                            "<LogCollector:Conn> ACL_DISCONNECTED for AirPods (${bluetoothDevice.address}) — releasing socket and arming peer-drop cooldown"
+                            "<LogCollector:Conn> ACL_DISCONNECTED for AirPods (${bluetoothDevice.address}) — peerTookOver=$peerTookOver"
                         )
-                        peerDropCooldownUntilMs = System.currentTimeMillis() + PEER_DROP_COOLDOWN_MS
+                        if (peerTookOver) {
+                            peerDropCooldownUntilMs = now + PEER_DROP_COOLDOWN_MS
+                        }
                         a2dpConnectedToOurMac = false
                         context.sendBroadcast(
                             Intent(AirPodsNotifications.AIRPODS_DISCONNECTED).apply {
                                 `package` = context.packageName
                             }
                         )
+                    }
+                } else if (action == "android.bluetooth.a2dp.profile.action.CONNECTION_STATE_CHANGED" ||
+                    action == "android.bluetooth.headset.profile.action.CONNECTION_STATE_CHANGED") {
+                    // Fallback for older/different Android versions where ACL_CONNECTED may not fire
+                    // Instead, detect connection via profile-level events (A2DP/Headset)
+                    val connectionState = intent.getIntExtra("android.bluetooth.profile.extra.STATE", -1)
+                    Log.d(TAG, "Profile connection state change for ${bluetoothDevice.address}: state=$connectionState (1=connected, 0=disconnected)")
+
+                    val savedMac = context?.getSharedPreferences("settings", MODE_PRIVATE)
+                        ?.getString("mac_address", null)
+
+                    if (savedMac != null && bluetoothDevice.address == savedMac) {
+                        if (connectionState == 1) { // BluetoothProfile.STATE_CONNECTED
+                            Log.d(TAG, "Profile connected for AirPods (${bluetoothDevice.address}), firing AIRPODS_CONNECTION_DETECTED")
+                            val detectedIntent = Intent(AirPodsNotifications.AIRPODS_CONNECTION_DETECTED)
+                            detectedIntent.putExtra("name", bluetoothDevice.name)
+                            detectedIntent.putExtra("device", bluetoothDevice)
+                            detectedIntent.setPackage(context?.packageName)
+                            context?.sendBroadcast(detectedIntent)
+                        } else if (connectionState == 0) { // BluetoothProfile.STATE_DISCONNECTED
+                            Log.d(TAG, "Profile disconnected for AirPods (${bluetoothDevice.address})")
+                            a2dpConnectedToOurMac = false
+                            context?.sendBroadcast(
+                                Intent(AirPodsNotifications.AIRPODS_DISCONNECTED).apply {
+                                    `package` = context?.packageName
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -3145,18 +3218,23 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             return
         }
 
-        val shouldTakeOver = when (bleManager.getMostRecentStatus()?.connectionState) {
+        val bleConnState = bleManager.getMostRecentStatus()?.connectionState
+        val shouldTakeOver = when (bleConnState) {
             "Disconnected" -> config.takeoverWhenDisconnected
             "Idle" -> config.takeoverWhenIdle
             "Music" -> config.takeoverWhenMusic
             "Call" -> config.takeoverWhenCall
             "Ringing" -> config.takeoverWhenCall
             "Hanging Up" -> config.takeoverWhenCall
-            else -> false
+            // Fallback for the cross-device claim case: when AirPods are connected to a
+            // peer device (not us), BLE proximity packets are suppressed and we have no
+            // local connectionState. Treat a peer-reported AIRPODS_CONNECTED as license
+            // to attempt takeover, gated on the user's "music" preference.
+            else -> if (CrossDevice.isAvailable) config.takeoverWhenMusic else false
         }
 
         if (!shouldTakeOver) {
-            Log.d(TAG, "Not taking over audio, airpods state takeover disabled")
+            Log.d(TAG, "Not taking over audio, airpods state takeover disabled (bleConnState=$bleConnState, crossDeviceAvailable=${CrossDevice.isAvailable})")
             return
         }
 
@@ -3178,7 +3256,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         }
 
         Log.d(TAG, "Taking over audio")
-        CrossDevice.sendRemotePacket(CrossDevicePackets.REQUEST_DISCONNECT.packet)
+        CrossDevice.sendRemotePacket(CrossDevicePackets.REQUEST_HANDOVER.packet)
+        CrossDeviceClient.send(CrossDevicePackets.REQUEST_HANDOVER.packet)
         Log.d(TAG, macAddress)
 
         CrossDevice.isAvailable = false
@@ -3199,7 +3278,13 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 //                isConnectedLocally = false // Keep as false since we're not actually connecting to L2CAP
             } else {
                 connectToSocket(bluetoothAdapter, device!!)
-                connectAudio(this, device)
+                // Give the peer (~Windows tray client uses 800 ms) time to fully
+                // release A2DP after receiving our REQUEST_HANDOVER before we try
+                // to claim the sink. Without the wait the connect often races
+                // and AirPods snap back to the peer.
+                Handler(Looper.getMainLooper()).postDelayed({
+                    connectAudio(this, device)
+                }, 800)
 //                isConnectedLocally = true
             }
         }
@@ -3662,6 +3747,12 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 //        }
     }
 
+    fun markPeerTakeoverAttempt() {
+        // Mark that a peer (cross-device) requested disconnect so ACL_DISCONNECTED
+        // handler knows to apply the peer-drop cooldown
+        AirPodsService.peerRequestedDisconnectMs = System.currentTimeMillis()
+    }
+
     fun disconnectForCD() {
         if (!this::socket.isInitialized) return
         // Anti-pingpong: when ownership moves to a CrossDevice peer (e.g. Windows),
@@ -3670,10 +3761,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         MediaController.recentlyLostOwnership = true
         Handler(Looper.getMainLooper()).postDelayed({
             MediaController.recentlyLostOwnership = false
-        }, 3000)
+        }, 1000)
         socket.close()
         MediaController.pausedWhileTakingOver = false
-        Log.d(TAG, "Disconnected from AirPods (CrossDevice handover), recentlyLostOwnership=true for 3s")
+        Log.d(TAG, "Disconnected from AirPods (CrossDevice handover), recentlyLostOwnership=true for 1s")
         showIsland(
             this,
             batteryNotification.getBattery()
@@ -3867,12 +3958,23 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                         }
                     }
                     else {
-                        val connectMethod =
-                            proxy.javaClass.getMethod("connect", BluetoothDevice::class.java)
-                        connectMethod.invoke(
-                            proxy, device
-                        )
-                        Log.d(TAG, "not setting connection policy for A2DP, no BLUETOOTH_PRIVILEGED permission. just called connect")
+                        // No BLUETOOTH_PRIVILEGED (e.g. stock Xiaomi). The hidden
+                        // connect(BluetoothDevice) method is technically gated, but on
+                        // some OEM builds the call still goes through. Try it, log the
+                        // outcome, and clean up.
+                        try {
+                            val connectMethod =
+                                proxy.javaClass.getMethod("connect", BluetoothDevice::class.java)
+                            val result = connectMethod.invoke(proxy, device)
+                            Log.d(TAG, "A2DP.connect (no BLUETOOTH_PRIVILEGED) for ${device?.address} returned $result")
+                        } catch (e: Exception) {
+                            Log.w(TAG, "A2DP.connect (no BLUETOOTH_PRIVILEGED) for ${device?.address} threw: ${e.cause?.message ?: e.message}")
+                        } finally {
+                            bluetoothAdapter.closeProfileProxy(BluetoothProfile.A2DP, proxy)
+                            if (MediaController.pausedWhileTakingOver) {
+                                MediaController.sendPlay()
+                            }
+                        }
                     }
                 }
             }

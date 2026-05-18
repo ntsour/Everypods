@@ -49,8 +49,10 @@ import io.nikos.propods.data.Capability
 import io.nikos.propods.data.ControlCommandRepository
 import io.nikos.propods.data.StemAction
 import io.nikos.propods.data.XposedRemotePrefProvider
+import android.bluetooth.BluetoothManager
 import io.nikos.propods.services.AirPodsService
 import io.nikos.propods.utils.CrossDevice
+import io.nikos.propods.utils.CrossDeviceClient
 
 @Suppress("ArrayInDataClass")
 data class AirPodsUiState(
@@ -84,6 +86,8 @@ data class AirPodsUiState(
     val automaticEarDetectionEnabled: Boolean = true,
     val automaticConnectionEnabled: Boolean = true,
     val crossDeviceEnabled: Boolean = false,
+    val crossDevicePeerMac: String? = null,
+    val crossDevicePeerConnected: Boolean = false,
 
     val leftAction: StemAction = StemAction.CYCLE_NOISE_CONTROL_MODES,
     val rightAction: StemAction = StemAction.CYCLE_NOISE_CONTROL_MODES,
@@ -151,6 +155,7 @@ class AirPodsViewModel(
         observeATT()
         if (isDemoMode) activateDemoMode()
         refreshInitialData()
+        pollCrossDeviceStatus()
     }
 
     private fun checkRootPermissions() {
@@ -367,6 +372,8 @@ class AirPodsViewModel(
             sharedPreferences.getBoolean("automatic_connection_ctrl_cmd", true)
         val crossDeviceEnabled =
             sharedPreferences.getBoolean("cross_device_enabled", false)
+        val crossDevicePeerMac =
+            sharedPreferences.getString("cross_device_peer_mac", null)
         val headGesturesEnabled = sharedPreferences.getBoolean("head_gestures_enabled", false)
         val headGesturesAnswerCall = sharedPreferences.getBoolean("head_gestures_answer_call", true)
         val headGesturesMuteCall = sharedPreferences.getBoolean("head_gestures_mute_call", true)
@@ -393,6 +400,7 @@ class AirPodsViewModel(
                 automaticEarDetectionEnabled = automaticEarDetectionEnabled,
                 automaticConnectionEnabled = automaticConnectionEnabled,
                 crossDeviceEnabled = crossDeviceEnabled,
+                crossDevicePeerMac = crossDevicePeerMac,
                 headGesturesEnabled = headGesturesEnabled,
                 headGesturesAnswerCall = headGesturesAnswerCall,
                 headGesturesMuteCall = headGesturesMuteCall,
@@ -579,6 +587,34 @@ class AirPodsViewModel(
     fun setCrossDeviceEnabled(enabled: Boolean) {
         CrossDevice.setEnabled(appContext, enabled)
         _uiState.update { it.copy(crossDeviceEnabled = enabled) }
+    }
+
+    @android.annotation.SuppressLint("MissingPermission")
+    fun setCrossDevicePeerMac(mac: String) {
+        sharedPreferences.edit { putString("cross_device_peer_mac", mac) }
+        _uiState.update { it.copy(crossDevicePeerMac = mac) }
+        if (CrossDevice.isEnabled) {
+            CrossDeviceClient.stop()
+            val adapter = appContext.getSystemService(BluetoothManager::class.java).adapter
+            CrossDeviceClient.start(adapter, mac)
+        }
+    }
+
+    @android.annotation.SuppressLint("MissingPermission")
+    fun reconnectCrossDevice() {
+        val mac = _uiState.value.crossDevicePeerMac ?: return
+        CrossDeviceClient.stop()
+        val adapter = appContext.getSystemService(BluetoothManager::class.java).adapter
+        CrossDeviceClient.start(adapter, mac)
+    }
+
+    private fun pollCrossDeviceStatus() {
+        viewModelScope.launch {
+            while (true) {
+                _uiState.update { it.copy(crossDevicePeerConnected = CrossDevice.isPeerConnected) }
+                delay(2000)
+            }
+        }
     }
 
     fun activateDemoMode() {

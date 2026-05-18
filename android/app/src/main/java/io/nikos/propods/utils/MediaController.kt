@@ -232,7 +232,9 @@ object MediaController {
 
             if (now - lastPlaybackCallbackAt < PLAYBACK_DEBOUNCE_MS) {
                 Log.d("MediaController", "Ignoring playback callback due to debounce (${now - lastPlaybackCallbackAt}ms)")
-                lastPlaybackCallbackAt = now
+                // Don't reset the timer on debounce — otherwise rapid cascading callbacks
+                // (e.g. HyperOS firing 3+ events within 50ms when YouTube starts) keep
+                // resetting the window and the meaningful event never gets processed.
                 return
             }
             lastPlaybackCallbackAt = now
@@ -317,6 +319,19 @@ object MediaController {
                         Log.d("MediaController", "Skipping take-over due to recent ownership loss")
                     }
                 }
+            } else if (!pausedWhileTakingOver && !isActive && hasNewMusicOrMovie && lastKnownIsMusicActive != true && !recentlyLostOwnership) {
+                // HyperOS quirk: AudioPlaybackCallback fires with media configs before
+                // audioManager.isMusicActive flips to true. Re-check after 500ms.
+                Log.d("MediaController", "Media config seen but isMusicActive=false; scheduling delayed re-check")
+                handler.postDelayed({
+                    if (audioManager.isMusicActive && !pausedWhileTakingOver && !recentlyLostOwnership && lastKnownIsMusicActive != true) {
+                        Log.d("MediaController", "Delayed re-check: music now active, requesting takeOver")
+                        ServiceManager.getService()?.takeOver("music")
+                        lastKnownIsMusicActive = true
+                    } else {
+                        Log.d("MediaController", "Delayed re-check: still not music-active or gated; isMusicActive=${audioManager.isMusicActive}")
+                    }
+                }, 500)
             }
 
             lastKnownIsMusicActive = hasNewMusicOrMovie && isActive

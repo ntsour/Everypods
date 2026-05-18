@@ -38,6 +38,10 @@ fun ConnectionSettingsScreen(viewModel: AirPodsViewModel) {
             ConnectionSettings(
                 crossDeviceEnabled = state.crossDeviceEnabled,
                 onCrossDeviceChanged = viewModel::setCrossDeviceEnabled,
+                crossDevicePeerMac = state.crossDevicePeerMac,
+                onPeerMacChanged = viewModel::setCrossDevicePeerMac,
+                crossDevicePeerConnected = state.crossDevicePeerConnected,
+                onReconnectCrossDevice = viewModel::reconnectCrossDevice,
                 automaticEarDetectionEnabled = state.automaticEarDetectionEnabled,
                 onAutomaticEarDetectionChanged = viewModel::setAutomaticEarDetectionEnabled,
                 automaticConnectionEnabled = state.automaticConnectionEnabled,

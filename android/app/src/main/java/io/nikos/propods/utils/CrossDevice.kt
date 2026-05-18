@@ -39,6 +39,7 @@ enum class CrossDevicePackets(val packet: ByteArray) {
     REQUEST_BATTERY_BYTES(byteArrayOf(0x00, 0x02, 0x00, 0x01)),
     REQUEST_ANC_BYTES(byteArrayOf(0x00, 0x02, 0x00, 0x02)),
     REQUEST_CONNECTION_STATUS(byteArrayOf(0x00, 0x02, 0x00, 0x03)),
+    REQUEST_HANDOVER(byteArrayOf(0x00, 0x02, 0x00, 0x04)),
     AIRPODS_DATA_HEADER(byteArrayOf(0x00, 0x04, 0x00, 0x01)),
 }
 
@@ -50,6 +51,10 @@ object CrossDevice {
     var isAvailable: Boolean = false  // true = AirPods are on the remote device, not us
     var batteryBytes: ByteArray = byteArrayOf()
     var ancBytes: ByteArray = byteArrayOf()
+
+    /** True when either the RFCOMM server has a connected client or our client is connected. */
+    @Volatile var isServerClientConnected: Boolean = false
+    val isPeerConnected: Boolean get() = isServerClientConnected || CrossDeviceClient.isConnected
 
     @Volatile private var serverSocket: BluetoothServerSocket? = null
     @Volatile private var clientSocket: BluetoothSocket? = null
@@ -69,6 +74,11 @@ object CrossDevice {
             return
         }
         startServer(adapter)
+
+        val peerMac = prefs.getString("cross_device_peer_mac", null)
+        if (!peerMac.isNullOrEmpty()) {
+            CrossDeviceClient.start(adapter, peerMac)
+        }
     }
 
     @SuppressLint("MissingPermission")
@@ -97,6 +107,7 @@ object CrossDevice {
                 Log.d(TAG, "Client connected: ${socket.remoteDevice.address}")
                 clientSocket?.runCatching { close() }
                 clientSocket = socket
+                isServerClientConnected = true
                 handleClientConnection(socket)  // blocks until client disconnects
             }
         }
@@ -129,6 +140,7 @@ object CrossDevice {
 
         socket.runCatching { close() }
         clientSocket = null
+        isServerClientConnected = false
         isAvailable = false
 
         val appCtx = ServiceManager.getService()?.applicationContext
@@ -141,7 +153,15 @@ object CrossDevice {
     private fun processPacket(raw: ByteArray) {
         Log.d(TAG, "Received: ${raw.joinToString("") { "%02x".format(it) }}")
         when {
+            raw.contentEquals(CrossDevicePackets.REQUEST_HANDOVER.packet) -> {
+                // Peer wants the AirPods — release them if we hold the connection
+                Log.d(TAG, "Received REQUEST_HANDOVER from peer, releasing AirPods")
+                ServiceManager.getService()?.markPeerTakeoverAttempt()
+                ServiceManager.getService()?.disconnectForCD()
+            }
             raw.contentEquals(CrossDevicePackets.REQUEST_DISCONNECT.packet) -> {
+                // Mark that a peer is taking over so we apply cooldown appropriately
+                ServiceManager.getService()?.markPeerTakeoverAttempt()
                 ServiceManager.getService()?.disconnectForCD()
             }
             raw.contentEquals(CrossDevicePackets.AIRPODS_CONNECTED.packet) -> {
@@ -225,14 +245,22 @@ object CrossDevice {
         }
     }
 
-    fun notifyConnected() = sendRemotePacket(CrossDevicePackets.AIRPODS_CONNECTED.packet)
-    fun notifyDisconnected() = sendRemotePacket(CrossDevicePackets.AIRPODS_DISCONNECTED.packet)
+    fun notifyConnected() {
+        sendRemotePacket(CrossDevicePackets.AIRPODS_CONNECTED.packet)
+        CrossDeviceClient.send(CrossDevicePackets.AIRPODS_CONNECTED.packet)
+    }
+    fun notifyDisconnected() {
+        sendRemotePacket(CrossDevicePackets.AIRPODS_DISCONNECTED.packet)
+        CrossDeviceClient.send(CrossDevicePackets.AIRPODS_DISCONNECTED.packet)
+    }
 
     fun close() {
+        CrossDeviceClient.stop()
         serverSocket?.runCatching { close() }
         clientSocket?.runCatching { close() }
         serverSocket = null
         clientSocket = null
+        isServerClientConnected = false
         isAvailable = false
         isEnabled = false
         isServerRunning = false
