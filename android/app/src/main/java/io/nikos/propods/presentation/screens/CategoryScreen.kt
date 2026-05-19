@@ -1047,6 +1047,8 @@ private fun AudioContent(
                 onCrossDeviceChanged = { viewModel.setCrossDeviceEnabled(it) },
                 crossDevicePeerMac = state.crossDevicePeerMac,
                 onPeerMacChanged = { viewModel.setCrossDevicePeerMac(it) },
+                crossDevicePeerConnected = state.crossDevicePeerConnected,
+                onReconnectCrossDevice = { viewModel.reconnectCrossDevice() },
                 automaticEarDetectionEnabled = state.automaticEarDetectionEnabled,
                 onAutomaticEarDetectionChanged = { viewModel.setAutomaticEarDetectionEnabled(it) },
                 automaticConnectionEnabled = state.automaticConnectionEnabled,

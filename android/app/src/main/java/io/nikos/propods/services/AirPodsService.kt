@@ -158,13 +158,19 @@ object ServiceManager {
 // @Suppress("unused")
 class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeListener {
     var macAddress = ""
+
+    // Tracks whether both pods were reported as CHARGING on the most recent
+    // battery packet. Used by `onBatteryInfoReceived` to fire connectAudio /
+    // disconnectAudio only on TRANSITIONS (case opened / case closed), not on
+    // every battery packet. `null` = no prior battery packet yet this session.
+    // Reset to null on socket disconnect so the next session starts fresh.
+    @Volatile private var lastBothCharging: Boolean? = null
     var localMac = ""
     lateinit var aacpManager: AACPManager
     var attManager: ATTManager? = null
     var airpodsInstance: AirPodsInstance? = null
     var cameraActive = false
     private var disconnectedBecauseReversed = false
-    private var otherDeviceTookOver = false
 
     data class ServiceConfig(
         var deviceName: String = "AirPods",
@@ -273,6 +279,29 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         const val PEER_DROP_COOLDOWN_MS: Long = 10_000L
         @Volatile @JvmStatic var peerDropCooldownUntilMs: Long = 0L
         @Volatile @JvmStatic var peerRequestedDisconnectMs: Long = 0L
+
+        /**
+         * Timestamp when we initiated a CrossDevice (RFCOMM) takeover. Used as a guard
+         * window: while we are within [CROSS_DEVICE_TAKEOVER_WINDOW_MS] of this, the
+         * audio-source callback must not relinquish ownership — instead it should
+         * actively re-claim, because AirPods are still reporting the previous owner's
+         * MAC for a short while after the handover.
+         */
+        const val CROSS_DEVICE_TAKEOVER_WINDOW_MS: Long = 5_000L
+        @Volatile @JvmStatic var lastCrossDeviceTakeoverMs: Long = 0L
+
+        /**
+         * Timestamp of the last A2DP profile state transition (connect or disconnect)
+         * for the saved AirPods MAC. When another device performs an A2DP handover,
+         * our profile state briefly bounces (1→0→1→0). MediaController uses this to
+         * suppress the auto-`takeOver()` that would otherwise misfire during a
+         * passive A2DP loss — i.e. when the AirPods are being taken AWAY from us.
+         * Without this guard the `onPlaybackConfigChanged` edge-trigger fires during
+         * the disruption (lastKnownIsMusicActive resets to false, then sees music
+         * active again) and Xiaomi/Pixel fights the peer for the connection.
+         */
+        const val A2DP_STATE_FLUX_WINDOW_MS: Long = 2_500L
+        @Volatile @JvmStatic var lastA2dpStateChangeMs: Long = 0L
 
         /**
          * Last A2DP-connected status for the AirPods MAC, refreshed by [refreshA2dpState].
@@ -1055,10 +1084,40 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     )
                 }
 
-                if (batteryNotification.getBattery()[0].status == BatteryStatus.CHARGING && batteryNotification.getBattery()[1].status == BatteryStatus.CHARGING) {
-                    disconnectAudio(this@AirPodsService, device)
-                } else {
-                    connectAudio(this@AirPodsService, device)
+                // Only react to TRANSITIONS of the both-charging state (case
+                // closed / opened). The previous unconditional call was firing
+                // on every battery packet — and AACP sends 3+ battery packets
+                // during initial handshake and then periodically. Each call
+                // to connectAudio() invokes the hidden A2DP.connect() reflection,
+                // which triggers Android's audio policy to re-evaluate routing.
+                // During that re-evaluation the audio focus is briefly yanked
+                // and media apps (VLC, Pocket Casts, etc.) pause.
+                val bothChargingNow = batteryNotification.getBattery()[0].status == BatteryStatus.CHARGING &&
+                    batteryNotification.getBattery()[1].status == BatteryStatus.CHARGING
+                val prev = lastBothCharging
+                lastBothCharging = bothChargingNow
+                if (prev == null) {
+                    // First battery packet after socket open. Don't touch A2DP —
+                    // the audio route already matches reality (we either just
+                    // took over or never had it). Subsequent transitions handle
+                    // case-open and case-close events.
+                } else if (bothChargingNow != prev) {
+                    if (bothChargingNow) {
+                        Log.d(TAG, "Battery: both pods now charging (case closed) → disconnectAudio")
+                        disconnectAudio(this@AirPodsService, device)
+                    } else {
+                        // Flux gate: if A2DP profile state recently changed (e.g.
+                        // peer device is taking over), suppress connectAudio so we
+                        // don't fight back during the handover window.
+                        val fluxAgeMs = System.currentTimeMillis() - lastA2dpStateChangeMs
+                        val inFlux = lastA2dpStateChangeMs > 0 && fluxAgeMs < A2DP_STATE_FLUX_WINDOW_MS
+                        if (inFlux) {
+                            Log.d(TAG, "Battery: case-opened transition but A2DP in flux (${fluxAgeMs}ms) — suppressing connectAudio")
+                        } else {
+                            Log.d(TAG, "Battery: pods no longer both charging (case opened) → connectAudio")
+                            connectAudio(this@AirPodsService, device)
+                        }
+                    }
                 }
             }
 
@@ -1111,17 +1170,13 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
             override fun onOwnershipChangeReceived(owns: Boolean) {
                 if (!owns) {
-                    MediaController.recentlyLostOwnership = true
-                    Handler(Looper.getMainLooper()).postDelayed({
-                        MediaController.recentlyLostOwnership = false
-                    }, 1000)
-                    Log.d(TAG, "ownership lost")
-                    MediaController.sendPause()
-                    MediaController.pausedForOtherDevice = true
-                    otherDeviceTookOver = true
+                    Log.d(TAG, "ownership lost — Android will fire AUDIO_BECOMING_NOISY to pause the old device")
                     disconnectAudio(
                         this@AirPodsService, device
                     )
+                    // Drop any pending takeover replay — we just lost the route, so
+                    // a stale pendingMac shouldn't auto-resume on a later A2DP blip.
+                    MediaController.cancelPendingMusicTakeover()
                 }
             }
 
@@ -1139,14 +1194,17 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     AACPManager.Companion.ControlCommandIdentifiers.OWNS_CONNECTION.value,
                     byteArrayOf(0x00)
                 )
-                otherDeviceTookOver = true
                 disconnectAudio(
                     this@AirPodsService, device
                 )
+                // Clear any pending music-takeover replay — we just gave up ownership.
+                MediaController.cancelPendingMusicTakeover()
                 if (reasonReverseTapped) {
-                    Log.d(TAG, "reverse tapped, disconnecting audio")
+                    Log.d(TAG, "reverse tapped (already disconnected above)")
                     disconnectedBecauseReversed = true
-                    disconnectAudio(this@AirPodsService, device)
+                    // NOTE: do NOT call disconnectAudio() again here — the prior
+                    // unconditional call above already handled it. A duplicate call
+                    // back-to-back through reflection caused BT-stack state confusion.
                     showIsland(
                         this@AirPodsService,
                         (batteryNotification.getBattery()
@@ -1174,7 +1232,6 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                         otherDeviceName = senderName
                     )
                 }
-                MediaController.sendPause()
             }
 
             override fun onShowNearbyUI(sender: String) {
@@ -1303,6 +1360,21 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     "Audio source changed mac: ${aacpManager.audioSource?.mac}, type: ${aacpManager.audioSource?.type?.name}"
                 )
                 if (localMac!="" && (aacpManager.audioSource?.type != AACPManager.Companion.AudioSourceType.NONE && aacpManager.audioSource?.mac != localMac)) {
+                    // Guard: if we just took over via CrossDevice, AirPods are still reporting
+                    // the previous owner's MAC for a short while. Don't relinquish — re-assert.
+                    if (System.currentTimeMillis() - AirPodsService.lastCrossDeviceTakeoverMs
+                            < AirPodsService.CROSS_DEVICE_TAKEOVER_WINDOW_MS) {
+                        Log.d(
+                            "AirPodsParser",
+                            "Skipping OWNS_CONNECTION=0 during CrossDevice takeover window — re-asserting ownership"
+                        )
+                        aacpManager.sendControlCommand(
+                            AACPManager.Companion.ControlCommandIdentifiers.OWNS_CONNECTION.value, 1
+                        )
+                        aacpManager.sendMediaInformataion(localMac)
+                        aacpManager.sendHijackRequest(localMac)
+                        return
+                    }
                     Log.d(
                         "AirPodsParser",
                         "Audio source is another device, better to give up aacp control"
@@ -2967,6 +3039,14 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             if (bluetoothDevice != null && !action.isNullOrEmpty()) {
                 Log.d(TAG, "Received bluetooth connection broadcast: action=$action, device=${bluetoothDevice.address}")
                 if (BluetoothDevice.ACTION_ACL_CONNECTED == action) {
+                    // If this is our CrossDevice peer, kick the RFCOMM client immediately
+                    // instead of waiting for the exponential backoff timer to expire.
+                    val peerMac = context?.getSharedPreferences("settings", MODE_PRIVATE)
+                        ?.getString("cross_device_peer_mac", null)
+                    if (peerMac != null && bluetoothDevice.address == peerMac) {
+                        CrossDeviceClient.retryNow()
+                    }
+
                     val uuid = ParcelUuid.fromString("74ec2172-0bad-4d01-8f77-997b2be0722a")
                     if (bluetoothDevice.uuids != null && bluetoothDevice.uuids.contains(uuid)) {
                         // UUIDs already cached — fire immediately
@@ -3049,6 +3129,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                         ?.getString("mac_address", null)
 
                     if (savedMac != null && bluetoothDevice.address == savedMac) {
+                        // Stamp A2DP transitions for MediaController's flux gate.
+                        // Headset transitions don't count — only audio routing matters.
+                        if (action == "android.bluetooth.a2dp.profile.action.CONNECTION_STATE_CHANGED") {
+                            lastA2dpStateChangeMs = System.currentTimeMillis()
+                        }
                         if (connectionState == 1) { // BluetoothProfile.STATE_CONNECTED
                             Log.d(TAG, "Profile connected for AirPods (${bluetoothDevice.address}), firing AIRPODS_CONNECTION_DETECTED")
                             val detectedIntent = Intent(AirPodsNotifications.AIRPODS_CONNECTION_DETECTED)
@@ -3084,7 +3169,6 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         if (intent?.action == "io.nikos.propods.RECONNECT_AFTER_REVERSE") {
             Log.d(TAG, "reconnect after reversed received, taking over")
             disconnectedBecauseReversed = false
-            otherDeviceTookOver = false
             takeOver("music", manualTakeOverAfterReversed = true)
         }
 
@@ -3111,32 +3195,28 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             connectAudio(
                 this@AirPodsService, device
             )
-            otherDeviceTookOver = false
+
         }
         val ownsConnection = aacpManager.getControlCommandStatus(AACPManager.Companion.ControlCommandIdentifiers.OWNS_CONNECTION)?.value?.get(0)?.toInt()
-        Log.d(
-            TAG, "owns connection: $ownsConnection"
-        )
-        // Only the local-hijack path needs the L2CAP socket. If it isn't initialized
-        // (AirPods have never been connected to this phone in this process lifetime,
-        // e.g. AirPods are currently on a CrossDevice peer like Windows), still
-        // fall through to the CrossDevice path below.
+        Log.d(TAG, "owns connection: $ownsConnection")
+
+        // ── Local hijack via Xposed (power-user path) ─────────────────────────────
+        // Only kept for users with `vendor_id_hook` set — the hijack uses AACP-level
+        // OWNS_CONNECTION / HijackRequest, which requires the Xposed vendor-id spoof
+        // to be effective. The historical non-Xposed bail was the root cause of
+        // "press play 2-3 times before handover" — see plan: stale AACP sockets made
+        // every press silently no-op. Non-Xposed users now fall through to the
+        // pure-A2DP path below.
         val socketReady = ::socket.isInitialized && socket.isConnected
-        if (socketReady) {
-            if (!XposedRemotePrefProvider.create().getBoolean("vendor_id_hook", false) || ownsConnection == 0) {
-                Log.d(TAG, "not taking over, vendorid is probably not set to apple")
-                return
-            }
+        val hasXposedHook = XposedRemotePrefProvider.create().getBoolean("vendor_id_hook", false)
+        if (socketReady && hasXposedHook && ownsConnection != 0) {
             if (aacpManager.getControlCommandStatus(AACPManager.Companion.ControlCommandIdentifiers.OWNS_CONNECTION)?.value[0]?.toInt() != 1 || (aacpManager.audioSource?.mac != localMac && aacpManager.audioSource?.type != AACPManager.Companion.AudioSourceType.NONE)) {
                 if (disconnectedBecauseReversed) {
                     if (manualTakeOverAfterReversed) {
                         Log.d(TAG, "forcefully taking over despite reverse as user requested")
                         disconnectedBecauseReversed = false
                     } else {
-                        Log.d(
-                            TAG,
-                            "connected locally, but can not hijack as other device had reversed"
-                        )
+                        Log.d(TAG, "connected locally, but can not hijack as other device had reversed")
                         return
                     }
                 }
@@ -3145,16 +3225,13 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 aacpManager.sendControlCommand(
                     AACPManager.Companion.ControlCommandIdentifiers.OWNS_CONNECTION.value, 1
                 )
-                aacpManager.sendMediaInformataion(
-                    localMac
-                )
-                aacpManager.sendSmartRoutingShowUI(
-                    localMac
-                )
-                aacpManager.sendHijackRequest(
-                    localMac
-                )
-                otherDeviceTookOver = false
+                aacpManager.sendMediaInformataion(localMac)
+                aacpManager.sendSmartRoutingShowUI(localMac)
+                aacpManager.sendHijackRequest(localMac)
+
+                if (takingOverFor == "music" && macAddress.isNotEmpty()) {
+                    MediaController.armPendingMusicTakeover(macAddress)
+                }
                 connectAudio(this, device)
                 showIsland(
                     this,
@@ -3167,7 +3244,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 )
 
                 CoroutineScope(Dispatchers.IO).launch {
-                    delay(500) // a2dp takes time, and so does taking control + AirPods pause it for no reason after connecting
+                    delay(500)
                     if (takingOverFor == "music") {
                         Log.d(TAG, "Resuming music after taking control")
                         MediaController.sendPlay(replayWhenPaused = true)
@@ -3177,31 +3254,21 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                             startHeadTracking()
                         }, 500)
                     }
-                    delay(1000) // should ideally have a callback when it's taken over because for some reason android doesn't dispatch when it's paused
+                    delay(1000)
                     if (takingOverFor == "music") {
                         Log.d(TAG, "resuming again just in case")
                         MediaController.sendPlay(force = true)
                     }
                 }
             } else {
-                Log.d(
-                    TAG, "Already connected locally and already own connection, skipping takeover"
-                )
+                Log.d(TAG, "Already connected locally and already own connection, skipping takeover")
             }
             return
         }
 
-//        if (CrossDevice.isAvailable) {
-//            Log.d(TAG, "CrossDevice is available, continuing")
-//        }
-//        else if (bleManager.getMostRecentStatus()?.isLeftInEar == true || bleManager.getMostRecentStatus()?.isRightInEar == true) {
-//            Log.d(TAG, "At least one AirPod is in ear, continuing")
-//        }
-//        else {
-//            Log.d(TAG, "CrossDevice not available and AirPods not in ear, skipping")
-//            return
-//        }
-
+        // ── Gates (ear detection, takeover toggles) ───────────────────────────────
+        // These are the only "should we do anything" checks. Everything past this
+        // is just "call BluetoothA2dp.connect()" — the manual-button equivalent.
         if (bleManager.getMostRecentStatus()?.isLeftInEar == false && bleManager.getMostRecentStatus()?.isRightInEar == false) {
             Log.d(TAG, "Both AirPods are out of ear, not taking over audio")
             return
@@ -3212,97 +3279,86 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             "call" -> config.takeoverWhenRingingCall
             else -> false
         }
-
         if (!shouldTakeOverPState) {
             Log.d(TAG, "Not taking over audio, phone state takeover disabled")
             return
         }
 
-        val bleConnState = bleManager.getMostRecentStatus()?.connectionState
-        val shouldTakeOver = when (bleConnState) {
-            "Disconnected" -> config.takeoverWhenDisconnected
-            "Idle" -> config.takeoverWhenIdle
-            "Music" -> config.takeoverWhenMusic
-            "Call" -> config.takeoverWhenCall
-            "Ringing" -> config.takeoverWhenCall
-            "Hanging Up" -> config.takeoverWhenCall
-            // Fallback for the cross-device claim case: when AirPods are connected to a
-            // peer device (not us), BLE proximity packets are suppressed and we have no
-            // local connectionState. Use the peer's reported audio state to pick the
-            // correct gate: if Windows has an active call/meeting session, respect the
-            // user's "takeover during call" preference; otherwise use "takeover during music".
-            else -> if (CrossDevice.isAvailable) {
-                if (CrossDevice.peerAudioActive) config.takeoverWhenCall
-                else config.takeoverWhenMusic
-            } else false
-        }
-
-        if (!shouldTakeOver) {
-            Log.d(TAG, "Not taking over audio, airpods state takeover disabled (bleConnState=$bleConnState, crossDeviceAvailable=${CrossDevice.isAvailable})")
-            return
-        }
-
-        if (takingOverFor == "music") {
-            Log.d(TAG, "Pausing music so that it doesn't play through speakers")
-            MediaController.pausedWhileTakingOver = true
-            // Safety net: ensure the flag clears even if the takeover handshake doesn't
-            // complete cleanly. Without this, a stuck flag silently blocks all future
-            // media-start takeover events. 8 s is plenty for the ACL+L2CAP path.
-            Handler(Looper.getMainLooper()).postDelayed({
-                if (MediaController.pausedWhileTakingOver) {
-                    Log.d(TAG, "Clearing stale pausedWhileTakingOver after 8s timeout")
-                    MediaController.pausedWhileTakingOver = false
-                }
-            }, 8000)
-            MediaController.sendPause(true)
-        } else {
+        if (takingOverFor != "music") {
             handleIncomingCallOnceConnected = true
         }
 
-        Log.d(TAG, "Taking over audio")
-        CrossDevice.sendRemotePacket(CrossDevicePackets.REQUEST_HANDOVER.packet)
-        CrossDeviceClient.send(CrossDevicePackets.REQUEST_HANDOVER.packet)
-        Log.d(TAG, macAddress)
+        // If AirPods are already A2DP-connected to this device, nothing to do.
+        val a2dpProxy = bluetoothA2dpProxy
+        if (a2dpProxy != null) {
+            val a2dpDevice = a2dpProxy.connectedDevices.find { it.address == macAddress }
+            if (a2dpDevice != null) {
+                Log.d(TAG, "takeOver: already A2DP connected and own the route — no-op, no popup")
+                // Do NOT call showTakeoverIsland() here: nothing was taken over.
+                // The route was already live before this call.
+                return
+            }
+        }
 
-        CrossDevice.isAvailable = false
+        Log.d(TAG, "takeOver START: macAddress=$macAddress, taking over for $takingOverFor")
         val bluetoothManager = getSystemService(BluetoothManager::class.java)
         val bluetoothAdapter = bluetoothManager.adapter
-        device = bluetoothAdapter.bondedDevices.find {
-            it.address == macAddress
-        }
+        device = bluetoothAdapter.bondedDevices.find { it.address == macAddress }
 
         if (device != null) {
             if (config.bleOnlyMode) {
-                // In BLE-only mode, just show connecting status without actual L2CAP connection
                 Log.d(TAG, "BLE-only mode: showing connecting status without L2CAP connection")
-                updateNotificationContent(
-                    true, config.deviceName, batteryNotification.getBattery()
-                )
-                // Set a temporary connecting state
-//                isConnectedLocally = false // Keep as false since we're not actually connecting to L2CAP
+                updateNotificationContent(true, config.deviceName, batteryNotification.getBattery())
             } else {
-                connectToSocket(bluetoothAdapter, device!!)
-                // Give the peer (~Windows tray client uses 800 ms) time to fully
-                // release A2DP after receiving our REQUEST_HANDOVER before we try
-                // to claim the sink. Without the wait the connect often races
-                // and AirPods snap back to the peer.
-                Handler(Looper.getMainLooper()).postDelayed({
-                    connectAudio(this, device)
-                }, 800)
-//                isConnectedLocally = true
-            }
-        }
-        showIsland(
-            this,
-            batteryNotification.getBattery()
-                .find { it.component == BatteryComponent.LEFT }?.level!!.coerceAtMost(
-                    batteryNotification.getBattery()
-                        .find { it.component == BatteryComponent.RIGHT }?.level!!
-                ),
-            IslandType.TAKING_OVER
-        )
+                Log.d(TAG, "takeOver: calling connectAudio()")
+                if (takingOverFor == "music" && macAddress.isNotEmpty()) {
+                    MediaController.armPendingMusicTakeover(macAddress)
+                }
+                connectAudio(this, device)
 
-        CrossDevice.isAvailable = false
+                // Single retry after 1s — the first attempt may be rejected if the peer
+                // device is still actively streaming. By 1s, AUDIO_BECOMING_NOISY has fired
+                // on the peer and its audio stream has stopped, so the retry succeeds.
+                val retryDevice = device
+                Handler(Looper.getMainLooper()).postDelayed({
+                    if (bluetoothA2dpProxy?.connectedDevices?.any { it.address == macAddress } == true) {
+                        Log.d(TAG, "takeOver: retry skipped — A2DP already connected")
+                        return@postDelayed
+                    }
+                    Log.d(TAG, "takeOver: retry connectAudio() after 1s")
+                    connectAudio(this, retryDevice)
+                }, 1000L)
+            }
+        } else {
+            Log.w(TAG, "takeOver: device not found in bondedDevices!")
+        }
+
+        Log.d(TAG, "takeOver COMPLETE (popup deferred until A2DP route lands)")
+        // Popup is no longer fired here. It used to appear instantly on play
+        // press, before the connection was actually established (~3 s ahead of
+        // the real route). Now MediaController invokes showTakeoverIsland()
+        // from its AudioDeviceCallback when the AirPods become the live audio
+        // output — matches what the user actually sees/hears.
+    }
+
+    /**
+     * Show the "taking over" island. Called by MediaController once the
+     * audio route is actually live for the AirPods (AudioDeviceCallback fired
+     * with our MAC). Safe to call from any thread — showIsland posts to UI.
+     */
+    fun showTakeoverIsland() {
+        try {
+            val battery = batteryNotification.getBattery()
+            val left = battery.find { it.component == BatteryComponent.LEFT }?.level
+            val right = battery.find { it.component == BatteryComponent.RIGHT }?.level
+            if (left == null || right == null) {
+                Log.d(TAG, "showTakeoverIsland: battery not ready yet, skipping island")
+                return
+            }
+            showIsland(this, left.coerceAtMost(right), IslandType.TAKING_OVER)
+        } catch (e: Exception) {
+            Log.w(TAG, "showTakeoverIsland failed: ${e.message}")
+        }
     }
 
     private fun createBluetoothSocket(
@@ -3457,6 +3513,20 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         } else {
             // User pressed connect — they want to take over. Clear the cooldown.
             peerDropCooldownUntilMs = 0L
+        }
+        // Hard dedup: if we already have an open L2CAP socket to the AirPods,
+        // don't open another one. AirPods will not tolerate two concurrent
+        // AACP sessions and will kick the client (both sockets bytesRead=-1)
+        // after ~10-15 s. The `connectInFlight` AtomicBoolean below only
+        // covers the window WHILE a connect is being attempted; it releases
+        // as soon as the socket is established, so any subsequent trigger
+        // (BLE listener kick, AIRPODS_CONNECTION_DETECTED broadcast, ACL_CONNECTED
+        // handler — all of which call connectToSocket()) would otherwise sail
+        // through and open a duplicate. Check for an existing live socket here
+        // as the authoritative gate.
+        if (this::socket.isInitialized && socket.isConnected) {
+            Log.d(TAG, "<LogCollector:Conn> connect skipped — socket already open to AirPods (manual=$manual)")
+            return
         }
         if (!connectInFlight.compareAndSet(false, true)) {
             Log.d(TAG, "<LogCollector:Conn> connect already in flight, skipping (manual=$manual)")
@@ -3699,6 +3769,21 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     (AACPManager.Companion.ProximityKeyType.IRK.value
                         + AACPManager.Companion.ProximityKeyType.ENC_KEY.value).toByte()
                 )
+                // If we just performed a CrossDevice receive (took AirPods from a peer like
+                // Xiaomi via REQUEST_HANDOVER), proactively claim AACP ownership now —
+                // BEFORE AirPods send us back their (stale) audio-source field. Without this,
+                // onAudioSourceReceived sees the previous owner's MAC, sends OWNS_CONNECTION=0,
+                // and AirPods drop us → reconnect chime → user must press play again.
+                if (System.currentTimeMillis() - AirPodsService.lastCrossDeviceTakeoverMs
+                        < AirPodsService.CROSS_DEVICE_TAKEOVER_WINDOW_MS) {
+                    Log.d(TAG, "Asserting AACP ownership after CrossDevice takeover")
+                    aacpManager.sendControlCommand(
+                        AACPManager.Companion.ControlCommandIdentifiers.OWNS_CONNECTION.value, 1
+                    )
+                    aacpManager.sendMediaInformataion(localMac)
+                    aacpManager.sendSmartRoutingShowUI(localMac)
+                    aacpManager.sendHijackRequest(localMac)
+                }
                 if (!handleIncomingCallOnceConnected) startHeadTracking() else handleIncomingCall()
                 Handler(Looper.getMainLooper()).postDelayed({
                     aacpManager.sendPacket(aacpManager.createHandshakePacket())
@@ -3713,6 +3798,15 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                         setPackage(packageName)
                     }
                 )
+                // Push our new ownership to the CrossDevice peer immediately. Without this,
+                // the peer only learns we have the AirPods on the next 20-s keep-alive
+                // reply, so a play press on the peer in that window fails with
+                // "crossDeviceAvailable=false" and the user has to press play twice.
+                // (`notifyDisconnected` was already wired in disconnectForCD; this is the
+                // missing symmetric call on the acquiring side.)
+                CrossDevice.isAvailable = false  // we have them now, peer doesn't
+                CrossDevice.notifyConnected()
+                Log.d(TAG, "Notified CrossDevice peer: AIRPODS_CONNECTED")
                 setupStemActions()
 
                 // No app-level read watchdog: AirPods don't send AACP frames spontaneously
@@ -3725,6 +3819,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 readJob.join()
 
                 Log.d(TAG, "<LogCollector:Conn> [Conn-#$attemptId] read loop exited, cleaning up")
+                // Reset battery-transition tracker so next session starts fresh.
+                lastBothCharging = null
                 BluetoothConnectionManager.publishState(
                     io.nikos.propods.bluetooth.connection.ConnectionState.Idle
                 )
@@ -3759,16 +3855,15 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
     fun disconnectForCD() {
         if (!this::socket.isInitialized) return
-        // Anti-pingpong: when ownership moves to a CrossDevice peer (e.g. Windows),
-        // suppress local takeover attempts for 3 s. Mirrors the AACP path at
-        // onOwnershipChangeReceived(false), which is not reached for CrossDevice peers.
-        MediaController.recentlyLostOwnership = true
-        Handler(Looper.getMainLooper()).postDelayed({
-            MediaController.recentlyLostOwnership = false
-        }, 1000)
+        // Anti-pingpong: when ownership moves to a CrossDevice peer (Android/Windows),
+        // suppress local takeover attempts for 30 s. AirPods frequently bounce back to
+        // the releasing device's BT stack (autonomous BT reconnect), which can briefly
+        // resume the local media player — without this guard MediaController would call
+        // takeOver() ~43 s after the yield, causing a fight between the two devices.
+        // 30 s covers the typical bounce window; after that, if media is still active
+        // on this device the user probably does want to re-claim the AirPods.
         socket.close()
-        MediaController.pausedWhileTakingOver = false
-        Log.d(TAG, "Disconnected from AirPods (CrossDevice handover), recentlyLostOwnership=true for 1s")
+        Log.d(TAG, "Disconnected from AirPods (CrossDevice handover)")
         showIsland(
             this,
             batteryNotification.getBattery()
@@ -3896,6 +3991,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }
 
     fun disconnectAudio(context: Context, device: BluetoothDevice?) {
+        // Stamp the flux timestamp BEFORE we actually drop the profile. This is the
+        // strongest local signal that audio is leaving us (peer is taking over or we
+        // initiated the drop) — it must precede any subsequent callbacks that consult
+        // the flux gate (MediaController.onPlaybackConfigChanged, battery handler).
+        lastA2dpStateChangeMs = System.currentTimeMillis()
         val bluetoothAdapter = context.getSystemService(BluetoothManager::class.java).adapter
         if (checkSelfPermission("android.permission.BLUETOOTH_PRIVILEGED") == PackageManager.PERMISSION_GRANTED) {
             bluetoothAdapter?.getProfileProxy(context, object : BluetoothProfile.ServiceListener {
@@ -3977,9 +4077,6 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                             e.printStackTrace()
                         } finally {
                             bluetoothAdapter.closeProfileProxy(BluetoothProfile.A2DP, proxy)
-                            if (MediaController.pausedWhileTakingOver) {
-                                MediaController.sendPlay()
-                            }
                         }
                     }
                     else {
@@ -3996,9 +4093,6 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                             Log.w(TAG, "A2DP.connect (no BLUETOOTH_PRIVILEGED) for ${device?.address} threw: ${e.cause?.message ?: e.message}")
                         } finally {
                             bluetoothAdapter.closeProfileProxy(BluetoothProfile.A2DP, proxy)
-                            if (MediaController.pausedWhileTakingOver) {
-                                MediaController.sendPlay()
-                            }
                         }
                     }
                 }

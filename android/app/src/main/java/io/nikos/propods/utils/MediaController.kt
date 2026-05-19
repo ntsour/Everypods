@@ -24,6 +24,8 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.SharedPreferences
 import android.media.AudioAttributes
+import android.media.AudioDeviceCallback
+import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.media.AudioPlaybackConfiguration
 import android.media.session.MediaSessionManager
@@ -48,29 +50,52 @@ object MediaController {
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var preferenceChangeListener: SharedPreferences.OnSharedPreferenceChangeListener
 
-    var pausedWhileTakingOver = false
-    var pausedForOtherDevice = false
-
     private var lastSelfActionAt: Long = 0L
     private const val SELF_ACTION_IGNORE_MS = 800L
     private const val PLAYBACK_DEBOUNCE_MS = 300L
     private var lastPlaybackCallbackAt: Long = 0L
     private var lastKnownIsMusicActive: Boolean? = null
 
-    private const val PAUSED_FOR_OTHER_DEVICE_CLEAR_MS = 500L
-    private val clearPausedForOtherDeviceRunnable = Runnable {
-        pausedForOtherDevice = false
-        Log.d("MediaController", "Cleared pausedForOtherDevice after timeout, resuming normal playback monitoring")
-    }
-
     private var relativeVolume: Boolean = false
     private var conversationalAwarenessVolume: Int = 2
     private var conversationalAwarenessPauseMusic: Boolean = false
 
-    var recentlyLostOwnership: Boolean = false
-
     private var lastPlayWithReplay: Boolean = false
     private var lastPlayTime: Long = 0L
+
+    // Set to the AirPods MAC every time we call takeOver("music"). The
+    // AudioDeviceCallback below fires only when an A2DP device with THIS MAC
+    // becomes the audio output — no time-window guessing. Cleared on:
+    //   - the expected MAC is added (fire path)
+    //   - user explicitly pauses via sendPause (don't fight user intent)
+    // Volatile because it's read on the audio-system thread and written on
+    // the MediaSession callback thread.
+    @Volatile
+    private var pendingMusicTakeoverForMac: String? = null
+
+    // Wall-clock time when pendingMusicTakeoverForMac was set. Used to age out
+    // stale pending state so a route blip much later can't fire showTakeoverIsland
+    // or sendPlay(force=true) against the user.
+    @Volatile
+    private var pendingMusicTakeoverSetAt: Long = 0L
+    private const val PENDING_TAKEOVER_MAX_AGE_MS = 3_000L
+
+    /** Called by AirPodsService.takeOver() right before it actually invokes connectAudio(). */
+    fun armPendingMusicTakeover(mac: String) {
+        if (mac.isEmpty()) return
+        pendingMusicTakeoverForMac = mac
+        pendingMusicTakeoverSetAt = System.currentTimeMillis()
+        Log.d("MediaController", "armPendingMusicTakeover($mac)")
+    }
+
+    /** Called when we lose ownership or otherwise want to drop the pending state. */
+    fun cancelPendingMusicTakeover() {
+        if (pendingMusicTakeoverForMac != null) {
+            Log.d("MediaController", "cancelPendingMusicTakeover (was: $pendingMusicTakeoverForMac)")
+        }
+        pendingMusicTakeoverForMac = null
+        pendingMusicTakeoverSetAt = 0L
+    }
 
     // MediaSession-based detection (covers apps hidden from AudioPlaybackCallback by audio
     // hardening, e.g. Pocket Casts with FLAG_NO_MEDIA_PROJECTION). Sessions are addressable
@@ -107,6 +132,83 @@ object MediaController {
         sharedPreferences.registerOnSharedPreferenceChangeListener(preferenceChangeListener)
 
         audioManager.registerAudioPlaybackCallback(cb, null)
+
+        // Listen for audio routing changes. When the AirPods become the actual
+        // media output (not just A2DP-profile-connected, but Android has fully
+        // routed media to them), check if we should re-issue a play key. This
+        // covers Pocket Casts (and any well-behaved app) auto-pausing on
+        // audio device change during a handover.
+        audioManager.registerAudioDeviceCallback(object : AudioDeviceCallback() {
+            override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>?) {
+                addedDevices?.forEach { dev ->
+                    if (dev.type != AudioDeviceInfo.TYPE_BLUETOOTH_A2DP) return@forEach
+                    val pendingMac = pendingMusicTakeoverForMac
+                    Log.d("MediaController", "AudioDevice added: type=A2DP name='${dev.productName}' addr='${dev.address}' pendingFor='$pendingMac'")
+                    if (pendingMac == null) return@forEach
+                    // Age-out: if the pending state is older than the max age, drop it.
+                    // Protects against a route blip happening minutes after a no-op takeOver.
+                    val ageMs = System.currentTimeMillis() - pendingMusicTakeoverSetAt
+                    if (ageMs > PENDING_TAKEOVER_MAX_AGE_MS) {
+                        Log.d("MediaController", "  → pendingMac stale (${ageMs}ms old); clearing without action")
+                        cancelPendingMusicTakeover()
+                        return@forEach
+                    }
+                    // Exact MAC match — case-insensitive because some vendors uppercase
+                    // and some lowercase the address string.
+                    if (!dev.address.equals(pendingMac, ignoreCase = true)) {
+                        Log.d("MediaController", "  → MAC mismatch (added=${dev.address} vs pending=$pendingMac); ignoring")
+                        return@forEach
+                    }
+                    // Consume the pending state so we don't re-fire on later route changes.
+                    cancelPendingMusicTakeover()
+                    if (audioManager.isMusicActive) {
+                        Log.d("MediaController", "  → expected AirPods route landed and music already playing; no replay needed")
+                        // Still show the takeover island — route just became live.
+                        ServiceManager.getService()?.showTakeoverIsland()
+                        return@forEach
+                    }
+                    if (iPausedTheMedia) {
+                        Log.d("MediaController", "  → route landed but iPausedTheMedia=true; user paused intentionally, NOT replaying")
+                        ServiceManager.getService()?.showTakeoverIsland()
+                        return@forEach
+                    }
+                    Log.d("MediaController", "  → expected AirPods route landed but music NOT playing; re-issuing play key")
+                    sendPlay(force = true)
+                    // Audio route is actually live now — show the takeover island.
+                    // (Previously fired immediately on takeOver() request, ~3 s
+                    // before reality. This matches what the user sees/hears.)
+                    ServiceManager.getService()?.showTakeoverIsland()
+                }
+            }
+        }, handler)
+
+        // Stamp the A2DP flux timestamp on AUDIO_BECOMING_NOISY too — not just
+        // on profile state changes. NOISY fires ~300-500 ms EARLIER than the
+        // A2DP profile transitions when a peer device takes the AirPods, so
+        // it's the earliest local signal that "the AirPods are leaving us."
+        // Without this, the takeOver-suppression gate misses the window:
+        // onPlaybackConfigChanged fires (because music is still active) right
+        // between NOISY and the profile state change, sees no recent A2DP
+        // flux, and triggers a fight-back takeOver.
+        if (context != null) {
+            try {
+                val noisyReceiver = object : android.content.BroadcastReceiver() {
+                    override fun onReceive(c: Context?, intent: android.content.Intent?) {
+                        if (intent?.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) {
+                            io.nikos.propods.services.AirPodsService.lastA2dpStateChangeMs = System.currentTimeMillis()
+                            Log.d("MediaController", "AUDIO_BECOMING_NOISY received; stamping A2DP flux for suppression gate")
+                        }
+                    }
+                }
+                context.registerReceiver(
+                    noisyReceiver,
+                    android.content.IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY)
+                )
+                Log.d("MediaController", "Registered AUDIO_BECOMING_NOISY receiver")
+            } catch (e: Exception) {
+                Log.w("MediaController", "Failed to register NOISY receiver: ${e.message}")
+            }
+        }
 
         // Also subscribe to MediaSessionManager to catch apps that AudioPlaybackCallback misses.
         if (context != null) initMediaSessions(context)
@@ -195,22 +297,14 @@ object MediaController {
         }
         val now = SystemClock.uptimeMillis()
         if (now - lastSelfActionAt < SELF_ACTION_IGNORE_MS) {
-            Log.d("MediaController", "  ignoring: within self-action window")
-            return
-        }
-        if (recentlyLostOwnership) {
-            Log.d("MediaController", "  ignoring: recentlyLostOwnership=true (anti-pingpong)")
-            return
-        }
-        if (pausedWhileTakingOver) {
-            Log.d("MediaController", "  ignoring: pausedWhileTakingOver=true")
+            Log.d("MediaController", "  ignoring: within self-action window (${now - lastSelfActionAt}ms)")
             return
         }
         if (iPausedTheMedia) {
             Log.d("MediaController", "  ignoring: iPausedTheMedia=true (we paused this ourselves)")
             return
         }
-        Log.d("MediaController", "  → requesting takeOver(\"music\") from MediaSession event")
+        Log.d("MediaController", "  → PROCEEDING: requesting takeOver(\"music\") from MediaSession event")
         ServiceManager.getService()?.takeOver("music")
     }
 
@@ -220,7 +314,7 @@ object MediaController {
             super.onPlaybackConfigChanged(configs)
             val now = SystemClock.uptimeMillis()
             val isActive = audioManager.isMusicActive
-            Log.d("MediaController", "Playback config changed, iPausedTheMedia: $iPausedTheMedia, isActive: $isActive, pausedForOtherDevice: $pausedForOtherDevice, lastKnownIsMusicActive: $lastKnownIsMusicActive")
+            Log.d("MediaController", "Playback config changed, iPausedTheMedia: $iPausedTheMedia, isActive: $isActive, lastKnownIsMusicActive: $lastKnownIsMusicActive")
 
             if (!isActive && lastPlayWithReplay && now - lastPlayTime < 2500L) {
                 Log.d("MediaController", "Music paused shortly after play with replay; retrying play")
@@ -270,29 +364,6 @@ object MediaController {
 
             Log.d("MediaController", "Has new music or movie: $hasNewMusicOrMovie")
 
-            if (pausedForOtherDevice) {
-                handler.removeCallbacks(clearPausedForOtherDeviceRunnable)
-                handler.postDelayed(clearPausedForOtherDeviceRunnable, PAUSED_FOR_OTHER_DEVICE_CLEAR_MS)
-
-                if (isActive) {
-                    Log.d("MediaController", "Detected play while pausedForOtherDevice; attempting to take over")
-                    if (!recentlyLostOwnership && hasNewMusicOrMovie) {
-                        pausedForOtherDevice = false
-                        userPlayedTheMedia = true
-                        if (!pausedWhileTakingOver) {
-                            ServiceManager.getService()?.takeOver("music")
-                        }
-                    } else {
-                        Log.d("MediaController", "Skipping take-over due to recent ownership loss or no new music/movie")
-                    }
-                } else {
-                    Log.d("MediaController", "Still not active while pausedForOtherDevice; will clear state after timeout")
-                }
-
-                lastKnownIsMusicActive = isActive
-                return
-            }
-
             if (configs != null && !iPausedTheMedia) {
                 val localMac = ServiceManager.getService()?.localMac ?: return
                 if (localMac == "") return
@@ -303,33 +374,46 @@ object MediaController {
                 Log.d("MediaController", "User changed media state themselves; will wait for ear detection pause before auto-play")
                 handler.postDelayed({
                     userPlayedTheMedia = audioManager.isMusicActive
-                    if (audioManager.isMusicActive) {
-                        pausedForOtherDevice = false
-                    }
                 }, 7)
             }
 
-            Log.d("MediaController", "pausedWhileTakingOver: $pausedWhileTakingOver")
-            if (!pausedWhileTakingOver && isActive && hasNewMusicOrMovie) {
+            // A2DP flux gate: when a peer device performs an A2DP handover, our
+            // own A2DP profile state briefly bounces, which causes the audio system
+            // to fire spurious playback-config callbacks here. The `lastKnownIsMusicActive`
+            // edge-trigger then misfires (resets to false during the disruption, then
+            // sees music active again) and we'd call takeOver(), fighting the peer
+            // for the connection. Skip takeOver while A2DP state is unsettled.
+            val a2dpFluxAgeMs = System.currentTimeMillis() - io.nikos.propods.services.AirPodsService.lastA2dpStateChangeMs
+            val a2dpInFlux = io.nikos.propods.services.AirPodsService.lastA2dpStateChangeMs > 0 &&
+                a2dpFluxAgeMs < io.nikos.propods.services.AirPodsService.A2DP_STATE_FLUX_WINDOW_MS
+
+            if (isActive && hasNewMusicOrMovie) {
                 if (lastKnownIsMusicActive != true) {
-                    if (!recentlyLostOwnership) {
-                        Log.d("MediaController", "Music/movie is active and not pausedWhileTakingOver; requesting takeOver")
-                        ServiceManager.getService()?.takeOver("music")
+                    if (a2dpInFlux) {
+                        Log.d("MediaController", "Music/movie is active BUT A2DP in flux (${a2dpFluxAgeMs}ms since change) — suppressing takeOver, peer is likely taking over")
                     } else {
-                        Log.d("MediaController", "Skipping take-over due to recent ownership loss")
+                        Log.d("MediaController", "Music/movie is active; requesting takeOver")
+                        ServiceManager.getService()?.takeOver("music")
                     }
                 }
-            } else if (!pausedWhileTakingOver && !isActive && hasNewMusicOrMovie && lastKnownIsMusicActive != true && !recentlyLostOwnership) {
+            } else if (!isActive && hasNewMusicOrMovie && lastKnownIsMusicActive != true) {
                 // HyperOS quirk: AudioPlaybackCallback fires with media configs before
                 // audioManager.isMusicActive flips to true. Re-check after 500ms.
                 Log.d("MediaController", "Media config seen but isMusicActive=false; scheduling delayed re-check")
                 handler.postDelayed({
-                    if (audioManager.isMusicActive && !pausedWhileTakingOver && !recentlyLostOwnership && lastKnownIsMusicActive != true) {
-                        Log.d("MediaController", "Delayed re-check: music now active, requesting takeOver")
-                        ServiceManager.getService()?.takeOver("music")
-                        lastKnownIsMusicActive = true
+                    if (audioManager.isMusicActive && lastKnownIsMusicActive != true) {
+                        val fluxAgeMsNow = System.currentTimeMillis() - io.nikos.propods.services.AirPodsService.lastA2dpStateChangeMs
+                        val inFluxNow = io.nikos.propods.services.AirPodsService.lastA2dpStateChangeMs > 0 &&
+                            fluxAgeMsNow < io.nikos.propods.services.AirPodsService.A2DP_STATE_FLUX_WINDOW_MS
+                        if (inFluxNow) {
+                            Log.d("MediaController", "Delayed re-check: music active BUT A2DP in flux (${fluxAgeMsNow}ms) — suppressing takeOver")
+                        } else {
+                            Log.d("MediaController", "Delayed re-check: music now active, requesting takeOver")
+                            ServiceManager.getService()?.takeOver("music")
+                            lastKnownIsMusicActive = true
+                        }
                     } else {
-                        Log.d("MediaController", "Delayed re-check: still not music-active or gated; isMusicActive=${audioManager.isMusicActive}")
+                        Log.d("MediaController", "Delayed re-check: still not music-active; isMusicActive=${audioManager.isMusicActive}")
                     }
                 }, 500)
             }
@@ -398,8 +482,12 @@ object MediaController {
 
     @Synchronized
     fun sendPause(force: Boolean = false) {
-        Log.d("MediaController", "Sending pause with iPausedTheMedia: $iPausedTheMedia, userPlayedTheMedia: $userPlayedTheMedia, isMusicActive: ${audioManager.isMusicActive}, force: $force")
+        Log.d("MediaController", "sendPause called: iPausedTheMedia=$iPausedTheMedia, userPlayedTheMedia=$userPlayedTheMedia, isMusicActive=${audioManager.isMusicActive}, force=$force")
+        // Cancel any pending music-takeover replay — if we're pausing, the user
+        // doesn't want auto-resume when a future A2DP route lands.
+        cancelPendingMusicTakeover()
         if ((audioManager.isMusicActive) && (!userPlayedTheMedia || force)) {
+            Log.d("MediaController", "  → DISPATCHING PAUSE KEY EVENT")
             iPausedTheMedia = if (force) audioManager.isMusicActive else true
             userPlayedTheMedia = false
             audioManager.dispatchMediaKeyEvent(
@@ -415,6 +503,8 @@ object MediaController {
                 )
             )
             lastSelfActionAt = SystemClock.uptimeMillis()
+        } else {
+            Log.d("MediaController", "  → skipped (not music active or user is controlling playback)")
         }
     }
 
@@ -445,10 +535,6 @@ object MediaController {
         if (!audioManager.isMusicActive) {
             Log.d("MediaController", "Setting iPausedTheMedia to false")
             iPausedTheMedia = false
-        }
-        if (pausedWhileTakingOver) {
-            Log.d("MediaController", "Setting pausedWhileTakingOver to false")
-            pausedWhileTakingOver = false
         }
     }
 

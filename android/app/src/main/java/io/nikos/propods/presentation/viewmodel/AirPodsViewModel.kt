@@ -49,7 +49,6 @@ import io.nikos.propods.data.Capability
 import io.nikos.propods.data.ControlCommandRepository
 import io.nikos.propods.data.StemAction
 import io.nikos.propods.data.XposedRemotePrefProvider
-import android.bluetooth.BluetoothManager
 import io.nikos.propods.services.AirPodsService
 import io.nikos.propods.utils.CrossDevice
 import io.nikos.propods.utils.CrossDeviceClient
@@ -594,24 +593,45 @@ class AirPodsViewModel(
         sharedPreferences.edit { putString("cross_device_peer_mac", mac) }
         _uiState.update { it.copy(crossDevicePeerMac = mac) }
         if (CrossDevice.isEnabled) {
+            // Re-run init so role election decides whether to start the client
+            // (lower-MAC side) or stay server-only (higher-MAC side).
             CrossDeviceClient.stop()
-            val adapter = appContext.getSystemService(BluetoothManager::class.java).adapter
-            CrossDeviceClient.start(adapter, mac)
+            CrossDevice.init(appContext)
         }
     }
 
     @android.annotation.SuppressLint("MissingPermission")
     fun reconnectCrossDevice() {
         val mac = _uiState.value.crossDevicePeerMac ?: return
+        android.util.Log.d("AirPodsViewModel", "reconnectCrossDevice tapped — cycling server + client (peer=$mac)")
+        // Stop the client first so we don't race against the server tear-down.
         CrossDeviceClient.stop()
-        val adapter = appContext.getSystemService(BluetoothManager::class.java).adapter
-        CrossDeviceClient.start(adapter, mac)
+        // Cycle the server so a wedged accept() loop on this side can recover.
+        CrossDevice.restartServer(appContext)
+        // Re-run role election: only the lower-MAC side actually starts the
+        // client, so we avoid the duplicate-channel collision that was killing
+        // the older RFCOMM session.
+        CrossDevice.init(appContext)
     }
 
     private fun pollCrossDeviceStatus() {
+        android.util.Log.d("AirPodsViewModel", "pollCrossDeviceStatus started (scope=$viewModelScope)")
         viewModelScope.launch {
+            var lastLoggedState: Boolean? = null
+            var tick = 0
             while (true) {
-                _uiState.update { it.copy(crossDevicePeerConnected = CrossDevice.isPeerConnected) }
+                val serverConnected = CrossDevice.isServerClientConnected
+                val clientConnected = io.nikos.propods.utils.CrossDeviceClient.isConnected
+                val combined = serverConnected || clientConnected
+                if (combined != lastLoggedState || tick % 10 == 0) {
+                    android.util.Log.d(
+                        "AirPodsViewModel",
+                        "pollCrossDeviceStatus tick=$tick serverConn=$serverConnected clientConn=$clientConnected combined=$combined"
+                    )
+                    lastLoggedState = combined
+                }
+                _uiState.update { it.copy(crossDevicePeerConnected = combined) }
+                tick++
                 delay(2000)
             }
         }

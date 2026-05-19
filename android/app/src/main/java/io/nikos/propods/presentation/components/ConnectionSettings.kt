@@ -197,7 +197,10 @@ fun ConnectionSettings(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(46.dp)
-                            .clickable { onReconnectCrossDevice() }
+                            .clickable {
+                                android.util.Log.d("ConnectionSettings", "Reconnect to peer clicked (UI layer)")
+                                onReconnectCrossDevice()
+                            }
                             .padding(horizontal = 16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {

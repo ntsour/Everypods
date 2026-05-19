@@ -28,6 +28,8 @@ import android.util.Log
 import io.nikos.propods.services.ServiceManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.IOException
 import java.util.UUID
@@ -50,6 +52,11 @@ enum class CrossDevicePackets(val packet: ByteArray) {
 object CrossDevice {
     private const val TAG = "CrossDevice"
     private val UUID_CROSS_DEVICE = UUID.fromString("1abbb9a4-10e4-4000-a75c-8953c5471342")
+
+    // Keep-alive ping interval for server-side sockets, mirroring CrossDeviceClient.
+    // Server-only role (when the peer's MAC sorts lower than ours) has no app traffic
+    // between handovers, so without this Android's BT power-management can drop the ACL.
+    private const val SERVER_KEEPALIVE_INTERVAL_MS = 20_000L
 
     var isEnabled: Boolean = false
     var isAvailable: Boolean = false  // true = AirPods are on the remote device, not us
@@ -83,8 +90,79 @@ object CrossDevice {
 
         val peerMac = prefs.getString("cross_device_peer_mac", null)
         if (!peerMac.isNullOrEmpty()) {
-            CrossDeviceClient.start(adapter, peerMac)
+            maybeStartClient(adapter, peerMac)
         }
+    }
+
+    /**
+     * Role-elect whether this device should run the RFCOMM CLIENT to [peerMac].
+     *
+     * Both Android devices in a pair run the server (Windows always connects as a
+     * client). Without this election they would also each start a client to each
+     * other on the same UUID, producing two RFCOMM channels between the same MAC
+     * pair — Bluedroid frequently kills the older session, which is the root
+     * cause of the "Connect failed (read ret: -1)" loop we kept seeing.
+     *
+     * Election: the device with the lexicographically smaller MAC is the CLIENT;
+     * the other is server-only. If we can't read our local MAC (some OEM builds
+     * block it), we fall back to the original behaviour and just start the client.
+     */
+    @SuppressLint("HardwareIds", "MissingPermission")
+    private fun maybeStartClient(adapter: android.bluetooth.BluetoothAdapter, peerMac: String) {
+        val localMac = readLocalBluetoothMac(adapter)
+        if (localMac.isNullOrEmpty()) {
+            Log.w(TAG, "Role election: local MAC unavailable, falling back to client-on (peer=$peerMac)")
+            CrossDeviceClient.start(adapter, peerMac)
+            return
+        }
+        val shouldBeClient = localMac.compareTo(peerMac, ignoreCase = true) < 0
+        if (shouldBeClient) {
+            Log.d(TAG, "Role election: I am CLIENT to peer $peerMac (localMac=$localMac)")
+            CrossDeviceClient.start(adapter, peerMac)
+        } else {
+            Log.d(TAG, "Role election: I am SERVER for peer $peerMac (localMac=$localMac); not starting client")
+            // Make sure no stale client coroutine is running from a previous config.
+            CrossDeviceClient.stop()
+        }
+    }
+
+    /**
+     * Best-effort read of this device's Bluetooth MAC.
+     *
+     * `BluetoothAdapter.getAddress()` returns the sentinel "02:00:00:00:00:00" on
+     * Android 6+ without privileged permissions, so we also try the Secure setting
+     * which is readable on Pixel and many OEMs. Returns null if neither works.
+     */
+    @SuppressLint("HardwareIds")
+    private fun readLocalBluetoothMac(adapter: android.bluetooth.BluetoothAdapter): String? {
+        val direct = try { adapter.address } catch (_: Exception) { null }
+        if (!direct.isNullOrEmpty() && direct != "02:00:00:00:00:00") return direct
+        val ctx = ServiceManager.getService()?.applicationContext ?: return null
+        return try {
+            android.provider.Settings.Secure.getString(ctx.contentResolver, "bluetooth_address")
+                ?.takeIf { it.isNotEmpty() && it != "02:00:00:00:00:00" }
+        } catch (_: Exception) { null }
+    }
+
+    /**
+     * Tear down and re-open the RFCOMM server. Called by the "Reconnect to peer"
+     * button so the user has a way to recover when the server side is wedged
+     * (e.g. accept() returned but the socket is stale).
+     */
+    @SuppressLint("MissingPermission")
+    fun restartServer(context: Context) {
+        Log.d(TAG, "restartServer: closing server socket and ${clientSockets.size} client socket(s)")
+        serverSocket?.runCatching { close() }
+        serverSocket = null
+        clientSockets.forEach { it.runCatching { close() } }
+        clientSockets.clear()
+        isServerRunning = false
+        val adapter = context.getSystemService(BluetoothManager::class.java).adapter
+        if (adapter == null || !adapter.isEnabled) {
+            Log.w(TAG, "restartServer: adapter unavailable or disabled")
+            return
+        }
+        startServer(adapter)
     }
 
     @SuppressLint("MissingPermission")
@@ -96,10 +174,15 @@ object CrossDevice {
         isServerRunning = true
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                serverSocket = adapter.listenUsingRfcommWithServiceRecord("ProPodsCrossDevice", UUID_CROSS_DEVICE)
+                // Insecure: skips per-connect SDP-level auth so a transient pairing
+                // re-negotiation (caused by other BT activity on the same ACL) can't
+                // make the next connect fail with "read ret: -1". The underlying ACL
+                // is still encrypted because both devices are bonded for A2DP.
+                serverSocket = adapter.listenUsingInsecureRfcommWithServiceRecord("ProPodsCrossDevice", UUID_CROSS_DEVICE)
                 Log.d(TAG, "RFCOMM server listening")
             } catch (e: IOException) {
                 Log.e(TAG, "Failed to open RFCOMM server: ${e.message}")
+                isServerRunning = false
                 return@launch
             }
             // Accept loop — each client gets its own coroutine so multiple can be active at once
@@ -113,6 +196,15 @@ object CrossDevice {
                 Log.d(TAG, "Client connected: ${socket.remoteDevice.address} (${clientSockets.size + 1} total)")
                 clientSockets.add(socket)
                 CoroutineScope(Dispatchers.IO).launch { handleClientConnection(socket) }
+            }
+            // Server socket died (not via close()). Reset the flag and restart
+            // automatically if cross-device is still enabled, so incoming connections
+            // can be accepted again without requiring a service restart.
+            isServerRunning = false
+            if (isEnabled) {
+                Log.d(TAG, "RFCOMM server socket died unexpectedly; restarting in 2s")
+                kotlinx.coroutines.delay(2_000L)
+                startServer(adapter)
             }
         }
     }
@@ -132,6 +224,25 @@ object CrossDevice {
                 CrossDevicePackets.AIRPODS_DISCONNECTED.packet
         )
 
+        // Server-side keep-alive: when this device is "server only" (role election
+        // suppressed our client), nothing else generates app-layer traffic between
+        // handovers and Android Doze will eventually drop the idle ACL. Pinging the
+        // peer every 20 s keeps it alive. The peer's CrossDeviceClient already
+        // replies to REQUEST_CONNECTION_STATUS, so no protocol change is needed.
+        val keepAliveScope = CoroutineScope(Dispatchers.IO)
+        val keepAliveJob: Job = keepAliveScope.launch {
+            while (true) {
+                delay(SERVER_KEEPALIVE_INTERVAL_MS)
+                if (!clientSockets.contains(socket)) break
+                val ok = runCatching {
+                    socket.outputStream.write(CrossDevicePackets.REQUEST_CONNECTION_STATUS.packet)
+                    socket.outputStream.flush()
+                }.isSuccess
+                if (!ok) break
+                Log.d(TAG, "Server keep-alive ping → $addr")
+            }
+        }
+
         val buffer = ByteArray(1024)
         while (true) {
             val bytes = try {
@@ -144,6 +255,7 @@ object CrossDevice {
             processPacket(buffer.copyOf(bytes))
         }
 
+        keepAliveJob.cancel()
         socket.runCatching { close() }
         clientSockets.remove(socket)
         Log.d(TAG, "Client $addr removed (${clientSockets.size} remaining)")
@@ -161,8 +273,14 @@ object CrossDevice {
         Log.d(TAG, "Received: ${raw.joinToString("") { "%02x".format(it) }}")
         when {
             raw.contentEquals(CrossDevicePackets.REQUEST_HANDOVER.packet) -> {
-                // Peer wants the AirPods — release them if we hold the connection
-                Log.d(TAG, "Received REQUEST_HANDOVER from peer, releasing AirPods")
+                // Peer wants the AirPods — release them if we hold the connection.
+                // Eagerly flip isAvailable=true: the peer just claimed ownership, so for
+                // *our* takeOver gate ("crossDeviceAvailable=false → bail") to work on a
+                // quick reversal play press, the peer must register as "having them"
+                // immediately — without waiting for the peer's AACP handshake to finish
+                // and its eventual AIRPODS_CONNECTED reply, which can be 5–60 s later.
+                Log.d(TAG, "Received REQUEST_HANDOVER from peer, releasing AirPods (eagerly setting isAvailable=true)")
+                isAvailable = true
                 ServiceManager.getService()?.markPeerTakeoverAttempt()
                 ServiceManager.getService()?.disconnectForCD()
             }
