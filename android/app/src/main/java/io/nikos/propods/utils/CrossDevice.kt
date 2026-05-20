@@ -101,47 +101,39 @@ object CrossDevice {
      * client). Without this election they would also each start a client to each
      * other on the same UUID, producing two RFCOMM channels between the same MAC
      * pair — Bluedroid frequently kills the older session, which is the root
-     * cause of the "Connect failed (read ret: -1)" loop we kept seeing.
+     * cause of the "Connect failed (read ret: -1)" loop.
      *
-     * Election: the device with the lexicographically smaller MAC is the CLIENT;
-     * the other is server-only. If we can't read our local MAC (some OEM builds
-     * block it), we fall back to the original behaviour and just start the client.
+     * Election by **Bluetooth device name**: the local MAC is unreadable on modern
+     * Android (`adapter.address` is the 02:00:00:00:00:00 sentinel and the Secure
+     * "bluetooth_address" setting is locked down), which made the old MAC-based
+     * election fall through to "client-on" on BOTH devices — the very collision it
+     * was meant to prevent. Device names, however, are always readable: each device
+     * knows its own (`adapter.name`) and the peer's (`getRemoteDevice(peerMac).name`,
+     * cached for a bonded device). Both devices compare the SAME ordered pair, so
+     * `ownName < peerName` is true on exactly one of them.
+     *
+     * Fallback when names are unusable (null/blank, or equal — identical models):
+     * SERVER-only. Two server-only devices means no handover coordination, but no
+     * `read ret: -1` collision storm either — strictly safer than starting a client.
      */
-    @SuppressLint("HardwareIds", "MissingPermission")
+    @SuppressLint("MissingPermission")
     private fun maybeStartClient(adapter: android.bluetooth.BluetoothAdapter, peerMac: String) {
-        val localMac = readLocalBluetoothMac(adapter)
-        if (localMac.isNullOrEmpty()) {
-            Log.w(TAG, "Role election: local MAC unavailable, falling back to client-on (peer=$peerMac)")
-            CrossDeviceClient.start(adapter, peerMac)
+        val ownName = adapter.name
+        val peerName = runCatching { adapter.getRemoteDevice(peerMac).name }.getOrNull()
+        if (ownName.isNullOrBlank() || peerName.isNullOrBlank() || ownName.equals(peerName, ignoreCase = true)) {
+            Log.w(TAG, "Role election: names unusable (own='$ownName' peer='$peerName') — staying SERVER-only")
+            CrossDeviceClient.stop()
             return
         }
-        val shouldBeClient = localMac.compareTo(peerMac, ignoreCase = true) < 0
+        val shouldBeClient = ownName.compareTo(peerName, ignoreCase = true) < 0
         if (shouldBeClient) {
-            Log.d(TAG, "Role election: I am CLIENT to peer $peerMac (localMac=$localMac)")
+            Log.d(TAG, "Role election: I am CLIENT to peer $peerMac (own='$ownName' < peer='$peerName')")
             CrossDeviceClient.start(adapter, peerMac)
         } else {
-            Log.d(TAG, "Role election: I am SERVER for peer $peerMac (localMac=$localMac); not starting client")
+            Log.d(TAG, "Role election: I am SERVER-only for peer $peerMac (own='$ownName' >= peer='$peerName')")
             // Make sure no stale client coroutine is running from a previous config.
             CrossDeviceClient.stop()
         }
-    }
-
-    /**
-     * Best-effort read of this device's Bluetooth MAC.
-     *
-     * `BluetoothAdapter.getAddress()` returns the sentinel "02:00:00:00:00:00" on
-     * Android 6+ without privileged permissions, so we also try the Secure setting
-     * which is readable on Pixel and many OEMs. Returns null if neither works.
-     */
-    @SuppressLint("HardwareIds")
-    private fun readLocalBluetoothMac(adapter: android.bluetooth.BluetoothAdapter): String? {
-        val direct = try { adapter.address } catch (_: Exception) { null }
-        if (!direct.isNullOrEmpty() && direct != "02:00:00:00:00:00") return direct
-        val ctx = ServiceManager.getService()?.applicationContext ?: return null
-        return try {
-            android.provider.Settings.Secure.getString(ctx.contentResolver, "bluetooth_address")
-                ?.takeIf { it.isNotEmpty() && it != "02:00:00:00:00:00" }
-        } catch (_: Exception) { null }
     }
 
     /**
