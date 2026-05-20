@@ -78,7 +78,13 @@ object MediaController {
     // or sendPlay(force=true) against the user.
     @Volatile
     private var pendingMusicTakeoverSetAt: Long = 0L
-    private const val PENDING_TAKEOVER_MAX_AGE_MS = 3_000L
+    // A cold-connect straight from the case has to page asleep AirPods — the A2DP
+    // route can legitimately take 6-12 s to land. 3 s was far too short: the route
+    // landed AFTER the window, so onAudioDevicesAdded discarded it as "stale" and
+    // never showed the popup or re-issued play, leaving audio stuck on the speaker.
+    // 15 s covers slow cold connects; pendingMac is still cleared on pause and on
+    // ownership loss, so a genuinely stale entry can't misfire much later.
+    private const val PENDING_TAKEOVER_MAX_AGE_MS = 15_000L
 
     /** Called by AirPodsService.takeOver() right before it actually invokes connectAudio(). */
     fun armPendingMusicTakeover(mac: String) {
@@ -162,8 +168,12 @@ object MediaController {
                     // Consume the pending state so we don't re-fire on later route changes.
                     cancelPendingMusicTakeover()
                     if (audioManager.isMusicActive) {
-                        Log.d("MediaController", "  → expected AirPods route landed and music already playing; no replay needed")
-                        // Still show the takeover island — route just became live.
+                        Log.d("MediaController", "  → expected AirPods route landed, music already playing; re-issuing play to pull the route onto the AirPods")
+                        // Music may still be on the phone speaker — a cold-connect
+                        // doesn't always auto-migrate the active route. Re-dispatch
+                        // MEDIA_PLAY (play-only, not a toggle) to make the app
+                        // re-evaluate routing onto the now-connected AirPods.
+                        sendPlay(force = true)
                         ServiceManager.getService()?.showTakeoverIsland()
                         return@forEach
                     }

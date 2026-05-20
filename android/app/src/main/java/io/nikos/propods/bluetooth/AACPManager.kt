@@ -398,6 +398,9 @@ class AACPManager {
 
     @OptIn(ExperimentalStdlibApi::class)
     fun receivePacket(packet: ByteArray) {
+        // Raw RX trace — every inbound AACP frame, byte for byte. Used to diff a
+        // failing cold-connect session against a healthy handover session.
+        Log.d(TAG, "RX: ${packet.joinToString(" ") { "%02X".format(it) }}")
         if (!packet.toHexString().startsWith("04000400")) {
             Log.w(
                 TAG, "Received packet does not start with expected header: ${

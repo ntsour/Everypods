@@ -41,6 +41,14 @@ object CrossDeviceClient {
     // drop the ACL link between handover events.
     private const val KEEPALIVE_INTERVAL_MS = 20_000L
 
+    // While the AirPods are connected to THIS device we must not page the peer:
+    // a failed RFCOMM connect pages the BT radio for several seconds, and doing
+    // that repeatedly on the same single radio that carries the AirPods
+    // A2DP+AACP link causes RF contention that drops the headset. We don't need
+    // to reach the peer while we hold the AirPods anyway. Re-check on this
+    // interval; resume normal retries once the AirPods are no longer ours.
+    private const val HEADSET_HELD_RECHECK_MS = 10_000L
+
     @Volatile private var socket: BluetoothSocket? = null
     @Volatile private var running = false
     @Volatile var isConnected: Boolean = false
@@ -56,6 +64,13 @@ object CrossDeviceClient {
         job = CoroutineScope(Dispatchers.IO).launch {
             var backoff = 1_500L
             while (running) {
+                // Don't page the peer while we hold the AirPods — the failed
+                // RFCOMM connect attempts jam the radio and drop the headset.
+                if (ServiceManager.getService()?.isConnected() == true) {
+                    Log.d(TAG, "AirPods connected here — deferring CrossDevice connect to protect the headset link")
+                    delay(HEADSET_HELD_RECHECK_MS)
+                    continue
+                }
                 try {
                     val device = adapter.getRemoteDevice(peerMac)
                     // Insecure RFCOMM: same rationale as the server side. Avoids
@@ -134,7 +149,7 @@ object CrossDeviceClient {
                     backoffJob = bj
                     bj.join()
                     backoffJob = null
-                    backoff = (backoff * 1.5).toLong().coerceAtMost(15_000L)
+                    backoff = (backoff * 1.5).toLong().coerceAtMost(60_000L)
                 }
             }
         }
