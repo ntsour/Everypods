@@ -76,7 +76,13 @@ object CrossDevice {
     @SuppressLint("MissingPermission")
     fun init(context: Context) {
         val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
-        isEnabled = prefs.getBoolean("cross_device_enabled", false)
+        val peerMac = prefs.getString("cross_device_peer_mac", null)
+        // Auto-enable when a peer MAC is saved but the flag was never explicitly set
+        // (covers devices without AACP that configured a peer before this flag existed).
+        isEnabled = prefs.getBoolean("cross_device_enabled", !peerMac.isNullOrEmpty())
+        if (isEnabled && !prefs.contains("cross_device_enabled")) {
+            prefs.edit().putBoolean("cross_device_enabled", true).apply()
+        }
         if (!isEnabled) {
             Log.d(TAG, "Cross-device disabled by preference")
             return
@@ -88,7 +94,6 @@ object CrossDevice {
         }
         startServer(adapter)
 
-        val peerMac = prefs.getString("cross_device_peer_mac", null)
         if (!peerMac.isNullOrEmpty()) {
             maybeStartClient(adapter, peerMac)
         }

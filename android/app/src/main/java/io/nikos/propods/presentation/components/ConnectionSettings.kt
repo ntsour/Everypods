@@ -65,6 +65,135 @@ import kotlin.io.encoding.ExperimentalEncodingApi
 
 @SuppressLint("MissingPermission")
 @Composable
+fun PeerConnectionPanel(
+    crossDevicePeerMac: String?,
+    onPeerMacChanged: (String) -> Unit,
+    crossDevicePeerConnected: Boolean = false,
+    onReconnectCrossDevice: () -> Unit = {},
+) {
+    val isDarkTheme = isSystemInDarkTheme()
+    val backgroundColor = if (isDarkTheme) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
+    val context = LocalContext.current
+    var showPeerPicker by remember { mutableStateOf(false) }
+
+    val bondedDevices: List<BluetoothDevice> = remember {
+        val bt = context.getSystemService(BluetoothManager::class.java)
+        bt?.adapter?.bondedDevices?.toList() ?: emptyList()
+    }
+    val peerName: String? = remember(crossDevicePeerMac, bondedDevices) {
+        bondedDevices.find { it.address == crossDevicePeerMac }?.name
+    }
+
+    if (showPeerPicker) {
+        AlertDialog(
+            onDismissRequest = { showPeerPicker = false },
+            title = { Text("Select peer Android device") },
+            text = {
+                LazyColumn {
+                    items(bondedDevices) { device ->
+                        TextButton(
+                            onClick = {
+                                onPeerMacChanged(device.address)
+                                showPeerPicker = false
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(device.name ?: device.address)
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showPeerPicker = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(backgroundColor, RoundedCornerShape(28.dp))
+            .padding(vertical = 12.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(58.dp)
+                .clickable { showPeerPicker = true }
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Peer Android device",
+                style = TextStyle(
+                    fontSize = 16.sp,
+                    fontFamily = FontFamily(Font(R.font.sf_pro)),
+                    color = if (isDarkTheme) Color.White else Color.Black
+                )
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            if (crossDevicePeerMac != null) {
+                Box(
+                    modifier = Modifier
+                        .padding(end = 6.dp)
+                        .size(8.dp)
+                        .background(
+                            color = if (crossDevicePeerConnected) Color(0xFF34C759) else Color(0xFF8E8E93),
+                            shape = CircleShape
+                        )
+                )
+            }
+            Text(
+                text = peerName ?: (crossDevicePeerMac ?: "Not set"),
+                style = TextStyle(
+                    fontSize = 14.sp,
+                    fontFamily = FontFamily(Font(R.font.sf_pro)),
+                    color = if (isDarkTheme) Color.White.copy(alpha = 0.5f)
+                            else Color.Black.copy(alpha = 0.5f)
+                )
+            )
+            Text(
+                text = "›",
+                style = TextStyle(
+                    fontSize = 18.sp,
+                    color = if (isDarkTheme) Color.White.copy(alpha = 0.4f)
+                            else Color.Black.copy(alpha = 0.4f)
+                ),
+                modifier = Modifier.padding(start = 6.dp)
+            )
+        }
+        if (crossDevicePeerMac != null && !crossDevicePeerConnected) {
+            HorizontalDivider(
+                thickness = 1.dp,
+                color = Color(0x40888888),
+                modifier = Modifier.padding(horizontal = 12.dp)
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(46.dp)
+                    .clickable {
+                        onReconnectCrossDevice()
+                    }
+                    .padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Reconnect to peer",
+                    style = TextStyle(
+                        fontSize = 15.sp,
+                        fontFamily = FontFamily(Font(R.font.sf_pro)),
+                        color = Color(0xFF007AFF)
+                    )
+                )
+            }
+        }
+    }
+}
+
+@SuppressLint("MissingPermission")
+@Composable
 fun ConnectionSettings(
     crossDeviceEnabled: Boolean,
     onCrossDeviceChanged: (Boolean) -> Unit,

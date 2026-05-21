@@ -651,21 +651,34 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     "disconnect_when_not_wearing", false
                 )
 
-                // AirPods state-based takeover
+                // AirPods state-based takeover — handover is the core feature, so
+                // fresh installs get all takeover toggles on by default. (These four
+                // need AACP to act, so they are inert on limited-mode devices.)
                 if (!contains("takeover_when_disconnected")) putBoolean(
-                    "takeover_when_disconnected", false
+                    "takeover_when_disconnected", true
                 )
-                if (!contains("takeover_when_idle")) putBoolean("takeover_when_idle", false)
-                if (!contains("takeover_when_music")) putBoolean("takeover_when_music", false)
-                if (!contains("takeover_when_call")) putBoolean("takeover_when_call", false)
+                if (!contains("takeover_when_idle")) putBoolean("takeover_when_idle", true)
+                if (!contains("takeover_when_music")) putBoolean("takeover_when_music", true)
+                if (!contains("takeover_when_call")) putBoolean("takeover_when_call", true)
 
-                // Phone state-based takeover
+                // Phone state-based takeover — handover (media-start + ringing-call)
+                // is the core feature, so fresh installs get it on by default.
                 if (!contains("takeover_when_ringing_call")) putBoolean(
-                    "takeover_when_ringing_call", false
+                    "takeover_when_ringing_call", true
                 )
                 if (!contains("takeover_when_media_start")) putBoolean(
-                    "takeover_when_media_start", false
+                    "takeover_when_media_start", true
                 )
+
+                // One-time migration: existing installs had these two defaulting to
+                // false. On a limited-mode (non-AACP) device the toggle is otherwise
+                // unreachable, so flip them on once. The surfaced UI lets the user
+                // turn handover back off afterward.
+                if (!contains("handover_defaults_v2")) {
+                    putBoolean("takeover_when_ringing_call", true)
+                    putBoolean("takeover_when_media_start", true)
+                    putBoolean("handover_defaults_v2", true)
+                }
 
                 if (!contains("adaptive_strength")) putInt("adaptive_strength", 51)
                 if (!contains("tone_volume")) putInt("tone_volume", 75)
@@ -780,6 +793,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             override fun onCallStateChanged(state: Int) {
                 when (state) {
                     TelephonyManager.CALL_STATE_RINGING -> {
+                        isCallRinging = true
                         val leAvailableForAudio =
                             bleManager.getMostRecentStatus()?.isLeftInEar == true || bleManager.getMostRecentStatus()?.isRightInEar == true
 //                        if ((CrossDevice.isAvailable && !isConnectedLocally && earDetectionNotification.status.contains(0x00)) || leAvailableForAudio) CoroutineScope(Dispatchers.IO).launch {
@@ -792,6 +806,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     }
 
                     TelephonyManager.CALL_STATE_OFFHOOK -> {
+                        isCallRinging = false
                         val leAvailableForAudio =
                             bleManager.getMostRecentStatus()?.isLeftInEar == true || bleManager.getMostRecentStatus()?.isRightInEar == true
 //                        if ((CrossDevice.isAvailable && !isConnectedLocally && earDetectionNotification.status.contains(0x00)) || leAvailableForAudio) CoroutineScope(
@@ -809,6 +824,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
                     TelephonyManager.CALL_STATE_IDLE -> {
                         isInCall = false
+                        isCallRinging = false
                         gestureDetector?.stopDetection()
                         if (isHeadTrackingActive) stopHeadTracking()
                         activeCallGestureLoopRunning = false
@@ -1628,6 +1644,14 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
      * which handles Teams and other VoIP apps that ignore HFP CHUP.
      */
     private fun handleCallStemPress(pressType: StemPressType): Boolean {
+        // Incoming ringing call: single press = answer, double press = reject
+        if (isCallRinging) {
+            when (pressType) {
+                StemPressType.SINGLE_PRESS -> { answerCall(); return true }
+                StemPressType.DOUBLE_PRESS -> { rejectCall(); return true }
+                else -> return false
+            }
+        }
         // CALL_MANAGEMENT_CONFIG byte[1]: 0x02 = mute on double press (flipped), 0x03 = mute on single press (default)
         val callConfig = aacpManager.getControlCommandStatus(
             AACPManager.Companion.ControlCommandIdentifiers.CALL_MANAGEMENT_CONFIG
@@ -2186,11 +2210,12 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
     private var gestureDetector: GestureDetector? = null
     private var isInCall = false
+    private var isCallRinging = false
     private var isVoIPCallActive = false
     private var callNumber: String? = null
 
     private fun isInAnyCall(): Boolean {
-        if (isInCall || isVoIPCallActive) return true
+        if (isInCall || isCallRinging || isVoIPCallActive) return true
         val audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
         return audioManager.mode == AudioManager.MODE_IN_COMMUNICATION
     }

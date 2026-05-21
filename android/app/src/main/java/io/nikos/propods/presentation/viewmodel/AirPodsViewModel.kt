@@ -392,10 +392,13 @@ class AirPodsViewModel(
             sharedPreferences.getBoolean("automatic_ear_detection", true)
         val automaticConnectionEnabled =
             sharedPreferences.getBoolean("automatic_connection_ctrl_cmd", true)
-        val crossDeviceEnabled =
-            sharedPreferences.getBoolean("cross_device_enabled", false)
         val crossDevicePeerMac =
             sharedPreferences.getString("cross_device_peer_mac", null)
+        // CrossDevice.init() handles auto-enabling when peerMac is set and the pref
+        // was never written — by the time the ViewModel loads, that pref is already
+        // persisted, so we can read it directly here.
+        val crossDeviceEnabled =
+            sharedPreferences.getBoolean("cross_device_enabled", crossDevicePeerMac != null)
         val headGesturesEnabled = sharedPreferences.getBoolean("head_gestures_enabled", false)
         val headGesturesAnswerCall = sharedPreferences.getBoolean("head_gestures_answer_call", true)
         val headGesturesMuteCall = sharedPreferences.getBoolean("head_gestures_mute_call", true)

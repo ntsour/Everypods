@@ -128,6 +128,7 @@ import io.nikos.propods.presentation.components.AudioSettings
 import io.nikos.propods.presentation.components.BatteryView
 import io.nikos.propods.presentation.components.CallControlSettings
 import io.nikos.propods.presentation.components.ConnectionSettings
+import io.nikos.propods.presentation.components.PeerConnectionPanel
 import io.nikos.propods.presentation.components.DeviceInfoCard
 import io.nikos.propods.presentation.components.MicrophoneSettings
 import io.nikos.propods.presentation.components.NavigationButton
@@ -495,7 +496,9 @@ fun AirPodsSettingsScreen(
             )
         } else {
             DisconnectedScreen(
-                state = state, viewModel = viewModel, navController = navController,
+                state = state, viewModel = viewModel,
+                appSettingsViewModel = appSettingsViewModel,
+                navController = navController,
                 topPadding = topPadding, bottomPadding = bottomPadding,
                 hazeState = hazeState, dark = dark,
                 onOpenContact = { contactBottomSheet.value = true }
@@ -700,6 +703,7 @@ private fun CategoryTileGrid(
 private fun DisconnectedScreen(
     state: io.nikos.propods.presentation.viewmodel.AirPodsUiState,
     viewModel: AirPodsViewModel,
+    appSettingsViewModel: AppSettingsViewModel,
     navController: NavController,
     topPadding: androidx.compose.ui.unit.Dp,
     bottomPadding: androidx.compose.ui.unit.Dp,
@@ -707,6 +711,7 @@ private fun DisconnectedScreen(
     dark: Boolean,
     onOpenContact: () -> Unit
 ) {
+    val appState  by appSettingsViewModel.uiState.collectAsState()
     val context   = LocalContext.current
     val backdrop  = rememberLayerBackdrop()
     val cardBg    = if (dark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
@@ -755,9 +760,6 @@ private fun DisconnectedScreen(
             }
         }
 
-        // Connection Settings (ear detection, automatic connection, cross-device) all
-        // depend on AACP or are unwanted on limited-mode devices. Show only where AACP
-        // has succeeded at least once (connectionSuccessful) — hidden on the Xiaomi.
         if (state.connectionSuccessful) {
             item(key = "connection_settings") {
                 Column(Modifier.fillMaxWidth().background(cardBg, RoundedCornerShape(18.dp)).padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -766,6 +768,41 @@ private fun DisconnectedScreen(
                     StyledButton(onClick = { navController.navigate("connection_settings") }, backdrop = backdrop, modifier = Modifier.fillMaxWidth()) {
                         Text("Open Settings", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro, color = textColor))
                     }
+                }
+            }
+        } else {
+            item(key = "peer_connection") {
+                Column(Modifier.fillMaxWidth().background(cardBg, RoundedCornerShape(18.dp)).padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Peer Connection", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = textColor.copy(0.6f), fontFamily = SfPro))
+                    Text("Connect to another Android device.", style = TextStyle(fontSize = 14.sp, fontFamily = SfPro, color = textColor.copy(0.55f)))
+                    PeerConnectionPanel(
+                        crossDevicePeerMac = state.crossDevicePeerMac,
+                        onPeerMacChanged = { mac -> viewModel.setCrossDevicePeerMac(mac); viewModel.setCrossDeviceEnabled(true) },
+                        crossDevicePeerConnected = state.crossDevicePeerConnected,
+                        onReconnectCrossDevice = viewModel::reconnectCrossDevice
+                    )
+                }
+            }
+            // Handover toggles — on a limited-mode device the CategoryScreen /
+            // AppSettings copies are unreachable (no category grid), so surface the
+            // two takeover toggles that gate takeOver("music") / takeOver("call").
+            item(key = "handover_settings") {
+                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Handover", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = textColor.copy(0.6f), fontFamily = SfPro))
+                    StyledToggle(
+                        label = stringResource(R.string.takeover_media_start),
+                        description = stringResource(R.string.takeover_media_start_desc),
+                        checked = appState.takeoverWhenMediaStart,
+                        onCheckedChange = appSettingsViewModel::setTakeoverWhenMediaStart,
+                        independent = true
+                    )
+                    StyledToggle(
+                        label = stringResource(R.string.takeover_ringing_call),
+                        description = stringResource(R.string.takeover_ringing_call_desc),
+                        checked = appState.takeoverWhenRingingCall,
+                        onCheckedChange = appSettingsViewModel::setTakeoverWhenRingingCall,
+                        independent = true
+                    )
                 }
             }
         }
