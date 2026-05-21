@@ -269,11 +269,26 @@ class BLEManager(private val context: Context) {
 
             if (!verifiedAddresses.contains(address)) {
                 val irk = getIrkFromPreferences()
-                if (irk == null || !BluetoothCryptography.verifyRPA(address, irk)) {
-                    return
+                if (irk != null) {
+                    // IRK available — verify the RPA belongs to our AirPods
+                    if (!BluetoothCryptography.verifyRPA(address, irk)) {
+                        return
+                    }
+                    verifiedAddresses.add(address)
+                    Log.d(TAG, "RPA verified and added to trusted list: $address")
+                } else {
+                    // No IRK (limited-mode device) — skip RPA verification and fall
+                    // through to the keyless parseProximityMessage() path so battery
+                    // data from the unencrypted proximity advertisement is still surfaced.
+                    // Use RSSI as a proximity guard: our AirPods are on the user's body
+                    // (≈ −45 to −65 dBm); a neighbour's device across the room or through
+                    // a wall is typically −75 dBm or weaker.
+                    if (result.rssi < RSSI_THRESHOLD_LIMITED_MODE) {
+                        Log.d(TAG, "No IRK — skipping weak advertisement (${ result.rssi } dBm < $RSSI_THRESHOLD_LIMITED_MODE): $address")
+                        return
+                    }
+                    Log.d(TAG, "No IRK available, processing advertisement (RSSI ${ result.rssi } dBm): $address")
                 }
-                verifiedAddresses.add(address)
-                Log.d(TAG, "RPA verified and added to trusted list: $address")
             }
 
             processedAddresses.add(address)
@@ -503,5 +518,9 @@ class BLEManager(private val context: Context) {
         private const val CLEANUP_INTERVAL_MS = 10000L
         private const val STALE_DEVICE_TIMEOUT_MS = 15000L
         private const val LID_CLOSE_TIMEOUT_MS = 2500L
+        // Minimum RSSI (dBm) accepted when no IRK is available (limited-mode devices).
+        // Rejects distant/neighbour AirPods while accepting the user's own device which
+        // is worn on the body and typically reads −45 to −65 dBm.
+        private const val RSSI_THRESHOLD_LIMITED_MODE = -75
     }
 }

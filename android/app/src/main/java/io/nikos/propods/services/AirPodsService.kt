@@ -303,6 +303,23 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         @Volatile @JvmStatic var lastMusicTakeoverMs: Long = 0L
 
         /**
+         * How fresh a BLE proximity snapshot must be for `takeOver()` to trust its
+         * out-of-ear reading. On limited-mode devices (no AACP) ear state comes only
+         * from BLE advertisements arriving every few seconds; a stale "both out of
+         * ear" snapshot would otherwise turn a deliberate play/handover press into a
+         * silent no-op. Older than this → the reading is ignored and takeover proceeds.
+         */
+        const val EAR_DATA_FRESHNESS_MS: Long = 10_000L
+
+        /**
+         * Backoff schedule for `takeOver()`'s A2DP connect retries. The first attempt
+         * can be rejected while the peer device is still streaming; MIUI also releases
+         * the peer link slowly and may silently no-op the un-privileged connect()
+         * reflection call. Retrying at these offsets lands the handover on one press.
+         */
+        val TAKEOVER_RETRY_DELAYS_MS: LongArray = longArrayOf(1_000L, 2_500L, 4_500L)
+
+        /**
          * Timestamp of the last A2DP profile state transition (connect or disconnect)
          * for the saved AirPods MAC. When another device performs an A2DP handover,
          * our profile state briefly bounces (1→0→1→0). MediaController uses this to
@@ -2620,39 +2637,61 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        if (!::socket.isInitialized) {
+        // Standard-Bluetooth (A2DP) connection — independent of the AACP socket.
+        // On devices where the AACP socket never connects (e.g. non-rooted Xiaomi)
+        // the AirPods are still connected for audio; show the normal status
+        // notification (battery comes through via BLE) instead of a failure one.
+        val a2dpConnected = try { isA2dpConnected() } catch (_: Exception) { false }
+        val socketReady = ::socket.isInitialized && socket.isConnected
+        if (!::socket.isInitialized && !a2dpConnected) {
             return
         }
-        if (connected && (config.bleOnlyMode || socket.isConnected)) {
+        if (connected && (config.bleOnlyMode || socketReady || a2dpConnected)) {
+            // Battery line — same L/R/Case string as before, trimmed of stray padding.
+            val batteryText = """${
+                batteryList?.find { it.component == BatteryComponent.LEFT }?.let {
+                    if (it.status != BatteryStatus.DISCONNECTED) {
+                        "L: ${if (it.status == BatteryStatus.CHARGING) "⚡" else ""} ${it.level}%"
+                    } else {
+                        ""
+                    }
+                } ?: ""
+            } ${
+                batteryList?.find { it.component == BatteryComponent.RIGHT }?.let {
+                    if (it.status != BatteryStatus.DISCONNECTED) {
+                        "R: ${if (it.status == BatteryStatus.CHARGING) "⚡" else ""} ${it.level}%"
+                    } else {
+                        ""
+                    }
+                } ?: ""
+            } ${
+                batteryList?.find { it.component == BatteryComponent.CASE }?.let {
+                    if (it.status != BatteryStatus.DISCONNECTED) {
+                        "Case: ${if (it.status == BatteryStatus.CHARGING) "⚡" else ""} ${it.level}%"
+                    } else {
+                        ""
+                    }
+                } ?: ""
+            }""".trim()
+
+            // Limited mode: AirPods are connected over standard Bluetooth (A2DP) but
+            // the AACP socket isn't up (e.g. non-rooted Xiaomi). Surface that status
+            // in the notification, mirroring the app's main screen, instead of an
+            // apparently empty content line.
+            val isLimitedMode = a2dpConnected && !isConnected()
+            val notificationText = when {
+                isLimitedMode && batteryText.isNotBlank() ->
+                    "${getString(R.string.connected_via_bluetooth)} · $batteryText"
+                isLimitedMode -> getString(R.string.connected_via_bluetooth)
+                else -> batteryText
+            }
+
             val updatedNotificationBuilder =
                 NotificationCompat.Builder(this, "airpods_connection_status")
                     .setSmallIcon(R.drawable.airpods)
-                    .setContentTitle(airpodsName ?: config.deviceName).setContentText(
-                        """${
-                        batteryList?.find { it.component == BatteryComponent.LEFT }?.let {
-                            if (it.status != BatteryStatus.DISCONNECTED) {
-                                "L: ${if (it.status == BatteryStatus.CHARGING) "⚡" else ""} ${it.level}%"
-                            } else {
-                                ""
-                            }
-                        } ?: ""
-                    } ${
-                        batteryList?.find { it.component == BatteryComponent.RIGHT }?.let {
-                            if (it.status != BatteryStatus.DISCONNECTED) {
-                                "R: ${if (it.status == BatteryStatus.CHARGING) "⚡" else ""} ${it.level}%"
-                            } else {
-                                ""
-                            }
-                        } ?: ""
-                    } ${
-                        batteryList?.find { it.component == BatteryComponent.CASE }?.let {
-                            if (it.status != BatteryStatus.DISCONNECTED) {
-                                "Case: ${if (it.status == BatteryStatus.CHARGING) "⚡" else ""} ${it.level}%"
-                            } else {
-                                ""
-                            }
-                        } ?: ""
-                    }""").setContentIntent(pendingIntent).setCategory(Notification.CATEGORY_STATUS)
+                    .setContentTitle(airpodsName ?: config.deviceName)
+                    .setContentText(notificationText)
+                    .setContentIntent(pendingIntent).setCategory(Notification.CATEGORY_STATUS)
                     .setPriority(NotificationCompat.PRIORITY_LOW).setOngoing(true)
 
             if (disconnectedBecauseReversed) {
@@ -2671,7 +2710,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             notificationManager.cancel(1)
         } else if (!connected) {
             notificationManager.cancel(2)
-        } else if (!config.bleOnlyMode && !socket.isConnected) {
+        } else if (!config.bleOnlyMode && !socketReady && !a2dpConnected) {
             showSocketConnectionFailureNotification("Socket created, but not connected. Check logs")
         }
     }
@@ -3342,8 +3381,21 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         // ── Gates (ear detection, takeover toggles) ───────────────────────────────
         // These are the only "should we do anything" checks. Everything past this
         // is just "call BluetoothA2dp.connect()" — the manual-button equivalent.
-        if (bleManager.getMostRecentStatus()?.isLeftInEar == false && bleManager.getMostRecentStatus()?.isRightInEar == false) {
-            Log.d(TAG, "Both AirPods are out of ear, not taking over audio")
+        //
+        // Only trust the out-of-ear reading when the BLE proximity data is FRESH.
+        // On limited-mode devices (no AACP) ear state comes solely from BLE
+        // advertisements, which arrive every few seconds — a stale "both out of
+        // ear" snapshot would otherwise make a deliberate play/handover press a
+        // silent no-op, forcing the user to press again. If the data is older
+        // than the freshness window (or absent), proceed with the takeover.
+        val recentBleStatus = bleManager.getMostRecentStatus()
+        val earDataFresh = recentBleStatus != null &&
+            (System.currentTimeMillis() - recentBleStatus.lastSeen) < EAR_DATA_FRESHNESS_MS
+        if (earDataFresh &&
+            recentBleStatus!!.isLeftInEar == false &&
+            recentBleStatus.isRightInEar == false
+        ) {
+            Log.d(TAG, "Both AirPods are out of ear (fresh BLE data), not taking over audio")
             return
         }
 
@@ -3389,18 +3441,27 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 }
                 connectAudio(this, device)
 
-                // Single retry after 1s — the first attempt may be rejected if the peer
-                // device is still actively streaming. By 1s, AUDIO_BECOMING_NOISY has fired
-                // on the peer and its audio stream has stopped, so the retry succeeds.
+                // Retries with increasing backoff. The first attempt may be rejected
+                // if the peer device is still actively streaming — by ~1s its
+                // AUDIO_BECOMING_NOISY has fired and the stream has stopped. On fast
+                // AOSP stacks (Pixel) that single retry is enough, but MIUI releases
+                // the peer A2DP link more slowly AND the un-privileged connect()
+                // reflection call can silently no-op — so a single 1s retry often
+                // misses the window, forcing the user to press play twice. Retry at
+                // 1s / 2.5s / 4.5s and stop as soon as the route lands. Each retry
+                // is a no-op once A2DP is connected, so this never bounces a live
+                // route on devices where the first attempt already succeeded.
                 val retryDevice = device
-                Handler(Looper.getMainLooper()).postDelayed({
-                    if (bluetoothA2dpProxy?.connectedDevices?.any { it.address == macAddress } == true) {
-                        Log.d(TAG, "takeOver: retry skipped — A2DP already connected")
-                        return@postDelayed
-                    }
-                    Log.d(TAG, "takeOver: retry connectAudio() after 1s")
-                    connectAudio(this, retryDevice)
-                }, 1000L)
+                for (retryDelay in TAKEOVER_RETRY_DELAYS_MS) {
+                    Handler(Looper.getMainLooper()).postDelayed({
+                        if (bluetoothA2dpProxy?.connectedDevices?.any { it.address == macAddress } == true) {
+                            Log.d(TAG, "takeOver: retry skipped — A2DP already connected")
+                            return@postDelayed
+                        }
+                        Log.d(TAG, "takeOver: retry connectAudio() after ${retryDelay}ms")
+                        connectAudio(this, retryDevice)
+                    }, retryDelay)
+                }
             }
         } else {
             Log.w(TAG, "takeOver: device not found in bondedDevices!")
@@ -4350,6 +4411,17 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         // local snapshot and could disagree with the actual L2CAP link.
         return io.nikos.propods.bluetooth.BluetoothConnectionManager.isConnected()
     }
+
+    /**
+     * True when the saved AirPods are connected to THIS device over standard
+     * Bluetooth A2DP — independent of the AACP L2CAP socket. On devices where
+     * AACP never connects (e.g. non-rooted Xiaomi) the audio link still works,
+     * and the UI uses this to show "connected via standard Bluetooth".
+     *
+     * Read-only accessor over the existing A2DP query; does not touch the
+     * connectivity or handover flow.
+     */
+    fun isA2dpConnected(): Boolean = isA2dpConnectedTo(macAddress)
 }
 
 private fun Int.dpToPx(): Int {

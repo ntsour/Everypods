@@ -1040,19 +1040,23 @@ private fun AudioContent(
                 onLoudSoundReductionCheckedChange = { viewModel.setATTCharacteristicValue(ATTHandles.LOUD_SOUND_REDUCTION, byteArrayOf(if (it) 0x01.toByte() else 0x00.toByte())) },
                 vendorIdHook = state.vendorIdHook, isPremium = state.isPremium)
         }
-        MenuDivider()
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-            ConnectionSettings(
-                crossDeviceEnabled = state.crossDeviceEnabled,
-                onCrossDeviceChanged = { viewModel.setCrossDeviceEnabled(it) },
-                crossDevicePeerMac = state.crossDevicePeerMac,
-                onPeerMacChanged = { viewModel.setCrossDevicePeerMac(it) },
-                crossDevicePeerConnected = state.crossDevicePeerConnected,
-                onReconnectCrossDevice = { viewModel.reconnectCrossDevice() },
-                automaticEarDetectionEnabled = state.automaticEarDetectionEnabled,
-                onAutomaticEarDetectionChanged = { viewModel.setAutomaticEarDetectionEnabled(it) },
-                automaticConnectionEnabled = state.automaticConnectionEnabled,
-                onAutomaticConnectionChanged = { viewModel.setAutomaticConnectionEnabled(it) })
+        // Connection Settings depend on AACP or are unwanted on limited-mode devices —
+        // shown only where AACP has succeeded at least once. Hidden on the Xiaomi.
+        if (state.connectionSuccessful) {
+            MenuDivider()
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                ConnectionSettings(
+                    crossDeviceEnabled = state.crossDeviceEnabled,
+                    onCrossDeviceChanged = { viewModel.setCrossDeviceEnabled(it) },
+                    crossDevicePeerMac = state.crossDevicePeerMac,
+                    onPeerMacChanged = { viewModel.setCrossDevicePeerMac(it) },
+                    crossDevicePeerConnected = state.crossDevicePeerConnected,
+                    onReconnectCrossDevice = { viewModel.reconnectCrossDevice() },
+                    automaticEarDetectionEnabled = state.automaticEarDetectionEnabled,
+                    onAutomaticEarDetectionChanged = { viewModel.setAutomaticEarDetectionEnabled(it) },
+                    automaticConnectionEnabled = state.automaticConnectionEnabled,
+                    onAutomaticConnectionChanged = { viewModel.setAutomaticConnectionEnabled(it) })
+            }
         }
         MenuDivider()
         Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {

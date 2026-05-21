@@ -101,8 +101,18 @@ data class AirPodsUiState(
     val dynamicEndOfCharge: Boolean = true,
 
     val connectionSuccessful: Boolean = false,
-    
-    val hasRootPermissions: Boolean = false
+
+    val hasRootPermissions: Boolean = false,
+
+    // True when the AirPods are connected to this device over standard
+    // Bluetooth A2DP, independent of the AACP socket. Lets the UI show
+    // "connected via standard Bluetooth" on AACP-less devices (e.g. Xiaomi).
+    val isA2dpConnected: Boolean = false,
+
+    // True when a previously-used AirPods MAC is saved — gates the manual
+    // "reconnect to last device" button so it is available even when the
+    // AACP connection has never succeeded.
+    val hasSavedDevice: Boolean = false
 )
 
 class AirPodsViewModel(
@@ -221,12 +231,21 @@ class AirPodsViewModel(
                         _uiState.update {
                             it.copy(isLocallyConnected = true)
                         }
+                        // Also refresh the standard-Bluetooth / saved-device flags.
+                        refreshInitialData()
+                    }
+
+                    AirPodsNotifications.AIRPODS_CONNECTED -> {
+                        // Standard-Bluetooth (A2DP) connection event — may fire on
+                        // AACP-less devices where AIRPODS_L2CAP_CONNECTED never does.
+                        refreshInitialData()
                     }
 
                     AirPodsNotifications.AIRPODS_DISCONNECTED -> {
                         _uiState.update {
                             it.copy(isLocallyConnected = false)
                         }
+                        refreshInitialData()
                     }
 
                     AirPodsNotifications.BATTERY_DATA -> {
@@ -355,9 +374,13 @@ class AirPodsViewModel(
     fun refreshInitialData() {
         if (isDemoMode) return
         service.let { service ->
+            val savedMac = sharedPreferences.getString("mac_address", "") ?: ""
             _uiState.update {
                 it.copy(
-                    isLocallyConnected = service.isConnected(), battery = service.getBattery()
+                    isLocallyConnected = service.isConnected(),
+                    battery = service.getBattery(),
+                    isA2dpConnected = service.isA2dpConnected(),
+                    hasSavedDevice = savedMac.isNotEmpty()
                 )
             }
         }
@@ -630,7 +653,11 @@ class AirPodsViewModel(
                     )
                     lastLoggedState = combined
                 }
-                _uiState.update { it.copy(crossDevicePeerConnected = combined) }
+                // Also refresh the standard-Bluetooth (A2DP) connection flag here so
+                // the UI reflects it on AACP-less devices without needing a broadcast.
+                val a2dp = if (isDemoMode) _uiState.value.isA2dpConnected
+                           else runCatching { service.isA2dpConnected() }.getOrDefault(false)
+                _uiState.update { it.copy(crossDevicePeerConnected = combined, isA2dpConnected = a2dp) }
                 tick++
                 delay(2000)
             }

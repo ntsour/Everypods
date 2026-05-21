@@ -33,6 +33,8 @@
     <string name="volume_control_description">Adjust the volume by swiping up or down on the sensor located on the AirPods Pro stem.</string>
     <string name="airpods_not_connected">AirPods not connected</string>
     <string name="airpods_not_connected_description">Please connect your AirPods to access settings.</string>
+    <string name="connected_via_bluetooth">Connected via Bluetooth</string>
+    <string name="connected_via_bluetooth_description">Audio and handover work. Advanced features (noise control, ear detection, etc.) need the AACP connection, which is unavailable on this device.</string>
     <string name="back">Back</string>
     <string name="customizations">Customizations</string>
     <string name="relative_conversational_awareness_volume">Relative volume</string>

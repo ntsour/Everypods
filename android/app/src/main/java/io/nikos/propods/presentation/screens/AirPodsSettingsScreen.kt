@@ -733,22 +733,44 @@ private fun DisconnectedScreen(
 
         item(key = "status") {
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(stringResource(R.string.airpods_not_connected), style = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.Medium, color = textColor, fontFamily = SfPro), textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
-                Text(stringResource(R.string.airpods_not_connected_description), style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Light, color = textColor.copy(0.7f), fontFamily = SfPro), textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                // On devices where the AACP socket never connects (e.g. non-rooted
+                // Xiaomi) the AirPods can still be connected over standard Bluetooth
+                // A2DP — handover works. Show that accurately instead of "not connected".
+                val titleRes = if (state.isA2dpConnected) R.string.connected_via_bluetooth else R.string.airpods_not_connected
+                val descRes = if (state.isA2dpConnected) R.string.connected_via_bluetooth_description else R.string.airpods_not_connected_description
+                Text(stringResource(titleRes), style = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.Medium, color = textColor, fontFamily = SfPro), textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                Text(stringResource(descRes), style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Light, color = textColor.copy(0.7f), fontFamily = SfPro), textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
             }
         }
 
-        item(key = "connection_settings") {
-            Column(Modifier.fillMaxWidth().background(cardBg, RoundedCornerShape(18.dp)).padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Connection Settings", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = textColor.copy(0.6f), fontFamily = SfPro))
-                Text("Configure Bluetooth and cross-device settings.", style = TextStyle(fontSize = 14.sp, fontFamily = SfPro, color = textColor.copy(0.55f)))
-                StyledButton(onClick = { navController.navigate("connection_settings") }, backdrop = backdrop, modifier = Modifier.fillMaxWidth()) {
-                    Text("Open Settings", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro, color = textColor))
+        // Battery display — shown on AACP-less devices when A2DP is connected.
+        // Data arrives via BLE (no AACP needed) so it's already in state.battery.
+        if (state.isA2dpConnected && state.battery.isNotEmpty()) {
+            item(key = "battery_a2dp") {
+                BatteryView(
+                    batteryList = state.battery,
+                    budsRes = state.instance?.model?.budsRes ?: R.drawable.airpods_pro_2_case,
+                    caseRes = state.instance?.model?.caseRes ?: R.drawable.airpods_pro_2_case
+                )
+            }
+        }
+
+        // Connection Settings (ear detection, automatic connection, cross-device) all
+        // depend on AACP or are unwanted on limited-mode devices. Show only where AACP
+        // has succeeded at least once (connectionSuccessful) — hidden on the Xiaomi.
+        if (state.connectionSuccessful) {
+            item(key = "connection_settings") {
+                Column(Modifier.fillMaxWidth().background(cardBg, RoundedCornerShape(18.dp)).padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Connection Settings", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = textColor.copy(0.6f), fontFamily = SfPro))
+                    Text("Configure Bluetooth and cross-device settings.", style = TextStyle(fontSize = 14.sp, fontFamily = SfPro, color = textColor.copy(0.55f)))
+                    StyledButton(onClick = { navController.navigate("connection_settings") }, backdrop = backdrop, modifier = Modifier.fillMaxWidth()) {
+                        Text("Open Settings", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro, color = textColor))
+                    }
                 }
             }
         }
 
-        if (state.connectionSuccessful) {
+        if (state.hasSavedDevice || state.connectionSuccessful) {
             item(key = "reconnect") {
                 Column(Modifier.fillMaxWidth().background(cardBg, RoundedCornerShape(18.dp)).padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("Reconnect to Previous Device", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = textColor.copy(0.6f), fontFamily = SfPro))
