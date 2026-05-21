@@ -793,7 +793,13 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             override fun onCallStateChanged(state: Int) {
                 when (state) {
                     TelephonyManager.CALL_STATE_RINGING -> {
+                        Log.d(TAG, "Call state: RINGING")
                         isCallRinging = true
+                        // Re-apply the stem config now that the call is ringing. The
+                        // AirPods reset stem behavior when they enter the HFP incoming-
+                        // call state, so without this the single/double press is neither
+                        // reported to the app nor handled natively — see OFFHOOK/IDLE.
+                        setupStemActions()
                         val leAvailableForAudio =
                             bleManager.getMostRecentStatus()?.isLeftInEar == true || bleManager.getMostRecentStatus()?.isRightInEar == true
 //                        if ((CrossDevice.isAvailable && !isConnectedLocally && earDetectionNotification.status.contains(0x00)) || leAvailableForAudio) CoroutineScope(Dispatchers.IO).launch {
@@ -806,6 +812,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     }
 
                     TelephonyManager.CALL_STATE_OFFHOOK -> {
+                        Log.d(TAG, "Call state: OFFHOOK")
                         isCallRinging = false
                         val leAvailableForAudio =
                             bleManager.getMostRecentStatus()?.isLeftInEar == true || bleManager.getMostRecentStatus()?.isRightInEar == true
@@ -823,6 +830,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     }
 
                     TelephonyManager.CALL_STATE_IDLE -> {
+                        Log.d(TAG, "Call state: IDLE")
                         isInCall = false
                         isCallRinging = false
                         gestureDetector?.stopDetection()
@@ -1647,8 +1655,14 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         // Incoming ringing call: single press = answer, double press = reject
         if (isCallRinging) {
             when (pressType) {
-                StemPressType.SINGLE_PRESS -> { answerCall(); return true }
-                StemPressType.DOUBLE_PRESS -> { rejectCall(); return true }
+                StemPressType.SINGLE_PRESS -> {
+                    Log.d(TAG, "handleCallStemPress: ringing call, answering")
+                    answerCall(); return true
+                }
+                StemPressType.DOUBLE_PRESS -> {
+                    Log.d(TAG, "handleCallStemPress: ringing call, declining")
+                    rejectCall(); return true
+                }
                 else -> return false
             }
         }
@@ -2843,6 +2857,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }
 
     private fun answerCall() {
+        Log.d(TAG, "answerCall called")
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 val telecomManager = getSystemService(TELECOM_SERVICE) as TelecomManager
