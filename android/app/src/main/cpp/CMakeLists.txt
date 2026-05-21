@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.22.1)
 project("l2c_fcr_hook")
 set(CMAKE_CXX_STANDARD 23)
 
-option(IS_XPOSED "Build Xposed components" OFF)
+option(IS_XPOSED "Build Xposed components" ON)
 
 add_library(bluetooth_socket SHARED
         bluetooth_socket.cpp
@@ -26,7 +26,7 @@ target_link_libraries(bluetooth_socket
 
 if(IS_XPOSED)
 
-    set(XPOSED_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../xposed/cpp)
+    set(XPOSED_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/xposed)
 
     add_library(l2c_fcr_hook SHARED
             ${XPOSED_SRC_DIR}/l2c_fcr_hook.cpp

@@ -32,6 +32,7 @@ android {
         targetSdk = 37
         versionCode = 50
         versionName = appVersionName
+        buildConfigField("String", "FLAVOR", "\"\"")
     }
     buildTypes {
         release {
@@ -95,27 +96,6 @@ android {
     }
 
     ndkVersion = "30.0.14904198"
-
-    flavorDimensions += "env"
-
-    productFlavors {
-        create("normal") {
-            dimension = "env"
-            externalNativeBuild {
-                cmake {
-                    arguments += "-DIS_XPOSED=OFF"
-                }
-            }
-        }
-        create("xposed") {
-            dimension = "env"
-            externalNativeBuild {
-                cmake {
-                    arguments += "-DIS_XPOSED=ON"
-                }
-            }
-        }
-    }
 }
 
 dependencies {
@@ -145,8 +125,8 @@ dependencies {
     implementation(libs.backdrop)
 //    implementation(libs.hilt)
 //    implementation(libs.hilt.compiler)
-    add("xposedCompileOnly", libs.libxposed.api)
-    add("xposedImplementation", libs.libxposed.service)
+    compileOnly(libs.libxposed.api)
+    implementation(libs.libxposed.service)
     add("playReleaseImplementation", libs.billing)
 
     androidTestImplementation(platform(libs.androidx.compose.bom))
@@ -179,14 +159,13 @@ fun cap(s: String) = s.replaceFirstChar { it.uppercase() }
 
 fun registerRootModuleZipTask(
     name: String,
-    flavor: String,
     buildType: String
 ) = tasks.register<Zip>(name) {
 
-    val variantTask = "assemble${cap(flavor)}${cap(buildType)}"
+    val variantTask = "assemble${cap(buildType)}"
     dependsOn(variantTask)
 
-    val apkPath = "outputs/apk/$flavor/$buildType/app-$flavor-$buildType.apk"
+    val apkPath = "outputs/apk/$buildType/app-$buildType.apk"
 
     from(rootModuleDir)
 
@@ -203,39 +182,31 @@ fun registerRootModuleZipTask(
     destinationDirectory.set(layout.buildDirectory.dir("outputs/rootModuleZips"))
 }
 
-val zipRelease = registerRootModuleZipTask(
-    "zipXposedReleaseModule",
-    "xposed",
-    "release"
-)
+val zipRelease = registerRootModuleZipTask("zipReleaseModule", "release")
 
-val zipDebug = registerRootModuleZipTask(
-    "zipXposedDebugModule",
-    "xposed",
-    "debug"
-)
+val zipDebug = registerRootModuleZipTask("zipDebugModule", "debug")
 
 val collect = tasks.register<Copy>("collectReleaseArtifacts") {
 
     dependsOn(
         zipRelease,
         zipDebug,
-        "bundleXposedPlayRelease"
+        "bundlePlayRelease"
     )
 
     into(releaseDir)
 
-    from(layout.buildDirectory.dir("outputs/apk/xposed/release")) {
+    from(layout.buildDirectory.dir("outputs/apk/release")) {
         include("*.apk")
         rename(".*", "LibrePods-FOSS-v$appVersionName-release.apk")
     }
 
-    from(layout.buildDirectory.dir("outputs/apk/xposed/debug")) {
+    from(layout.buildDirectory.dir("outputs/apk/debug")) {
         include("*.apk")
         rename(".*", "LibrePods-FOSS-v$appVersionName-debug.apk")
     }
 
-    from(layout.buildDirectory.dir("outputs/bundle/xposedPlayRelease")) {
+    from(layout.buildDirectory.dir("outputs/bundle/playRelease")) {
         include("*.aab")
     }
 
