@@ -7,8 +7,8 @@
 #include <thread>
 
 #include "AirPodsConnector.hpp"
-#include "BluetoothRfcommClient.hpp"
 #include "MediaPlaybackWatcher.hpp"
+#include "PeerRegistry.hpp"
 
 namespace librepods {
 
@@ -22,7 +22,7 @@ class HandoverController {
 public:
     using StateChangedCallback = std::function<void(OwnershipState)>;
 
-    HandoverController(BluetoothRfcommClient& rfcomm,
+    HandoverController(PeerRegistry& peers,
                        AirPodsConnector& airpods,
                        MediaPlaybackWatcher& media);
     ~HandoverController();
@@ -40,7 +40,7 @@ private:
     bool withinDebounceWindow();
     void startAudioWatcher();
 
-    BluetoothRfcommClient& m_rfcomm;
+    PeerRegistry& m_peers;
     AirPodsConnector& m_airpods;
     MediaPlaybackWatcher& m_media;
 

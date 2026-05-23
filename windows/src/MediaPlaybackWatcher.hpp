@@ -27,6 +27,11 @@ public:
     void start();
     void stop();
 
+    // Returns the SourceAppUserModelId of the first session currently in the
+    // Playing state, or empty string if nothing is playing. Used for diagnostic
+    // popups during the viability spike.
+    std::string currentAppId() const;
+
     // Send transport commands to the OS's currently-focused media session. Used
     // by HandoverController to pause/resume local media around a handover so
     // audio doesn't briefly leak through PC speakers during the ACL switch.

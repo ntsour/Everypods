@@ -21,6 +21,7 @@
 #include <wrl/client.h>
 
 #include <chrono>
+#include <regex>
 #include <string>
 #include <thread>
 #include <vector>
@@ -148,6 +149,12 @@ bool AirPodsConnector::connect() {
     // I've found that reliably triggers Windows to fully integrate the device,
     // bring up audio profiles, and register the audio endpoint. BluetoothSet-
     // ServiceState alone returns error 87 even when fConnected=yes.
+    //
+    // NOTE: must use BluetoothCacheMode::Uncached. A cached lookup returns in
+    // milliseconds but skips the SDP handshake that Windows piggy-backs A2DP/HFP
+    // profile activation on — the endpoint stays UNPLUGGED and audio never
+    // routes. Uncached forces a fresh L2CAP+SDP exchange which costs 10-15 s
+    // but is what actually brings the audio endpoint to ACTIVE.
     bool socketOpened = false;
     try {
         auto services = device.GetRfcommServicesAsync(BluetoothCacheMode::Uncached).get();
@@ -269,6 +276,70 @@ std::vector<Endpoint> findAirPodsEndpoints(IMMDeviceEnumerator* enumerator, EDat
     return hits;
 }
 
+// Update Teams' cmd_settings.json so it uses the specified audio endpoints.
+// New Teams (Store edition) stores fixed device IDs here and does not expose a
+// "system default" option in its UI. Writing these IDs before the user answers
+// the incoming call routes Teams audio to AirPods for that session.
+void updateTeamsDeviceConfig(const std::wstring& renderEpId, const std::wstring& captureEpId) {
+    wchar_t localAppData[MAX_PATH] = {};
+    if (!GetEnvironmentVariableW(L"LOCALAPPDATA", localAppData, MAX_PATH)) return;
+
+    const std::filesystem::path cfgPath =
+        std::filesystem::path{localAppData}
+        / L"Packages" / L"MSTeams_8wekyb3d8bbwe"
+        / L"LocalCache" / L"Microsoft" / L"MSTeams" / L"cmd_settings.json";
+
+    if (!std::filesystem::exists(cfgPath)) {
+        log::debug("Teams cmd_settings.json not found — skipping Teams device update");
+        return;
+    }
+
+    std::string content;
+    {
+        std::ifstream in(cfgPath);
+        if (!in.is_open()) {
+            log::warn("Cannot open Teams cmd_settings.json for reading");
+            return;
+        }
+        content.assign(std::istreambuf_iterator<char>(in), {});
+    }
+
+    // Device IDs consist of ASCII hex digits, braces, dots, and dashes — safe to narrow.
+    const std::string render  = winrt::to_string(renderEpId);
+    const std::string capture = winrt::to_string(captureEpId);
+
+    try {
+        // Replace calling_selected_speaker_device value
+        content = std::regex_replace(content,
+            std::regex(R"("calling_selected_speaker_device":\{"Speaker":"[^"]*"\})"),
+            "\"calling_selected_speaker_device\":{\"Speaker\":\"" + render + "\"}");
+
+        // Replace calling_selected_microphone_device value
+        content = std::regex_replace(content,
+            std::regex(R"("calling_selected_microphone_device":\{"Microphone":"[^"]*"\})"),
+            "\"calling_selected_microphone_device\":{\"Microphone\":\"" + capture + "\"}");
+
+        // Replace Microphone+Speaker within calling_user_selected_devices, preserving Camera etc.
+        content = std::regex_replace(content,
+            std::regex(R"("calling_user_selected_devices":\{"Microphone":"[^"]*","Speaker":"[^"]*")"),
+            "\"calling_user_selected_devices\":{\"Microphone\":\"" + capture
+            + "\",\"Speaker\":\"" + render + "\"");
+    } catch (const std::regex_error& e) {
+        log::warn("Teams config regex error: {}", e.what());
+        return;
+    }
+
+    {
+        std::ofstream out(cfgPath, std::ios::trunc);
+        if (!out.is_open()) {
+            log::warn("Cannot write Teams cmd_settings.json");
+            return;
+        }
+        out << content;
+    }
+    log::info("Teams device config updated — speaker={} mic={}", render, capture);
+}
+
 }
 
 bool AirPodsConnector::setAsDefaultAudioDevice() {
@@ -341,6 +412,34 @@ bool AirPodsConnector::setAsDefaultAudioDevice() {
 
     for (auto& ep : renderHits)  setAll(ep, "render (output)");
     for (auto& ep : captureHits) setAll(ep, "capture (input)");
+
+    // Broadcast the same WM_WININICHANGE("Mmsys.cpl") notification that Windows
+    // sends when the user changes the default device via Control Panel → Sound.
+    // Apps set to "Default device" (including Teams) will re-query the default
+    // endpoint and switch to it automatically.
+    {
+        DWORD recipients = BSM_APPLICATIONS;
+        int sent = BroadcastSystemMessageW(
+            BSF_POSTMESSAGE | BSF_IGNORECURRENTTASK,
+            &recipients,
+            WM_WININICHANGE,
+            0,
+            reinterpret_cast<LPARAM>(L"Mmsys.cpl"));
+        log::debug("BroadcastSystemMessage(Mmsys.cpl) sent={}", sent);
+    }
+
+    // Update Teams' own device config. New Teams (Store edition) stores a fixed device
+    // ID and has no "system default" option — it ignores the Windows default and the
+    // WM_WININICHANGE broadcast above. Writing the AirPods endpoint IDs directly to
+    // cmd_settings.json means Teams will route call audio to AirPods when the user
+    // answers the incoming call (Teams re-reads config at call-answer time).
+    {
+        const std::wstring renderId  = !renderHits.empty()  ? renderHits[0].id  : L"";
+        const std::wstring captureId = !captureHits.empty() ? captureHits[0].id : L"";
+        if (!renderId.empty() || !captureId.empty()) {
+            updateTeamsDeviceConfig(renderId, captureId);
+        }
+    }
 
     if (weInited) CoUninitialize();
     return !renderHits.empty();
