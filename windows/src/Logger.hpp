@@ -42,7 +42,8 @@ inline std::ofstream& handoverLogFile() {
 inline std::string timestamp() {
     using namespace std::chrono;
     const auto now = system_clock::now();
-    return std::format("{:%H:%M:%S}", floor<milliseconds>(now));
+    const auto local = zoned_time{current_zone(), now}.get_local_time();
+    return std::format("{:%H:%M:%S}", floor<milliseconds>(local));
 }
 
 inline void writeLine(std::string_view level, std::string_view msg,

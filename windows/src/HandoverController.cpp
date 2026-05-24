@@ -47,6 +47,22 @@ void HandoverController::startAudioWatcher() {
         constexpr auto kReleaseAfterIdle = std::chrono::seconds(15);
         while (m_watcherRunning.load()) {
             try {
+                // Check if setState(LocalPc) signaled us to reset the idle timer.
+                if (m_resetIdle.exchange(false)) {
+                    idleSince = std::chrono::steady_clock::time_point{};
+                }
+
+                // Resolve Unknown state if peers are now connected.
+                if (m_state.load() == OwnershipState::Unknown && m_peers.isAnyConnected()) {
+                    bool airpodsHere = m_airpods.isClassicallyConnected();
+                    setState(airpodsHere ? OwnershipState::LocalPc : OwnershipState::RemoteAndroid);
+                    log::handover("OUT     {} → peer (periodic sync on Unknown state)",
+                        airpodsHere ? "kAirPodsConnected" : "kAirPodsDisconnected");
+                    m_peers.sendPacket(airpodsHere
+                        ? crossdevice::kAirPodsConnected
+                        : crossdevice::kAirPodsDisconnected);
+                }
+
                 // Only meaningful when AirPods are connected to this PC.
                 bool active = m_airpods.isClassicallyConnected()
                            && m_airpods.hasActiveAudioSessions();
@@ -103,6 +119,7 @@ void HandoverController::startAudioWatcher() {
                                             now - idleSince).count();
                             log::handover("RELEASE Audio idle for {}s — releasing ownership to peer", secs);
                             setState(OwnershipState::RemoteAndroid);
+                            m_airpods.disconnect();
                             m_lastLostOwnership = now;
                             if (m_peers.isAnyConnected()) {
                                 log::handover("OUT     kAirPodsDisconnected → all peers (proactive release)");
@@ -132,6 +149,9 @@ void HandoverController::setState(OwnershipState s) {
                           : (s == OwnershipState::RemoteAndroid) ? "RemoteAndroid"
                           :                                        "Unknown";
         log::handover("STATE → {}", label);
+        if (s == OwnershipState::LocalPc) {
+            m_resetIdle.store(true);  // Signal watcher to clear proactive-release timer
+        }
         if (m_onStateChanged) m_onStateChanged(s);
     }
 }

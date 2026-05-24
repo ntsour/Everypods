@@ -64,6 +64,9 @@ private:
     std::atomic<bool> m_watcherRunning{false};
     std::thread m_watcherThread;
 
+    // Signaled by setState(LocalPc) to reset the proactive-release idle timer.
+    std::atomic<bool> m_resetIdle{false};
+
     StateChangedCallback m_onStateChanged;
 };
 
