@@ -46,6 +46,14 @@ public:
     // respects media keys (most do). Returns true.
     bool tryPauseViaMediaKey();
 
+    // Multi-window pause: enumerate top-level browser windows (Chrome, Edge,
+    // Firefox) and post APPCOMMAND_MEDIA_PLAY_PAUSE to each. Catches YouTube
+    // on a non-focused window/monitor that the focused SendInput in
+    // tryPauseViaMediaKey misses (browser only registers one GSMTC session and
+    // VK_MEDIA_PLAY_PAUSE only reaches the foreground window). Returns the
+    // number of windows the message was posted to.
+    int tryPauseAllBrowserWindows();
+
 private:
     void rebuildSubscriptions();
     bool anyPlaying() const;

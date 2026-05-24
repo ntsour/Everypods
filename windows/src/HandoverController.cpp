@@ -88,27 +88,41 @@ void HandoverController::startAudioWatcher() {
                 } else if (!btConnected && lastBtConnected) {
                     // Falling edge: AirPods left Windows. Only act when we thought we owned them.
                     if (m_state.load() == OwnershipState::LocalPc) {
-                        if (lastActive) {
-                            // Audio was still active (call/meeting in progress) — phone grabbed
-                            // mid-call via BT without going through CrossDevice protocol (P6).
-                            log::handover("RECLAIM BT lost while audio active — phone grabbed during call");
-                            onMediaPlayingChanged(true);
-                        } else {
-                            // Audio was already idle — treat as a clean, protocol-bypassed release
-                            // (P5, P7, X2: phone connected via BT, Apple auto-switch away).
-                            // Pause local media so anything that wasn't routing to AirPods (or
-                            // that resumes from the system audio default switching) doesn't
-                            // leak through PC speakers now that attention is on the phone.
-                            m_media.tryPauseActive();
-                            m_media.tryPauseAllSessions();
-                            m_media.tryPauseViaMediaKey();
-                            if (setState(OwnershipState::RemoteAndroid)) {
-                                m_lastLostOwnership.store(tpToNs(std::chrono::steady_clock::now()));
-                                log::handover("BT      AirPods disconnected (BT falling edge, idle) — releasing");
-                                if (m_peers.isAnyConnected()) {
-                                    log::handover("OUT     kAirPodsDisconnected → all peers (BT edge)");
-                                    m_peers.sendPacket(crossdevice::kAirPodsDisconnected);
-                                }
+                        // Unified pause-and-release. We previously had two branches:
+                        //   - lastActive=true  → RECLAIM (try to grab AirPods back)
+                        //   - lastActive=false → pause local media, release ownership
+                        //
+                        // Experience showed the RECLAIM was *always* wrong in practice:
+                        //   - When the user intentionally moved AirPods to the phone, RECLAIM
+                        //     fought the user's choice and snatched them back.
+                        //   - When AirPods went into the case / died / were stolen by Apple's
+                        //     auto-switch, RECLAIM couldn't find them anyway and spammed
+                        //     pointless retries.
+                        //   - For the original target scenario (mid-Teams-call phone grab),
+                        //     pausing Windows media is actually correct: Teams' own multi-
+                        //     device handover takes the call to the phone, and Windows
+                        //     shouldn't fight that.
+                        //
+                        // Brief-bounce protection (AirPods drop off Windows for a second and
+                        // come back) is now handled at the audio-endpoint layer by the
+                        // IMMNotificationClient's persistent-arm mode: while we own the
+                        // AirPods, any UNPLUGGED→ACTIVE re-applies routing automatically.
+                        //
+                        // So: always pause local media and release ownership on BT falling
+                        // edge while we held LocalPc.
+                        const char* reason = lastActive
+                            ? "BT      AirPods disconnected mid-active-audio — pausing local media and releasing (no fight-back)"
+                            : "BT      AirPods disconnected (BT falling edge, idle) — releasing";
+                        m_media.tryPauseActive();
+                        m_media.tryPauseAllSessions();
+                        m_media.tryPauseViaMediaKey();
+                        m_media.tryPauseAllBrowserWindows();
+                        if (setState(OwnershipState::RemoteAndroid)) {
+                            m_lastLostOwnership.store(tpToNs(std::chrono::steady_clock::now()));
+                            log::handover("{}", reason);
+                            if (m_peers.isAnyConnected()) {
+                                log::handover("OUT     kAirPodsDisconnected → all peers (BT edge)");
+                                m_peers.sendPacket(crossdevice::kAirPodsDisconnected);
                             }
                         }
                     }
@@ -173,6 +187,15 @@ bool HandoverController::setState(OwnershipState s) {
                           :                                        "Unknown";
         log::handover("STATE → {}", label);
         if (m_onStateChanged) m_onStateChanged(s);
+
+        // Persistent-arm the endpoint notifier whenever we hold ownership. While
+        // we're LocalPc, AirPods bouncing off Windows briefly (Apple auto-switch,
+        // brief BT blip) and coming back will re-route automatically without a
+        // fresh setAsDefaultAudioDevice() call. When ownership leaves us, drop
+        // the persistent flag so we don't fight a peer that is intentionally
+        // taking the AirPods.
+        m_airpods.setPersistentArm(s == OwnershipState::LocalPc);
+
         return true;
     }
     return false;
@@ -222,7 +245,12 @@ void HandoverController::onMediaPlayingChanged(bool playing) {
     // ~1-2s while AirPods are migrating. We'll resume it once we've claimed them.
     const bool paused = m_media.tryPauseActive();
 
-    if (m_peers.isAnyConnected()) {
+    // Capture the kickoff time BEFORE sending kRequestDisconnect so the takeover
+    // thread can distinguish a "kAirPodsDisconnected from peer" arriving in response
+    // to *this* request from earlier stale ones.
+    const auto kickoffTime = std::chrono::steady_clock::now();
+    const bool peerConnected = m_peers.isAnyConnected();
+    if (peerConnected) {
         log::handover("OUT     kRequestDisconnect → all peers");
         m_peers.sendPacket(crossdevice::kRequestDisconnect);
     } else {
@@ -234,27 +262,60 @@ void HandoverController::onMediaPlayingChanged(bool playing) {
     // runtime will terminate a callback thread that doesn't return promptly, causing
     // a crash.
     //
-    // Connect retry backoff: 1.5 s, 3 s, 5 s. Xiaomi MIUI (and to a lesser extent
-    // other Android vendors) acknowledges the kRequestDisconnect packet over RFCOMM
-    // within ~300 ms but takes considerably longer to actually release the A2DP
-    // profile — often 2-5 s. A single 1.5 s sleep + one connect attempt frequently
-    // fails on Xiaomi and then the handover sits idle until TeamsCallWatcher's 20 s
-    // per-PID dedup expires and re-fires. Retrying inside the thread cuts the worst
-    // case from ~27 s to ~10-12 s.
-    std::thread([this, paused]() {
+    // Kickoff: instead of a fixed 1500 ms wait, listen on m_peerAckCv for the peer
+    // to confirm kAirPodsDisconnected. The Pixel app typically acks within ~100 ms.
+    // We connect ~300 ms after ack to give the AirPods time to actually release at
+    // the BT layer (acking the RFCOMM packet ≠ A2DP fully released). If no peer ack
+    // arrives within 1500 ms, fall through to the timer-based path.
+    //
+    // Subsequent retries use a backoff (1500ms, 3000ms) — kept short because Xiaomi
+    // MIUI and similar slow vendors can take 2-5 s to actually release A2DP after
+    // the RFCOMM ack. The first attempt is the fast path; retries cover stragglers.
+    std::thread([this, paused, kickoffTime, peerConnected]() {
         winrt::init_apartment(winrt::apartment_type::multi_threaded);
-        constexpr std::array<int, 3> kBackoffsMs{1500, 3000, 5000};
-        bool connected = false;
-        for (size_t i = 0; i < kBackoffsMs.size(); ++i) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(kBackoffsMs[i]));
-            log::handover("ACTION  BT connect attempt {}/{} (after {} ms wait)",
-                          i + 1, kBackoffsMs.size(), kBackoffsMs[i]);
-            if (m_airpods.connect()) {
-                connected = true;
-                break;
+
+        // Phase 1: event-driven kickoff for the first attempt.
+        constexpr auto kMaxAckWait     = std::chrono::milliseconds(1500);
+        constexpr auto kPostAckGrace   = std::chrono::milliseconds(300);
+        const auto ackDeadline = kickoffTime + kMaxAckWait;
+
+        bool gotPeerAck = false;
+        if (peerConnected) {
+            std::unique_lock<std::mutex> lk(m_peerAckMtx);
+            gotPeerAck = m_peerAckCv.wait_until(lk, ackDeadline, [this, &kickoffTime]() {
+                return tpFromNs(m_lastPeerAckAt.load()) >= kickoffTime;
+            });
+        }
+
+        if (gotPeerAck) {
+            auto ackedAfter = std::chrono::duration_cast<std::chrono::milliseconds>(
+                tpFromNs(m_lastPeerAckAt.load()) - kickoffTime).count();
+            log::handover("ACTION  Peer acked kAirPodsDisconnected after {}ms — grace {}ms then BT connect",
+                ackedAfter, kPostAckGrace.count());
+            std::this_thread::sleep_for(kPostAckGrace);
+        } else {
+            auto waited = std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now() - kickoffTime).count();
+            log::handover("ACTION  No peer ack within {}ms — proceeding with BT connect anyway",
+                waited);
+        }
+
+        // First attempt
+        log::handover("ACTION  BT connect attempt 1/3");
+        bool connected = m_airpods.connect();
+        if (!connected) {
+            log::handover("RETRY   BT connect attempt 1 failed — backing off");
+            constexpr std::array<int, 2> kBackoffsMs{1500, 3000};
+            for (size_t i = 0; i < kBackoffsMs.size(); ++i) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(kBackoffsMs[i]));
+                log::handover("ACTION  BT connect attempt {}/3 (after {} ms wait)",
+                              i + 2, kBackoffsMs[i]);
+                if (m_airpods.connect()) {
+                    connected = true;
+                    break;
+                }
+                log::handover("RETRY   BT connect attempt {} failed — backing off", i + 2);
             }
-            log::handover("RETRY   BT connect attempt {} failed — backing off",
-                          i + 1);
         }
         if (connected) {
             setState(OwnershipState::LocalPc);
@@ -284,8 +345,7 @@ void HandoverController::onMediaPlayingChanged(bool playing) {
                 m_airpods.setAsDefaultAudioDevice();
             }
         } else {
-            log::handover("FAIL    BT connect failed after {} attempts — AirPods not acquired",
-                          kBackoffsMs.size());
+            log::handover("FAIL    BT connect failed after 3 attempts — AirPods not acquired");
             if (paused) {
                 // Takeover failed — resume on whatever route we have so we don't leave
                 // the user with paused media for no reason.
@@ -369,6 +429,12 @@ void HandoverController::onIncomingPacket(std::span<const std::uint8_t> data) {
             // were already Remote.
             const bool wasLocalPc = (m_state.load() == OwnershipState::LocalPc);
             log::handover("IN      kAirPodsConnected from peer → STATE RemoteAndroid");
+
+            // Record the timestamp so the BT falling-edge RECLAIM logic knows the peer
+            // *just* signaled it's taking ownership — and skips the reclaim that would
+            // otherwise fight a user intentionally initiating handover from the phone.
+            m_lastPeerOwnershipClaim.store(tpToNs(std::chrono::steady_clock::now()));
+
             if (wasLocalPc) {
                 m_media.tryPauseActive();
                 m_media.tryPauseAllSessions();
@@ -380,6 +446,12 @@ void HandoverController::onIncomingPacket(std::span<const std::uint8_t> data) {
 
         case Incoming::AirPodsDisconnected:
             log::handover("IN      kAirPodsDisconnected from peer (waiting for local trigger)");
+            // Record the timestamp and wake any takeover thread that may be waiting
+            // for the peer to confirm release of the AirPods. This lets the BT
+            // connect attempt fire immediately on peer ack rather than after a
+            // fixed 1.5 s timer, cutting best-case handover latency by ~1.4 s.
+            m_lastPeerAckAt.store(tpToNs(std::chrono::steady_clock::now()));
+            m_peerAckCv.notify_all();
             // Don't claim ownership just because remote dropped — wait for our own media event.
             break;
 

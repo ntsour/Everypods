@@ -191,6 +191,51 @@ bool MediaPlaybackWatcher::tryPauseAllSessions() {
     return any_paused;
 }
 
+namespace {
+
+// EnumWindows callback: post APPCOMMAND_MEDIA_PLAY_PAUSE to any visible top-level
+// browser window. Class names checked:
+//   - Chrome_WidgetWin_1 / Chrome_WidgetWin_0 : Google Chrome, Edge (Chromium), Brave, Vivaldi
+//   - MozillaWindowClass                        : Firefox
+// The lParam carries a counter we increment for each window we touch.
+BOOL CALLBACK pauseBrowserWindowsProc(HWND hwnd, LPARAM lParam) {
+    if (!IsWindowVisible(hwnd)) return TRUE;
+
+    wchar_t cls[64] = {};
+    if (GetClassNameW(hwnd, cls, 64) == 0) return TRUE;
+
+    const std::wstring_view cls_v{cls};
+    const bool isBrowser =
+        cls_v == L"Chrome_WidgetWin_1" ||
+        cls_v == L"Chrome_WidgetWin_0" ||
+        cls_v == L"MozillaWindowClass";
+    if (!isBrowser) return TRUE;
+
+    // PostMessage so we don't block on a hung window. APPCOMMAND_MEDIA_PLAY_PAUSE
+    // is what the OS sends when the user hits a hardware play/pause key while
+    // this window has focus — every Chromium-based browser handles it for the
+    // foreground tab, and Firefox honours it too.
+    PostMessageW(hwnd, WM_APPCOMMAND, (WPARAM)hwnd,
+                 (LPARAM)(APPCOMMAND_MEDIA_PLAY_PAUSE << 16));
+
+    auto* count = reinterpret_cast<int*>(lParam);
+    if (count) ++(*count);
+    return TRUE;
+}
+
+}  // anonymous
+
+int MediaPlaybackWatcher::tryPauseAllBrowserWindows() {
+    int count = 0;
+    EnumWindows(pauseBrowserWindowsProc, reinterpret_cast<LPARAM>(&count));
+    if (count > 0) {
+        log::info("Posted APPCOMMAND_MEDIA_PLAY_PAUSE to {} browser window(s)", count);
+    } else {
+        log::debug("tryPauseAllBrowserWindows: no top-level browser windows found");
+    }
+    return count;
+}
+
 bool MediaPlaybackWatcher::tryPauseViaMediaKey() {
     // Send a hardware VK_MEDIA_PLAY_PAUSE keystroke via SendInput. This reaches any
     // foreground-capable app that honours media keys — including VLC, which does not

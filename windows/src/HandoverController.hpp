@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <functional>
 #include <mutex>
 #include <thread>
@@ -74,6 +75,22 @@ private:
     // Sender-side anti-pingpong: when we lose ownership (Android takes over),
     // suppress our own media-start handover for 3 s in case Spotify/Chrome auto-resumes.
     std::atomic<std::int64_t> m_lastLostOwnership{0};
+
+    // Timestamp (nanoseconds, steady_clock) of the last kAirPodsConnected we
+    // received from a peer. Used by the falling-edge RECLAIM logic to skip the
+    // reclaim when the peer has just intentionally claimed ownership — without
+    // this, Windows fights the user's "play media on phone" intent by trying
+    // to grab the AirPods back.
+    std::atomic<std::int64_t> m_lastPeerOwnershipClaim{0};
+
+    // Event-driven kickoff for the BT connect attempt during Pixel→Windows
+    // handover. The takeover thread waits on this condvar (with timeout) for a
+    // kAirPodsDisconnected ack from the peer, then starts the BT connect
+    // immediately — instead of always sleeping a fixed 1500 ms. Cuts the
+    // best-case Pixel→Windows latency by ~1.4 s.
+    std::mutex m_peerAckMtx;
+    std::condition_variable m_peerAckCv;
+    std::atomic<std::int64_t> m_lastPeerAckAt{0};
 
     // Audio session watcher: background thread that polls for active audio on the
     // AirPods endpoint and signals state changes to connected Android peers.
