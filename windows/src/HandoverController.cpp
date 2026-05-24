@@ -69,6 +69,13 @@ void HandoverController::startAudioWatcher() {
                 bool btConnected = m_airpods.isClassicallyConnected();
                 if (btConnected && !lastBtConnected) {
                     // Rising edge: AirPods just appeared on Windows (X1, X3, C2 scenarios).
+                    // Reset audio state: the classical BT link is up but A2DP hasn't negotiated
+                    // yet, so there are no audio sessions. Carrying stale lastActive=true into
+                    // this window makes the watcher misread the normal A2DP startup gap as
+                    // "audio was active, now gone → phone stole them" and fire a false RECLAIM.
+                    // Starting fresh means the watcher waits to observe what actually happens.
+                    lastActive = false;
+                    idleStreak = 0;
                     // Don't call setAsDefaultAudioDevice here — avoids stealing audio routing
                     // when the user manually connected for another purpose (e.g., firmware update).
                     if (setState(OwnershipState::LocalPc)) {
