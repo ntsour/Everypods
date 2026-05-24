@@ -42,8 +42,14 @@ inline std::ofstream& handoverLogFile() {
 inline std::string timestamp() {
     using namespace std::chrono;
     const auto now = system_clock::now();
-    const auto local = zoned_time{current_zone(), now}.get_local_time();
-    return std::format("{:%H:%M:%S}", floor<milliseconds>(local));
+    try {
+        // current_zone() requires Windows 10 1903+ and the tzdata package.
+        // Fall back to UTC on older systems or if the database is missing.
+        const auto local = zoned_time{current_zone(), now}.get_local_time();
+        return std::format("{:%H:%M:%S}", floor<milliseconds>(local));
+    } catch (...) {
+        return std::format("{:%H:%M:%S}", floor<milliseconds>(now));
+    }
 }
 
 inline void writeLine(std::string_view level, std::string_view msg,

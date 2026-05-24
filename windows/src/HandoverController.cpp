@@ -53,14 +53,20 @@ void HandoverController::startAudioWatcher() {
                 }
 
                 // Resolve Unknown state if peers are now connected.
+                // Guard the packet send on setState's return value: if onPeerConnectionChanged
+                // raced us here and already resolved Unknown, setState returns false and we
+                // skip the duplicate send.
                 if (m_state.load() == OwnershipState::Unknown && m_peers.isAnyConnected()) {
                     bool airpodsHere = m_airpods.isClassicallyConnected();
-                    setState(airpodsHere ? OwnershipState::LocalPc : OwnershipState::RemoteAndroid);
-                    log::handover("OUT     {} → peer (periodic sync on Unknown state)",
-                        airpodsHere ? "kAirPodsConnected" : "kAirPodsDisconnected");
-                    m_peers.sendPacket(airpodsHere
-                        ? crossdevice::kAirPodsConnected
-                        : crossdevice::kAirPodsDisconnected);
+                    bool changed = setState(airpodsHere ? OwnershipState::LocalPc
+                                                        : OwnershipState::RemoteAndroid);
+                    if (changed) {
+                        log::handover("OUT     {} → peer (periodic sync on Unknown state)",
+                            airpodsHere ? "kAirPodsConnected" : "kAirPodsDisconnected");
+                        m_peers.sendPacket(airpodsHere
+                            ? crossdevice::kAirPodsConnected
+                            : crossdevice::kAirPodsDisconnected);
+                    }
                 }
 
                 // Only meaningful when AirPods are connected to this PC.
@@ -120,7 +126,12 @@ void HandoverController::startAudioWatcher() {
                             log::handover("RELEASE Audio idle for {}s — releasing ownership to peer", secs);
                             setState(OwnershipState::RemoteAndroid);
                             m_airpods.disconnect();
-                            m_lastLostOwnership = now;
+                            // Capture timestamp AFTER disconnect() so m_lastLostOwnership
+                            // reflects when the BT stack actually released, not when we
+                            // decided to release. disconnect() can block 1-3 s on some
+                            // drivers; a pre-disconnect timestamp would make the
+                            // anti-pingpong window appear wider than it really is.
+                            m_lastLostOwnership.store(tpToNs(std::chrono::steady_clock::now()));
                             if (m_peers.isAnyConnected()) {
                                 log::handover("OUT     kAirPodsDisconnected → all peers (proactive release)");
                                 m_peers.sendPacket(crossdevice::kAirPodsDisconnected);
@@ -142,7 +153,7 @@ void HandoverController::startAudioWatcher() {
     });
 }
 
-void HandoverController::setState(OwnershipState s) {
+bool HandoverController::setState(OwnershipState s) {
     auto previous = m_state.exchange(s);
     if (previous != s) {
         const char* label = (s == OwnershipState::LocalPc)     ? "LocalPc"
@@ -153,7 +164,9 @@ void HandoverController::setState(OwnershipState s) {
             m_resetIdle.store(true);  // Signal watcher to clear proactive-release timer
         }
         if (m_onStateChanged) m_onStateChanged(s);
+        return true;
     }
+    return false;
 }
 
 bool HandoverController::withinDebounceWindow() {
@@ -186,7 +199,7 @@ void HandoverController::onMediaPlayingChanged(bool playing) {
     }
 
     // Anti-pingpong: if we just lost ownership to Android, don't immediately take back.
-    auto sinceLost = std::chrono::steady_clock::now() - m_lastLostOwnership;
+    auto sinceLost = std::chrono::steady_clock::now() - tpFromNs(m_lastLostOwnership.load());
     if (sinceLost < std::chrono::milliseconds(3000)) {
         auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(sinceLost).count();
         log::handover("SKIP    Anti-pingpong: lost ownership {}ms ago — not reclaiming", ms);
@@ -236,7 +249,7 @@ void HandoverController::onMediaPlayingChanged(bool playing) {
         }
         if (connected) {
             setState(OwnershipState::LocalPc);
-            m_lastLocalTakeover = std::chrono::steady_clock::now();
+            m_lastLocalTakeover.store(tpToNs(std::chrono::steady_clock::now()));
             if (m_peers.isAnyConnected()) {
                 log::handover("OUT     kAirPodsConnected → all peers");
                 m_peers.sendPacket(crossdevice::kAirPodsConnected);
@@ -281,7 +294,7 @@ void HandoverController::onIncomingPacket(std::span<const std::uint8_t> data) {
             // Reject takeover attempts that happen within ~3s of our own takeover.
             // Android's MediaController fires takeover whenever media is "active",
             // which is often true right after we ourselves grabbed the AirPods.
-            auto sinceTakeover = std::chrono::steady_clock::now() - m_lastLocalTakeover;
+            auto sinceTakeover = std::chrono::steady_clock::now() - tpFromNs(m_lastLocalTakeover.load());
             if (sinceTakeover < std::chrono::milliseconds(3000)) {
                 auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(sinceTakeover).count();
                 log::handover("IN      kRequestDisconnect — REJECTED (anti-pingpong, {}ms since takeover)", ms);
@@ -312,7 +325,7 @@ void HandoverController::onIncomingPacket(std::span<const std::uint8_t> data) {
             m_media.tryPauseViaMediaKey();   // Media key: VLC, browsers, non-GSMTC apps
             m_airpods.disconnect();
             setState(OwnershipState::RemoteAndroid);
-            m_lastLostOwnership = std::chrono::steady_clock::now();
+            m_lastLostOwnership.store(tpToNs(std::chrono::steady_clock::now()));
             if (m_peers.isAnyConnected()) {
                 log::handover("OUT     kAirPodsDisconnected → all peers");
                 m_peers.sendPacket(kAirPodsDisconnected);
@@ -331,7 +344,7 @@ void HandoverController::onIncomingPacket(std::span<const std::uint8_t> data) {
             m_media.tryPauseViaMediaKey();
             m_airpods.disconnect();
             setState(OwnershipState::RemoteAndroid);
-            m_lastLostOwnership = std::chrono::steady_clock::now();
+            m_lastLostOwnership.store(tpToNs(std::chrono::steady_clock::now()));
             if (m_peers.isAnyConnected()) {
                 log::handover("OUT     kAirPodsDisconnected → all peers");
                 m_peers.sendPacket(kAirPodsDisconnected);

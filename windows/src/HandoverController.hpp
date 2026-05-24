@@ -36,9 +36,23 @@ public:
     OwnershipState state() const { return m_state.load(); }
 
 private:
-    void setState(OwnershipState s);
+    // Returns true if the state actually changed (the atomic exchange saw a different
+    // previous value). Callers that need to act only on a real transition (e.g., send
+    // a protocol packet) should gate on the return value to avoid duplicate sends when
+    // two threads race to resolve the same Unknown→X transition.
+    bool setState(OwnershipState s);
     bool withinDebounceWindow();
     void startAudioWatcher();
+
+    // Helpers to store/load anti-pingpong timestamps atomically.
+    // steady_clock::duration::count() is int64_t nanoseconds on all supported platforms.
+    static std::int64_t tpToNs(std::chrono::steady_clock::time_point tp) noexcept {
+        return tp.time_since_epoch().count();
+    }
+    static std::chrono::steady_clock::time_point tpFromNs(std::int64_t ns) noexcept {
+        return std::chrono::steady_clock::time_point{
+            std::chrono::steady_clock::duration{ns}};
+    }
 
     PeerRegistry& m_peers;
     AirPodsConnector& m_airpods;
@@ -53,11 +67,13 @@ private:
     // Anti-ping-pong: timestamp of our last successful local takeover. We reject
     // incoming RequestDisconnect within ~3s of this to avoid Android's auto-takeover
     // logic stealing the AirPods right back.
-    std::chrono::steady_clock::time_point m_lastLocalTakeover{};
+    // Stored as nanoseconds (steady_clock::duration::count()) so the field can be
+    // accessed atomically from both the watcher thread and WinRT/RFCOMM callbacks.
+    std::atomic<std::int64_t> m_lastLocalTakeover{0};
 
     // Sender-side anti-pingpong: when we lose ownership (Android takes over),
     // suppress our own media-start handover for 3 s in case Spotify/Chrome auto-resumes.
-    std::chrono::steady_clock::time_point m_lastLostOwnership{};
+    std::atomic<std::int64_t> m_lastLostOwnership{0};
 
     // Audio session watcher: background thread that polls for active audio on the
     // AirPods endpoint and signals state changes to connected Android peers.
