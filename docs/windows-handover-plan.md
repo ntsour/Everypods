@@ -58,8 +58,8 @@ Variables:
 | **W2** | TeamsCallWatcher fires | Phone | yes | Same as W1; today we send `kRequestDisconnect`, not `kRequestHandover` | ⚠ semantic gap |
 | **W3** | Media-start | Phone | down | Best-effort: skip request, attempt connect (out-of-range path) | ✓ WIP (logged WARN) |
 | **W4** | Media-start | Win already | n/a | SKIP (no-op) | ✓ WIP |
-| **W5** | Media-start | nobody (Win recently released) | yes | Anti-pingpong (3 s) skip; after window, take | ✓ WIP |
-| **W6** | TeamsCallWatcher fires immediately after proactive release | nobody | yes | Currently anti-pingpong **blocks reclaim for 3 s** — incoming call may be silent on AirPods | ⚠ tuning |
+| **W5** | Media-start | nobody (Win recently released **via protocol or BT-grab**) | yes | Anti-pingpong (3 s) skip; after window, take | ✓ |
+| **W6** | TeamsCallWatcher fires immediately after release | nobody | yes | Resolved: proactive release removed, so the only `m_lastLostOwnership` writes come from real external takeovers — call reclaim is always desired | ✓ |
 
 ### 3.2 Phone initiates (Windows is responder)
 
@@ -69,10 +69,10 @@ Variables:
 | **P2** | Incoming `kRequestDisconnect` | yes | active (Teams call) | yes | REJECT, re-assert `kAirPodsConnected` | ✓ WIP |
 | **P3** | Incoming `kRequestHandover` | yes | active or idle | yes | ACCEPT unconditionally (call wins) | ✓ WIP — but Android doesn't send this yet |
 | **P4** | Incoming `kRequestDisconnect` within 3 s of Win takeover | yes | any | yes | REJECT (anti-pingpong) | ✓ WIP |
-| **P5** | Phone grabs AirPods via A2DP without sending packet | yes | idle | yes (peer connected) | Detected via BT-loss in watcher; if audio is idle do **not** reclaim, just sync state | ⚠ broken — current watcher only reclaims when audio active; quiet BT-loss leaves state stale |
+| **P5** | Phone grabs AirPods via A2DP without sending packet | yes | idle | yes (peer connected) | Phase 2 BT falling edge: pause local media, set Remote, broadcast `kAirPodsDisconnected` | ✓ |
 | **P6** | Phone grabs A2DP while Win in active call | yes | active | yes | RECLAIM (current behaviour — call wins) | ✓ WIP |
-| **P7** | Phone grabs via A2DP, RFCOMM down | yes | idle | down | Same as P5 but no packet ever arrives | ⚠ same issue |
-| **P8** | `kAirPodsConnected` arrives, Win has them | yes | idle | yes | setState Remote (already correct); should **also pause local media** so Win audio doesn't continue routing through PC speakers | ⚠ partial |
+| **P7** | Phone grabs via A2DP, RFCOMM down | yes | idle | down | Phase 2 BT falling edge handles locally; no peer broadcast possible (none connected) | ✓ |
+| **P8** | `kAirPodsConnected` arrives, Win has them | yes | idle | yes | Pause local media (triple-tap), setState Remote | ✓ |
 | **P9** | `kAirPodsDisconnected` arrives | no | n/a | yes | Currently logs only; correct ("wait for local trigger") | ✓ WIP |
 
 ### 3.3 Auto-switch / external events
@@ -106,8 +106,14 @@ Variables:
 
 ## 4. Gap Analysis (mapped to WIP code)
 
-### G1. Proactive release is "soft"
-[`HandoverController.cpp:104-111`](../windows/src/HandoverController.cpp) sets state and sends packet but does **not** call `m_airpods.disconnect()`. AirPods stay BT-bonded to Windows. Phone's `connect()` eventually wins but it's a fight. *(handover plan addendum A2 calls this out.)*
+### G1. Proactive release was the wrong design — REMOVED
+Earlier WIP released AirPods from Windows automatically 15 s after audio went idle, on the theory that "phone should be able to take over without fighting." This was wrong: it disconnected the AirPods from Windows during ordinary pauses (reading, taking notes, between songs), creating reconnect lag the next time the user wanted them.
+
+**New principle:** Windows holds ownership until another device actively claims them. Ownership leaves Windows only on:
+1. Incoming `kRequestDisconnect` or `kRequestHandover` over RFCOMM (phone-initiated, protocol).
+2. BT falling edge while `state == LocalPc` (phone-initiated BT grab, or Apple auto-switch away).
+
+Pausing media is not a release signal. The audio IDLE broadcast (`kWindowsAudioIdle`) stays — it tells Android "safe to take" so its `takeoverWhenCall` gating works, but it is purely informational from Windows' side.
 
 ### G2. No BT-state rising/falling edge handler
 The watcher ([`HandoverController.cpp:48-114`](../windows/src/HandoverController.cpp)) only acts on `isClassicallyConnected AND hasActiveAudioSessions`. The BT classical-connection edge itself is observed only inside the conjunction. We need an independent state observer that fires on every transition of `isClassicallyConnected`, so:
@@ -125,8 +131,8 @@ This requires plumbing the trigger reason from `TeamsCallWatcher` into `Handover
 ### G4. `onMediaPlayingChanged` doesn't tag "music vs call"
 Both paths funnel through the same entry point and send the same packet (`kRequestDisconnect`). Now that the protocol has `kRequestHandover`, we should send it for the call path **even though Android currently ignores the priority distinction**. Future-proof; Android may later add differential handling per the addendum plan.
 
-### G5. `kAirPodsConnected` incoming doesn't pause local media
-[`HandoverController.cpp:322-325`](../windows/src/HandoverController.cpp) sets state and that's it. If Spotify was playing through AirPods on Win, after AirPods leave, Spotify continues on PC speakers. Per principle "attention is elsewhere", we should `tryPauseActive` + `tryPauseAllSessions` + `tryPauseViaMediaKey` here (same triple-tap as `RequestDisconnect` accepted).
+### G5. `kAirPodsConnected` incoming doesn't pause local media — RESOLVED IN PHASE 1
+Triple-tap pause is now applied at every release path except the active-fall reclaim (BT falling-idle, incoming `kAirPodsConnected` when previously LocalPc). The existing `RequestDisconnect` / `RequestHandover` handlers already had it.
 
 ### G6. State machine has no `Unknown` resolution path mid-session
 After cold-start `Unknown`, the first peer-connect resolves it (`onPeerConnectionChanged`). But there's no way to recover from a wedged `Unknown` if peer-connect didn't fire (e.g., Windows starts with no phones nearby). Add a periodic re-sync in the audio watcher: if `m_state == Unknown` and `isClassicallyConnected` is reliably known, set the appropriate state.
@@ -134,8 +140,8 @@ After cold-start `Unknown`, the first peer-connect resolves it (`onPeerConnectio
 ### G7. Per-peer ownership tracking missing (M4)
 `PeerRegistry` knows connection state per peer, but `HandoverController` only tracks a single `OwnershipState`. We don't know **which** phone holds the AirPods when state is `RemoteAndroid`. Add a `m_holderAddress` field updated on `kAirPodsConnected` (use the source-peer address — would require packet callback to carry sender identity, a small `PeerRegistry` extension).
 
-### G8. Proactive release one-shot loses second cycle
-`idleSince = time_point{}` after firing release. If, post-release, Win audio goes active again (no reclaim because anti-pingpong) and then idle for 15 more s, we don't fire release again. That's actually correct (state already Remote). But if Win **re-acquires** AirPods and idle resumes, the variable is wedged at zero. Reset `idleSince` on every `setState(LocalPc)` transition for safety.
+### G8. Proactive release one-shot loses second cycle — RESOLVED BY REMOVAL
+Moot. With G1 removed, there is no `idleSince` timer and nothing to reset. `m_resetIdle` was deleted along with the rest of the release plumbing.
 
 ### G9. Reject-with-`kAirPodsConnected` re-assertion may mislead
 On P2/P4 (REJECT), we send `kAirPodsConnected`. Per Android's `CrossDevice.kt` handler, that sets `isAvailable=true` only, **doesn't stop A2DP fight**. So Android's A2DP retry loop (1s/2.5s/4.5s) may still win and yank AirPods mid-Teams-call. Mitigation:
@@ -151,18 +157,21 @@ Per WIP commit message + handover plan side-issue. One-liner.
 ## 5. Phased Plan
 
 ### Phase 1 — Stabilize WIP (low risk, high value)
-*Make the current implementation reliably meet the four "win" scenarios in handover.md S2–S5.*
+*Make the current implementation reliably meet the "win" scenarios in handover.md, and remove the proactive-release misfeature.*
 
-1. **G1 — Hard disconnect on proactive release.**
-   `HandoverController.cpp:105` block: add `m_airpods.disconnect();` after `setState(RemoteAndroid)`.
-2. **G10 — Local-time logger.**
-   `Logger.hpp::timestamp()` → use `std::chrono::current_zone()->to_local(...)`.
-3. **G8 — Reset `idleSince` on LocalPc transitions.**
-   Add a hook in `setState` that, when transitioning *to* LocalPc, signals the watcher to clear its `idleSince`. Cleanest as an `std::atomic<bool> m_resetIdle` flag the watcher polls each tick.
-4. **G6 — Periodic state resolver.**
-   Inside watcher loop, if `m_state == Unknown` and `m_peers.isAnyConnected()`, infer from `isClassicallyConnected` and broadcast.
+1. **G1 — Remove proactive release entirely.** In `HandoverController.cpp::startAudioWatcher()`:
+   - Delete `idleSince`, `kReleaseAfterIdle`, the `m_resetIdle.exchange` check, and the `!active && !lastActive` branch that fired `RELEASE` + `kAirPodsDisconnected`.
+   - The watcher now only broadcasts audio ACTIVE/IDLE signals; it never gives up ownership.
+   - In `setState()`, remove the `m_resetIdle.store(true)` hook.
+   - In `HandoverController.hpp`, delete the `m_resetIdle` field.
+2. **G5 — Pause local media on every loss path** (added with G1 removal). Adds the existing `tryPauseActive` + `tryPauseAllSessions` + `tryPauseViaMediaKey` triple-tap at:
+   - BT-edge falling-idle (Phase 2 handler) — before broadcasting `kAirPodsDisconnected`.
+   - `Incoming::AirPodsConnected` handler — only when `m_state` was `LocalPc` at packet receipt, to avoid pausing on peer re-assertions.
+   The active-fall reclaim path is intentionally exempt (call must continue while we reconnect).
+3. **G10 — Local-time logger.** `Logger.hpp::timestamp()` → uses `std::chrono::current_zone()` with UTC fallback.
+4. **G6 — Periodic state resolver.** Inside watcher loop, if `m_state == Unknown` and `m_peers.isAnyConnected()`, infer from `isClassicallyConnected` and broadcast.
 
-**Verification:** Re-run handover.md tests S1, S2, S5 against this branch (no other code touched). Confirm S2 now drops AirPods physically within ≤1 s of `RELEASE` log line.
+**Verification:** Play music → pause → wait 60 s: confirm log shows `AUDIO IDLE` only, no `RELEASE`, no `kAirPodsDisconnected`. From that paused state, start playback on phone: Windows accepts `kRequestDisconnect` without any anti-pingpong stall (`m_lastLostOwnership` was never stamped). Spotify pauses on Win as part of the loss; no leak to PC speakers.
 
 ### Phase 2 — BT-state event bus (medium risk)
 *Close the silent-grab and auto-switch gaps (P5, P7, X1, X2, X3).*
@@ -193,13 +202,8 @@ Per WIP commit message + handover plan side-issue. One-liner.
 
 **Verification:** Start Spotify on Win → confirm `OUT kRequestDisconnect` in log. Then end music, hang up after Teams call (proactive RELEASE), then **immediately** answer an incoming Teams call → confirm `kRequestHandover` outbound and reclaim within 500 ms.
 
-### Phase 4 — Local-media coherence on remote takeover (low risk)
-*Don't leave Win audio leaking to PC speakers after the AirPods leave (G5).*
-
-1. In `Incoming::AirPodsConnected` handler ([`HandoverController.cpp:322-325`](../windows/src/HandoverController.cpp)), call `tryPauseActive` + `tryPauseAllSessions` + `tryPauseViaMediaKey` if we were LocalPc.
-2. Optionally also call `m_airpods.disconnect()` if `isClassicallyConnected` is still true — belt-and-suspenders for the "phone grabbed but our A2DP link is sticky" case.
-
-**Verification:** Play Spotify on Win, then play podcast on Xiaomi (phone sends `kRequestDisconnect`, then later `kAirPodsConnected`). Confirm Win Spotify is paused, not leaking to speakers.
+### Phase 4 — Local-media coherence on remote takeover — DONE IN PHASE 1
+G5 is closed as part of Phase 1 (see Phase 1 step 2). Optional belt-and-suspenders `m_airpods.disconnect()` on stale A2DP after `kAirPodsConnected` remains a possible future tweak; defer.
 
 ### Phase 5 — Per-peer ownership tracking (low risk, UI polish)
 *Show "AirPods: on Pixel" vs "AirPods: on Xiaomi" in tray (G7, M4).*

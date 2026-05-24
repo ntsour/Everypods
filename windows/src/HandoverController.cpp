@@ -41,19 +41,10 @@ void HandoverController::startAudioWatcher() {
         bool lastActive = false;     // last state broadcast to peers
         int  idleStreak = 0;         // # consecutive polls observed idle while broadcast=active
         constexpr int kIdleStreakThreshold = 2;
-        // Proactive-release tracking: set when broadcast flips to IDLE, cleared on
-        // rising edge or when release has fired (one-shot).
-        std::chrono::steady_clock::time_point idleSince{};
-        constexpr auto kReleaseAfterIdle = std::chrono::seconds(15);
         // Initialised to actual state so the first poll doesn't produce a synthetic edge.
         bool lastBtConnected = m_airpods.isClassicallyConnected();
         while (m_watcherRunning.load()) {
             try {
-                // Check if setState(LocalPc) signaled us to reset the idle timer.
-                if (m_resetIdle.exchange(false)) {
-                    idleSince = std::chrono::steady_clock::time_point{};
-                }
-
                 // Resolve Unknown state if peers are now connected.
                 // Guard the packet send on setState's return value: if onPeerConnectionChanged
                 // raced us here and already resolved Unknown, setState returns false and we
@@ -97,7 +88,13 @@ void HandoverController::startAudioWatcher() {
                             onMediaPlayingChanged(true);
                         } else {
                             // Audio was already idle — treat as a clean, protocol-bypassed release
-                            // (P5, P7, X2: phone connected via BT after proactive release etc.).
+                            // (P5, P7, X2: phone connected via BT, Apple auto-switch away).
+                            // Pause local media so anything that wasn't routing to AirPods (or
+                            // that resumes from the system audio default switching) doesn't
+                            // leak through PC speakers now that attention is on the phone.
+                            m_media.tryPauseActive();
+                            m_media.tryPauseAllSessions();
+                            m_media.tryPauseViaMediaKey();
                             if (setState(OwnershipState::RemoteAndroid)) {
                                 m_lastLostOwnership.store(tpToNs(std::chrono::steady_clock::now()));
                                 log::handover("BT      AirPods disconnected (BT falling edge, idle) — releasing");
@@ -120,7 +117,6 @@ void HandoverController::startAudioWatcher() {
                     // Rising edge: broadcast ACTIVE immediately.
                     lastActive = true;
                     idleStreak = 0;
-                    idleSince  = std::chrono::steady_clock::time_point{};
                     log::handover("AUDIO   ACTIVE — AirPods have live audio sessions");
                     if (m_peers.isAnyConnected()) {
                         m_peers.sendPacket(crossdevice::kWindowsAudioActive);
@@ -129,10 +125,12 @@ void HandoverController::startAudioWatcher() {
                     // Idle observed while we still consider ourselves active — count it.
                     ++idleStreak;
                     if (idleStreak >= kIdleStreakThreshold) {
-                        // Sustained idle: broadcast IDLE and consider reclaim.
+                        // Sustained idle: broadcast IDLE as an informational signal to peers.
+                        // We do NOT release ownership here — Windows holds the AirPods until
+                        // another device actively claims them (RequestDisconnect / RequestHandover
+                        // over RFCOMM, or a BT falling edge from a direct phone grab).
                         lastActive = false;
                         idleStreak = 0;
-                        idleSince  = std::chrono::steady_clock::now();
                         log::handover("AUDIO   IDLE   — AirPods audio sessions gone");
                         if (m_peers.isAnyConnected()) {
                             m_peers.sendPacket(crossdevice::kWindowsAudioIdle);
@@ -144,34 +142,9 @@ void HandoverController::startAudioWatcher() {
                 } else if (active && lastActive) {
                     // Recovered before the threshold — reset the streak silently.
                     idleStreak = 0;
-                } else {
-                    // !active && !lastActive — steady idle. Proactive release after
-                    // kReleaseAfterIdle so the phone can naturally take over without
-                    // Windows reclaiming. Skips when state has already moved off LocalPc
-                    // (a prior reclaim, peer-initiated handover, etc.).
-                    if (idleSince != std::chrono::steady_clock::time_point{}
-                        && m_state.load() == OwnershipState::LocalPc) {
-                        auto now = std::chrono::steady_clock::now();
-                        if (now - idleSince > kReleaseAfterIdle) {
-                            auto secs = std::chrono::duration_cast<std::chrono::seconds>(
-                                            now - idleSince).count();
-                            log::handover("RELEASE Audio idle for {}s — releasing ownership to peer", secs);
-                            setState(OwnershipState::RemoteAndroid);
-                            m_airpods.disconnect();
-                            // Capture timestamp AFTER disconnect() so m_lastLostOwnership
-                            // reflects when the BT stack actually released, not when we
-                            // decided to release. disconnect() can block 1-3 s on some
-                            // drivers; a pre-disconnect timestamp would make the
-                            // anti-pingpong window appear wider than it really is.
-                            m_lastLostOwnership.store(tpToNs(std::chrono::steady_clock::now()));
-                            if (m_peers.isAnyConnected()) {
-                                log::handover("OUT     kAirPodsDisconnected → all peers (proactive release)");
-                                m_peers.sendPacket(crossdevice::kAirPodsDisconnected);
-                            }
-                            idleSince = std::chrono::steady_clock::time_point{};  // one-shot
-                        }
-                    }
                 }
+                // !active && !lastActive: steady idle. Nothing to do — we hold ownership
+                // until an explicit external event takes it.
             } catch (const std::exception& e) {
                 log::warn("Audio watcher: exception during poll: {}", e.what());
                 // Continue polling, don't crash
@@ -192,9 +165,6 @@ bool HandoverController::setState(OwnershipState s) {
                           : (s == OwnershipState::RemoteAndroid) ? "RemoteAndroid"
                           :                                        "Unknown";
         log::handover("STATE → {}", label);
-        if (s == OwnershipState::LocalPc) {
-            m_resetIdle.store(true);  // Signal watcher to clear proactive-release timer
-        }
         if (m_onStateChanged) m_onStateChanged(s);
         return true;
     }
@@ -384,10 +354,22 @@ void HandoverController::onIncomingPacket(std::span<const std::uint8_t> data) {
             break;
         }
 
-        case Incoming::AirPodsConnected:
+        case Incoming::AirPodsConnected: {
+            // Peer announces it now has the AirPods. If we previously held them, pause
+            // local media so anything still routing through PC speakers (Spotify after
+            // AirPods left, browser audio, etc.) doesn't leak. Check state BEFORE the
+            // transition so we don't pause on a peer's idempotent re-assertion when we
+            // were already Remote.
+            const bool wasLocalPc = (m_state.load() == OwnershipState::LocalPc);
             log::handover("IN      kAirPodsConnected from peer → STATE RemoteAndroid");
+            if (wasLocalPc) {
+                m_media.tryPauseActive();
+                m_media.tryPauseAllSessions();
+                m_media.tryPauseViaMediaKey();
+            }
             setState(OwnershipState::RemoteAndroid);
             break;
+        }
 
         case Incoming::AirPodsDisconnected:
             log::handover("IN      kAirPodsDisconnected from peer (waiting for local trigger)");
