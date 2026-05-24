@@ -365,15 +365,36 @@ bool AirPodsConnector::setAsDefaultAudioDevice() {
         return false;
     }
 
-    // Endpoints register asynchronously after the ACL link comes up. Poll for ~4s.
+    // A2DP negotiation is asynchronous: BluetoothSetServiceState returns before Windows
+    // has negotiated the audio profile. The endpoint appears first in UNPLUGGED state,
+    // then transitions to ACTIVE once A2DP is up. Setting an UNPLUGGED endpoint as the
+    // default does nothing — audio won't route to it. Poll until ACTIVE, up to ~8s.
+    // If still not ACTIVE after the window, fall back to whatever state we have so the
+    // caller can still attempt the set (some drivers skip the UNPLUGGED transient).
+    auto anyActive = [](const std::vector<Endpoint>& v) {
+        return std::any_of(v.begin(), v.end(),
+            [](const Endpoint& e){ return e.state == DEVICE_STATE_ACTIVE; });
+    };
     std::vector<Endpoint> renderHits, captureHits;
-    for (int attempt = 0; attempt < 20; ++attempt) {
+    for (int attempt = 0; attempt < 40; ++attempt) {
         renderHits  = findAirPodsEndpoints(enumerator.Get(), eRender);
         captureHits = findAirPodsEndpoints(enumerator.Get(), eCapture);
-        if (!renderHits.empty() || !captureHits.empty()) break;
-        log::debug("  AirPods endpoint not yet enumerated (attempt {}/20), waiting 200ms...",
-                   attempt + 1);
+        if (anyActive(renderHits) || anyActive(captureHits)) {
+            log::debug("  AirPods endpoint ACTIVE after {} attempts", attempt + 1);
+            break;
+        }
+        if (!renderHits.empty() || !captureHits.empty()) {
+            log::debug("  AirPods endpoint found but UNPLUGGED/NOTPRESENT (attempt {}/40), "
+                       "waiting for A2DP...", attempt + 1);
+        } else {
+            log::debug("  AirPods endpoint not yet enumerated (attempt {}/40), waiting 200ms...",
+                       attempt + 1);
+        }
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    }
+    if (!anyActive(renderHits) && !anyActive(captureHits)) {
+        log::warn("AirPods endpoint did not reach ACTIVE state after 8s — A2DP may not have "
+                  "negotiated. Best-effort: attempting SetDefaultEndpoint anyway.");
     }
 
     if (renderHits.empty() && captureHits.empty()) {
