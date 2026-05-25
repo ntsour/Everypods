@@ -113,12 +113,21 @@ void HandoverController::startAudioWatcher() {
                         const char* reason = lastActive
                             ? "BT      AirPods disconnected mid-active-audio — pausing local media and releasing (no fight-back)"
                             : "BT      AirPods disconnected (BT falling edge, idle) — releasing";
+
+                        // Set the anti-pingpong timestamp FIRST, before any potentially-blocking
+                        // operation. Mirrors the fix in onIncomingPacket's release handlers. The
+                        // pause calls below can take 10-50 ms each (GSMTC, SendInput), and the
+                        // PlaybackInfoChanged callback runs on a separate GSMTC thread — without
+                        // this, Chrome auto-resuming when audio falls back to PC speakers can
+                        // fire onMediaPlayingChanged(true) before m_lastLostOwnership is set,
+                        // and anti-pingpong fails to suppress the counter-takeover.
+                        m_lastLostOwnership.store(tpToNs(std::chrono::steady_clock::now()));
+
                         m_media.tryPauseActive();
                         m_media.tryPauseAllSessions();
                         m_media.tryPauseViaMediaKey();
                         m_media.tryPauseAllBrowserWindows();
                         if (setState(OwnershipState::RemoteAndroid)) {
-                            m_lastLostOwnership.store(tpToNs(std::chrono::steady_clock::now()));
                             log::handover("{}", reason);
                             if (m_peers.isAnyConnected()) {
                                 log::handover("OUT     kAirPodsDisconnected → all peers (BT edge)");
@@ -131,14 +140,24 @@ void HandoverController::startAudioWatcher() {
                 }
                 lastBtConnected = btConnected;
 
-                // Only meaningful when AirPods are connected to this PC.
-                bool active = btConnected && m_airpods.hasActiveAudioSessions();
+                // Only meaningful when AirPods are connected to this PC. We use the
+                // *call-specific* check (Teams/Zoom/Discord/Slack/WebEx) rather than
+                // hasActiveAudioSessions() so that kWindowsAudioActive is a meaningful
+                // "do not interrupt" signal: peers should hold off from a takeover
+                // when we're in a call, but should NOT hold off just because we have
+                // music playing — the user is free to move the AirPods to their phone
+                // in that case. Symmetric with the R1 narrowing of the local REJECT
+                // gate (HandoverController.cpp:378). Without this, a peer that gates
+                // its own takeover on the received kWindowsAudioActive signal would
+                // refuse to migrate the AirPods during ordinary YouTube/Spotify
+                // playback.
+                bool active = btConnected && m_airpods.hasActiveCallSessions();
 
                 if (active && !lastActive) {
                     // Rising edge: broadcast ACTIVE immediately.
                     lastActive = true;
                     idleStreak = 0;
-                    log::handover("AUDIO   ACTIVE — AirPods have live audio sessions");
+                    log::handover("AUDIO   ACTIVE — AirPods have an active call session");
                     if (m_peers.isAnyConnected()) {
                         m_peers.sendPacket(crossdevice::kWindowsAudioActive);
                     }
@@ -152,7 +171,7 @@ void HandoverController::startAudioWatcher() {
                         // over RFCOMM, or a BT falling edge from a direct phone grab).
                         lastActive = false;
                         idleStreak = 0;
-                        log::handover("AUDIO   IDLE   — AirPods audio sessions gone");
+                        log::handover("AUDIO   IDLE   — AirPods call session ended");
                         if (m_peers.isAnyConnected()) {
                             m_peers.sendPacket(crossdevice::kWindowsAudioIdle);
                         }

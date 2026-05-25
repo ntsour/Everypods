@@ -324,11 +324,25 @@ bool AirPodsConnector::connect() {
         static std::atomic<bool> s_nudgerRunning{false};
         if (!kicked || s_nudgerRunning.exchange(true)) return;
         std::thread([addr]() {
-            for (int i = 0; i < 6; ++i) {
-                std::this_thread::sleep_for(std::chrono::seconds(3));
-                log::debug("Profile nudge attempt {}/6 (quiet)", i + 1);
-                toggleProfile(addr, kA2dpSink, BLUETOOTH_SERVICE_ENABLE,
-                              "A2DP-nudge", /*quiet=*/true);
+            // Wrap the whole loop in a try/catch so the static guard always resets:
+            // log::debug() does std::format + file I/O and can throw std::bad_alloc
+            // under memory pressure; WinRT calls in toggleProfile's failure path
+            // (logDeviceInfo) can throw winrt::hresult_error. Without this catch,
+            // any thrown-and-unhandled exception in a detached thread terminates
+            // it before the s_nudgerRunning reset runs, leaving the flag stuck
+            // `true` for the rest of the process lifetime — every future connect()
+            // would silently skip spawning a nudger.
+            try {
+                for (int i = 0; i < 6; ++i) {
+                    std::this_thread::sleep_for(std::chrono::seconds(3));
+                    log::debug("Profile nudge attempt {}/6 (quiet)", i + 1);
+                    toggleProfile(addr, kA2dpSink, BLUETOOTH_SERVICE_ENABLE,
+                                  "A2DP-nudge", /*quiet=*/true);
+                }
+            } catch (const std::exception& e) {
+                log::warn("Profile nudge thread terminated by exception: {}", e.what());
+            } catch (...) {
+                log::warn("Profile nudge thread terminated by unknown exception");
             }
             s_nudgerRunning = false;
         }).detach();
@@ -691,6 +705,17 @@ public:
             // Auto-arm so the caller doesn't have to also call arm().
             m_armed = true;
             m_armedAt = std::chrono::steady_clock::now();
+        } else {
+            // Disarm immediately when leaving persistent mode. Without this, the old
+            // arm window (up to 120 s) can outlive ownership: HandoverController calls
+            // setPersistent(false) when transitioning to RemoteAndroid, but if we just
+            // clear m_persistent the next AirPods UNPLUGGED→ACTIVE bounce within the
+            // residual window still satisfies isArmedAndFresh() and re-routes audio
+            // back to Windows — fighting the peer that just took ownership. This is
+            // the symmetric companion to the auto-arm on persistent=true above; it
+            // matches the documented intent ("drop the persistent flag so we don't
+            // fight a peer that is intentionally taking the AirPods").
+            m_armed = false;
         }
     }
 
