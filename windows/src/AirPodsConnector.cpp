@@ -311,7 +311,57 @@ bool AirPodsConnector::connect() {
         log::debug("  status mid-connect: connection={}", (int)device.ConnectionStatus());
     } catch (...) {}
 
-    // Step 2: activate A2DP/HFP profiles on the (now hopefully connected) device.
+    // Profile-nudge spawn: even after a successful RFCOMM/SDP trigger, Windows can
+    // take 20-40 seconds to finally promote the audio endpoint to DEVICE_STATE_ACTIVE
+    // (BT link up, but A2DP negotiation still bouncing). A background retry of
+    // BluetoothSetServiceState every 3 s sometimes nudges the stack. Failures are
+    // silenced (quiet=true). Routing application happens via the IMMNotificationClient
+    // when the endpoint hits ACTIVE, independently of these nudges.
+    //
+    // Guard against multiple concurrent nudgers: HandoverController calls connect()
+    // up to 3 times across retry backoffs. Only one nudger runs at a time per process.
+    auto spawnNudgerIfNeeded = [](std::uint64_t addr, bool kicked) {
+        static std::atomic<bool> s_nudgerRunning{false};
+        if (!kicked || s_nudgerRunning.exchange(true)) return;
+        std::thread([addr]() {
+            for (int i = 0; i < 6; ++i) {
+                std::this_thread::sleep_for(std::chrono::seconds(3));
+                log::debug("Profile nudge attempt {}/6 (quiet)", i + 1);
+                toggleProfile(addr, kA2dpSink, BLUETOOTH_SERVICE_ENABLE,
+                              "A2DP-nudge", /*quiet=*/true);
+            }
+            s_nudgerRunning = false;
+        }).detach();
+    };
+
+    // Step 2 EARLY-OUT: if the RFCOMM probe already brought the BT classical link up,
+    // the subsequent BluetoothSetServiceState(ENABLE) calls are redundant. Worse,
+    // when the link is up Windows often returns error 87 from those calls AND blocks
+    // for ~2.5 s per call while waiting for an ACK that will never come — total ~5 s
+    // wasted, which then triggers the retry backoff in HandoverController even though
+    // the first attempt actually succeeded. Skip and report success directly; the
+    // Profile-nudge thread spawned here handles the rare case where A2DP needs an
+    // extra prod to finalise. Mirrors the disconnect()-side early-out.
+    {
+        HANDLE hRadio = openFirstRadio();
+        if (hRadio) {
+            BLUETOOTH_DEVICE_INFO info = {};
+            info.dwSize = sizeof(info);
+            info.Address.ullLong = m_address;
+            DWORD err = BluetoothGetDeviceInfo(hRadio, &info);
+            CloseHandle(hRadio);
+            if (err == ERROR_SUCCESS && info.fConnected) {
+                log::info("BT classical link already up (connected=yes) — skipping "
+                          "BluetoothSetServiceState(ENABLE) (would block ~5s for error 87)");
+                spawnNudgerIfNeeded(m_address, /*kicked=*/true);
+                return true;
+            }
+        }
+    }
+
+    // Step 2: link is NOT yet up — try the documented profile-activation path. If
+    // this also fails, the Profile-nudge thread will continue retrying in the
+    // background.
     bool a2dpKicked = toggleProfile(m_address, kA2dpSink,  BLUETOOTH_SERVICE_ENABLE, "A2DP");
     bool hfpKicked  = toggleProfile(m_address, kHandsFree, BLUETOOTH_SERVICE_ENABLE, "HFP");
     if (!a2dpKicked && !hfpKicked) {
@@ -324,31 +374,7 @@ bool AirPodsConnector::connect() {
     } catch (...) {}
 
     const bool kicked = a2dpKicked || hfpKicked || socketOpened;
-
-    // Profile nudge: even after a successful RFCOMM/SDP trigger, Windows can take
-    // 20-40 seconds to finally promote the audio endpoint to DEVICE_STATE_ACTIVE
-    // (the BT classical link is up, but A2DP negotiation is still bouncing between
-    // Pixel and Windows). Retrying BluetoothSetServiceState every few seconds
-    // sometimes nudges the stack to negotiate sooner. Failures (err 87 "already
-    // enabled" etc.) are silenced so the log isn't flooded; the actual routing
-    // application happens via the IMMNotificationClient when the endpoint hits
-    // ACTIVE, independently of these nudges.
-    //
-    // Guard against multiple concurrent nudgers: HandoverController calls connect()
-    // up to 3 times across the retry backoffs. We only want one nudger running at a
-    // time per process.
-    static std::atomic<bool> s_nudgerRunning{false};
-    if (kicked && !s_nudgerRunning.exchange(true)) {
-        std::thread([addr = m_address]() {
-            for (int i = 0; i < 6; ++i) {
-                std::this_thread::sleep_for(std::chrono::seconds(3));
-                log::debug("Profile nudge attempt {}/6 (quiet)", i + 1);
-                toggleProfile(addr, kA2dpSink, BLUETOOTH_SERVICE_ENABLE,
-                              "A2DP-nudge", /*quiet=*/true);
-            }
-            s_nudgerRunning = false;
-        }).detach();
-    }
+    spawnNudgerIfNeeded(m_address, kicked);
 
     // The connect attempt succeeded if *any* trigger fired. The audio endpoint
     // transition (and the routing) is now the IMMNotificationClient's job.
@@ -503,8 +529,18 @@ void updateTeamsDeviceConfig(const std::wstring& renderEpId, const std::wstring&
 // Apply a single endpoint as the default for all three audio roles
 // (Console, Multimedia, Communications). Logs per-role result. If the endpoint
 // is not in DEVICE_STATE_ACTIVE, first calls SetEndpointVisibility to try to
-// promote it. Returns true if at least one SetDefaultEndpoint succeeded.
-bool applyEndpointAsDefault(IPolicyConfigVista* policy,
+// promote it. Returns true if at least one role ended up with this endpoint
+// as default (either because we set it, or because it was already set).
+//
+// Idempotency: Windows' own audio policy auto-promotes a newly-connected BT
+// device to default for some/all roles (depends on per-role level/rank state
+// — see Microsoft Learn "Default Audio Endpoint Selection"). When it has
+// already done so, our SetDefaultEndpoint call is a redundant write that
+// causes a brief audio glitch and an extra OnDefaultDeviceChanged notification.
+// Skip if GetDefaultAudioEndpoint(role) already returns our ID.
+bool applyEndpointAsDefault(IMMDeviceEnumerator* enumerator,
+                            IPolicyConfigVista* policy,
+                            EDataFlow flow,
                             const Endpoint& ep,
                             const char* label) {
     if (ep.state != DEVICE_STATE_ACTIVE) {
@@ -516,11 +552,36 @@ bool applyEndpointAsDefault(IPolicyConfigVista* policy,
                 label, (std::uint32_t)vr);
         }
     }
+
+    // Helper: is `ep.id` currently the default endpoint for (flow, role)?
+    auto alreadyDefault = [&](ERole role) -> bool {
+        ComPtr<IMMDevice> cur;
+        if (FAILED(enumerator->GetDefaultAudioEndpoint(flow, role, &cur)) || !cur) {
+            return false;
+        }
+        LPWSTR curIdRaw = nullptr;
+        if (FAILED(cur->GetId(&curIdRaw)) || !curIdRaw) return false;
+        std::wstring curId(curIdRaw);
+        CoTaskMemFree(curIdRaw);
+        return curId == ep.id;
+    };
+
     bool anyOk = false;
     for (ERole role : { eConsole, eMultimedia, eCommunications }) {
-        HRESULT r = policy->SetDefaultEndpoint(ep.id.c_str(), role);
         const char* roleName = role == eConsole ? "Console" :
                                role == eMultimedia ? "Multimedia" : "Communications";
+
+        if (alreadyDefault(role)) {
+            // Windows (or some other app) already pointed this role at us.
+            // Skip the redundant SetDefaultEndpoint to avoid the brief glitch
+            // and the spurious OnDefaultDeviceChanged notification.
+            log::debug("AirPods already default {} ({} role) — skipping SetDefaultEndpoint",
+                label, roleName);
+            anyOk = true;
+            continue;
+        }
+
+        HRESULT r = policy->SetDefaultEndpoint(ep.id.c_str(), role);
         if (SUCCEEDED(r)) {
             log::info("Set AirPods as default {} ({} role)", label, roleName);
             anyOk = true;
@@ -558,14 +619,14 @@ bool tryApplyAirPodsRouting(IMMDeviceEnumerator* enumerator,
 
     for (auto& ep : renderHits) {
         if (ep.state != DEVICE_STATE_ACTIVE) continue;
-        if (applyEndpointAsDefault(policy, ep, "render (output)")) {
+        if (applyEndpointAsDefault(enumerator, policy, eRender, ep, "render (output)")) {
             anyApplied = true;
             if (activeRenderId.empty()) activeRenderId = ep.id;
         }
     }
     for (auto& ep : captureHits) {
         if (ep.state != DEVICE_STATE_ACTIVE) continue;
-        if (applyEndpointAsDefault(policy, ep, "capture (input)")) {
+        if (applyEndpointAsDefault(enumerator, policy, eCapture, ep, "capture (input)")) {
             anyApplied = true;
             if (activeCaptureId.empty()) activeCaptureId = ep.id;
         }
@@ -926,6 +987,116 @@ bool AirPodsConnector::hasActiveAudioSessions() {
     return active;
 }
 
+namespace {
+
+// Process names that, when actively playing audio on the AirPods endpoint,
+// indicate a real-time call/meeting that the user does not want a peer device
+// to interrupt by snatching the AirPods. Music apps (Spotify, Apple Music,
+// Chrome playing YouTube, etc.) are deliberately NOT on this list: they don't
+// warrant blocking a user-initiated handover to their phone.
+//
+// Mirrors the smaller list in TeamsCallWatcher.cpp's isCommsApp(); we keep a
+// local copy here rather than sharing a header because the two callers have
+// different intents (the watcher uses it to trigger handover; we use it to
+// gate a release). They can diverge.
+bool isCommsAppExe(const std::wstring& exe) {
+    constexpr const wchar_t* kCommsExes[] = {
+        L"ms-teams.exe",        // New Teams (Win32)
+        L"Teams.exe",           // Classic Teams
+        L"zoom.exe",            // Zoom desktop
+        L"Discord.exe",         // Discord
+        L"slack.exe",           // Slack (calls)
+        L"webex.exe",           // Cisco WebEx
+        L"webexd.exe",          // Cisco WebEx daemon
+    };
+    for (const auto* name : kCommsExes) {
+        if (_wcsicmp(exe.c_str(), name) == 0) return true;
+    }
+    return false;
+}
+
+// Look up the executable basename for a process id. Returns empty string on
+// failure (process gone, access denied, etc.). Uses PROCESS_QUERY_LIMITED_-
+// INFORMATION which works for processes running at higher integrity than ours.
+std::wstring getProcessExeBasename(DWORD pid) {
+    if (pid == 0) return {};
+    HANDLE hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+    if (!hProc) return {};
+    wchar_t path[MAX_PATH] = {};
+    DWORD len = MAX_PATH;
+    BOOL ok = QueryFullProcessImageNameW(hProc, 0, path, &len);
+    CloseHandle(hProc);
+    if (!ok) return {};
+    std::wstring full{path};
+    auto slash = full.find_last_of(L"\\/");
+    return (slash == std::wstring::npos) ? full : full.substr(slash + 1);
+}
+
+}  // anonymous
+
+bool AirPodsConnector::hasActiveCallSessions() {
+    HRESULT coInitHr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+    const bool weInited = (coInitHr == S_OK);
+
+    bool callActive = false;
+
+    ComPtr<IMMDeviceEnumerator> enumerator;
+    HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
+                                  __uuidof(IMMDeviceEnumerator), (void**)enumerator.GetAddressOf());
+    if (SUCCEEDED(hr)) {
+        // Render-side: calls produce output audio. We don't bother checking capture
+        // because every comms app that's in a call also has a render session, and
+        // checking render alone keeps this consistent with hasActiveAudioSessions().
+        for (auto& ep : findAirPodsEndpoints(enumerator.Get(), eRender)) {
+            if (ep.state != DEVICE_STATE_ACTIVE) continue;
+            ComPtr<IMMDevice> dev;
+            if (FAILED(enumerator->GetDevice(ep.id.c_str(), &dev))) continue;
+
+            ComPtr<IAudioSessionManager2> mgr;
+            if (FAILED(dev->Activate(__uuidof(IAudioSessionManager2), CLSCTX_ALL,
+                                     nullptr, (void**)mgr.GetAddressOf()))) continue;
+
+            ComPtr<IAudioSessionEnumerator> sessions;
+            if (FAILED(mgr->GetSessionEnumerator(&sessions))) continue;
+
+            int count = 0;
+            sessions->GetCount(&count);
+            for (int i = 0; i < count && !callActive; ++i) {
+                ComPtr<IAudioSessionControl> ctrl;
+                if (FAILED(sessions->GetSession(i, &ctrl))) continue;
+                AudioSessionState state{};
+                if (FAILED(ctrl->GetState(&state)) || state != AudioSessionStateActive) continue;
+
+                // QueryInterface for IAudioSessionControl2 — IAudioSessionControl alone
+                // doesn't expose GetProcessId. Available since Windows 7.
+                ComPtr<IAudioSessionControl2> ctrl2;
+                if (FAILED(ctrl.As(&ctrl2))) continue;
+
+                // System-sounds session is never a call.
+                if (ctrl2->IsSystemSoundsSession() == S_OK) continue;
+
+                DWORD pid = 0;
+                if (FAILED(ctrl2->GetProcessId(&pid)) || pid == 0) continue;
+
+                std::wstring exe = getProcessExeBasename(pid);
+                if (exe.empty()) continue;
+
+                if (isCommsAppExe(exe)) {
+                    callActive = true;
+                    // info-level so it's visible alongside the REJECT log from
+                    // HandoverController; the caller can correlate timestamps.
+                    log::info("hasActiveCallSessions: active comms session on AirPods from '{}' (pid {})",
+                        winrt::to_string(exe), pid);
+                }
+            }
+            if (callActive) break;
+        }
+    }
+
+    if (weInited) CoUninitialize();
+    return callActive;
+}
+
 bool AirPodsConnector::isClassicallyConnected() {
     if (m_address == 0) return false;
     HANDLE hRadio = openFirstRadio();
@@ -942,6 +1113,32 @@ bool AirPodsConnector::disconnect() {
     if (m_address == 0) return false;
     std::lock_guard<std::mutex> lk(m_mutex);
     log::debug("AirPodsConnector::disconnect() address={:012X}", m_address);
+
+    // Early-out if the AirPods are already disconnected at the BT layer. This is
+    // the common case during peer-initiated handover: by the time we process
+    // kRequestDisconnect, the peer (Pixel/Xiaomi) has already grabbed the AirPods
+    // and Apple's auto-switch has dropped our connection. Calling
+    // BluetoothSetServiceState(DISABLE) on an already-disconnected device blocks
+    // for ~6 seconds *per profile* before returning success while Windows waits
+    // for an ACK that will never come — total 12-13 seconds. This delay makes the
+    // anti-pingpong window (3s) ineffective: Chrome auto-resumes the moment our
+    // call finally returns and the endpoint goes NOTPRESENT, triggering a
+    // counter-takeover well outside the anti-pingpong window.
+    {
+        HANDLE hRadio = openFirstRadio();
+        if (hRadio) {
+            BLUETOOTH_DEVICE_INFO info = {};
+            info.dwSize = sizeof(info);
+            info.Address.ullLong = m_address;
+            DWORD err = BluetoothGetDeviceInfo(hRadio, &info);
+            CloseHandle(hRadio);
+            if (err == ERROR_SUCCESS && !info.fConnected) {
+                log::info("AirPods already disconnected at BT layer (connected=no) — "
+                          "skipping BluetoothSetServiceState (would block ~13s)");
+                return true;
+            }
+        }
+    }
 
     bool a2dpOk = toggleProfile(m_address, kA2dpSink,  BLUETOOTH_SERVICE_DISABLE, "A2DP");
     bool hfpOk  = toggleProfile(m_address, kHandsFree, BLUETOOTH_SERVICE_DISABLE, "HFP");

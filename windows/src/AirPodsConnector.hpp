@@ -26,6 +26,14 @@ public:
     // using the AirPods for audio output right now).
     bool hasActiveAudioSessions();
 
+    // True when at least one active audio session on the AirPods render endpoint
+    // is owned by a known real-time communications application (Teams, Zoom,
+    // Discord, Slack, WebEx). Used as the gate for rejecting peer-initiated
+    // kRequestDisconnect packets: we only protect *calls* from being snatched
+    // away mid-conversation, not passive media (YouTube, Spotify) that the user
+    // is happy to lose if they're moving the AirPods to another device.
+    bool hasActiveCallSessions();
+
     // Make the AirPods the default audio output (render) and input (capture) device
     // at all roles (Console/Multimedia/Communications).
     //

@@ -372,10 +372,16 @@ void HandoverController::onIncomingPacket(std::span<const std::uint8_t> data) {
                 }
                 break;
             }
-            // Protect active audio sessions (Teams call, Zoom meeting, etc.).
-            // The audio watcher already sent kWindowsAudioActive so Android should
-            // have gated on takeoverWhenCall, but guard here too for races.
-            if (m_airpods.isClassicallyConnected() && m_airpods.hasActiveAudioSessions()) {
+            // Protect active calls (Teams meeting, Zoom call, etc.) from being snatched
+            // away by a peer. The check is intentionally narrow: only reject when a real
+            // *communications* app has an active session on the AirPods. Passive media
+            // (YouTube, Spotify, browser audio) is NOT protected — the user is happy to
+            // let go of the AirPods if they're intentionally moving to their phone.
+            //
+            // The audio watcher already sent kWindowsAudioActive so Android should have
+            // gated on takeoverWhenCall, but guard here too for races and for peers
+            // (e.g. Xiaomi) that don't yet honor the audio-active signal.
+            if (m_airpods.isClassicallyConnected() && m_airpods.hasActiveCallSessions()) {
                 log::handover("IN      kRequestDisconnect — REJECTED (call/meeting active on Windows)");
                 if (m_peers.isAnyConnected()) {
                     m_peers.sendPacket(kAirPodsConnected);  // re-assert
@@ -383,6 +389,18 @@ void HandoverController::onIncomingPacket(std::span<const std::uint8_t> data) {
                 break;
             }
             log::handover("IN      kRequestDisconnect — ACCEPTED, releasing AirPods to Android");
+
+            // Record "lost ownership" NOW, before any potentially-blocking operation.
+            // Chrome and other apps auto-resume playback within ~30-50ms when the
+            // default audio device changes (which our disconnect triggers). If we
+            // delay this store until after disconnect()/setState() (~50-150ms later),
+            // the media-start callback that fires during those ~50ms sees a stale
+            // m_lastLostOwnership, skips the anti-pingpong check, and triggers a
+            // counter-takeover that fights the peer that just legitimately claimed
+            // the AirPods. Setting it first makes the anti-pingpong window cover
+            // the entire release sequence.
+            m_lastLostOwnership.store(tpToNs(std::chrono::steady_clock::now()));
+
             // Pause all Windows media before the AirPods leave so audio doesn't route
             // to PC speakers, and so the media-start callback doesn't fire and
             // immediately try to reclaim the AirPods.
@@ -392,9 +410,9 @@ void HandoverController::onIncomingPacket(std::span<const std::uint8_t> data) {
             m_media.tryPauseActive();        // GSMTC: pause the focused session
             m_media.tryPauseAllSessions();   // GSMTC: pause any background sessions
             m_media.tryPauseViaMediaKey();   // Media key: VLC, browsers, non-GSMTC apps
+            m_media.tryPauseAllBrowserWindows();  // multi-window Chrome/Edge/Firefox
             m_airpods.disconnect();
             setState(OwnershipState::RemoteAndroid);
-            m_lastLostOwnership.store(tpToNs(std::chrono::steady_clock::now()));
             if (m_peers.isAnyConnected()) {
                 log::handover("OUT     kAirPodsDisconnected → all peers");
                 m_peers.sendPacket(kAirPodsDisconnected);
@@ -408,12 +426,14 @@ void HandoverController::onIncomingPacket(std::span<const std::uint8_t> data) {
             // is peak user attention. Even mid-Teams-meeting on Windows, we yield.
             // The user's principle: calls always win, on whichever device they're on.
             log::handover("IN      kRequestHandover — ACCEPTED unconditionally (call priority)");
+            // Set the anti-pingpong timestamp first (see comment in ACCEPTED above).
+            m_lastLostOwnership.store(tpToNs(std::chrono::steady_clock::now()));
             m_media.tryPauseActive();
             m_media.tryPauseAllSessions();
             m_media.tryPauseViaMediaKey();
+            m_media.tryPauseAllBrowserWindows();
             m_airpods.disconnect();
             setState(OwnershipState::RemoteAndroid);
-            m_lastLostOwnership.store(tpToNs(std::chrono::steady_clock::now()));
             if (m_peers.isAnyConnected()) {
                 log::handover("OUT     kAirPodsDisconnected → all peers");
                 m_peers.sendPacket(kAirPodsDisconnected);
@@ -430,15 +450,22 @@ void HandoverController::onIncomingPacket(std::span<const std::uint8_t> data) {
             const bool wasLocalPc = (m_state.load() == OwnershipState::LocalPc);
             log::handover("IN      kAirPodsConnected from peer → STATE RemoteAndroid");
 
-            // Record the timestamp so the BT falling-edge RECLAIM logic knows the peer
-            // *just* signaled it's taking ownership — and skips the reclaim that would
-            // otherwise fight a user intentionally initiating handover from the phone.
-            m_lastPeerOwnershipClaim.store(tpToNs(std::chrono::steady_clock::now()));
+            // Record both timestamps NOW, before any potentially-blocking work:
+            //   - m_lastPeerOwnershipClaim: tells the BT falling-edge logic the peer
+            //     just intentionally claimed, so we skip any reclaim attempt.
+            //   - m_lastLostOwnership: anti-pingpong window for the media-start
+            //     callback that fires when Chrome auto-resumes after the device
+            //     change. Without this, a Pixel/Xiaomi handover triggers a counter-
+            //     takeover ~50ms later when Chrome resumes on PC speakers.
+            const auto nowNs = tpToNs(std::chrono::steady_clock::now());
+            m_lastPeerOwnershipClaim.store(nowNs);
+            m_lastLostOwnership.store(nowNs);
 
             if (wasLocalPc) {
                 m_media.tryPauseActive();
                 m_media.tryPauseAllSessions();
                 m_media.tryPauseViaMediaKey();
+                m_media.tryPauseAllBrowserWindows();
             }
             setState(OwnershipState::RemoteAndroid);
             break;
