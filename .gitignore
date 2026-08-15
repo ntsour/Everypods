@@ -1,0 +1,14 @@
+.DS_Store
+.idea/
+.gradle/
+**/build/
+**/.cxx/
+**/.externalNativeBuild/
+**/local.properties
+**/*.jks
+**/*.keystore
+*.apk
+*.aab
+*.log
+test-output/
+.claude/
