@@ -15,7 +15,7 @@ dynamicanimation = "1.1.0"
 aboutLibraries = "14.0.1"
 materialIconsCore = "1.7.8"
 backdrop = "2.0.0-alpha03"
-hilt = "2.59.2"
+hilt = "2.60.1"
 lifecycleProcess = "2.10.0"
 
 [libraries]
