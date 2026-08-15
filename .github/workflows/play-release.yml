@@ -17,7 +17,7 @@ jobs:
           distribution: zulu
           java-version: "21"
       - uses: gradle/actions/setup-gradle@06832c7b30a0129d7fb559bcc6e43d26f6374244 # v4.3.1
-      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+      - uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
       - name: Install NDK
         run: sdkmanager "ndk;30.0.14904198"
       - name: Configure signing
