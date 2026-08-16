@@ -79,12 +79,19 @@ These are the intended answers; confirm them against the exact uploaded build.
 
 ## Data Safety Draft
 
-The current Android manifest has no Internet permission and the app contains
-no analytics or advertising SDK. Based on that build:
+The current Android manifest includes Internet access only for the optional,
+user-enabled ElevenLabs text-to-speech feature. The app contains no analytics
+or advertising SDK. Complete the Google Play Data Safety form based on the
+exact release build and the following behavior:
 
-- Does the app collect data? No, by EveryPods itself.
-- Does the app share data with third parties? No.
-- Is data encrypted in transit? Not applicable to EveryPods' own data path.
+- Does the app collect data? Only when a user enables ElevenLabs cloud
+  text-to-speech. The user's announcement text, selected voice/language, and
+  their own API key are then transmitted directly to ElevenLabs.
+- Does the app share data with third parties? Yes, with ElevenLabs for that
+  opt-in text-to-speech processing. EveryPods does not operate a proxy or
+  receive a copy of the transmitted data.
+- Is data encrypted in transit? The ElevenLabs integration uses HTTPS; verify
+  the exact provider disclosure requirements before completing the form.
 - Can users request deletion of data? Local app data can be deleted by
   uninstalling the app or clearing its storage.
 - Data stored locally: Bluetooth/device identifiers, connection state, feature
@@ -92,6 +99,9 @@ no analytics or advertising SDK. Based on that build:
 - External handoffs: Support email and GitHub links open the user's selected
   email/browser app. Anything the user sends there is handled by that service,
   not by EveryPods.
+- Optional cloud text-to-speech: enabled users' announcement text, selected
+  voice/language, and their own ElevenLabs API key are sent directly to
+  ElevenLabs. This must be disclosed in Data Safety and the privacy policy.
 - Donations: No donation payment flow is currently included in the app.
 
 Review this form again if Internet access, analytics, crash reporting, cloud
@@ -129,6 +139,9 @@ bundle.
    Store Listing and App Content sections.
 3. Configure Play App Signing and retain the upload key securely.
 4. Configure the protected `play-release` environment secrets in GitHub.
+   Keep `main` branch protection enabled: one approving review, resolved
+   conversations, linear history, no force pushes or deletion, and required
+   Android CI, CodeQL, and dependency-review checks.
 5. Run the manual Play release workflow and upload the signed AAB. Do not upload
    the locally debug-signed AAB produced without release secrets.
 6. Complete Data Safety, content rating, target audience, ads, app access, and

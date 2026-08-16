@@ -31,5 +31,7 @@ jobs:
           languages: java-kotlin
       - name: Build Android app for CodeQL
         working-directory: android
-        run: ./gradlew :app:assembleDebug
+        # CodeQL must observe compilation; cached Gradle tasks produce no
+        # Java/Kotlin extraction data on hosted runners.
+        run: ./gradlew --no-configuration-cache --rerun-tasks :app:assembleDebug
       - uses: github/codeql-action/analyze@f3712979fa5f215279b101dd0a2e3bdfb4353324 # v3
