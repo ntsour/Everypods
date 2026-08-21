@@ -16,7 +16,7 @@ This is the current Play Console input sheet for EveryPods. Values marked
 - Developer contact email: `automated.ventures.apps@gmail.com`
 - Support email: `automated.ventures.apps@gmail.com`
 - Support repository: `https://github.com/ntsour/Everypods`
-- Privacy policy URL: `[DECIDE: publish PRIVACY.md at a stable HTTPS URL]`
+- Privacy policy URL: `https://ntsour.github.io/Everypods/privacy/`
 
 ## Store Listing
 
@@ -135,8 +135,8 @@ bundle.
 
 1. Create the app in Play Console using the exact application ID
    `io.automated.ventures.everypods`.
-2. Publish the privacy policy at a stable HTTPS URL and enter that URL in the
-   Store Listing and App Content sections.
+2. Enter the published privacy-policy URL in the Store Listing and App Content
+   sections.
 3. Configure Play App Signing and retain the upload key securely.
 4. Configure the protected `play-release` environment secrets in GitHub.
    Keep `main` branch protection enabled: one approving review, resolved
@@ -160,7 +160,7 @@ bundle.
 - Developer account type: `[DECIDE: personal or organization]`
 - Public developer name: `[DECIDE]`
 - Public developer address/contact details: `[DECIDE]`
-- Stable privacy policy URL: `[DECIDE]`
+- Stable privacy policy URL: `https://ntsour.github.io/Everypods/privacy/`
 - Play feature graphic: `[DECIDE]`
 - Countries/regions: `[DECIDE]`
 - Free availability and advanced-feature price: `[DECIDE]`
