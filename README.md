@@ -52,8 +52,10 @@ See [docs/versioning.md](./docs/versioning.md) for release numbering.
 
 ## Privacy and Security
 
-See [PRIVACY.md](./PRIVACY.md) for the permissions and local data model. See
-[SECURITY.md](./SECURITY.md) for private vulnerability reporting guidance.
+See the [privacy policy](https://ntsour.github.io/Everypods/privacy/) for the
+permissions and local data model. The source is also available in
+[PRIVACY.md](./PRIVACY.md). See [SECURITY.md](./SECURITY.md) for private
+vulnerability reporting guidance.
 
 ## License and Attribution
 

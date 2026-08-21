@@ -16,27 +16,34 @@ This is the current Play Console input sheet for EveryPods. Values marked
 - Developer contact email: `automated.ventures.apps@gmail.com`
 - Support email: `automated.ventures.apps@gmail.com`
 - Support repository: `https://github.com/ntsour/Everypods`
-- Privacy policy URL: `[DECIDE: publish PRIVACY.md at a stable HTTPS URL]`
+- Privacy policy URL: `https://ntsour.github.io/Everypods/privacy/`
 
 ## Store Listing
 
 Short description, under 80 characters:
 
-> AirPods controls, battery, listening modes, and gestures on Android.
+> Seamless AirPods handover and smart controls across your devices.
 
 Full description:
 
-> EveryPods brings useful AirPods controls to Android without requiring root.
+> Keep your AirPods moving with you. EveryPods brings seamless multi-device
+> handover to Android, so you can move your AirPods between devices running
+> EveryPods without breaking your flow—no root required.
 >
-> Use EveryPods to:
+> Beyond handover, EveryPods adds smart features built for everyday use:
 >
+> - Smart mute and unmute controls for calls.
+> - Gym Mode for a better workout experience.
+> - Find your AirPods when they are nearby.
 > - View AirPods and charging-case battery levels.
-> - Control listening modes such as noise cancellation and transparency.
+>
+> Make your AirPods your own with powerful controls and configuration:
+>
+> - Switch listening modes, including noise cancellation and transparency.
 > - Configure stem gestures, press actions, volume controls, and ear detection.
 > - Use widgets, Quick Settings, and an optional connection overlay.
 > - Customize call controls, notification announcements, head tracking, and
->   other device features where supported.
-> - Move AirPods between devices running EveryPods with multi-device handover.
+>   other supported device features.
 >
 > Feature availability depends on the AirPods model, firmware, Android version,
 > and the phone manufacturer's Bluetooth implementation. AirPods Pro 2 is the
@@ -135,8 +142,8 @@ bundle.
 
 1. Create the app in Play Console using the exact application ID
    `io.automated.ventures.everypods`.
-2. Publish the privacy policy at a stable HTTPS URL and enter that URL in the
-   Store Listing and App Content sections.
+2. Enter the published privacy-policy URL in the Store Listing and App Content
+   sections.
 3. Configure Play App Signing and retain the upload key securely.
 4. Configure the protected `play-release` environment secrets in GitHub.
    Keep `main` branch protection enabled: one approving review, resolved
@@ -160,7 +167,7 @@ bundle.
 - Developer account type: `[DECIDE: personal or organization]`
 - Public developer name: `[DECIDE]`
 - Public developer address/contact details: `[DECIDE]`
-- Stable privacy policy URL: `[DECIDE]`
+- Stable privacy policy URL: `https://ntsour.github.io/Everypods/privacy/`
 - Play feature graphic: `[DECIDE]`
 - Countries/regions: `[DECIDE]`
 - Free availability and advanced-feature price: `[DECIDE]`
