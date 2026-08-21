@@ -22,21 +22,28 @@ This is the current Play Console input sheet for EveryPods. Values marked
 
 Short description, under 80 characters:
 
-> AirPods controls, battery, listening modes, and gestures on Android.
+> Seamless AirPods handover and smart controls across your devices.
 
 Full description:
 
-> EveryPods brings useful AirPods controls to Android without requiring root.
+> Keep your AirPods moving with you. EveryPods brings seamless multi-device
+> handover to Android, so you can move your AirPods between devices running
+> EveryPods without breaking your flow—no root required.
 >
-> Use EveryPods to:
+> Beyond handover, EveryPods adds smart features built for everyday use:
 >
+> - Smart mute and unmute controls for calls.
+> - Gym Mode for a better workout experience.
+> - Find your AirPods when they are nearby.
 > - View AirPods and charging-case battery levels.
-> - Control listening modes such as noise cancellation and transparency.
+>
+> Make your AirPods your own with powerful controls and configuration:
+>
+> - Switch listening modes, including noise cancellation and transparency.
 > - Configure stem gestures, press actions, volume controls, and ear detection.
 > - Use widgets, Quick Settings, and an optional connection overlay.
 > - Customize call controls, notification announcements, head tracking, and
->   other device features where supported.
-> - Move AirPods between devices running EveryPods with multi-device handover.
+>   other supported device features.
 >
 > Feature availability depends on the AirPods model, firmware, Android version,
 > and the phone manufacturer's Bluetooth implementation. AirPods Pro 2 is the
