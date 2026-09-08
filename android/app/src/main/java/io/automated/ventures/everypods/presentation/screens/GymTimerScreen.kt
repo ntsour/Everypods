@@ -81,6 +81,9 @@ fun GymTimerScreen() {
     var timerState by remember { mutableStateOf(GymTimer.state()) }
     var timerMode by remember { mutableStateOf(GymTimer.mode()) }
     var voiceEnabled by remember { mutableStateOf(GymModePrefs.voiceAnnouncementsEnabled(context)) }
+    var stopwatchAnnouncementIntervalMinutes by remember {
+        mutableIntStateOf(GymModePrefs.stopwatchAnnouncementIntervalMinutes(context))
+    }
     var laps by remember { mutableStateOf(GymTimer.laps()) }
     var countdownRemainingMs by remember { mutableLongStateOf(GymTimer.countdownRemainingMs()) }
     var countdownDurationSec by remember { mutableIntStateOf((GymTimer.getCountdownDurationMs() / 1000).toInt()) }
@@ -224,7 +227,7 @@ fun GymTimerScreen() {
                         when {
                             isFinished -> {
                                 // If finished, reset and immediately start new timer
-                                GymTimer.reset()
+                                GymTimer.reset(announce = false)
                                 GymTimer.start()
                             }
                             timerState == GymTimer.State.IDLE -> GymTimer.start()
@@ -320,11 +323,11 @@ fun GymTimerScreen() {
                 }
             }
 
-            // Voice toggle
+            // Timer announcements are independent from notification announcements.
             Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp)).padding(16.dp)) {
                 StyledToggle(
-                    label = "Voice announcements",
-                    description = "Announce voice timer events",
+                    label = "Timer announcements",
+                    description = "Hear timer progress, controls, and completion",
                     checked = voiceEnabled,
                     onCheckedChange = {
                         voiceEnabled = it
@@ -332,9 +335,70 @@ fun GymTimerScreen() {
                     },
                     independent = true
                 )
+
+                if (voiceEnabled && timerMode == GymTimer.Mode.STOPWATCH) {
+                    Spacer(Modifier.height(14.dp))
+                    Text(
+                        "Stopwatch elapsed-time cue",
+                        style = TextStyle(
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            fontFamily = SfPro,
+                            color = if (dark) Color.White else Color.Black
+                        )
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    StopwatchAnnouncementIntervalSelector(
+                        selectedMinutes = stopwatchAnnouncementIntervalMinutes,
+                        dark = dark,
+                        onSelect = { minutes ->
+                            stopwatchAnnouncementIntervalMinutes = minutes
+                            GymModePrefs.setStopwatchAnnouncementIntervalMinutes(context, minutes)
+                        }
+                    )
+                }
             }
 
             Spacer(Modifier.height(bottomPadding))
+        }
+    }
+}
+
+@Composable
+private fun StopwatchAnnouncementIntervalSelector(
+    selectedMinutes: Int,
+    dark: Boolean,
+    onSelect: (Int) -> Unit
+) {
+    val options = listOf(0 to "Off", 1 to "1 min", 5 to "5 min", 10 to "10 min")
+    val textColor = if (dark) Color.White else Color.Black
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        options.forEach { (minutes, label) ->
+            val selected = minutes == selectedMinutes
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .background(
+                        if (selected) Color(0xFF0A84FF) else if (dark) Color(0xFF2C2C2E) else Color(0xFFF2F2F7),
+                        RoundedCornerShape(10.dp)
+                    )
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { onSelect(minutes) }
+                    .padding(vertical = 10.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    label,
+                    style = TextStyle(
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        fontFamily = SfPro,
+                        color = if (selected) Color.White else textColor
+                    )
+                )
+            }
         }
     }
 }

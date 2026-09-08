@@ -114,6 +114,7 @@ import io.automated.ventures.everypods.utils.AnnouncementPrefs
 import io.automated.ventures.everypods.utils.ElevenLabsEngine
 import io.automated.ventures.everypods.utils.GymModePrefs
 import io.automated.ventures.everypods.utils.GymTimer
+import io.automated.ventures.everypods.utils.GymTimerAnnouncementText
 import io.automated.ventures.everypods.utils.TtsEngine
 import io.automated.ventures.everypods.utils.MediaController
 import io.automated.ventures.everypods.utils.SystemApisUtils
@@ -240,6 +241,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     )
 
     private lateinit var config: ServiceConfig
+    private var gymTimerAnnouncementListener: ((GymTimer.AnnouncementEvent) -> Unit)? = null
 
     inner class LocalBinder : Binder() {
         fun getService(): AirPodsService = this@AirPodsService
@@ -1740,38 +1742,13 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             StemAction.MUTE_CALL -> toggleMicMute()
 
             StemAction.GYM_TIMER_START_STOP -> {
-                val wasRunning = GymTimer.state() == GymTimer.State.RUNNING
                 GymTimer.startStop()
-                if (sharedPreferences.getBoolean("gym_voice_announcements_enabled", true)) {
-                    val text = when (GymTimer.state()) {
-                        GymTimer.State.RUNNING -> if (wasRunning) "Resumed." else "Started."
-                        GymTimer.State.PAUSED -> {
-                            val elapsed = GymTimer.elapsedMs()
-                            val mins = elapsed / 60000
-                            val secs = (elapsed % 60000) / 1000
-                            "Paused. ${if (mins > 0) "$mins minute${if (mins > 1) "s" else ""} " else ""}${secs} second${if (secs != 1L) "s" else ""}."
-                        }
-                        GymTimer.State.IDLE -> "Stopped."
-                    }
-                    announceGymText(text)
-                }
             }
             StemAction.GYM_TIMER_LAP -> {
                 GymTimer.lap()
-                if (sharedPreferences.getBoolean("gym_voice_announcements_enabled", true)) {
-                    val lap = GymTimer.laps().lastOrNull()
-                    if (lap != null) {
-                        val splitSec = lap.splitMs / 1000
-                        announceGymText("Lap ${lap.number}. $splitSec seconds.")
-                    }
-                }
             }
             StemAction.GYM_TIMER_RESET -> {
-                val hadElapsed = GymTimer.elapsedMs() > 0
                 GymTimer.reset()
-                if (hadElapsed && sharedPreferences.getBoolean("gym_voice_announcements_enabled", true)) {
-                    announceGymText("Timer reset.")
-                }
             }
         }
     }
@@ -2232,14 +2209,16 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }
 
     private fun setupGymTimerAnnouncementsListener() {
-        GymTimer.addListener {
+        if (gymTimerAnnouncementListener != null) return
+        gymTimerAnnouncementListener = { event ->
             if (GymModePrefs.voiceAnnouncementsEnabled(this@AirPodsService)) {
-                val announcements = GymTimer.pollAnnouncements()
-                for (text in announcements) {
-                    announceGymText(text)
-                }
+                GymTimerAnnouncementText.forEvent(
+                    event = event,
+                    stopwatchIntervalMinutes = GymModePrefs.stopwatchAnnouncementIntervalMinutes(this@AirPodsService)
+                )?.let(::announceGymText)
             }
         }
+        GymTimer.addAnnouncementListener(gymTimerAnnouncementListener!!)
     }
 
     override fun onSharedPreferenceChanged(preferences: SharedPreferences?, key: String?) {
@@ -4862,6 +4841,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
         CallNotifListener.onMuteStateChanged = null
         sharedPreferences.unregisterOnSharedPreferenceChangeListener(this)
+        gymTimerAnnouncementListener?.let(GymTimer::removeAnnouncementListener)
+        gymTimerAnnouncementListener = null
 
         try {
             unregisterReceiver(bluetoothReceiver)

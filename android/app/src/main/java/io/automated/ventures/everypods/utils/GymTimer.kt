@@ -31,6 +31,24 @@ object GymTimer {
     enum class State { IDLE, RUNNING, PAUSED }
     enum class Mode { COUNTDOWN, STOPWATCH, HIIT }
     enum class Phase { WORK, REST }
+    enum class CountdownMilestone { QUARTER, HALF, THREE_QUARTERS }
+
+    /** Semantic events consumed by the single timer-announcement coordinator. */
+    sealed interface AnnouncementEvent {
+        data class Started(val mode: Mode) : AnnouncementEvent
+        data class Resumed(val mode: Mode, val elapsedMs: Long) : AnnouncementEvent
+        data class Paused(val mode: Mode, val elapsedMs: Long, val remainingMs: Long) : AnnouncementEvent
+        data class Reset(val mode: Mode) : AnnouncementEvent
+        data class CountdownCue(
+            val milestone: CountdownMilestone?,
+            val finalSecond: Int?
+        ) : AnnouncementEvent
+        data class StopwatchInterval(val elapsedMs: Long) : AnnouncementEvent
+        data class HiitPhaseStarted(val phase: Phase, val round: Int) : AnnouncementEvent
+        data class HiitCountdown(val seconds: Int) : AnnouncementEvent
+        data class LapRecorded(val lap: Lap) : AnnouncementEvent
+        data class Completed(val mode: Mode) : AnnouncementEvent
+    }
 
     data class Lap(val number: Int, val elapsedMs: Long, val splitMs: Long)
 
@@ -45,8 +63,11 @@ object GymTimer {
     private val laps = mutableListOf<Lap>()
     
     // Announcement tracking
-    private var lastAnnouncedSecond = -1L
-    private var lastAnnouncedPhase: Phase? = null
+    private val announcedCountdownMilestones = mutableSetOf<CountdownMilestone>()
+    private var lastCountdownSecond: Int? = null
+    private var lastHiitPhase: Phase? = null
+    private var lastHiitCountdownSecond: Int? = null
+    private var lastStopwatchMinute = 0L
 
     // Mode-specific config
     private var mode = Mode.COUNTDOWN
@@ -56,6 +77,7 @@ object GymTimer {
     private var hiitRounds = 8                // default 8 rounds
 
     private val listeners = mutableListOf<() -> Unit>()
+    private val announcementListeners = mutableListOf<(AnnouncementEvent) -> Unit>()
 
     fun state(): State = state
     fun mode(): Mode = mode
@@ -126,19 +148,43 @@ object GymTimer {
 
     fun start() {
         if (state == State.RUNNING) return
+        val wasPaused = state == State.PAUSED
         startTimeMs = SystemClock.elapsedRealtime()
         state = State.RUNNING
         startTicking()
         Log.d(TAG, "Started mode=$mode")
+        if (wasPaused) {
+            emitAnnouncement(AnnouncementEvent.Resumed(mode, elapsedBeforePause))
+        } else {
+            resetAnnouncementTracking()
+            emitAnnouncement(AnnouncementEvent.Started(mode))
+        }
         notifyListeners()
     }
 
     fun pause() {
+        pause(announce = true)
+    }
+
+    private fun pause(announce: Boolean) {
         if (state != State.RUNNING) return
         elapsedBeforePause += SystemClock.elapsedRealtime() - startTimeMs
         state = State.PAUSED
         stopTicking()
         Log.d(TAG, "Paused at ${elapsedBeforePause}ms")
+        if (announce) {
+            emitAnnouncement(
+                AnnouncementEvent.Paused(
+                    mode = mode,
+                    elapsedMs = elapsedBeforePause,
+                    remainingMs = when (mode) {
+                        Mode.COUNTDOWN -> countdownRemainingMs()
+                        Mode.HIIT -> hiitPhaseInfo().third
+                        Mode.STOPWATCH -> 0L
+                    }
+                )
+            )
+        }
         notifyListeners()
     }
 
@@ -156,70 +202,20 @@ object GymTimer {
         val lap = Lap(laps.size + 1, total, split)
         laps.add(lap)
         Log.d(TAG, "Lap ${lap.number}: ${lap.splitMs}ms (total ${lap.elapsedMs}ms)")
+        emitAnnouncement(AnnouncementEvent.LapRecorded(lap))
         notifyListeners()
     }
 
-    fun reset() {
+    fun reset(announce: Boolean = true) {
         stopTicking()
         state = State.IDLE
         startTimeMs = 0L
         elapsedBeforePause = 0L
         laps.clear()
-        lastAnnouncedSecond = -1L
-        lastAnnouncedPhase = null
+        resetAnnouncementTracking()
         Log.d(TAG, "Reset")
+        if (announce) emitAnnouncement(AnnouncementEvent.Reset(mode))
         notifyListeners()
-    }
-
-    /** Get pending announcement texts for current timer state.
-     *  Returns list of strings to announce, or empty list if nothing to announce.
-     *  Clears the announcement after returning it.
-     */
-    fun pollAnnouncements(): List<String> {
-        if (state != State.RUNNING) return emptyList()
-
-        val announcements = mutableListOf<String>()
-
-        when (mode) {
-            Mode.COUNTDOWN -> {
-                val remainingSec = countdownRemainingMs() / 1000
-                
-                // Final countdown: 10-1
-                if (remainingSec in 1..10 && remainingSec != lastAnnouncedSecond) {
-                    announcements.add(remainingSec.toString())
-                    lastAnnouncedSecond = remainingSec
-                }
-                // Every 30s intervals (only if > 10s remaining)
-                else if (remainingSec > 10 && remainingSec % 30 == 0L && remainingSec != lastAnnouncedSecond) {
-                    announcements.add("$remainingSec seconds remaining")
-                    lastAnnouncedSecond = remainingSec
-                }
-            }
-            Mode.HIIT -> {
-                val (phase, _, remainingInPhase) = hiitPhaseInfo()
-                val remainingSec = remainingInPhase / 1000
-                
-                // Announce phase transitions
-                if (phase != lastAnnouncedPhase) {
-                    announcements.add(phase.name)
-                    lastAnnouncedPhase = phase
-                    lastAnnouncedSecond = -1L  // reset to allow periodic announcements
-                }
-                // Final countdown in last 10s of phase
-                else if (remainingSec in 1..10 && remainingSec != lastAnnouncedSecond) {
-                    announcements.add(remainingSec.toString())
-                    lastAnnouncedSecond = remainingSec
-                }
-                // Every 30s in phase (only if > 10s remaining)
-                else if (remainingSec > 10 && remainingSec % 30 == 0L && remainingSec != lastAnnouncedSecond) {
-                    announcements.add("$remainingSec seconds in ${phase.name.lowercase()}")
-                    lastAnnouncedSecond = remainingSec
-                }
-            }
-            Mode.STOPWATCH -> { /* no announcements */ }
-        }
-
-        return announcements
     }
 
     fun addListener(listener: () -> Unit) {
@@ -230,11 +226,19 @@ object GymTimer {
         listeners.remove(listener)
     }
 
+    fun addAnnouncementListener(listener: (AnnouncementEvent) -> Unit) {
+        announcementListeners.add(listener)
+    }
+
+    fun removeAnnouncementListener(listener: (AnnouncementEvent) -> Unit) {
+        announcementListeners.remove(listener)
+    }
+
     private fun startTicking() {
         stopTicking()
         val runnable = object : Runnable {
             override fun run() {
-                checkAutoTransitions()
+                processTimerTick()
                 notifyListeners()
                 if (state == State.RUNNING) {
                     handler.postDelayed(this, 100)
@@ -245,19 +249,84 @@ object GymTimer {
         handler.postDelayed(runnable, 100)
     }
 
-    private fun checkAutoTransitions() {
+    private fun processTimerTick() {
         when (mode) {
             Mode.COUNTDOWN -> {
                 if (countdownRemainingMs() <= 0) {
-                    pause()
+                    complete()
+                } else {
+                    emitCountdownCues()
                 }
             }
             Mode.HIIT -> {
                 if (hiitComplete()) {
-                    pause()
+                    complete()
+                } else {
+                    emitHiitCues()
                 }
             }
-            Mode.STOPWATCH -> { /* no auto transitions */ }
+            Mode.STOPWATCH -> emitStopwatchCue()
+        }
+    }
+
+    private fun complete() {
+        pause(announce = false)
+        emitAnnouncement(AnnouncementEvent.Completed(mode))
+    }
+
+    private fun emitCountdownCues() {
+        val elapsed = elapsedMs()
+        val crossed = listOf(
+            CountdownMilestone.QUARTER to countdownDurationMs / 4,
+            CountdownMilestone.HALF to countdownDurationMs / 2,
+            CountdownMilestone.THREE_QUARTERS to (countdownDurationMs * 3) / 4,
+        ).filter { (milestone, threshold) ->
+            elapsed >= threshold && announcedCountdownMilestones.add(milestone)
+        }.map { it.first }
+
+        val finalSecond = kotlin.math.ceil(countdownRemainingMs() / 1_000.0)
+            .toInt().takeIf { it in 1..10 && it != lastCountdownSecond }
+        if (finalSecond != null) lastCountdownSecond = finalSecond
+
+        crossed.dropLast(1).forEach { emitAnnouncement(AnnouncementEvent.CountdownCue(it, null)) }
+        if (crossed.isNotEmpty() || finalSecond != null) {
+            emitAnnouncement(AnnouncementEvent.CountdownCue(crossed.lastOrNull(), finalSecond))
+        }
+    }
+
+    private fun emitStopwatchCue() {
+        val minute = elapsedMs() / 60_000L
+        if (minute >= 1 && minute > lastStopwatchMinute) {
+            lastStopwatchMinute = minute
+            emitAnnouncement(AnnouncementEvent.StopwatchInterval(elapsedMs()))
+        }
+    }
+
+    private fun emitHiitCues() {
+        val (phase, round, remainingMs) = hiitPhaseInfo()
+        if (phase != lastHiitPhase) {
+            lastHiitPhase = phase
+            lastHiitCountdownSecond = null
+            emitAnnouncement(AnnouncementEvent.HiitPhaseStarted(phase, round))
+        }
+        val second = kotlin.math.ceil(remainingMs / 1_000.0).toInt()
+        if ((second == 10 || second in 1..3) && second != lastHiitCountdownSecond) {
+            lastHiitCountdownSecond = second
+            emitAnnouncement(AnnouncementEvent.HiitCountdown(second))
+        }
+    }
+
+    private fun resetAnnouncementTracking() {
+        announcedCountdownMilestones.clear()
+        lastCountdownSecond = null
+        lastHiitPhase = null
+        lastHiitCountdownSecond = null
+        lastStopwatchMinute = 0L
+    }
+
+    private fun emitAnnouncement(event: AnnouncementEvent) {
+        Handler(Looper.getMainLooper()).post {
+            announcementListeners.toList().forEach { it.invoke(event) }
         }
     }
 
