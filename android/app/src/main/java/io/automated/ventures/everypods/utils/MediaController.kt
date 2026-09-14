@@ -148,6 +148,14 @@ object MediaController {
     }
     private val routeLandPoller = RouteLandPoller()
 
+    /** EveryPods speech is not music and must never trigger an auto-resume poller. */
+    fun cancelRouteRecoveryForAnnouncement() {
+        routeLandWatchPending = false
+        handler.removeCallbacks(routeLandPoller)
+        routeLandPoller.reset()
+        Log.d("MediaController", "Speech started; route recovery is suppressed")
+    }
+
     // A cold-connect straight from the case has to page asleep AirPods — the A2DP
     // route can legitimately take 6-12 s to land. 3 s was far too short: the route
     // landed AFTER the window, so onAudioDevicesAdded discarded it as "stale" and
@@ -446,6 +454,23 @@ object MediaController {
     val cb = object : AudioManager.AudioPlaybackCallback() {
         @RequiresApi(Build.VERSION_CODES.R)
         override fun onPlaybackConfigChanged(configs: MutableList<AudioPlaybackConfiguration>?) {
+            if (AnnouncementCoordinator.isAudiblySpeaking()) {
+                Log.d("MediaController", "Ignoring EveryPods speech in media playback detection")
+                return
+            }
+            // TTS can publish its playback config a moment before its
+            // UtteranceProgressListener reports onStart. Do not let that narrow
+            // race look like a user starting a podcast.
+            val onlyAssistantSpeech = configs?.isNotEmpty() == true && configs.all { config ->
+                config.audioAttributes?.let { attrs ->
+                    attrs.usage == AudioAttributes.USAGE_ASSISTANT &&
+                        attrs.contentType == AudioAttributes.CONTENT_TYPE_SPEECH
+                } == true
+            }
+            if (onlyAssistantSpeech) {
+                Log.d("MediaController", "Ignoring assistant speech playback config")
+                return
+            }
             super.onPlaybackConfigChanged(configs)
             val now = SystemClock.uptimeMillis()
             val isActive = audioManager.isMusicActive
@@ -493,8 +518,7 @@ object MediaController {
                 a.usage == android.media.AudioAttributes.USAGE_MEDIA ||
                 // Fallback: explicit content type for older/odd apps.
                 a.contentType == android.media.AudioAttributes.CONTENT_TYPE_MUSIC ||
-                a.contentType == android.media.AudioAttributes.CONTENT_TYPE_MOVIE ||
-                a.contentType == android.media.AudioAttributes.CONTENT_TYPE_SPEECH
+                a.contentType == android.media.AudioAttributes.CONTENT_TYPE_MOVIE
             }
 
             Log.d("MediaController", "Has new music or movie: $hasNewMusicOrMovie")

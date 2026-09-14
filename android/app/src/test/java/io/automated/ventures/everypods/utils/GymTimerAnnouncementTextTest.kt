@@ -7,6 +7,18 @@ import org.junit.Test
 class GymTimerAnnouncementTextTest {
 
     @Test
+    fun preparationCountdownAnnouncesEachNumberWithoutExtraSpeech() {
+        assertEquals(
+            "5",
+            GymTimerAnnouncementText.forEvent(GymTimer.AnnouncementEvent.PreparationCountdown(5), 5)
+        )
+        assertEquals(
+            "4",
+            GymTimerAnnouncementText.forEvent(GymTimer.AnnouncementEvent.PreparationCountdown(4), 5)
+        )
+    }
+
+    @Test
     fun `countdown milestone and final-second cue are combined`() {
         val cue = GymTimerAnnouncementText.forEvent(
             GymTimer.AnnouncementEvent.CountdownCue(
@@ -29,10 +41,10 @@ class GymTimerAnnouncementTextTest {
     }
 
     @Test
-    fun `hiit final countdown only speaks ten and final three seconds`() {
+    fun `hiit final countdown speaks the final five seconds`() {
         assertEquals(
-            "10",
-            GymTimerAnnouncementText.forEvent(GymTimer.AnnouncementEvent.HiitCountdown(10), 5)
+            "5",
+            GymTimerAnnouncementText.forEvent(GymTimer.AnnouncementEvent.HiitCountdown(5), 5)
         )
         assertEquals(
             "3",

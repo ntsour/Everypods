@@ -28,13 +28,15 @@ object GymTimer {
 
     private const val TAG = "GymTimer"
 
-    enum class State { IDLE, RUNNING, PAUSED }
+    enum class State { IDLE, PREPARING, RUNNING, PAUSED }
     enum class Mode { COUNTDOWN, STOPWATCH, HIIT }
     enum class Phase { WORK, REST }
     enum class CountdownMilestone { QUARTER, HALF, THREE_QUARTERS }
 
     /** Semantic events consumed by the single timer-announcement coordinator. */
     sealed interface AnnouncementEvent {
+        /** The optional five-second lead-in before a new timer begins. */
+        data class PreparationCountdown(val seconds: Int) : AnnouncementEvent
         data class Started(val mode: Mode) : AnnouncementEvent
         data class Resumed(val mode: Mode, val elapsedMs: Long) : AnnouncementEvent
         data class Paused(val mode: Mode, val elapsedMs: Long, val remainingMs: Long) : AnnouncementEvent
@@ -56,6 +58,9 @@ object GymTimer {
     private val timerThread = HandlerThread("GymTimerThread").apply { start() }
     private val handler = Handler(timerThread.looper)
     private var tickRunnable: Runnable? = null
+    private var preparationRunnable: Runnable? = null
+    private var preparationSecondsRemaining = 0
+    private var preparationCountdownEnabled = true
 
     private var state = State.IDLE
     private var startTimeMs = 0L
@@ -82,11 +87,17 @@ object GymTimer {
     fun state(): State = state
     fun mode(): Mode = mode
     fun elapsedMs(): Long = when (state) {
-        State.IDLE -> 0L
+        State.IDLE, State.PREPARING -> 0L
         State.RUNNING -> elapsedBeforePause + (SystemClock.elapsedRealtime() - startTimeMs)
         State.PAUSED -> elapsedBeforePause
     }
     fun laps(): List<Lap> = laps.toList()
+    fun preparationSecondsRemaining(): Int = preparationSecondsRemaining
+
+    /** Controls the optional five-second lead-in for a new timer, not resumes. */
+    fun setPreparationCountdownEnabled(enabled: Boolean) {
+        preparationCountdownEnabled = enabled
+    }
 
     // Config getters/setters
     fun getCountdownDurationMs(): Long = countdownDurationMs
@@ -147,8 +158,16 @@ object GymTimer {
     }
 
     fun start() {
-        if (state == State.RUNNING) return
+        if (state == State.RUNNING || state == State.PREPARING) return
         val wasPaused = state == State.PAUSED
+        if (!wasPaused && preparationCountdownEnabled) {
+            beginPreparationCountdown()
+            return
+        }
+        startNow(wasPaused)
+    }
+
+    private fun startNow(wasPaused: Boolean) {
         startTimeMs = SystemClock.elapsedRealtime()
         state = State.RUNNING
         startTicking()
@@ -162,11 +181,41 @@ object GymTimer {
         notifyListeners()
     }
 
+    private fun beginPreparationCountdown() {
+        stopPreparationCountdown()
+        resetAnnouncementTracking()
+        state = State.PREPARING
+        preparationSecondsRemaining = PREPARATION_COUNTDOWN_SECONDS
+        emitAnnouncement(AnnouncementEvent.PreparationCountdown(preparationSecondsRemaining))
+        notifyListeners()
+
+        val runnable = object : Runnable {
+            override fun run() {
+                if (state != State.PREPARING) return
+                preparationSecondsRemaining -= 1
+                if (preparationSecondsRemaining > 0) {
+                    emitAnnouncement(AnnouncementEvent.PreparationCountdown(preparationSecondsRemaining))
+                    notifyListeners()
+                    handler.postDelayed(this, 1_000L)
+                } else {
+                    preparationRunnable = null
+                    startNow(wasPaused = false)
+                }
+            }
+        }
+        preparationRunnable = runnable
+        handler.postDelayed(runnable, 1_000L)
+    }
+
     fun pause() {
         pause(announce = true)
     }
 
     private fun pause(announce: Boolean) {
+        if (state == State.PREPARING) {
+            reset(announce = announce)
+            return
+        }
         if (state != State.RUNNING) return
         elapsedBeforePause += SystemClock.elapsedRealtime() - startTimeMs
         state = State.PAUSED
@@ -191,6 +240,7 @@ object GymTimer {
     fun startStop() {
         when (state) {
             State.IDLE, State.PAUSED -> start()
+            State.PREPARING -> reset()
             State.RUNNING -> pause()
         }
     }
@@ -208,6 +258,7 @@ object GymTimer {
 
     fun reset(announce: Boolean = true) {
         stopTicking()
+        stopPreparationCountdown()
         state = State.IDLE
         startTimeMs = 0L
         elapsedBeforePause = 0L
@@ -272,6 +323,7 @@ object GymTimer {
     private fun complete() {
         pause(announce = false)
         emitAnnouncement(AnnouncementEvent.Completed(mode))
+        reset(announce = false)
     }
 
     private fun emitCountdownCues() {
@@ -285,7 +337,7 @@ object GymTimer {
         }.map { it.first }
 
         val finalSecond = kotlin.math.ceil(countdownRemainingMs() / 1_000.0)
-            .toInt().takeIf { it in 1..10 && it != lastCountdownSecond }
+            .toInt().takeIf { it in 1..5 && it != lastCountdownSecond }
         if (finalSecond != null) lastCountdownSecond = finalSecond
 
         crossed.dropLast(1).forEach { emitAnnouncement(AnnouncementEvent.CountdownCue(it, null)) }
@@ -310,7 +362,7 @@ object GymTimer {
             emitAnnouncement(AnnouncementEvent.HiitPhaseStarted(phase, round))
         }
         val second = kotlin.math.ceil(remainingMs / 1_000.0).toInt()
-        if ((second == 10 || second in 1..3) && second != lastHiitCountdownSecond) {
+        if (second in 1..5 && second != lastHiitCountdownSecond) {
             lastHiitCountdownSecond = second
             emitAnnouncement(AnnouncementEvent.HiitCountdown(second))
         }
@@ -343,4 +395,12 @@ object GymTimer {
             }
         }
     }
+
+    private fun stopPreparationCountdown() {
+        preparationRunnable?.let { handler.removeCallbacks(it) }
+        preparationRunnable = null
+        preparationSecondsRemaining = 0
+    }
+
+    private const val PREPARATION_COUNTDOWN_SECONDS = 5
 }

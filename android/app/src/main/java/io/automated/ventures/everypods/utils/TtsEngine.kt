@@ -46,7 +46,6 @@ object TtsEngine {
     private const val TAG = "TtsEngine"
     private const val IDLE_RELEASE_MS = 5 * 60 * 1000L  // 5 minutes
     private const val DEDUPE_WINDOW_MS = 3_000L   // suppress identical text within 3s (double-delivery guard only)
-    private const val MAX_QUEUE = 5              // drop new announcements above this
     private const val DEDUPE_HISTORY_CAP = 20    // ring buffer size
 
     @Volatile private var tts: TextToSpeech? = null
@@ -56,9 +55,12 @@ object TtsEngine {
     @Volatile private var wakeLock: PowerManager.WakeLock? = null
     private val initialised = AtomicBoolean(false)
     private val initialising = AtomicBoolean(false)
-    private val pendingUtterances = mutableListOf<String>()
+    private data class PendingUtterance(val text: String, val onDone: () -> Unit)
+    private val pendingUtterances = mutableListOf<PendingUtterance>()
+    private val completionCallbacks = mutableMapOf<String, () -> Unit>()
     private val lastUseAt = AtomicLong(0L)
     private val activeUtteranceCount = java.util.concurrent.atomic.AtomicInteger(0)
+    private val audibleUtteranceIds = mutableSetOf<String>()
     private val recentTexts = ArrayDeque<Pair<String, Long>>()  // (text, timestamp)
     // Timestamp of the last utterance-done event (-1 = none/cleared). Keeps
     // isSpeaking() true during A2DP buffer drain after onDone fires.
@@ -74,7 +76,12 @@ object TtsEngine {
      * user has switched to phone speaker). This avoids announcing through
      * the phone speaker, which would defeat the purpose.
      */
-    fun speak(context: Context, text: String, languageTag: String? = null) {
+    fun speak(
+        context: Context,
+        text: String,
+        languageTag: String? = null,
+        onDone: () -> Unit = {},
+    ) {
         val ctx = context.applicationContext
         ensureAudioManager(ctx)
         if (!AnnouncementAudioRoute.canAnnounceToAirPods(ctx)) {
@@ -96,14 +103,6 @@ object TtsEngine {
                 Log.w(TAG, "DEDUPE: \"$text\" within ${DEDUPE_WINDOW_MS}ms — skipping")
                 return
             }
-            // Queue cap: drop overflowing announcements rather than backing up.
-            // The TTS engine itself serialises utterances via QUEUE_ADD, so
-            // back-to-back messages naturally play in order — no throttle needed.
-            val pending = activeUtteranceCount.get() + pendingUtterances.size
-            if (pending >= MAX_QUEUE) {
-                Log.d(TAG, "Queue cap reached ($pending/$MAX_QUEUE), skipping")
-                return
-            }
             recentTexts.addLast(text to now)
             while (recentTexts.size > DEDUPE_HISTORY_CAP) recentTexts.removeFirst()
         }
@@ -116,15 +115,15 @@ object TtsEngine {
             if (desiredLang != configuredLanguage) {
                 applyLanguage(desiredLang)
             }
-            enqueue(text)
+            enqueue(text, onDone)
             return
         }
         synchronized(this) {
             if (initialised.get()) {
-                enqueue(text)
+                enqueue(text, onDone)
                 return
             }
-            pendingUtterances.add(text)
+            pendingUtterances.add(PendingUtterance(text, onDone))
             if (initialising.compareAndSet(false, true)) {
                 Log.d(TAG, "Initialising TextToSpeech engine")
                 tts = TextToSpeech(ctx) { status ->
@@ -133,7 +132,7 @@ object TtsEngine {
                         initialised.set(true)
                         initialising.set(false)
                         synchronized(this) {
-                            pendingUtterances.forEach { enqueue(it) }
+                            pendingUtterances.forEach { enqueue(it.text, it.onDone) }
                             pendingUtterances.clear()
                         }
                     } else {
@@ -156,6 +155,11 @@ object TtsEngine {
         return t >= 0L && System.currentTimeMillis() - t < A2DP_GRACE_MS
     }
 
+    /** Unlike [isSpeaking], excludes queued utterances and A2DP drain grace. */
+    fun isAudiblySpeaking(): Boolean = synchronized(audibleUtteranceIds) {
+        audibleUtteranceIds.isNotEmpty()
+    }
+
     /**
      * Cancel any in-progress and queued utterances, abandon focus.
      * Used when a stem-press should silence the announcement immediately.
@@ -168,6 +172,8 @@ object TtsEngine {
         }
         abandonFocus()
         activeUtteranceCount.set(0)
+        synchronized(completionCallbacks) { completionCallbacks.clear() }
+        synchronized(audibleUtteranceIds) { audibleUtteranceIds.clear() }
         lastDoneAt.set(-1L)  // clear A2DP grace so next press is play/pause
     }
 
@@ -176,29 +182,37 @@ object TtsEngine {
         applyLanguage(AnnouncementPrefs.resolvedLanguage(ctx))
         engine.setAudioAttributes(
             AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_MEDIA)
+                // Keep spoken feedback out of the app's music/podcast detector.
+                // This matches the ElevenLabs player and still routes to A2DP.
+                .setUsage(AudioAttributes.USAGE_ASSISTANT)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                 .build()
         )
         engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(utteranceId: String?) {
+                utteranceId?.let { id -> synchronized(audibleUtteranceIds) { audibleUtteranceIds.add(id) } }
+                AnnouncementCoordinator.onSpeechAudibleStarted()
                 requestFocus()
             }
             override fun onDone(utteranceId: String?) {
-                onUtteranceDone()
+                onUtteranceDone(utteranceId)
             }
             @Deprecated("Deprecated in Java")
             override fun onError(utteranceId: String?) {
-                onUtteranceDone()
+                onUtteranceDone(utteranceId)
             }
             override fun onError(utteranceId: String?, errorCode: Int) {
                 Log.w(TAG, "TTS utterance error $utteranceId: $errorCode")
-                onUtteranceDone()
+                onUtteranceDone(utteranceId)
             }
         })
     }
 
-    private fun onUtteranceDone() {
+    private fun onUtteranceDone(utteranceId: String?) {
+        utteranceId?.let { id ->
+            synchronized(completionCallbacks) { completionCallbacks.remove(id) }?.invoke()
+            synchronized(audibleUtteranceIds) { audibleUtteranceIds.remove(id) }
+        }
         if (activeUtteranceCount.decrementAndGet() <= 0) {
             activeUtteranceCount.set(0)
             lastDoneAt.set(System.currentTimeMillis())
@@ -230,9 +244,10 @@ object TtsEngine {
         wakeLock = null
     }
 
-    private fun enqueue(text: String) {
+    private fun enqueue(text: String, onDone: () -> Unit) {
         val engine = tts ?: return
         val id = UUID.randomUUID().toString()
+        synchronized(completionCallbacks) { completionCallbacks[id] = onDone }
         activeUtteranceCount.incrementAndGet()
         val params = Bundle()
         engine.speak(text, TextToSpeech.QUEUE_ADD, params, id)

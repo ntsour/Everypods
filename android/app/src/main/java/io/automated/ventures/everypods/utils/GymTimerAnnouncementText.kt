@@ -17,6 +17,8 @@ object GymTimerAnnouncementText {
         event: GymTimer.AnnouncementEvent,
         stopwatchIntervalMinutes: Int
     ): String? = when (event) {
+        is GymTimer.AnnouncementEvent.PreparationCountdown ->
+            event.seconds.toString()
         is GymTimer.AnnouncementEvent.Started -> when (event.mode) {
             GymTimer.Mode.COUNTDOWN ->
                 "Countdown started. ${duration(GymTimer.getCountdownDurationMs())}."

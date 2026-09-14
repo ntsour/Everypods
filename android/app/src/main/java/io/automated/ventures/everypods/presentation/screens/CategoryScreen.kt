@@ -293,6 +293,7 @@ private fun ControlsContent(
         StemAction.PREVIOUS_TRACK          to "Prev. Track",
         StemAction.DIGITAL_ASSISTANT       to "Voice Assistant",
         StemAction.CYCLE_NOISE_CONTROL_MODES to "Listening Mode",
+        StemAction.TOGGLE_GYM_MODE         to "Gym Mode On / Off",
     )
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -677,6 +678,8 @@ private fun SmartContent(
                         }
                         modeLabel
                     }
+                    GymTimer.State.PREPARING ->
+                        "Starting in ${GymTimer.preparationSecondsRemaining()}"
                     GymTimer.State.RUNNING -> {
                         when (gymTimerMode) {
                             GymTimer.Mode.COUNTDOWN -> {

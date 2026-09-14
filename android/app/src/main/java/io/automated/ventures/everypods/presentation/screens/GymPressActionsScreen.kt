@@ -86,6 +86,7 @@ fun GymPressActionsScreen(viewModel: AirPodsViewModel) {
         StemAction.NEXT_TRACK              to "Next Track",
         StemAction.PREVIOUS_TRACK          to "Prev. Track",
         StemAction.CYCLE_NOISE_CONTROL_MODES to "Listening Mode",
+        StemAction.TOGGLE_GYM_MODE         to "Gym Mode On / Off",
         StemAction.GYM_TIMER_START_STOP    to "Timer Start / Stop",
         StemAction.GYM_TIMER_LAP           to "Timer Lap",
         StemAction.GYM_TIMER_RESET         to "Timer Reset",

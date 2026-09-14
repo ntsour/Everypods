@@ -83,6 +83,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -188,15 +189,28 @@ lateinit var connectionStatusReceiver: BroadcastReceiver
 //@AndroidEntryPoint
 @ExperimentalMaterial3Api
 class MainActivity : ComponentActivity() {
+    private var gymTimerNavigationRequest by mutableIntStateOf(0)
+
     @ExperimentalHazeMaterialsApi
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        if (intent?.getBooleanExtra(EXTRA_OPEN_GYM_TIMER, false) == true) {
+            gymTimerNavigationRequest++
+        }
 
         setContent {
             EveryPodsTheme {
-                Main()
+                Main(gymTimerNavigationRequest)
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.getBooleanExtra(EXTRA_OPEN_GYM_TIMER, false)) {
+            gymTimerNavigationRequest++
         }
     }
 
@@ -234,11 +248,13 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+const val EXTRA_OPEN_GYM_TIMER = "io.automated.ventures.everypods.OPEN_GYM_TIMER"
+
 @ExperimentalHazeMaterialsApi
 @SuppressLint("MissingPermission", "InlinedApi", "UnspecifiedRegisterReceiverFlag")
 @OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun Main() {
+fun Main(gymTimerNavigationRequest: Int = 0) {
     val context = LocalContext.current
 
     val isConnected = remember { mutableStateOf(false) }
@@ -289,6 +305,12 @@ fun Main() {
 
     val startDestination = if (needsPermissions) "permissions" else "settings"
     val navController = rememberNavController()
+
+    LaunchedEffect(gymTimerNavigationRequest, needsPermissions) {
+        if (gymTimerNavigationRequest > 0 && !needsPermissions) {
+            navController.navigate("gym_timer") { launchSingleTop = true }
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
             val backButtonBackdrop = rememberLayerBackdrop()

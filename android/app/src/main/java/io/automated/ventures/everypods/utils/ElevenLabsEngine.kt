@@ -67,6 +67,7 @@ object ElevenLabsEngine {
     @Volatile private var player: MediaPlayer? = null
     @Volatile private var focusRequest: AudioFocusRequest? = null
     private val speaking = AtomicBoolean(false)
+    private val audible = AtomicBoolean(false)
     @Volatile private var playbackLatch: java.util.concurrent.CountDownLatch? = null
     // Timestamp of the last onCompletion event (-1 = none/cleared). Used to keep
     // isSpeaking() true during A2DP buffer drain after MediaPlayer reports done.
@@ -145,9 +146,16 @@ object ElevenLabsEngine {
                 val latch = java.util.concurrent.CountDownLatch(1)
                 playbackLatch = latch
                 playFile(ctx, tmp,
-                    onDone = { lastDoneAt.set(System.currentTimeMillis()); latch.countDown(); speaking.set(false); onDone() },
+                    onDone = {
+                        lastDoneAt.set(System.currentTimeMillis())
+                        audible.set(false)
+                        latch.countDown()
+                        speaking.set(false)
+                        onDone()
+                    },
                     onError = { reason ->
                         latch.countDown()
+                        audible.set(false)
                         speaking.set(false)
                         try { tmp.delete() } catch (_: Exception) {}
                         onFallback(reason)
@@ -181,10 +189,14 @@ object ElevenLabsEngine {
         return t >= 0L && System.currentTimeMillis() - t < A2DP_GRACE_MS
     }
 
+    /** True only after MediaPlayer has begun outputting spoken audio. */
+    fun isAudiblySpeaking(): Boolean = audible.get()
+
     private fun stopPlayer() {
         try { player?.stop() } catch (_: Exception) {}
         try { player?.release() } catch (_: Exception) {}
         player = null
+        audible.set(false)
     }
 
     private fun hasValidatedInternet(context: Context): Boolean {
@@ -317,6 +329,8 @@ object ElevenLabsEngine {
         }
         player = mp
         mp.start()
+        audible.set(true)
+        AnnouncementCoordinator.onSpeechAudibleStarted()
         Log.d(TAG, "Playing ${file.length()} bytes from ${file.name}")
     }
 

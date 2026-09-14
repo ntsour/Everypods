@@ -43,6 +43,10 @@ object GymModePrefs {
     private const val KEY_STOPWATCH_ANNOUNCEMENT_INTERVAL_MINUTES =
         "gym_stopwatch_announcement_interval_minutes"
     private const val KEY_DEFAULT_TIMER_TYPE  = "gym_default_timer_type"
+    private const val KEY_INTERMEDIATE_ANNOUNCEMENTS = "gym_intermediate_announcements_enabled"
+    private const val KEY_FINAL_COUNTDOWN = "gym_final_countdown_enabled"
+    private const val KEY_WAKE_SCREEN_ON_TIMER_START = "gym_wake_screen_on_timer_start"
+    private const val KEY_PREPARATION_COUNTDOWN = "gym_preparation_countdown_enabled"
 
     private fun prefs(ctx: Context): SharedPreferences = ctx.getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
 
@@ -52,6 +56,26 @@ object GymModePrefs {
     fun voiceAnnouncementsEnabled(ctx: Context): Boolean = prefs(ctx).getBoolean(KEY_VOICE_ANNOUNCEMENTS, true)
     fun setVoiceAnnouncementsEnabled(ctx: Context, enabled: Boolean) =
         prefs(ctx).edit().putBoolean(KEY_VOICE_ANNOUNCEMENTS, enabled).apply()
+
+    fun intermediateAnnouncementsEnabled(ctx: Context): Boolean =
+        prefs(ctx).getBoolean(KEY_INTERMEDIATE_ANNOUNCEMENTS, true)
+    fun setIntermediateAnnouncementsEnabled(ctx: Context, enabled: Boolean) =
+        prefs(ctx).edit().putBoolean(KEY_INTERMEDIATE_ANNOUNCEMENTS, enabled).apply()
+
+    fun finalCountdownEnabled(ctx: Context): Boolean =
+        prefs(ctx).getBoolean(KEY_FINAL_COUNTDOWN, true)
+    fun setFinalCountdownEnabled(ctx: Context, enabled: Boolean) =
+        prefs(ctx).edit().putBoolean(KEY_FINAL_COUNTDOWN, enabled).apply()
+
+    fun wakeScreenOnTimerStart(ctx: Context): Boolean =
+        prefs(ctx).getBoolean(KEY_WAKE_SCREEN_ON_TIMER_START, true)
+    fun setWakeScreenOnTimerStart(ctx: Context, enabled: Boolean) =
+        prefs(ctx).edit().putBoolean(KEY_WAKE_SCREEN_ON_TIMER_START, enabled).apply()
+
+    fun preparationCountdownEnabled(ctx: Context): Boolean =
+        prefs(ctx).getBoolean(KEY_PREPARATION_COUNTDOWN, true)
+    fun setPreparationCountdownEnabled(ctx: Context, enabled: Boolean) =
+        prefs(ctx).edit().putBoolean(KEY_PREPARATION_COUNTDOWN, enabled).apply()
 
     /**
      * Minutes between elapsed-time cues for Stopwatch mode. Zero means off.

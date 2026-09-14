@@ -32,6 +32,7 @@ import android.service.notification.StatusBarNotification
 import android.telephony.TelephonyManager
 import android.util.Log
 import io.automated.ventures.everypods.utils.AnnouncementPrefs
+import io.automated.ventures.everypods.utils.AnnouncementCoordinator
 import io.automated.ventures.everypods.utils.ElevenLabsEngine
 import io.automated.ventures.everypods.utils.TtsEngine
 
@@ -261,30 +262,11 @@ class NotificationAnnouncementService : NotificationListenerService() {
      * ElevenLabs failures fall back to system TTS automatically.
      */
     private fun announceText(text: String) {
-        val ctx = applicationContext
-        val engine = AnnouncementPrefs.ttsEngine(ctx)
-        val languageForSystemTts = AnnouncementPrefs.languageForText(ctx, text)
-        val elevenLabsLanguageCode = AnnouncementPrefs.elevenLabsLanguageCode(ctx)
-        if (engine == AnnouncementPrefs.TTS_ENGINE_ELEVENLABS) {
-            val apiKey = AnnouncementPrefs.elevenLabsApiKey(ctx)
-            val voiceId = AnnouncementPrefs.elevenLabsVoiceId(ctx)
-            if (apiKey.isNotBlank()) {
-                ElevenLabsEngine.speak(
-                    context = ctx,
-                    text = text,
-                    apiKey = apiKey,
-                    voiceId = voiceId,
-                    languageCode = elevenLabsLanguageCode,
-                    onFallback = { reason ->
-                        Log.w(TAG, "ElevenLabs failed ($reason), falling back to system TTS")
-                        TtsEngine.speak(ctx, text, languageForSystemTts)
-                    }
-                )
-                return
-            }
-            Log.w(TAG, "ElevenLabs selected but no API key — using system TTS")
-        }
-        TtsEngine.speak(ctx, text, languageForSystemTts)
+        AnnouncementCoordinator.announce(
+            applicationContext,
+            text,
+            AnnouncementCoordinator.Priority.SYSTEM
+        )
     }
 
     private fun appLabelFor(packageName: String): String {
