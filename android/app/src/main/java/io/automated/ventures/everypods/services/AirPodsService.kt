@@ -89,6 +89,8 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import io.automated.ventures.everypods.BuildConfig
+import io.automated.ventures.everypods.EXTRA_OPEN_GYM_TIMER
+import io.automated.ventures.everypods.GymTimerLockScreenActivity
 import io.automated.ventures.everypods.MainActivity
 import io.automated.ventures.everypods.R
 import io.automated.ventures.everypods.bluetooth.AACPManager
@@ -111,10 +113,15 @@ import io.automated.ventures.everypods.presentation.widgets.BatteryWidget
 import io.automated.ventures.everypods.presentation.widgets.NoiseControlWidget
 import io.automated.ventures.everypods.utils.GestureDetector
 import io.automated.ventures.everypods.utils.HeadTracking
+import io.automated.ventures.everypods.utils.AnnouncementCoordinator
 import io.automated.ventures.everypods.utils.AnnouncementPrefs
 import io.automated.ventures.everypods.utils.ElevenLabsEngine
 import io.automated.ventures.everypods.utils.GymModePrefs
+import io.automated.ventures.everypods.utils.GymModeStemPressArbitration
 import io.automated.ventures.everypods.utils.GymTimer
+import io.automated.ventures.everypods.utils.GymTimerAnnouncementText
+import io.automated.ventures.everypods.utils.GymTimerAnnouncementPolicy
+import io.automated.ventures.everypods.utils.GymTimerNotificationText
 import io.automated.ventures.everypods.utils.TtsEngine
 import io.automated.ventures.everypods.utils.MediaController
 import io.automated.ventures.everypods.utils.SystemApisUtils
@@ -241,6 +248,20 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     )
 
     private lateinit var config: ServiceConfig
+    private var gymTimerAnnouncementListener: ((GymTimer.AnnouncementEvent) -> Unit)? = null
+    private val gymTimerNotificationHandler = Handler(Looper.getMainLooper())
+    private var gymTimerPausedRemoval: Runnable? = null
+    private val gymModeStemPressHandler = Handler(Looper.getMainLooper())
+    private val gymModeStemPressLock = Any()
+    private var pendingGymModeSinglePress: PendingGymModeSinglePress? = null
+    private val gymModeLastMultiPressAt = mutableMapOf<AACPManager.Companion.StemPressBudType, Long>()
+
+    private class PendingGymModeSinglePress(
+        val bud: AACPManager.Companion.StemPressBudType,
+        val action: StemAction
+    ) {
+        lateinit var runnable: Runnable
+    }
 
     inner class LocalBinder : Binder() {
         fun getService(): AirPodsService = this@AirPodsService
@@ -264,6 +285,15 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     private lateinit var socket: BluetoothSocket
 
     companion object {
+        private const val ACTION_TOGGLE_GYM_MODE = "io.automated.ventures.everypods.TOGGLE_GYM_MODE"
+        private const val ACTION_CONNECT_LAST_DEVICE = "io.automated.ventures.everypods.CONNECT_LAST_DEVICE"
+        private const val GYM_MODE_NOTIFICATION_REQUEST_CODE = 73
+        private const val CONNECT_LAST_DEVICE_NOTIFICATION_REQUEST_CODE = 75
+        private const val GYM_TIMER_NOTIFICATION_ID = 4
+        private const val GYM_TIMER_NOTIFICATION_REQUEST_CODE = 74
+        private const val GYM_TIMER_NOTIFICATION_CHANNEL = "gym_timer_lock_screen"
+        private const val GYM_TIMER_PAUSED_VISIBILITY_MS = 60_000L
+
         init {
             System.loadLibrary("bluetooth_socket")
         }
@@ -680,6 +710,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         _packetLogsFlow.value = inMemoryLogs.toSet()
 
         sharedPreferences = getSharedPreferences("settings", MODE_PRIVATE)
+        GymTimer.setPreparationCountdownEnabled(GymModePrefs.preparationCountdownEnabled(this))
         initializeConfig()
 
         aacpManager = AACPManager()
@@ -1569,10 +1600,26 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 }
                 Log.d(TAG, "onStemPressReceived: falling through to normal actions")
 
-                if (stemPressType == StemPressType.SINGLE_PRESS && isAnnouncementSpeaking()) {
+                val now = SystemClock.elapsedRealtime()
+                if (GymModeStemPressArbitration.suppressesSinglePressAfterMultiPress(
+                        gymModeEnabled = config.gymModeEnabled,
+                        lastMultiPressAtMs = gymModeLastMultiPressAt[bud],
+                        nowMs = now,
+                    )
+                ) {
+                    Log.d("AirPodsParser", "Single press consumed after Gym Mode multi-press")
+                    return
+                }
+
+                if (stemPressType == StemPressType.SINGLE_PRESS && isAnnouncementAudible()) {
                     Log.d("AirPodsParser", "Single press consumed: stopping active announcement")
                     stopAnnouncement()
                     return
+                }
+
+                if (config.gymModeEnabled && stemPressType != StemPressType.SINGLE_PRESS) {
+                    gymModeLastMultiPressAt[bud] = now
+                    cancelPendingGymModeSinglePressIfSuperseded(bud, stemPressType)
                 }
 
                 if (cameraActive && config.cameraAction != null && stemPressType == config.cameraAction) {
@@ -1582,7 +1629,13 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 } else {
                     val action = getActionFor(bud, stemPressType)
                     Log.d("AirPodsParser", "$bud $stemPressType action: $action")
-                    action?.let { executeStemAction(it) }
+                    action?.let {
+                        if (GymModeStemPressArbitration.shouldDeferSinglePress(config.gymModeEnabled, stemPressType)) {
+                            deferGymModeSinglePress(bud, it)
+                        } else {
+                            executeStemAction(it)
+                        }
+                    }
                 }
             }
 
@@ -1710,12 +1763,48 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         }
     }
 
-    private fun isAnnouncementSpeaking(): Boolean =
-        TtsEngine.isSpeaking() || ElevenLabsEngine.isSpeaking()
+    private fun isAnnouncementAudible(): Boolean = AnnouncementCoordinator.isAudiblySpeaking()
+
+    private fun deferGymModeSinglePress(
+        bud: AACPManager.Companion.StemPressBudType,
+        action: StemAction
+    ) {
+        val pending = PendingGymModeSinglePress(bud, action)
+        pending.runnable = Runnable {
+            val actionToRun = synchronized(gymModeStemPressLock) {
+                if (pendingGymModeSinglePress !== pending) null
+                else {
+                    pendingGymModeSinglePress = null
+                    pending.action
+                }
+            }
+            actionToRun?.let(::executeStemAction)
+        }
+        synchronized(gymModeStemPressLock) {
+            pendingGymModeSinglePress?.let { gymModeStemPressHandler.removeCallbacks(it.runnable) }
+            pendingGymModeSinglePress = pending
+            gymModeStemPressHandler.postDelayed(
+                pending.runnable,
+                GymModeStemPressArbitration.SINGLE_PRESS_DELAY_MS
+            )
+        }
+    }
+
+    private fun cancelPendingGymModeSinglePressIfSuperseded(
+        bud: AACPManager.Companion.StemPressBudType,
+        type: StemPressType
+    ) {
+        synchronized(gymModeStemPressLock) {
+            val pending = pendingGymModeSinglePress ?: return
+            if (GymModeStemPressArbitration.supersedesDeferredSinglePress(pending.bud, bud, type)) {
+                gymModeStemPressHandler.removeCallbacks(pending.runnable)
+                pendingGymModeSinglePress = null
+            }
+        }
+    }
 
     private fun stopAnnouncement() {
-        TtsEngine.stop()
-        ElevenLabsEngine.stop()
+        AnnouncementCoordinator.stop()
     }
 
     private fun executeStemAction(action: StemAction) {
@@ -1787,39 +1876,18 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
             StemAction.MUTE_CALL -> toggleMicMute()
 
+            StemAction.TOGGLE_GYM_MODE -> {
+                GymModePrefs.setEnabled(this, !GymModePrefs.isEnabled(this))
+            }
+
             StemAction.GYM_TIMER_START_STOP -> {
-                val wasRunning = GymTimer.state() == GymTimer.State.RUNNING
                 GymTimer.startStop()
-                if (sharedPreferences.getBoolean("gym_voice_announcements_enabled", true)) {
-                    val text = when (GymTimer.state()) {
-                        GymTimer.State.RUNNING -> if (wasRunning) "Resumed." else "Started."
-                        GymTimer.State.PAUSED -> {
-                            val elapsed = GymTimer.elapsedMs()
-                            val mins = elapsed / 60000
-                            val secs = (elapsed % 60000) / 1000
-                            "Paused. ${if (mins > 0) "$mins minute${if (mins > 1) "s" else ""} " else ""}${secs} second${if (secs != 1L) "s" else ""}."
-                        }
-                        GymTimer.State.IDLE -> "Stopped."
-                    }
-                    announceGymText(text)
-                }
             }
             StemAction.GYM_TIMER_LAP -> {
                 GymTimer.lap()
-                if (sharedPreferences.getBoolean("gym_voice_announcements_enabled", true)) {
-                    val lap = GymTimer.laps().lastOrNull()
-                    if (lap != null) {
-                        val splitSec = lap.splitMs / 1000
-                        announceGymText("Lap ${lap.number}. $splitSec seconds.")
-                    }
-                }
             }
             StemAction.GYM_TIMER_RESET -> {
-                val hadElapsed = GymTimer.elapsedMs() > 0
                 GymTimer.reset()
-                if (hadElapsed && sharedPreferences.getBoolean("gym_voice_announcements_enabled", true)) {
-                    announceGymText("Timer reset.")
-                }
             }
         }
     }
@@ -1834,37 +1902,15 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             }
             "Gym Mode on. $modeName ready. Double press to start."
         } else "Gym Mode off."
-        announceGymText(text)
+        announceGymText(text, AnnouncementCoordinator.Priority.CONTROL)
     }
 
     /**
      * Routes gym timer announcements through the same TTS configuration as
      * notification announcements (ElevenLabs vs System TTS, language, voice).
      */
-    private fun announceGymText(text: String) {
-        val engine = AnnouncementPrefs.ttsEngine(this)
-        val languageForSystemTts = AnnouncementPrefs.languageForText(this, text)
-        val elevenLabsLanguageCode = AnnouncementPrefs.elevenLabsLanguageCode(this)
-        if (engine == AnnouncementPrefs.TTS_ENGINE_ELEVENLABS) {
-            val apiKey = AnnouncementPrefs.elevenLabsApiKey(this)
-            val voiceId = AnnouncementPrefs.elevenLabsVoiceId(this)
-            if (apiKey.isNotBlank()) {
-                ElevenLabsEngine.speak(
-                    context = this,
-                    text = text,
-                    apiKey = apiKey,
-                    voiceId = voiceId,
-                    languageCode = elevenLabsLanguageCode,
-                    onFallback = { reason ->
-                        Log.w(TAG, "ElevenLabs failed ($reason), falling back to system TTS")
-                        TtsEngine.speak(this, text, languageForSystemTts)
-                    }
-                )
-                return
-            }
-            Log.w(TAG, "ElevenLabs selected but no API key — using system TTS")
-        }
-        TtsEngine.speak(this, text, languageForSystemTts)
+    private fun announceGymText(text: String, priority: AnnouncementCoordinator.Priority) {
+        AnnouncementCoordinator.announce(this, text, priority)
     }
 
     /**
@@ -2259,14 +2305,145 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }
 
     private fun setupGymTimerAnnouncementsListener() {
-        GymTimer.addListener {
+        if (gymTimerAnnouncementListener != null) return
+        gymTimerAnnouncementListener = { event ->
             if (GymModePrefs.voiceAnnouncementsEnabled(this@AirPodsService)) {
-                val announcements = GymTimer.pollAnnouncements()
-                for (text in announcements) {
-                    announceGymText(text)
-                }
+                GymTimerAnnouncementPolicy.eventForSpeech(
+                    event = event,
+                    intermediateAnnouncementsEnabled = GymModePrefs.intermediateAnnouncementsEnabled(this@AirPodsService),
+                    finalCountdownEnabled = GymModePrefs.finalCountdownEnabled(this@AirPodsService)
+                )?.let { speechEvent -> GymTimerAnnouncementText.forEvent(
+                    event = speechEvent,
+                    stopwatchIntervalMinutes = GymModePrefs.stopwatchAnnouncementIntervalMinutes(this@AirPodsService)
+                ) }?.let { text -> announceGymText(text, event.gymAnnouncementPriority()) }
+            }
+            updateGymTimerLockScreenNotification(event)
+        }
+        GymTimer.addAnnouncementListener(gymTimerAnnouncementListener!!)
+    }
+
+    private fun GymTimer.AnnouncementEvent.gymAnnouncementPriority(): AnnouncementCoordinator.Priority =
+        when (this) {
+            is GymTimer.AnnouncementEvent.Started,
+            is GymTimer.AnnouncementEvent.Resumed,
+            is GymTimer.AnnouncementEvent.Paused,
+            is GymTimer.AnnouncementEvent.Reset,
+            is GymTimer.AnnouncementEvent.Completed -> AnnouncementCoordinator.Priority.CONTROL
+            is GymTimer.AnnouncementEvent.PreparationCountdown,
+                -> AnnouncementCoordinator.Priority.TIMER_SEQUENCE
+            is GymTimer.AnnouncementEvent.HiitCountdown -> AnnouncementCoordinator.Priority.TIMER_TIMING
+            is GymTimer.AnnouncementEvent.CountdownCue ->
+                if (finalSecond != null) AnnouncementCoordinator.Priority.TIMER_TIMING
+                else AnnouncementCoordinator.Priority.TIMER_PROGRESS
+            is GymTimer.AnnouncementEvent.StopwatchInterval,
+            is GymTimer.AnnouncementEvent.HiitPhaseStarted,
+            is GymTimer.AnnouncementEvent.LapRecorded -> AnnouncementCoordinator.Priority.TIMER_PROGRESS
+        }
+
+    private fun updateGymTimerLockScreenNotification(event: GymTimer.AnnouncementEvent) {
+        when (event) {
+            is GymTimer.AnnouncementEvent.Completed,
+            is GymTimer.AnnouncementEvent.Reset -> cancelGymTimerLockScreenNotification()
+
+            is GymTimer.AnnouncementEvent.Paused -> showGymTimerLockScreenNotification(paused = true)
+
+            is GymTimer.AnnouncementEvent.Started,
+            is GymTimer.AnnouncementEvent.Resumed -> {
+                showGymTimerLockScreenNotification(paused = false)
+                if (GymModePrefs.wakeScreenOnTimerStart(this)) openGymTimerOnLockScreen()
+            }
+
+            is GymTimer.AnnouncementEvent.HiitPhaseStarted -> showGymTimerLockScreenNotification(paused = false)
+
+            else -> Unit
+        }
+    }
+
+    private fun openGymTimerOnLockScreen() {
+        runCatching {
+            startActivity(
+                Intent(this, GymTimerLockScreenActivity::class.java).addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK or
+                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                        Intent.FLAG_ACTIVITY_SINGLE_TOP
+                )
+            )
+        }.onFailure { error ->
+            Log.w(TAG, "Unable to open Gym Timer on the lock screen", error)
+        }
+    }
+
+    @OptIn(ExperimentalMaterial3Api::class)
+    private fun showGymTimerLockScreenNotification(paused: Boolean) {
+        gymTimerPausedRemoval?.let(gymTimerNotificationHandler::removeCallbacks)
+        gymTimerPausedRemoval = null
+
+        val mode = GymTimer.mode()
+        val elapsedMs = GymTimer.elapsedMs()
+        val hiitInfo = if (mode == GymTimer.Mode.HIIT) GymTimer.hiitPhaseInfo() else null
+        val remainingMs = when (mode) {
+            GymTimer.Mode.COUNTDOWN -> GymTimer.countdownRemainingMs()
+            GymTimer.Mode.HIIT -> hiitInfo!!.third
+            GymTimer.Mode.STOPWATCH -> 0L
+        }
+        val contentText = if (paused) {
+            GymTimerNotificationText.pausedText(
+                mode,
+                if (mode == GymTimer.Mode.STOPWATCH) elapsedMs else remainingMs
+            )
+        } else {
+            GymTimerNotificationText.runningText(
+                mode,
+                hiitInfo?.first,
+                hiitInfo?.second,
+                GymTimer.getHiitRounds()
+            )
+        }
+        val notificationIntent = Intent(this, MainActivity::class.java)
+            .putExtra(EXTRA_OPEN_GYM_TIMER, true)
+            .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        val contentIntent = PendingIntent.getActivity(
+            this,
+            GYM_TIMER_NOTIFICATION_REQUEST_CODE,
+            notificationIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val builder = NotificationCompat.Builder(this, GYM_TIMER_NOTIFICATION_CHANNEL)
+            .setSmallIcon(R.drawable.airpods)
+            .setContentTitle("Gym Timer")
+            .setContentText(contentText)
+            .setContentIntent(contentIntent)
+            .setCategory(NotificationCompat.CATEGORY_STOPWATCH)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setOnlyAlertOnce(true)
+            .setOngoing(!paused)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+
+        if (!paused) {
+            builder.setUsesChronometer(true)
+            when (mode) {
+                GymTimer.Mode.COUNTDOWN,
+                GymTimer.Mode.HIIT -> builder
+                    .setWhen(System.currentTimeMillis() + remainingMs)
+                    .setChronometerCountDown(true)
+                GymTimer.Mode.STOPWATCH -> builder
+                    .setWhen(System.currentTimeMillis() - elapsedMs)
+                    .setChronometerCountDown(false)
             }
         }
+        getSystemService(NotificationManager::class.java).notify(GYM_TIMER_NOTIFICATION_ID, builder.build())
+
+        if (paused) {
+            val removal = Runnable { cancelGymTimerLockScreenNotification() }
+            gymTimerPausedRemoval = removal
+            gymTimerNotificationHandler.postDelayed(removal, GYM_TIMER_PAUSED_VISIBILITY_MS)
+        }
+    }
+
+    private fun cancelGymTimerLockScreenNotification() {
+        gymTimerPausedRemoval?.let(gymTimerNotificationHandler::removeCallbacks)
+        gymTimerPausedRemoval = null
+        getSystemService(NotificationManager::class.java).cancel(GYM_TIMER_NOTIFICATION_ID)
     }
 
     override fun onSharedPreferenceChanged(preferences: SharedPreferences?, key: String?) {
@@ -2369,6 +2546,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 config.gymModeEnabled = preferences.getBoolean(key, false)
                 setupStemActions()
                 announceGymModeToggle()
+                refreshGymModeNotification()
             }
 
             "gym_left_double_press_action" -> {
@@ -2599,9 +2777,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     fun startForegroundNotification() {
         val disconnectedNotificationChannel = NotificationChannel(
             "background_service_status",
-            "Background Service Status",
-            NotificationManager.IMPORTANCE_NONE
-        )
+            "AirPods Connection",
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = "Shows when EveryPods is maintaining the AirPods connection in the background"
+        }
 
         val connectedNotificationChannel = NotificationChannel(
             "airpods_connection_status",
@@ -2620,10 +2800,21 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             enableVibration(true)
         }
 
+        val gymTimerChannel = NotificationChannel(
+            GYM_TIMER_NOTIFICATION_CHANNEL,
+            "Gym Timer on lock screen",
+            NotificationManager.IMPORTANCE_HIGH
+        ).apply {
+            description = "Shows an active Gym Timer on the lock screen"
+            setSound(null, null)
+            enableVibration(false)
+        }
+
         val notificationManager = getSystemService(NotificationManager::class.java)
         notificationManager.createNotificationChannel(disconnectedNotificationChannel)
         notificationManager.createNotificationChannel(connectedNotificationChannel)
         notificationManager.createNotificationChannel(socketFailureChannel)
+        notificationManager.createNotificationChannel(gymTimerChannel)
 
         val notificationSettingsIntent =
             Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).apply {
@@ -2637,11 +2828,18 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val notification = NotificationCompat.Builder(this, "background_service_status")
-            .setSmallIcon(R.drawable.airpods).setContentTitle("Background Service Running")
-            .setContentText("Useless notification, disable it by clicking on it.")
+        val foregroundText = listOfNotNull(
+            "Maintaining your AirPods connection and controls",
+            gymModeNotificationStatus()
+        ).joinToString(" · ")
+        val notificationBuilder = NotificationCompat.Builder(this, "background_service_status")
+            .setSmallIcon(R.drawable.airpods).setContentTitle("EveryPods — AirPods connection active")
+            .setContentText(foregroundText)
             .setContentIntent(pendingIntentNotifDisable).setCategory(Notification.CATEGORY_SERVICE)
-            .setPriority(NotificationCompat.PRIORITY_LOW).setOngoing(true).build()
+            .setPriority(NotificationCompat.PRIORITY_LOW).setOngoing(true)
+        addConnectLastDeviceNotificationAction(notificationBuilder)
+        addGymModeNotificationAction(notificationBuilder)
+        val notification = notificationBuilder.build()
 
         try {
             startForeground(1, notification)
@@ -3005,12 +3203,16 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             // in the notification, mirroring the app's main screen, instead of an
             // apparently empty content line.
             val isLimitedMode = a2dpConnected && !isConnected()
-            val notificationText = when {
+            val connectionText = when {
                 isLimitedMode && batteryText.isNotBlank() ->
                     "${getString(R.string.connected_via_bluetooth)} · $batteryText"
                 isLimitedMode -> getString(R.string.connected_via_bluetooth)
                 else -> batteryText
             }
+            val notificationText = listOfNotNull(
+                connectionText.takeIf { it.isNotBlank() },
+                gymModeNotificationStatus()
+            ).joinToString(" · ")
 
             val updatedNotificationBuilder =
                 NotificationCompat.Builder(this, "airpods_connection_status")
@@ -3019,6 +3221,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     .setContentText(notificationText)
                     .setContentIntent(pendingIntent).setCategory(Notification.CATEGORY_STATUS)
                     .setPriority(NotificationCompat.PRIORITY_LOW).setOngoing(true)
+
+            addConnectLastDeviceNotificationAction(updatedNotificationBuilder)
+            addGymModeNotificationAction(updatedNotificationBuilder)
 
             if (disconnectedBecauseReversed) {
                 updatedNotificationBuilder.addAction(
@@ -3038,6 +3243,43 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             notificationManager.cancel(2)
         } else if (!config.bleOnlyMode && !socketReady && !a2dpConnected) {
             showSocketConnectionFailureNotification("Socket created, but not connected. Check logs")
+        }
+    }
+
+    private fun addGymModeNotificationAction(builder: NotificationCompat.Builder) {
+        val enabled = GymModePrefs.isEnabled(this)
+        val label = if (enabled) "Gym Mode Off" else "Gym Mode On"
+        val pendingIntent = PendingIntent.getService(
+            this,
+            GYM_MODE_NOTIFICATION_REQUEST_CODE,
+            Intent(this, AirPodsService::class.java).setAction(ACTION_TOGGLE_GYM_MODE),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        builder.addAction(R.drawable.airpods, label, pendingIntent)
+    }
+
+    private fun addConnectLastDeviceNotificationAction(builder: NotificationCompat.Builder) {
+        val lastDeviceMac = getSharedPreferences("settings", MODE_PRIVATE)
+            .getString("mac_address", "")
+            .orEmpty()
+        if (lastDeviceMac.isBlank()) return
+
+        val pendingIntent = PendingIntent.getService(
+            this,
+            CONNECT_LAST_DEVICE_NOTIFICATION_REQUEST_CODE,
+            Intent(this, AirPodsService::class.java).setAction(ACTION_CONNECT_LAST_DEVICE),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        builder.addAction(R.drawable.ic_bluetooth, "Connect", pendingIntent)
+    }
+
+    private fun gymModeNotificationStatus(): String =
+        if (GymModePrefs.isEnabled(this)) "Gym Mode on" else "Gym Mode off"
+
+    private fun refreshGymModeNotification() {
+        startForegroundNotification()
+        if (runCatching { isConnected() || isA2dpConnected() }.getOrDefault(false)) {
+            updateNotificationContent(true, config.deviceName, batteryNotification.getBattery())
         }
     }
 
@@ -3800,8 +4042,12 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             takeOver("music", manualTakeOverAfterReversed = true)
         }
 
-        if (intent?.action == ACTION_WIDGET_RECONNECT) {
-            Log.d(TAG, "widget reconnect tapped")
+        if (intent?.action == ACTION_TOGGLE_GYM_MODE) {
+            GymModePrefs.setEnabled(this, !GymModePrefs.isEnabled(this))
+        }
+
+        if (intent?.action == ACTION_WIDGET_RECONNECT || intent?.action == ACTION_CONNECT_LAST_DEVICE) {
+            Log.d(TAG, "reconnect last device tapped")
             reconnectFromSavedMac()
         }
 
@@ -4970,6 +5216,14 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
         CallNotifListener.onMuteStateChanged = null
         sharedPreferences.unregisterOnSharedPreferenceChangeListener(this)
+        cancelGymTimerLockScreenNotification()
+        synchronized(gymModeStemPressLock) {
+            pendingGymModeSinglePress?.let { gymModeStemPressHandler.removeCallbacks(it.runnable) }
+            pendingGymModeSinglePress = null
+            gymModeLastMultiPressAt.clear()
+        }
+        gymTimerAnnouncementListener?.let(GymTimer::removeAnnouncementListener)
+        gymTimerAnnouncementListener = null
 
         try {
             unregisterReceiver(bluetoothReceiver)
