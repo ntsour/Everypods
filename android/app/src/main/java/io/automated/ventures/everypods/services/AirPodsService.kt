@@ -1,1 +1,0 @@
-https://raw.githubusercontent.com/ntsour/Everypods/9d176ec91de608393932935c5bc2c6773322d747/android/app/src/main/java/io/automated/ventures/everypods/services/AirPodsService.kt
