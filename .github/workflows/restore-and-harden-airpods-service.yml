@@ -1,0 +1,42 @@
+name: restore-and-harden-airpods-service
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'patches/stem-action-safe.patch'
+      - '.github/workflows/restore-and-harden-airpods-service.yml'
+permissions:
+  contents: write
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Restore AirPodsService from 1fea2e3 and apply StemAction harden
+        run: |
+          set -euo pipefail
+          TARGET=android/app/src/main/java/io/automated/ventures/everypods/services/AirPodsService.kt
+          git checkout 1fea2e3e48991d76d9d25fa207579370fd5951e5 -- "$TARGET"
+          test -s "$TARGET"
+          patch -p1 < patches/stem-action-safe.patch
+          if grep -n 'StemAction.fromString' "$TARGET" | grep -v fromStringOrDefault; then
+            echo "Unexpected StemAction.fromString left behind" >&2
+            exit 1
+          fi
+          grep -q 'stemActionFromPrefs' "$TARGET"
+          grep -q 'fromStringOrDefault' android/app/src/main/java/io/automated/ventures/everypods/data/StemAction.kt
+          wc -c "$TARGET"
+      - name: Commit restored + hardened AirPodsService
+        run: |
+          set -euo pipefail
+          git config user.name "ntsour"
+          git config user.email "ntsour@gmail.com"
+          git add android/app/src/main/java/io/automated/ventures/everypods/services/AirPodsService.kt
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "fix(AirPodsService): restore file + safe StemAction prefs parse"
+          git push
