@@ -4028,7 +4028,20 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             a2dpConnectedToOurMac = true
         }
         val connected = try {
-            proxy.connectedDevices.any { it.address == mac }
+            val sinks = proxy.connectedDevices
+            val hit = sinks.any { it.address == mac }
+            if (!hit) {
+                val summary = sinks.joinToString(prefix = "[", postfix = "]") {
+                    val n = try { it.name } catch (_: Exception) { "?" }
+                    "$n/${it.address}"
+                }
+                Log.d(
+                    TAG,
+                    "<LogCollector:Conn> A2DP check miss for $mac; localProxySinks=$summary " +
+                        "(empty list ⇒ nothing connected here; non-empty other MAC ⇒ different sink on this phone)"
+                )
+            }
+            hit
         } catch (e: Exception) {
             Log.w(TAG, "isA2dpConnectedTo failed: ${e.message}")
             return true
@@ -4089,10 +4102,33 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             // device is the active sink. Don't snatch the L2CAP slot.
             val deviceMac = try { device.address } catch (_: Exception) { "" }
             if (deviceMac.isNotEmpty() && !isA2dpConnectedTo(deviceMac)) {
+                // BluetoothA2dp.connectedDevices on THIS phone only lists sinks connected
+                // to us — we cannot name the foreign holder (Xiaomi/Mac/etc.). Log local
+                // proxy state so QA can tell "no sink here" vs "we hold a different sink".
+                val proxySinks = try {
+                    bluetoothA2dpProxy?.connectedDevices?.joinToString(prefix = "[", postfix = "]") {
+                        val n = try { it.name } catch (_: Exception) { "?" }
+                        "$n/${it.address}"
+                    } ?: "[proxy=null]"
+                } catch (e: Exception) {
+                    "[error=${e.message}]"
+                }
+                val lidPending = pendingLidAutoconnectRunnable != null ||
+                    (lastLidAutoconnectAttemptMs > 0L &&
+                        System.currentTimeMillis() - lastLidAutoconnectAttemptMs < 6_000L)
                 Log.d(
                     TAG,
-                    "<LogCollector:Conn> connect blocked — A2DP isn't connected to us; another device owns the AirPods"
+                    "<LogCollector:Conn> connect blocked — A2DP not connected to us for $deviceMac " +
+                        "(localProxySinks=$proxySinks; inference=foreign_or_disconnected; " +
+                        "lidAutoconnectRecent=$lidPending). Public BT APIs cannot identify the other phone."
                 )
+                if (lidPending) {
+                    Log.d(
+                        TAG,
+                        "<LogCollector:LidLease> connectToSocket gated until A2DP lands after connectAudio " +
+                            "(expected brief race; lid path retries connectAudio, not L2CAP)"
+                    )
+                }
                 return
             }
         } else {
