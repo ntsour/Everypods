@@ -693,6 +693,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         }
 
         ServiceManager.setService(this)
+        // Experiment: keep Automatic Connection firmware pref OFF (easy revert in ViewModel flag).
+        sharedPreferences.edit {
+            putBoolean("automatic_connection_ctrl_cmd", false)
+        }
+
         startForegroundNotification()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             initGestureDetector()
