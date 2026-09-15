@@ -1071,7 +1071,9 @@ private fun AudioContent(
                 onAutomaticEarDetectionChanged = { viewModel.setAutomaticEarDetectionEnabled(it) },
                 automaticConnectionEnabled = state.automaticConnectionEnabled,
                 onAutomaticConnectionChanged = { viewModel.setAutomaticConnectionEnabled(it) },
-                earDetectionAvailable = state.aacpAvailable)
+                earDetectionAvailable = state.aacpAvailable,
+                lidOpenLastHolderAutoconnect = state.lidOpenLastHolderAutoconnect,
+                onLidOpenLastHolderAutoconnectChanged = { viewModel.setLidOpenLastHolderAutoconnect(it) })
         }
         MenuDivider()
         Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {

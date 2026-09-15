@@ -23,6 +23,7 @@ package io.automated.ventures.everypods.services
 import io.automated.ventures.everypods.utils.CrossDevice
 import io.automated.ventures.everypods.utils.CrossDeviceClient
 import io.automated.ventures.everypods.utils.CrossDevicePackets
+import io.automated.ventures.everypods.utils.AudioLeasePrefs
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Notification
@@ -406,6 +407,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
          * active again) and Xiaomi/Pixel fights the peer for the connection.
          */
         const val A2DP_STATE_FLUX_WINDOW_MS: Long = 2_500L
+
+        /** Debounce for lid-open Option-1 auto-grab (see AudioLeasePrefs). */
+        const val LID_AUTOCONNECT_DEBOUNCE_MS: Long = AudioLeasePrefs.LID_AUTOCONNECT_DEBOUNCE_MS
+        @Volatile @JvmStatic var lastLidAutoconnectAttemptMs: Long = 0L
         @Volatile @JvmStatic var lastA2dpStateChangeMs: Long = 0L
 
         /**
@@ -497,6 +502,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         ) {
             if (lidOpen) {
                 Log.d(TAG, "Lid opened")
+                Log.d(TAG, "<LogCollector:LidLease> lid_open")
                 showPopup(
                     this@AirPodsService,
                     getSharedPreferences("settings", MODE_PRIVATE).getString("name", "AirPods Pro")
@@ -508,29 +514,32 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 // every subsequent scan result until a valid level is seen.
                 if (this@AirPodsService::socket.isInitialized && socket.isConnected) {
                     updateCaseBatteryFromBLE()
-                    return
+                } else {
+                    // Not connected via AACP — update everything from BLE.
+                    val ble          = bleManager.getMostRecentStatus()
+                    val leftLevel    = ble?.leftBattery ?: 0
+                    val rightLevel   = ble?.rightBattery ?: 0
+                    val caseLevel    = ble?.caseBattery ?: 0
+                    val leftCharging  = ble?.isLeftCharging
+                    val rightCharging = ble?.isRightCharging
+                    val caseCharging  = ble?.isCaseCharging
+
+                    batteryNotification.setBatteryDirect(
+                        leftLevel    = leftLevel,
+                        leftCharging = leftCharging == true,
+                        rightLevel   = rightLevel,
+                        rightCharging = rightCharging == true,
+                        caseLevel    = caseLevel,
+                        caseCharging = caseCharging == true
+                    )
+                    sendBatteryBroadcast()
                 }
-
-                // Not connected via AACP — update everything from BLE.
-                val ble          = bleManager.getMostRecentStatus()
-                val leftLevel    = ble?.leftBattery ?: 0
-                val rightLevel   = ble?.rightBattery ?: 0
-                val caseLevel    = ble?.caseBattery ?: 0
-                val leftCharging  = ble?.isLeftCharging
-                val rightCharging = ble?.isRightCharging
-                val caseCharging  = ble?.isCaseCharging
-
-                batteryNotification.setBatteryDirect(
-                    leftLevel    = leftLevel,
-                    leftCharging = leftCharging == true,
-                    rightLevel   = rightLevel,
-                    rightCharging = rightCharging == true,
-                    caseLevel    = caseLevel,
-                    caseCharging = caseCharging == true
-                )
-                sendBatteryBroadcast()
+                // Option 1: schedule leaseholder lid auto-grab (flag-gated). Never
+                // sets manual=true — existing ACL/A2DP → L2CAP pipeline handles that.
+                maybeScheduleLidAutoconnect()
             } else {
                 Log.d(TAG, "Lid closed")
+                cancelPendingLidAutoconnect("lid_closed")
             }
         }
 
@@ -749,6 +758,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 )
                 if (!contains("takeover_when_media_start")) putBoolean(
                     "takeover_when_media_start", true
+                )
+
+                // Option 1: lid-open auto-connect for last CrossDevice audio holder (default off).
+                if (!contains(AudioLeasePrefs.KEY_LID_OPEN_LAST_HOLDER_AUTOCONNECT)) putBoolean(
+                    AudioLeasePrefs.KEY_LID_OPEN_LAST_HOLDER_AUTOCONNECT, false
                 )
 
                 // One-time migration: existing installs had these two defaulting to
@@ -2247,7 +2261,12 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
         when (key) {
             "name" -> config.deviceName = preferences.getString(key, "AirPods") ?: "AirPods"
-            "mac_address" -> macAddress = preferences.getString(key, "") ?: ""
+            "mac_address" -> {
+                macAddress = preferences.getString(key, "") ?: ""
+                if (macAddress.isEmpty()) {
+                    AudioLeasePrefs.releaseLease(sharedPreferences, "mac_address_cleared")
+                }
+            }
             "automatic_ear_detection" -> config.earDetectionEnabled =
                 preferences.getBoolean(key, true)
 
@@ -2695,6 +2714,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
     @Volatile private var startupBatteryAlertArmed = false
     private var startupBatteryAlertJob: kotlinx.coroutines.Job? = null
+
+    /** Pending lid-open auto-grab; cancelled if lid closes before connect starts. */
+    private var pendingLidAutoconnectRunnable: Runnable? = null
+    private val lidAutoconnectHandler = Handler(Looper.getMainLooper())
 
     private fun armStartupBatteryAlert() {
         startupBatteryAlertArmed = true
@@ -3686,8 +3709,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                             // confirmPeerOwnership() on the source. Gated on
                             // `CrossDevice.isAvailable` so we don't double-fire when the
                             // AACP path already flipped it false and notified.
-                            if (action == "android.bluetooth.a2dp.profile.action.CONNECTION_STATE_CHANGED"
-                                && CrossDevice.isAvailable) {
+                            if (action == "android.bluetooth.a2dp.profile.action.CONNECTION_STATE_CHANGED") {
                                 if (AirPodsService.isAutonomousPeerConnect()) {
                                     // X1: the OS auto-connected our A2DP to the AirPods (notification
                                     // chime / ringtone / Apple auto-switch) while a peer holds them and
@@ -3696,9 +3718,16 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                                     // the announcement; onAudioSourceReceived will relinquish naturally.
                                     Log.d(TAG, "X1: autonomous A2DP connect (peer holds pods, no local takeover/media) — suppressing ownership announcement")
                                 } else {
-                                    CrossDevice.isAvailable = false
-                                    CrossDevice.notifyConnected()
-                                    Log.d(TAG, "Notified CrossDevice peer (A2DP connected): AIRPODS_CONNECTED")
+                                    if (CrossDevice.isAvailable) {
+                                        CrossDevice.isAvailable = false
+                                        CrossDevice.notifyConnected()
+                                        Log.d(TAG, "Notified CrossDevice peer (A2DP connected): AIRPODS_CONNECTED")
+                                    }
+                                    // Option 1: intentional A2DP hold → claim last-audio lease.
+                                    context?.getSharedPreferences("settings", MODE_PRIVATE)?.let { p ->
+                                        AudioLeasePrefs.claimLease(p, "a2dp_connected")
+                                    }
+                                    Log.d(TAG, "<LogCollector:LidLease> a2dp_connected")
                                 }
                             }
                         } else if (connectionState == 0) { // BluetoothProfile.STATE_DISCONNECTED
@@ -3894,6 +3923,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 Log.d(TAG, "takeOver: already A2DP connected and own the route — no-op, no popup")
                 // Do NOT call showTakeoverIsland() here: nothing was taken over.
                 // The route was already live before this call.
+                // Option 1: successful hold still transfers/claims the lease (any takeOver).
+                AudioLeasePrefs.claimLease(sharedPreferences, "takeover_already_holding")
                 return
             }
         }
@@ -4447,6 +4478,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     CrossDevice.isAvailable = false  // we have them now, peer doesn't
                     CrossDevice.notifyConnected()
                     Log.d(TAG, "Notified CrossDevice peer: AIRPODS_CONNECTED")
+                    AudioLeasePrefs.claimLease(sharedPreferences, "aacp_connected")
                 }
                 setupStemActions()
 
@@ -4507,6 +4539,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
      * (don't wait for ACL_DISCONNECTED) and clear the flag.
      */
     fun confirmPeerOwnership() {
+        // Option 1: peer announced ownership while we no longer hold → release lease.
+        if (!holdsAirPods()) {
+            AudioLeasePrefs.releaseLease(sharedPreferences, "peer_ownership_confirmed")
+        }
         if (!expectingPeerTakeover) return
         peerDropCooldownUntilMs = System.currentTimeMillis() + PEER_DROP_COOLDOWN_MS
         expectingPeerTakeover = false
@@ -4593,6 +4629,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             override fun onServiceDisconnected(profile: Int) {}
         }, BluetoothProfile.A2DP)
         CrossDevice.notifyDisconnected()
+        // Option 1: we yielded to a peer — release last-audio lease.
+        AudioLeasePrefs.releaseLease(sharedPreferences, "disconnect_for_cd")
     }
 
     fun disconnectAirPods() {
@@ -4952,10 +4990,17 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             it.address == macAddress
         }
         if (device != null) {
+            // Manual override: stamp intent so X1 does not treat the ensuing A2DP
+            // connect as autonomous, and so lease claim on CONNECTED is allowed.
+            lastTakeoverIntentMs = System.currentTimeMillis()
             CoroutineScope(Dispatchers.IO).launch {
                 Log.d(TAG, "connecting to $macAddress")
                 connectToSocket(bluetoothAdapter, device!!, manual = true)
                 connectAudio(this@AirPodsService, device!!)
+                // If A2DP is already ours after manual reconnect, claim immediately.
+                if (holdsAirPods()) {
+                    AudioLeasePrefs.claimLease(sharedPreferences, "reconnect_from_saved_mac")
+                }
             }
         }
     }
@@ -5002,10 +5047,120 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
      * media-start) or the manual "Reconnect to last device" button, both of
      * which bypass this gate.
      */
+
+    private fun cancelPendingLidAutoconnect(reason: String) {
+        pendingLidAutoconnectRunnable?.let {
+            lidAutoconnectHandler.removeCallbacks(it)
+            pendingLidAutoconnectRunnable = null
+            Log.d(TAG, "<LogCollector:LidLease> skip reason=cancelled_$reason")
+        }
+    }
+
+    /**
+     * Option 1 lid-open auto-grab. Schedules connectAudio after a short delay so a
+     * false lid blip that closes within BLEManager lid-close timeout can cancel.
+     * Never sets manual=true on connectToSocket.
+     */
+    @SuppressLint("MissingPermission")
+    private fun maybeScheduleLidAutoconnect() {
+        if (!AudioLeasePrefs.isFeatureEnabled(sharedPreferences)) {
+            return
+        }
+        Log.d(TAG, "<LogCollector:LidLease> lease_check holder=${AudioLeasePrefs.isLeaseHolder(sharedPreferences)} shared=${CrossDevice.isEnabled && CrossDevice.configuredPeers.isNotEmpty()} peerHolding=${CrossDevice.isAvailable}")
+
+        cancelPendingLidAutoconnect("reschedule")
+
+        val runnable = Runnable {
+            pendingLidAutoconnectRunnable = null
+            runLidAutoconnectAttempt()
+        }
+        pendingLidAutoconnectRunnable = runnable
+        // Delay slightly under LID_CLOSE_TIMEOUT so a quick close cancels first.
+        lidAutoconnectHandler.postDelayed(runnable, 400L)
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun runLidAutoconnectAttempt() {
+        if (!AudioLeasePrefs.isFeatureEnabled(sharedPreferences)) return
+
+        val shared = CrossDevice.isEnabled && CrossDevice.configuredPeers.isNotEmpty()
+        val holder = AudioLeasePrefs.isLeaseHolder(sharedPreferences)
+        val everSet = AudioLeasePrefs.leaseEverSet(sharedPreferences)
+        Log.d(TAG, "<LogCollector:LidLease> lease_check holder=$holder shared=$shared peerHolding=${CrossDevice.isAvailable}")
+
+        if (macAddress.isEmpty()) {
+            Log.d(TAG, "<LogCollector:LidLease> skip reason=no_bonded_mac")
+            return
+        }
+        if (holdsAirPods()) {
+            Log.d(TAG, "<LogCollector:LidLease> skip reason=already_holds")
+            return
+        }
+        if (shared && CrossDevice.isAvailable) {
+            Log.d(TAG, "<LogCollector:LidLease> skip reason=peer_holding")
+            return
+        }
+        if (!AudioLeasePrefs.mayLidAutoGrab(shared, holder, everSet)) {
+            Log.d(TAG, "<LogCollector:LidLease> skip reason=not_lease_holder")
+            return
+        }
+        val now = System.currentTimeMillis()
+        if (now < peerDropCooldownUntilMs) {
+            Log.d(TAG, "<LogCollector:LidLease> skip reason=peer_drop_cooldown")
+            return
+        }
+        if (lastA2dpStateChangeMs > 0 && (now - lastA2dpStateChangeMs) < A2DP_STATE_FLUX_WINDOW_MS) {
+            Log.d(TAG, "<LogCollector:LidLease> skip reason=a2dp_flux")
+            return
+        }
+        if (lastLidAutoconnectAttemptMs > 0 && (now - lastLidAutoconnectAttemptMs) < LID_AUTOCONNECT_DEBOUNCE_MS) {
+            Log.d(TAG, "<LogCollector:LidLease> skip reason=debounce")
+            return
+        }
+
+        val bluetoothAdapter = getSystemService(BluetoothManager::class.java).adapter
+        val savedDevice = bluetoothAdapter?.bondedDevices?.find { it.address == macAddress }
+        if (savedDevice == null) {
+            Log.d(TAG, "<LogCollector:LidLease> skip reason=device_not_bonded")
+            return
+        }
+
+        lastLidAutoconnectAttemptMs = now
+        Log.d(TAG, "<LogCollector:LidLease> connect_audio_attempt")
+        connectAudio(this, savedDevice)
+        // Same retry schedule as takeOver — do NOT set manual=true.
+        val retryDevice = savedDevice
+        for (retryDelay in TAKEOVER_RETRY_DELAYS_MS) {
+            Handler(Looper.getMainLooper()).postDelayed({
+                val a2dpState = try {
+                    bluetoothA2dpProxy?.getConnectionState(retryDevice)
+                } catch (_: Exception) {
+                    null
+                }
+                if (a2dpState == BluetoothProfile.STATE_CONNECTED ||
+                    a2dpState == BluetoothProfile.STATE_CONNECTING
+                ) {
+                    return@postDelayed
+                }
+                if (holdsAirPods()) return@postDelayed
+                Log.d(TAG, "<LogCollector:LidLease> connect_audio_attempt retry after ${retryDelay}ms")
+                connectAudio(this, retryDevice)
+            }, retryDelay)
+        }
+    }
+
     private fun mayProactivelyConnect(): Boolean {
         val shared = CrossDevice.isEnabled && CrossDevice.configuredPeers.isNotEmpty()
-        val result = !shared || isA2dpConnectedTo(macAddress)
-        Log.d(TAG, "<LogCollector:Conn> mayProactivelyConnect: isEnabled=${CrossDevice.isEnabled} configuredPeers=${CrossDevice.configuredPeers} shared=$shared a2dpOurs=${isA2dpConnectedTo(macAddress)} result=$result")
+        val a2dpOurs = isA2dpConnectedTo(macAddress)
+        val flagOn = AudioLeasePrefs.isFeatureEnabled(sharedPreferences)
+        val result = AudioLeasePrefs.mayProactivelyConnect(
+            flagOn = flagOn,
+            shared = shared,
+            leaseHolder = AudioLeasePrefs.isLeaseHolder(sharedPreferences),
+            leaseEverSet = AudioLeasePrefs.leaseEverSet(sharedPreferences),
+            a2dpOurs = a2dpOurs,
+        )
+        Log.d(TAG, "<LogCollector:Conn> mayProactivelyConnect: isEnabled=${CrossDevice.isEnabled} configuredPeers=${CrossDevice.configuredPeers} shared=$shared a2dpOurs=$a2dpOurs flagOn=$flagOn lease=${AudioLeasePrefs.isLeaseHolder(sharedPreferences)} result=$result")
         return result
     }
 
