@@ -1,1 +1,1 @@
-__INCLUDE_FILE__/workspace/AirPodsService.kt
+file:///workspace/AirPodsService.kt
