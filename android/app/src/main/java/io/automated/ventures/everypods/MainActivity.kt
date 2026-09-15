@@ -182,8 +182,8 @@ import io.automated.ventures.everypods.services.CallNotifListener
 import io.automated.ventures.everypods.utils.isAacpCapable
 import kotlin.io.encoding.ExperimentalEncodingApi
 
-lateinit var serviceConnection: ServiceConnection
-lateinit var connectionStatusReceiver: BroadcastReceiver
+// Bound from Compose via DisposableEffect; Activity lifecycle only tears down safely.
+var serviceConnection: ServiceConnection? = null
 
 //@AndroidEntryPoint
 @ExperimentalMaterial3Api
@@ -201,36 +201,10 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        try {
-            unbindService(serviceConnection)
-            Log.d("MainActivity", "Unbound service")
-        } catch (e: Exception) {
-            Log.e("MainActivity", "Error while unbinding service: $e")
-        }
-        try {
-            unregisterReceiver(connectionStatusReceiver)
-            Log.d("MainActivity", "Unregistered receiver")
-        } catch (e: Exception) {
-            Log.e("MainActivity", "Error while unregistering receiver: $e")
-        }
+        // Service bind/unbind is owned by Main()'s DisposableEffect so onStop no longer
+        // drops the connection (that left the UI stuck on "Starting…" after any stop).
         sendBroadcast(Intent(AirPodsNotifications.DISCONNECT_RECEIVERS))
         super.onDestroy()
-    }
-
-    override fun onStop() {
-        try {
-            unbindService(serviceConnection)
-            Log.d("MainActivity", "Unbound service")
-        } catch (e: Exception) {
-            Log.e("MainActivity", "Error while unbinding service: $e")
-        }
-        try {
-            unregisterReceiver(connectionStatusReceiver)
-            Log.d("MainActivity", "Unregistered receiver")
-        } catch (e: Exception) {
-            Log.e("MainActivity", "Error while unregistering receiver: $e")
-        }
-        super.onStop()
     }
 }
 
@@ -522,28 +496,46 @@ fun Main() {
             }
         }
 
-        context.startForegroundService(Intent(context, AirPodsService::class.java))
-
-        serviceConnection = remember {
-            object : ServiceConnection {
+        // Bind once for this composition; rebind after process/config changes.
+        // Do not bind as a raw composition side-effect or unbind in Activity.onStop —
+        // that raced and left airPodsViewModel null ("Starting…") permanently.
+        DisposableEffect(Unit) {
+            val connection = object : ServiceConnection {
                 override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
                     val binder = service as AirPodsService.LocalBinder
                     airPodsService.value = binder.getService()
+                    if (airPodsService.value?.isConnected() == true) {
+                        isConnected.value = true
+                    }
                 }
 
                 override fun onServiceDisconnected(name: ComponentName?) {
                     airPodsService.value = null
                 }
             }
-        }
-
-        context.bindService(
-            Intent(context, AirPodsService::class.java),
-            serviceConnection,
-            Context.BIND_AUTO_CREATE
-        )
-
-        if (airPodsService.value?.isConnected() == true) {
-            isConnected.value = true
+            serviceConnection = connection
+            try {
+                context.startForegroundService(Intent(context, AirPodsService::class.java))
+            } catch (e: Exception) {
+                Log.e("MainActivity", "startForegroundService failed: $e")
+            }
+            val bound = context.bindService(
+                Intent(context, AirPodsService::class.java),
+                connection,
+                Context.BIND_AUTO_CREATE
+            )
+            Log.d("MainActivity", "bindService requested bound=$bound")
+            onDispose {
+                try {
+                    context.unbindService(connection)
+                    Log.d("MainActivity", "Unbound service (DisposableEffect)")
+                } catch (e: Exception) {
+                    Log.e("MainActivity", "Error while unbinding service: $e")
+                }
+                if (serviceConnection === connection) {
+                    serviceConnection = null
+                }
+                airPodsService.value = null
+            }
         }
 }

@@ -95,6 +95,7 @@ data class AirPodsUiState(
     val automaticConnectionEnabled: Boolean = true,
     val crossDeviceEnabled: Boolean = false,
     val crossDevicePeers: List<PeerUiInfo> = emptyList(),
+    val lidOpenLastHolderAutoconnect: Boolean = false,
 
     val leftAction: StemAction = StemAction.CYCLE_NOISE_CONTROL_MODES,
     val rightAction: StemAction = StemAction.CYCLE_NOISE_CONTROL_MODES,
@@ -128,6 +129,11 @@ class AirPodsViewModel(
     private val controlRepo: ControlCommandRepository,
     private val appContext: Context
 ) : ViewModel() {
+    companion object {
+        /** Flip to false to restore Automatic Connection toggle + user control. */
+        const val AUTOMATIC_CONNECTION_EXPERIMENT_FORCE_OFF: Boolean = true
+    }
+
     private val _uiState = MutableStateFlow(
         AirPodsUiState(
             deviceName = preferredDeviceName(),
@@ -181,6 +187,9 @@ class AirPodsViewModel(
         loadName()
         loadInstance()
         loadSharedPreferences()
+        if (AUTOMATIC_CONNECTION_EXPERIMENT_FORCE_OFF) {
+            enforceAutomaticConnectionOff(pushToDevice = false)
+        }
         setupControlObservers()
         observeBilling()
         loadControlList()
@@ -248,6 +257,9 @@ class AirPodsViewModel(
                         }
                         // Also refresh the standard-Bluetooth / saved-device flags.
                         refreshInitialData()
+                        if (AUTOMATIC_CONNECTION_EXPERIMENT_FORCE_OFF) {
+                            enforceAutomaticConnectionOff(pushToDevice = true)
+                        }
                     }
 
                     AirPodsNotifications.AIRPODS_CONNECTED -> {
@@ -257,8 +269,13 @@ class AirPodsViewModel(
                     }
 
                     AirPodsNotifications.AIRPODS_DISCONNECTED -> {
+                        sharedPreferences.edit { putBoolean("connection_successful", false) }
                         _uiState.update {
-                            it.copy(isLocallyConnected = false)
+                            it.copy(
+                                isLocallyConnected = false,
+                                isA2dpConnected = false,
+                                connectionSuccessful = false,
+                            )
                         }
                         refreshInitialData()
                     }
@@ -425,24 +442,30 @@ class AirPodsViewModel(
         val offListeningModeEnabled = sharedPreferences.getBoolean("off_listening_mode", true)
         val automaticEarDetectionEnabled =
             sharedPreferences.getBoolean("automatic_ear_detection", true)
+        // Experiment: always treat as off in UI; persist false so old prefs don't resurrect.
+        if (AUTOMATIC_CONNECTION_EXPERIMENT_FORCE_OFF) {
+            sharedPreferences.edit { putBoolean("automatic_connection_ctrl_cmd", false) }
+        }
         val automaticConnectionEnabled =
-            sharedPreferences.getBoolean("automatic_connection_ctrl_cmd", true)
+            if (AUTOMATIC_CONNECTION_EXPERIMENT_FORCE_OFF) false
+            else sharedPreferences.getBoolean("automatic_connection_ctrl_cmd", false)
         val crossDeviceEnabled =
             sharedPreferences.getBoolean("cross_device_enabled", CrossDevice.configuredPeers.isNotEmpty())
+        val lidOpenLastHolderAutoconnect =
+            sharedPreferences.getBoolean(
+                io.automated.ventures.everypods.utils.AudioLeasePrefs.KEY_LID_OPEN_LAST_HOLDER_AUTOCONNECT,
+                false
+            )
         val headGesturesEnabled = sharedPreferences.getBoolean("head_gestures_enabled", false)
         val headGesturesAnswerCall = sharedPreferences.getBoolean("head_gestures_answer_call", true)
         val headGesturesMuteCall = sharedPreferences.getBoolean("head_gestures_mute_call", true)
-        val leftAction = StemAction.valueOf(
-            sharedPreferences.getString(
-                "left_long_press_action",
-                "CYCLE_NOISE_CONTROL_MODES"
-            ) ?: "CYCLE_NOISE_CONTROL_MODES"
+        val leftAction = StemAction.fromStringOrDefault(
+            sharedPreferences.getString("left_long_press_action", null),
+            "CYCLE_NOISE_CONTROL_MODES"
         )
-        val rightAction = StemAction.valueOf(
-            sharedPreferences.getString(
-                "right_long_press_action",
-                "CYCLE_NOISE_CONTROL_MODES"
-            ) ?: "CYCLE_NOISE_CONTROL_MODES"
+        val rightAction = StemAction.fromStringOrDefault(
+            sharedPreferences.getString("right_long_press_action", null),
+            "CYCLE_NOISE_CONTROL_MODES"
         )
         val dynamicEndOfCharge = sharedPreferences.getBoolean("dynamic_end_of_charge", true)
 
@@ -454,6 +477,7 @@ class AirPodsViewModel(
                 automaticEarDetectionEnabled = automaticEarDetectionEnabled,
                 automaticConnectionEnabled = automaticConnectionEnabled,
                 crossDeviceEnabled = crossDeviceEnabled,
+                lidOpenLastHolderAutoconnect = lidOpenLastHolderAutoconnect,
                 headGesturesEnabled = headGesturesEnabled,
                 headGesturesAnswerCall = headGesturesAnswerCall,
                 headGesturesMuteCall = headGesturesMuteCall,
@@ -577,6 +601,12 @@ class AirPodsViewModel(
     }
 
     fun setAutomaticConnectionEnabled(enabled: Boolean) {
+        // Experiment: UI hidden; ignore user attempts to re-enable. Keep method for revert.
+        if (AUTOMATIC_CONNECTION_EXPERIMENT_FORCE_OFF && enabled) {
+            android.util.Log.d("AirPodsViewModel", "Ignoring Automatic Connection enable (experiment force-off)")
+            enforceAutomaticConnectionOff(pushToDevice = true)
+            return
+        }
         sharedPreferences.edit { putBoolean("automatic_connection_ctrl_cmd", enabled) }
         setControlCommandBoolean(ControlCommandIdentifiers.AUTOMATIC_CONNECTION_CONFIG, enabled)
         _uiState.update {
@@ -586,9 +616,31 @@ class AirPodsViewModel(
         }
     }
 
+    /**
+     * Product experiment: hide Automatic Connection and keep firmware preference OFF
+     * ("last connected" style) so Option 1 + CrossDevice handover can be evaluated alone.
+     */
+    private fun enforceAutomaticConnectionOff(pushToDevice: Boolean) {
+        sharedPreferences.edit { putBoolean("automatic_connection_ctrl_cmd", false) }
+        _uiState.update { it.copy(automaticConnectionEnabled = false) }
+        if (pushToDevice && !isDemoMode) {
+            setControlCommandBoolean(ControlCommandIdentifiers.AUTOMATIC_CONNECTION_CONFIG, false)
+        }
+    }
+
     fun setCrossDeviceEnabled(enabled: Boolean) {
         CrossDevice.setEnabled(appContext, enabled)
         _uiState.update { it.copy(crossDeviceEnabled = enabled) }
+    }
+
+    fun setLidOpenLastHolderAutoconnect(enabled: Boolean) {
+        sharedPreferences.edit {
+            putBoolean(
+                io.automated.ventures.everypods.utils.AudioLeasePrefs.KEY_LID_OPEN_LAST_HOLDER_AUTOCONNECT,
+                enabled
+            )
+        }
+        _uiState.update { it.copy(lidOpenLastHolderAutoconnect = enabled) }
     }
 
     /** Add [mac] to the configured peer set and reconcile live links. */

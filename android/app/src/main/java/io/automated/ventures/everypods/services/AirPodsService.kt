@@ -23,6 +23,7 @@ package io.automated.ventures.everypods.services
 import io.automated.ventures.everypods.utils.CrossDevice
 import io.automated.ventures.everypods.utils.CrossDeviceClient
 import io.automated.ventures.everypods.utils.CrossDevicePackets
+import io.automated.ventures.everypods.utils.AudioLeasePrefs
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Notification
@@ -406,6 +407,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
          * active again) and Xiaomi/Pixel fights the peer for the connection.
          */
         const val A2DP_STATE_FLUX_WINDOW_MS: Long = 2_500L
+
+        /** Debounce for lid-open Option-1 auto-grab (see AudioLeasePrefs). */
+        const val LID_AUTOCONNECT_DEBOUNCE_MS: Long = AudioLeasePrefs.LID_AUTOCONNECT_DEBOUNCE_MS
+        @Volatile @JvmStatic var lastLidAutoconnectAttemptMs: Long = 0L
         @Volatile @JvmStatic var lastA2dpStateChangeMs: Long = 0L
 
         /**
@@ -418,6 +423,30 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
          * before the proxy has reported in.
          */
         @Volatile @JvmStatic var a2dpConnectedToOurMac: Boolean = true
+
+        /**
+         * System Bluetooth turned off (or BLE-only half-on). ACL/A2DP disconnect
+         * broadcasts are often missing on Xiaomi — force the same cleanup path as
+         * a real ACL drop so UI / prefs / socket do not stay "Connected".
+         */
+        @JvmStatic
+        fun clearLocalConnectionForDisabledAdapter(context: Context, adapterState: Int) {
+            Log.d(
+                TAG,
+                "<LogCollector:Conn> BT adapter state=$adapterState — clearing local connection " +
+                    "(OEM may omit ACL/A2DP disconnect when BT is toggled off)"
+            )
+            a2dpConnectedToOurMac = false
+            context.getSharedPreferences("settings", Context.MODE_PRIVATE).edit {
+                putBoolean("connection_successful", false)
+            }
+            io.automated.ventures.everypods.utils.MediaController.resetMusicActiveState()
+            context.sendBroadcast(
+                Intent(AirPodsNotifications.AIRPODS_DISCONNECTED).apply {
+                    `package` = context.packageName
+                }
+            )
+        }
     }
 
     private val bleStatusListener = object : BLEManager.AirPodsStatusListener {
@@ -497,6 +526,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         ) {
             if (lidOpen) {
                 Log.d(TAG, "Lid opened")
+                Log.d(TAG, "<LogCollector:LidLease> lid_open")
+                lidOtherOwnerNotifiedForOpen = false
                 showPopup(
                     this@AirPodsService,
                     getSharedPreferences("settings", MODE_PRIVATE).getString("name", "AirPods Pro")
@@ -508,29 +539,33 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 // every subsequent scan result until a valid level is seen.
                 if (this@AirPodsService::socket.isInitialized && socket.isConnected) {
                     updateCaseBatteryFromBLE()
-                    return
+                } else {
+                    // Not connected via AACP — update everything from BLE.
+                    val ble          = bleManager.getMostRecentStatus()
+                    val leftLevel    = ble?.leftBattery ?: 0
+                    val rightLevel   = ble?.rightBattery ?: 0
+                    val caseLevel    = ble?.caseBattery ?: 0
+                    val leftCharging  = ble?.isLeftCharging
+                    val rightCharging = ble?.isRightCharging
+                    val caseCharging  = ble?.isCaseCharging
+
+                    batteryNotification.setBatteryDirect(
+                        leftLevel    = leftLevel,
+                        leftCharging = leftCharging == true,
+                        rightLevel   = rightLevel,
+                        rightCharging = rightCharging == true,
+                        caseLevel    = caseLevel,
+                        caseCharging = caseCharging == true
+                    )
+                    sendBatteryBroadcast()
                 }
-
-                // Not connected via AACP — update everything from BLE.
-                val ble          = bleManager.getMostRecentStatus()
-                val leftLevel    = ble?.leftBattery ?: 0
-                val rightLevel   = ble?.rightBattery ?: 0
-                val caseLevel    = ble?.caseBattery ?: 0
-                val leftCharging  = ble?.isLeftCharging
-                val rightCharging = ble?.isRightCharging
-                val caseCharging  = ble?.isCaseCharging
-
-                batteryNotification.setBatteryDirect(
-                    leftLevel    = leftLevel,
-                    leftCharging = leftCharging == true,
-                    rightLevel   = rightLevel,
-                    rightCharging = rightCharging == true,
-                    caseLevel    = caseLevel,
-                    caseCharging = caseCharging == true
-                )
-                sendBatteryBroadcast()
+                // Option 1: schedule leaseholder lid auto-grab (flag-gated). Never
+                // sets manual=true — existing ACL/A2DP → L2CAP pipeline handles that.
+                maybeScheduleLidAutoconnect()
             } else {
                 Log.d(TAG, "Lid closed")
+                cancelPendingLidAutoconnect("lid_closed")
+                lidOtherOwnerNotifiedForOpen = false
             }
         }
 
@@ -682,6 +717,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         }
 
         ServiceManager.setService(this)
+        // Experiment: keep Automatic Connection firmware pref OFF (easy revert in ViewModel flag).
+        sharedPreferences.edit {
+            putBoolean("automatic_connection_ctrl_cmd", false)
+        }
+
         startForegroundNotification()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             initGestureDetector()
@@ -749,6 +789,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 )
                 if (!contains("takeover_when_media_start")) putBoolean(
                     "takeover_when_media_start", true
+                )
+
+                // Option 1: lid-open auto-connect for last CrossDevice audio holder (default off).
+                if (!contains(AudioLeasePrefs.KEY_LID_OPEN_LAST_HOLDER_AUTOCONNECT)) putBoolean(
+                    AudioLeasePrefs.KEY_LID_OPEN_LAST_HOLDER_AUTOCONNECT, false
                 )
 
                 // One-time migration: existing installs had these two defaulting to
@@ -1283,6 +1328,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                             Log.d(TAG, "Battery: case-opened but shared arrangement and not holding A2DP — not grabbing, wait for user intent")
                         } else {
                             Log.d(TAG, "Battery: pods no longer both charging (case opened) → connectAudio")
+                            MediaController.clearAutoPlayForPassiveConnect("battery_case_opened")
                             connectAudio(this@AirPodsService, device)
                         }
                     }
@@ -2017,8 +2063,12 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             val nowSingle = newInEarData.count { it } == 1
 
             if (wasNone && nowSingle) {
-                MediaController.sendPlay()
-                MediaController.iPausedTheMedia = false
+                if (areBothPodsInCase()) {
+                    Log.d(TAG, "ear-in transition while both pods in case — not auto-playing")
+                } else {
+                    MediaController.sendPlay()
+                    MediaController.iPausedTheMedia = false
+                }
                 return
             }
 
@@ -2040,8 +2090,12 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             if (newInEarData.sorted() != inEarData.sorted()) {
                 if (inEar) {
                     if (!justEnabledA2dp) {
-                        MediaController.sendPlay()
-                        MediaController.iPausedTheMedia = false
+                        if (areBothPodsInCase()) {
+                            Log.d(TAG, "ear-detection in-ear while both pods in case — not auto-playing")
+                        } else {
+                            MediaController.sendPlay()
+                            MediaController.iPausedTheMedia = false
+                        }
                     }
                 } else {
                     MediaController.sendPause()
@@ -2069,10 +2123,19 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     )
 
                     if (state == BluetoothProfile.STATE_CONNECTED && previousState != BluetoothProfile.STATE_CONNECTED && device?.address == this@AirPodsService.device?.address) {
-
-                        Log.d("MediaController", "A2DP connected, sending play command")
-                        MediaController.sendPlay()
-                        MediaController.iPausedTheMedia = false
+                        val sinceLid = System.currentTimeMillis() - lastLidAutoconnectAttemptMs
+                        if (lastLidAutoconnectAttemptMs > 0L && sinceLid < LID_AUTOCONNECT_DEBOUNCE_MS) {
+                            Log.d(
+                                "MediaController",
+                                "A2DP connected after lid autoconnect (${sinceLid}ms) — not auto-playing"
+                            )
+                        } else if (areBothPodsInCase()) {
+                            Log.d("MediaController", "A2DP connected but both pods in case — not auto-playing")
+                        } else {
+                            Log.d("MediaController", "A2DP connected, sending play command")
+                            MediaController.sendPlay()
+                            MediaController.iPausedTheMedia = false
+                        }
 
                         context.unregisterReceiver(this)
                     }
@@ -2087,6 +2150,18 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         } else {
             registerReceiver(a2dpConnectionStateReceiver, a2dpIntentFilter)
         }
+    }
+
+
+    /** Resolve stem action from prefs; rewrite unknown values so downgrades cannot NPE. */
+    private fun stemActionFromPrefs(key: String, defaultName: String): StemAction {
+        val raw = sharedPreferences.getString(key, defaultName) ?: defaultName
+        val resolved = StemAction.fromStringOrDefault(raw, defaultName)
+        if (raw != resolved.name) {
+            sharedPreferences.edit().putString(key, resolved.name).apply()
+            Log.d(TAG, "<LogCollector:StemAction> migrated unknown prefs $key=$raw -> ${resolved.name}")
+        }
+        return resolved
     }
 
     private fun initializeConfig() {
@@ -2132,79 +2207,29 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             ),
 
             // Stem actions
-            leftSinglePressAction = StemAction.fromString(
-                sharedPreferences.getString(
-                    "left_single_press_action", "PLAY_PAUSE"
-                ) ?: "PLAY_PAUSE"
-            )!!,
-            rightSinglePressAction = StemAction.fromString(
-                sharedPreferences.getString(
-                    "right_single_press_action", "PLAY_PAUSE"
-                ) ?: "PLAY_PAUSE"
-            )!!,
+            leftSinglePressAction = stemActionFromPrefs("left_single_press_action", "PLAY_PAUSE"),
+            rightSinglePressAction = stemActionFromPrefs("right_single_press_action", "PLAY_PAUSE"),
 
-            leftDoublePressAction = StemAction.fromString(
-                sharedPreferences.getString(
-                    "left_double_press_action", "PREVIOUS_TRACK"
-                ) ?: "NEXT_TRACK"
-            )!!,
-            rightDoublePressAction = StemAction.fromString(
-                sharedPreferences.getString(
-                    "right_double_press_action", "NEXT_TRACK"
-                ) ?: "NEXT_TRACK"
-            )!!,
+            leftDoublePressAction = stemActionFromPrefs("left_double_press_action", "PREVIOUS_TRACK"),
+            rightDoublePressAction = stemActionFromPrefs("right_double_press_action", "NEXT_TRACK"),
 
-            leftTriplePressAction = StemAction.fromString(
-                sharedPreferences.getString(
-                    "left_triple_press_action", "PREVIOUS_TRACK"
-                ) ?: "PREVIOUS_TRACK"
-            )!!,
-            rightTriplePressAction = StemAction.fromString(
-                sharedPreferences.getString(
-                    "right_triple_press_action", "PREVIOUS_TRACK"
-                ) ?: "PREVIOUS_TRACK"
-            )!!,
+            leftTriplePressAction = stemActionFromPrefs("left_triple_press_action", "PREVIOUS_TRACK"),
+            rightTriplePressAction = stemActionFromPrefs("right_triple_press_action", "PREVIOUS_TRACK"),
 
-            leftLongPressAction = StemAction.fromString(
-                sharedPreferences.getString(
-                    "left_long_press_action", "CYCLE_NOISE_CONTROL_MODES"
-                ) ?: "CYCLE_NOISE_CONTROL_MODES"
-            )!!,
-            rightLongPressAction = StemAction.fromString(
-                sharedPreferences.getString(
-                    "right_long_press_action", "DIGITAL_ASSISTANT"
-                ) ?: "DIGITAL_ASSISTANT"
-            )!!,
+            leftLongPressAction = stemActionFromPrefs("left_long_press_action", "CYCLE_NOISE_CONTROL_MODES"),
+            rightLongPressAction = stemActionFromPrefs("right_long_press_action", "DIGITAL_ASSISTANT"),
 
             cameraAction = sharedPreferences.getString("camera_action", null)
                 ?.let { StemPressType.valueOf(it) },
 
             // Gym mode
             gymModeEnabled = sharedPreferences.getBoolean("gym_mode_enabled", false),
-            leftGymDoublePressAction = StemAction.fromString(
-                sharedPreferences.getString("gym_left_double_press_action", "GYM_TIMER_START_STOP")
-                    ?: "GYM_TIMER_START_STOP"
-            )!!,
-            rightGymDoublePressAction = StemAction.fromString(
-                sharedPreferences.getString("gym_right_double_press_action", "GYM_TIMER_START_STOP")
-                    ?: "GYM_TIMER_START_STOP"
-            )!!,
-            leftGymTriplePressAction = StemAction.fromString(
-                sharedPreferences.getString("gym_left_triple_press_action", "GYM_TIMER_LAP")
-                    ?: "GYM_TIMER_LAP"
-            )!!,
-            rightGymTriplePressAction = StemAction.fromString(
-                sharedPreferences.getString("gym_right_triple_press_action", "GYM_TIMER_LAP")
-                    ?: "GYM_TIMER_LAP"
-            )!!,
-            leftGymLongPressAction = StemAction.fromString(
-                sharedPreferences.getString("gym_left_long_press_action", "GYM_TIMER_RESET")
-                    ?: "GYM_TIMER_RESET"
-            )!!,
-            rightGymLongPressAction = StemAction.fromString(
-                sharedPreferences.getString("gym_right_long_press_action", "GYM_TIMER_RESET")
-                    ?: "GYM_TIMER_RESET"
-            )!!,
+            leftGymDoublePressAction = stemActionFromPrefs("gym_left_double_press_action", "GYM_TIMER_START_STOP"),
+            rightGymDoublePressAction = stemActionFromPrefs("gym_right_double_press_action", "GYM_TIMER_START_STOP"),
+            leftGymTriplePressAction = stemActionFromPrefs("gym_left_triple_press_action", "GYM_TIMER_LAP"),
+            rightGymTriplePressAction = stemActionFromPrefs("gym_right_triple_press_action", "GYM_TIMER_LAP"),
+            leftGymLongPressAction = stemActionFromPrefs("gym_left_long_press_action", "GYM_TIMER_RESET"),
+            rightGymLongPressAction = stemActionFromPrefs("gym_right_long_press_action", "GYM_TIMER_RESET"),
 
             // AirPods device information
             airpodsName = sharedPreferences.getString("airpods_name", "") ?: "",
@@ -2247,7 +2272,12 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
         when (key) {
             "name" -> config.deviceName = preferences.getString(key, "AirPods") ?: "AirPods"
-            "mac_address" -> macAddress = preferences.getString(key, "") ?: ""
+            "mac_address" -> {
+                macAddress = preferences.getString(key, "") ?: ""
+                if (macAddress.isEmpty()) {
+                    AudioLeasePrefs.releaseLease(sharedPreferences, "mac_address_cleared")
+                }
+            }
             "automatic_ear_detection" -> config.earDetectionEnabled =
                 preferences.getBoolean(key, true)
 
@@ -2291,59 +2321,42 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 preferences.getBoolean(key, true)
 
             "left_single_press_action" -> {
-                config.leftSinglePressAction = StemAction.fromString(
-                    preferences.getString(key, "PLAY_PAUSE") ?: "PLAY_PAUSE"
-                )!!
+                config.leftSinglePressAction = stemActionFromPrefs(key, "PLAY_PAUSE")
                 setupStemActions()
             }
 
             "right_single_press_action" -> {
-                config.rightSinglePressAction = StemAction.fromString(
-                    preferences.getString(key, "PLAY_PAUSE") ?: "PLAY_PAUSE"
-                )!!
+                config.rightSinglePressAction = stemActionFromPrefs(key, "PLAY_PAUSE")
                 setupStemActions()
             }
 
             "left_double_press_action" -> {
-                config.leftDoublePressAction = StemAction.fromString(
-                    preferences.getString(key, "PREVIOUS_TRACK") ?: "PREVIOUS_TRACK"
-                )!!
+                config.leftDoublePressAction = stemActionFromPrefs(key, "PREVIOUS_TRACK")
                 setupStemActions()
             }
 
             "right_double_press_action" -> {
-                config.rightDoublePressAction = StemAction.fromString(
-                    preferences.getString(key, "NEXT_TRACK") ?: "NEXT_TRACK"
-                )!!
+                config.rightDoublePressAction = stemActionFromPrefs(key, "NEXT_TRACK")
                 setupStemActions()
             }
 
             "left_triple_press_action" -> {
-                config.leftTriplePressAction = StemAction.fromString(
-                    preferences.getString(key, "PREVIOUS_TRACK") ?: "PREVIOUS_TRACK"
-                )!!
+                config.leftTriplePressAction = stemActionFromPrefs(key, "PREVIOUS_TRACK")
                 setupStemActions()
             }
 
             "right_triple_press_action" -> {
-                config.rightTriplePressAction = StemAction.fromString(
-                    preferences.getString(key, "PREVIOUS_TRACK") ?: "PREVIOUS_TRACK"
-                )!!
+                config.rightTriplePressAction = stemActionFromPrefs(key, "PREVIOUS_TRACK")
                 setupStemActions()
             }
 
             "left_long_press_action" -> {
-                config.leftLongPressAction = StemAction.fromString(
-                    preferences.getString(key, "CYCLE_NOISE_CONTROL_MODES")
-                        ?: "CYCLE_NOISE_CONTROL_MODES"
-                )!!
+                config.leftLongPressAction = stemActionFromPrefs(key, "CYCLE_NOISE_CONTROL_MODES")
                 setupStemActions()
             }
 
             "right_long_press_action" -> {
-                config.rightLongPressAction = StemAction.fromString(
-                    preferences.getString(key, "DIGITAL_ASSISTANT") ?: "DIGITAL_ASSISTANT"
-                )!!
+                config.rightLongPressAction = stemActionFromPrefs(key, "DIGITAL_ASSISTANT")
                 setupStemActions()
             }
 
@@ -2357,39 +2370,27 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             }
 
             "gym_left_double_press_action" -> {
-                config.leftGymDoublePressAction = StemAction.fromString(
-                    preferences.getString(key, "GYM_TIMER_START_STOP") ?: "GYM_TIMER_START_STOP"
-                )!!
+                config.leftGymDoublePressAction = stemActionFromPrefs(key, "GYM_TIMER_START_STOP")
                 setupStemActions()
             }
             "gym_right_double_press_action" -> {
-                config.rightGymDoublePressAction = StemAction.fromString(
-                    preferences.getString(key, "GYM_TIMER_START_STOP") ?: "GYM_TIMER_START_STOP"
-                )!!
+                config.rightGymDoublePressAction = stemActionFromPrefs(key, "GYM_TIMER_START_STOP")
                 setupStemActions()
             }
             "gym_left_triple_press_action" -> {
-                config.leftGymTriplePressAction = StemAction.fromString(
-                    preferences.getString(key, "GYM_TIMER_LAP") ?: "GYM_TIMER_LAP"
-                )!!
+                config.leftGymTriplePressAction = stemActionFromPrefs(key, "GYM_TIMER_LAP")
                 setupStemActions()
             }
             "gym_right_triple_press_action" -> {
-                config.rightGymTriplePressAction = StemAction.fromString(
-                    preferences.getString(key, "GYM_TIMER_LAP") ?: "GYM_TIMER_LAP"
-                )!!
+                config.rightGymTriplePressAction = stemActionFromPrefs(key, "GYM_TIMER_LAP")
                 setupStemActions()
             }
             "gym_left_long_press_action" -> {
-                config.leftGymLongPressAction = StemAction.fromString(
-                    preferences.getString(key, "GYM_TIMER_RESET") ?: "GYM_TIMER_RESET"
-                )!!
+                config.leftGymLongPressAction = stemActionFromPrefs(key, "GYM_TIMER_RESET")
                 setupStemActions()
             }
             "gym_right_long_press_action" -> {
-                config.rightGymLongPressAction = StemAction.fromString(
-                    preferences.getString(key, "GYM_TIMER_RESET") ?: "GYM_TIMER_RESET"
-                )!!
+                config.rightGymLongPressAction = stemActionFromPrefs(key, "GYM_TIMER_RESET")
                 setupStemActions()
             }
 
@@ -2695,6 +2696,19 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
     @Volatile private var startupBatteryAlertArmed = false
     private var startupBatteryAlertJob: kotlinx.coroutines.Job? = null
+
+    /** Pending lid-open auto-grab; cancelled if lid closes before connect starts. */
+    private var pendingLidAutoconnectRunnable: Runnable? = null
+    private val lidAutoconnectHandler = Handler(Looper.getMainLooper())
+    /** One soft UX notify per lid-open when we skip because another device holds audio. */
+    private var lidOtherOwnerNotifiedForOpen: Boolean = false
+
+    private data class A2dpOwnerHint(
+        /** `peer_cross_device` when CrossDevice.holders is non-empty; else `foreign_or_unknown`. */
+        val kind: String,
+        val ownerMac: String?,
+        val displayName: String?,
+    )
 
     private fun armStartupBatteryAlert() {
         startupBatteryAlertArmed = true
@@ -3558,6 +3572,27 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             val context = context?.applicationContext
             val name = context?.getSharedPreferences("settings", MODE_PRIVATE)
                 ?.getString("name", bluetoothDevice?.name)
+
+            // ACTION_STATE_CHANGED has no EXTRA_DEVICE, so it never enters the
+            // device!=null branch below. Xiaomi (and some Pixel paths) often skip
+            // ACL_DISCONNECTED / A2DP disconnect when the user turns system BT off
+            // (or leaves BLE-only on), leaving the UI stuck on "Connected".
+            if (action == BluetoothAdapter.ACTION_STATE_CHANGED && context != null) {
+                val state = intent.getIntExtra(
+                    BluetoothAdapter.EXTRA_STATE,
+                    BluetoothAdapter.ERROR
+                )
+                // Classic audio needs STATE_ON. STATE_OFF / TURNING_OFF / BLE_ON
+                // (half-on OEM mode) cannot route A2DP — clear local connected state.
+                // 15 = STATE_BLE_ON (hidden from public SDK; Xiaomi half-on).
+                val classicAudioGone = state == BluetoothAdapter.STATE_OFF ||
+                    state == BluetoothAdapter.STATE_TURNING_OFF ||
+                    state == 15
+                if (classicAudioGone) {
+                    clearLocalConnectionForDisabledAdapter(context, state)
+                }
+            }
+
             if (bluetoothDevice != null && !action.isNullOrEmpty()) {
                 Log.d(TAG, "Received bluetooth connection broadcast: action=$action, device=${bluetoothDevice.address}")
                 if (BluetoothDevice.ACTION_ACL_CONNECTED == action) {
@@ -3686,8 +3721,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                             // confirmPeerOwnership() on the source. Gated on
                             // `CrossDevice.isAvailable` so we don't double-fire when the
                             // AACP path already flipped it false and notified.
-                            if (action == "android.bluetooth.a2dp.profile.action.CONNECTION_STATE_CHANGED"
-                                && CrossDevice.isAvailable) {
+                            if (action == "android.bluetooth.a2dp.profile.action.CONNECTION_STATE_CHANGED") {
                                 if (AirPodsService.isAutonomousPeerConnect()) {
                                     // X1: the OS auto-connected our A2DP to the AirPods (notification
                                     // chime / ringtone / Apple auto-switch) while a peer holds them and
@@ -3696,9 +3730,16 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                                     // the announcement; onAudioSourceReceived will relinquish naturally.
                                     Log.d(TAG, "X1: autonomous A2DP connect (peer holds pods, no local takeover/media) — suppressing ownership announcement")
                                 } else {
-                                    CrossDevice.isAvailable = false
-                                    CrossDevice.notifyConnected()
-                                    Log.d(TAG, "Notified CrossDevice peer (A2DP connected): AIRPODS_CONNECTED")
+                                    if (CrossDevice.isAvailable) {
+                                        CrossDevice.isAvailable = false
+                                        CrossDevice.notifyConnected()
+                                        Log.d(TAG, "Notified CrossDevice peer (A2DP connected): AIRPODS_CONNECTED")
+                                    }
+                                    // Option 1: intentional A2DP hold → claim last-audio lease.
+                                    context?.getSharedPreferences("settings", MODE_PRIVATE)?.let { p ->
+                                        AudioLeasePrefs.claimLease(p, "a2dp_connected")
+                                    }
+                                    Log.d(TAG, "<LogCollector:LidLease> a2dp_connected")
                                 }
                             }
                         } else if (connectionState == 0) { // BluetoothProfile.STATE_DISCONNECTED
@@ -3894,6 +3935,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 Log.d(TAG, "takeOver: already A2DP connected and own the route — no-op, no popup")
                 // Do NOT call showTakeoverIsland() here: nothing was taken over.
                 // The route was already live before this call.
+                // Option 1: successful hold still transfers/claims the lease (any takeOver).
+                AudioLeasePrefs.claimLease(sharedPreferences, "takeover_already_holding")
                 return
             }
         }
@@ -4059,12 +4102,36 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     @SuppressLint("MissingPermission")
     private fun isA2dpConnectedTo(mac: String): Boolean {
         if (mac.isEmpty()) return false
+        val adapter = try {
+            getSystemService(BluetoothManager::class.java).adapter
+        } catch (_: Exception) {
+            null
+        }
+        // Classic A2DP requires STATE_ON. isEnabled() is false for STATE_OFF and
+        // STATE_BLE_ON (Xiaomi half-on) — never report connected in those states.
+        if (adapter == null || !adapter.isEnabled) {
+            a2dpConnectedToOurMac = false
+            return false
+        }
         val proxy = bluetoothA2dpProxy ?: return true.also {
             // Cache stays optimistic until the proxy connects.
             a2dpConnectedToOurMac = true
         }
         val connected = try {
-            proxy.connectedDevices.any { it.address == mac }
+            val sinks = proxy.connectedDevices
+            val hit = sinks.any { it.address == mac }
+            if (!hit) {
+                val summary = sinks.joinToString(prefix = "[", postfix = "]") {
+                    val n = try { it.name } catch (_: Exception) { "?" }
+                    "$n/${it.address}"
+                }
+                Log.d(
+                    TAG,
+                    "<LogCollector:Conn> A2DP check miss for $mac; localProxySinks=$summary " +
+                        "(empty list ⇒ nothing connected here; non-empty other MAC ⇒ different sink on this phone)"
+                )
+            }
+            hit
         } catch (e: Exception) {
             Log.w(TAG, "isA2dpConnectedTo failed: ${e.message}")
             return true
@@ -4125,10 +4192,42 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             // device is the active sink. Don't snatch the L2CAP slot.
             val deviceMac = try { device.address } catch (_: Exception) { "" }
             if (deviceMac.isNotEmpty() && !isA2dpConnectedTo(deviceMac)) {
+                // BluetoothA2dp.connectedDevices on THIS phone only lists sinks connected
+                // to us — we cannot name the foreign holder (Xiaomi/Mac/etc.). Log local
+                // proxy state so QA can tell "no sink here" vs "we hold a different sink".
+                val proxySinks = try {
+                    bluetoothA2dpProxy?.connectedDevices?.joinToString(prefix = "[", postfix = "]") {
+                        val n = try { it.name } catch (_: Exception) { "?" }
+                        "$n/${it.address}"
+                    } ?: "[proxy=null]"
+                } catch (e: Exception) {
+                    "[error=${e.message}]"
+                }
+                val lidPending = pendingLidAutoconnectRunnable != null ||
+                    (lastLidAutoconnectAttemptMs > 0L &&
+                        System.currentTimeMillis() - lastLidAutoconnectAttemptMs < 6_000L)
+                val hint = resolveA2dpOwnerHint()
                 Log.d(
                     TAG,
-                    "<LogCollector:Conn> connect blocked — A2DP isn't connected to us; another device owns the AirPods"
+                    "<LogCollector:Conn> connect blocked — A2DP not connected to us for $deviceMac " +
+                        "(localProxySinks=$proxySinks; ownerKind=${hint.kind}; " +
+                        "ownerMac=${hint.ownerMac ?: "-"}; displayName=${hint.displayName ?: "-"}; " +
+                        "lidAutoconnectRecent=$lidPending)"
                 )
+                logLidOwnerContext("connect_blocked_a2dp", hint)
+                if (lidPending) {
+                    Log.d(
+                        TAG,
+                        "<LogCollector:LidLease> connectToSocket gated until A2DP lands after connectAudio " +
+                            "(expected brief race; lid path retries connectAudio, not L2CAP)"
+                    )
+                    // If a CrossDevice peer is the known holder, soft-notify once for this lid.
+                    // foreign_or_unknown during the race after our own connectAudio is common —
+                    // only toast when we positively know a peer holds.
+                    if (hint.kind == "peer_cross_device") {
+                        maybeNotifyLidOtherOwner("connect_blocked_peer")
+                    }
+                }
                 return
             }
         } else {
@@ -4447,6 +4546,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     CrossDevice.isAvailable = false  // we have them now, peer doesn't
                     CrossDevice.notifyConnected()
                     Log.d(TAG, "Notified CrossDevice peer: AIRPODS_CONNECTED")
+                    AudioLeasePrefs.claimLease(sharedPreferences, "aacp_connected")
                 }
                 setupStemActions()
 
@@ -4507,6 +4607,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
      * (don't wait for ACL_DISCONNECTED) and clear the flag.
      */
     fun confirmPeerOwnership() {
+        // Option 1: peer announced ownership while we no longer hold → release lease.
+        if (!holdsAirPods()) {
+            AudioLeasePrefs.releaseLease(sharedPreferences, "peer_ownership_confirmed")
+        }
         if (!expectingPeerTakeover) return
         peerDropCooldownUntilMs = System.currentTimeMillis() + PEER_DROP_COOLDOWN_MS
         expectingPeerTakeover = false
@@ -4593,6 +4697,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             override fun onServiceDisconnected(profile: Int) {}
         }, BluetoothProfile.A2DP)
         CrossDevice.notifyDisconnected()
+        // Option 1: we yielded to a peer — release last-audio lease.
+        AudioLeasePrefs.releaseLease(sharedPreferences, "disconnect_for_cd")
     }
 
     fun disconnectAirPods() {
@@ -4952,10 +5058,17 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             it.address == macAddress
         }
         if (device != null) {
+            // Manual override: stamp intent so X1 does not treat the ensuing A2DP
+            // connect as autonomous, and so lease claim on CONNECTED is allowed.
+            lastTakeoverIntentMs = System.currentTimeMillis()
             CoroutineScope(Dispatchers.IO).launch {
                 Log.d(TAG, "connecting to $macAddress")
                 connectToSocket(bluetoothAdapter, device!!, manual = true)
                 connectAudio(this@AirPodsService, device!!)
+                // If A2DP is already ours after manual reconnect, claim immediately.
+                if (holdsAirPods()) {
+                    AudioLeasePrefs.claimLease(sharedPreferences, "reconnect_from_saved_mac")
+                }
             }
         }
     }
@@ -5002,10 +5115,197 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
      * media-start) or the manual "Reconnect to last device" button, both of
      * which bypass this gate.
      */
+
+    @SuppressLint("MissingPermission")
+    private fun peerDisplayName(mac: String): String {
+        return try {
+            val adapter = getSystemService(BluetoothManager::class.java).adapter
+            val remote = runCatching { adapter?.getRemoteDevice(mac)?.name }.getOrNull()
+            remote?.takeIf { it.isNotBlank() }
+                ?: adapter?.bondedDevices?.find { it.address.equals(mac, ignoreCase = true) }?.name
+                ?: mac
+        } catch (_: Exception) {
+            mac
+        }
+    }
+
+    /**
+     * Best-effort owner hint for logs/UX. CrossDevice peers can be named; a foreign
+     * phone (old EveryPods / iPhone / Mac) is not visible via public A2DP APIs.
+     */
+    @SuppressLint("MissingPermission")
+    private fun resolveA2dpOwnerHint(): A2dpOwnerHint {
+        val peerMac = CrossDevice.holders.firstOrNull()
+        if (peerMac != null) {
+            return A2dpOwnerHint(
+                kind = "peer_cross_device",
+                ownerMac = peerMac,
+                displayName = peerDisplayName(peerMac),
+            )
+        }
+        return A2dpOwnerHint(
+            kind = "foreign_or_unknown",
+            ownerMac = null,
+            displayName = null,
+        )
+    }
+
+    private fun logLidOwnerContext(reason: String, hint: A2dpOwnerHint = resolveA2dpOwnerHint()) {
+        Log.d(
+            TAG,
+            "<LogCollector:LidLease> owner_context reason=$reason kind=${hint.kind} " +
+                "ownerMac=${hint.ownerMac ?: "-"} displayName=${hint.displayName ?: "-"} " +
+                "holders=${CrossDevice.holders.toList()}"
+        )
+    }
+
+    /** Soft UX once per lid-open: no auto-steal; playback/manual reconnect remains the path. */
+    private fun maybeNotifyLidOtherOwner(reason: String) {
+        if (!AudioLeasePrefs.isFeatureEnabled(sharedPreferences)) return
+        if (lidOtherOwnerNotifiedForOpen) return
+        lidOtherOwnerNotifiedForOpen = true
+        val hint = resolveA2dpOwnerHint()
+        logLidOwnerContext(reason, hint)
+        val message = getString(R.string.lid_other_owner_takeover_hint)
+        sendToast(message)
+        // Island when overlays enabled — name the CrossDevice peer if known.
+        if (sharedPreferences.getBoolean("show_island_popup", true) &&
+            Settings.canDrawOverlays(this)
+        ) {
+            val left = batteryNotification.getBattery()
+                .find { it.component == BatteryComponent.LEFT }?.level ?: 0
+            val right = batteryNotification.getBattery()
+                .find { it.component == BatteryComponent.RIGHT }?.level ?: 0
+            showIsland(
+                this,
+                left.coerceAtMost(right),
+                IslandType.MOVED_TO_OTHER_DEVICE,
+                otherDeviceName = hint.displayName ?: "another device",
+            )
+        }
+    }
+
+    private fun cancelPendingLidAutoconnect(reason: String) {
+        pendingLidAutoconnectRunnable?.let {
+            lidAutoconnectHandler.removeCallbacks(it)
+            pendingLidAutoconnectRunnable = null
+            Log.d(TAG, "<LogCollector:LidLease> skip reason=cancelled_$reason")
+        }
+    }
+
+    /**
+     * Option 1 lid-open auto-grab. Schedules connectAudio after a short delay so a
+     * false lid blip that closes within BLEManager lid-close timeout can cancel.
+     * Never sets manual=true on connectToSocket.
+     */
+    @SuppressLint("MissingPermission")
+    private fun maybeScheduleLidAutoconnect() {
+        if (!AudioLeasePrefs.isFeatureEnabled(sharedPreferences)) {
+            return
+        }
+        Log.d(TAG, "<LogCollector:LidLease> lease_check holder=${AudioLeasePrefs.isLeaseHolder(sharedPreferences)} shared=${CrossDevice.isEnabled && CrossDevice.configuredPeers.isNotEmpty()} peerHolding=${CrossDevice.isAvailable}")
+
+        cancelPendingLidAutoconnect("reschedule")
+
+        val runnable = Runnable {
+            pendingLidAutoconnectRunnable = null
+            runLidAutoconnectAttempt()
+        }
+        pendingLidAutoconnectRunnable = runnable
+        // Delay slightly under LID_CLOSE_TIMEOUT so a quick close cancels first.
+        lidAutoconnectHandler.postDelayed(runnable, 400L)
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun runLidAutoconnectAttempt() {
+        if (!AudioLeasePrefs.isFeatureEnabled(sharedPreferences)) return
+
+        val shared = CrossDevice.isEnabled && CrossDevice.configuredPeers.isNotEmpty()
+        val holder = AudioLeasePrefs.isLeaseHolder(sharedPreferences)
+        val everSet = AudioLeasePrefs.leaseEverSet(sharedPreferences)
+        Log.d(TAG, "<LogCollector:LidLease> lease_check holder=$holder shared=$shared peerHolding=${CrossDevice.isAvailable}")
+
+        if (macAddress.isEmpty()) {
+            Log.d(TAG, "<LogCollector:LidLease> skip reason=no_bonded_mac")
+            return
+        }
+        if (holdsAirPods()) {
+            Log.d(TAG, "<LogCollector:LidLease> skip reason=already_holds")
+            return
+        }
+        if (shared && CrossDevice.isAvailable) {
+            val hint = resolveA2dpOwnerHint()
+            Log.d(
+                TAG,
+                "<LogCollector:LidLease> skip reason=peer_holding kind=${hint.kind} " +
+                    "ownerMac=${hint.ownerMac ?: "-"} displayName=${hint.displayName ?: "-"}"
+            )
+            maybeNotifyLidOtherOwner("peer_holding")
+            return
+        }
+        if (!AudioLeasePrefs.mayLidAutoGrab(shared, holder, everSet)) {
+            Log.d(TAG, "<LogCollector:LidLease> skip reason=not_lease_holder")
+            return
+        }
+        val now = System.currentTimeMillis()
+        if (now < peerDropCooldownUntilMs) {
+            Log.d(TAG, "<LogCollector:LidLease> skip reason=peer_drop_cooldown")
+            return
+        }
+        if (lastA2dpStateChangeMs > 0 && (now - lastA2dpStateChangeMs) < A2DP_STATE_FLUX_WINDOW_MS) {
+            Log.d(TAG, "<LogCollector:LidLease> skip reason=a2dp_flux")
+            return
+        }
+        if (lastLidAutoconnectAttemptMs > 0 && (now - lastLidAutoconnectAttemptMs) < LID_AUTOCONNECT_DEBOUNCE_MS) {
+            Log.d(TAG, "<LogCollector:LidLease> skip reason=debounce")
+            return
+        }
+
+        val bluetoothAdapter = getSystemService(BluetoothManager::class.java).adapter
+        val savedDevice = bluetoothAdapter?.bondedDevices?.find { it.address == macAddress }
+        if (savedDevice == null) {
+            Log.d(TAG, "<LogCollector:LidLease> skip reason=device_not_bonded")
+            return
+        }
+
+        lastLidAutoconnectAttemptMs = now
+        // Connect only — do not resume whatever was paused during an earlier handover.
+        MediaController.clearAutoPlayForPassiveConnect("lid_autoconnect")
+        Log.d(TAG, "<LogCollector:LidLease> connect_audio_attempt")
+        connectAudio(this, savedDevice)
+        // Same retry schedule as takeOver — do NOT set manual=true.
+        val retryDevice = savedDevice
+        for (retryDelay in TAKEOVER_RETRY_DELAYS_MS) {
+            Handler(Looper.getMainLooper()).postDelayed({
+                val a2dpState = try {
+                    bluetoothA2dpProxy?.getConnectionState(retryDevice)
+                } catch (_: Exception) {
+                    null
+                }
+                if (a2dpState == BluetoothProfile.STATE_CONNECTED ||
+                    a2dpState == BluetoothProfile.STATE_CONNECTING
+                ) {
+                    return@postDelayed
+                }
+                if (holdsAirPods()) return@postDelayed
+                Log.d(TAG, "<LogCollector:LidLease> connect_audio_attempt retry after ${retryDelay}ms")
+                connectAudio(this, retryDevice)
+            }, retryDelay)
+        }
+    }
+
     private fun mayProactivelyConnect(): Boolean {
         val shared = CrossDevice.isEnabled && CrossDevice.configuredPeers.isNotEmpty()
-        val result = !shared || isA2dpConnectedTo(macAddress)
-        Log.d(TAG, "<LogCollector:Conn> mayProactivelyConnect: isEnabled=${CrossDevice.isEnabled} configuredPeers=${CrossDevice.configuredPeers} shared=$shared a2dpOurs=${isA2dpConnectedTo(macAddress)} result=$result")
+        val a2dpOurs = isA2dpConnectedTo(macAddress)
+        val flagOn = AudioLeasePrefs.isFeatureEnabled(sharedPreferences)
+        val result = AudioLeasePrefs.mayProactivelyConnect(
+            flagOn = flagOn,
+            shared = shared,
+            leaseHolder = AudioLeasePrefs.isLeaseHolder(sharedPreferences),
+            leaseEverSet = AudioLeasePrefs.leaseEverSet(sharedPreferences),
+            a2dpOurs = a2dpOurs,
+        )
+        Log.d(TAG, "<LogCollector:Conn> mayProactivelyConnect: isEnabled=${CrossDevice.isEnabled} configuredPeers=${CrossDevice.configuredPeers} shared=$shared a2dpOurs=$a2dpOurs flagOn=$flagOn lease=${AudioLeasePrefs.isLeaseHolder(sharedPreferences)} result=$result")
         return result
     }
 

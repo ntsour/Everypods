@@ -116,25 +116,30 @@ fun StyledSwitch(
     val tapThreshold = 10f
     val isFirstComposition = remember { mutableStateOf(true) }
     LaunchedEffect(checked) {
-        if (!isFirstComposition.value) {
-            if (checked) {
-                haptics.performHapticFeedback(HapticFeedbackType.ToggleOn)
-            } else {
-                haptics.performHapticFeedback(HapticFeedbackType.ToggleOff)
+        val targetFrac = if (checked) 1f else 0f
+        // First frame (and async pref loads that flip checked before the user
+        // taps): snap — skipping left Animatable stuck at 0 while track/prefs
+        // said ON (Option 1 desync on limited-mode Xiaomi).
+        if (isFirstComposition.value) {
+            animatedFraction.snapTo(targetFrac)
+            isFirstComposition.value = false
+            return@LaunchedEffect
+        }
+        if (checked) {
+            haptics.performHapticFeedback(HapticFeedbackType.ToggleOn)
+        } else {
+            haptics.performHapticFeedback(HapticFeedbackType.ToggleOff)
+        }
+        coroutineScope {
+            launch {
+                animatedFraction.animateTo(targetFrac, progressAnimationSpec)
             }
-            coroutineScope {
-                launch {
-                    val targetFrac = if (checked) 1f else 0f
-                    animatedFraction.animateTo(targetFrac, progressAnimationSpec)
-                }
-                if (progressAnimation.value > 0f) return@coroutineScope
-                launch {
-                    progressAnimation.animateTo(1f, tween(175, easing = FastOutSlowInEasing))
-                    progressAnimation.animateTo(0f, tween(175, easing = FastOutSlowInEasing))
-                }
+            if (progressAnimation.value > 0f) return@coroutineScope
+            launch {
+                progressAnimation.animateTo(1f, tween(175, easing = FastOutSlowInEasing))
+                progressAnimation.animateTo(0f, tween(175, easing = FastOutSlowInEasing))
             }
         }
-        isFirstComposition.value = false
     }
 
     Box(

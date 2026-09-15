@@ -1,0 +1,45 @@
+name: Apply Option1 lid-open patches
+
+on:
+  push:
+    branches: [feature/lid-open-last-holder-autoconnect]
+    paths:
+      - "patches/option1/**"
+      - ".github/workflows/option1-apply-patches.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/lid-open-last-holder-autoconnect
+          fetch-depth: 0
+
+      - name: Apply patches from main bases if needed
+        run: |
+          set -euo pipefail
+          VM="android/app/src/main/java/io/automated/ventures/everypods/presentation/viewmodel/AirPodsViewModel.kt"
+          SVC="android/app/src/main/java/io/automated/ventures/everypods/services/AirPodsService.kt"
+          CAT="android/app/src/main/java/io/automated/ventures/everypods/presentation/screens/CategoryScreen.kt"
+          if grep -q 'fun setLidOpenLastHolderAutoconnect' "$VM" 2>/dev/null \
+             && grep -q 'maybeScheduleLidAutoconnect' "$SVC" 2>/dev/null \
+             && grep -q 'lidOpenLastHolderAutoconnect' "$CAT" 2>/dev/null; then
+            echo "Option1 patches already present — nothing to do."
+            exit 0
+          fi
+          git fetch origin main
+          git checkout origin/main -- "$VM" "$SVC" "$CAT"
+          patch -p1 < patches/option1/viewmodel.patch
+          patch -p1 < patches/option1/service.patch
+          patch -p1 < patches/option1/category.patch
+          git config user.name "ntsour"
+          git config user.email "ntsour@gmail.com"
+          git add "$VM" "$SVC" "$CAT"
+          git commit -m "feat(option1): apply lid-open last-holder patches (ViewModel, Service, CategoryScreen)"
+          git push origin HEAD:feature/lid-open-last-holder-autoconnect

@@ -44,7 +44,9 @@ fun ConnectionSettingsScreen(viewModel: AirPodsViewModel, navController: NavCont
                 automaticEarDetectionEnabled = state.automaticEarDetectionEnabled,
                 onAutomaticEarDetectionChanged = viewModel::setAutomaticEarDetectionEnabled,
                 automaticConnectionEnabled = state.automaticConnectionEnabled,
-                onAutomaticConnectionChanged = viewModel::setAutomaticConnectionEnabled
+                onAutomaticConnectionChanged = viewModel::setAutomaticConnectionEnabled,
+                lidOpenLastHolderAutoconnect = state.lidOpenLastHolderAutoconnect,
+                onLidOpenLastHolderAutoconnectChanged = viewModel::setLidOpenLastHolderAutoconnect
             )
 
             Spacer(Modifier.height(bottomPadding))

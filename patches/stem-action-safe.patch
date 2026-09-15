@@ -1,0 +1,232 @@
+--- a/android/app/src/main/java/io/automated/ventures/everypods/services/AirPodsService.kt
++++ b/android/app/src/main/java/io/automated/ventures/everypods/services/AirPodsService.kt
+@@ -2103,6 +2103,18 @@
+         }
+     }
+ 
++
++    /** Resolve stem action from prefs; rewrite unknown values so downgrades cannot NPE. */
++    private fun stemActionFromPrefs(key: String, defaultName: String): StemAction {
++        val raw = sharedPreferences.getString(key, defaultName) ?: defaultName
++        val resolved = StemAction.fromStringOrDefault(raw, defaultName)
++        if (raw != resolved.name) {
++            sharedPreferences.edit().putString(key, resolved.name).apply()
++            Log.d(TAG, "<LogCollector:StemAction> migrated unknown prefs $key=$raw -> ${resolved.name}")
++        }
++        return resolved
++    }
++
+     private fun initializeConfig() {
+         config = ServiceConfig(
+             deviceName = sharedPreferences.getString("name", "AirPods") ?: "AirPods",
+@@ -2146,79 +2158,29 @@
+             ),
+ 
+             // Stem actions
+-            leftSinglePressAction = StemAction.fromString(
+-                sharedPreferences.getString(
+-                    "left_single_press_action", "PLAY_PAUSE"
+-                ) ?: "PLAY_PAUSE"
+-            )!!,
+-            rightSinglePressAction = StemAction.fromString(
+-                sharedPreferences.getString(
+-                    "right_single_press_action", "PLAY_PAUSE"
+-                ) ?: "PLAY_PAUSE"
+-            )!!,
+-
+-            leftDoublePressAction = StemAction.fromString(
+-                sharedPreferences.getString(
+-                    "left_double_press_action", "PREVIOUS_TRACK"
+-                ) ?: "NEXT_TRACK"
+-            )!!,
+-            rightDoublePressAction = StemAction.fromString(
+-                sharedPreferences.getString(
+-                    "right_double_press_action", "NEXT_TRACK"
+-                ) ?: "NEXT_TRACK"
+-            )!!,
+-
+-            leftTriplePressAction = StemAction.fromString(
+-                sharedPreferences.getString(
+-                    "left_triple_press_action", "PREVIOUS_TRACK"
+-                ) ?: "PREVIOUS_TRACK"
+-            )!!,
+-            rightTriplePressAction = StemAction.fromString(
+-                sharedPreferences.getString(
+-                    "right_triple_press_action", "PREVIOUS_TRACK"
+-                ) ?: "PREVIOUS_TRACK"
+-            )!!,
+-
+-            leftLongPressAction = StemAction.fromString(
+-                sharedPreferences.getString(
+-                    "left_long_press_action", "CYCLE_NOISE_CONTROL_MODES"
+-                ) ?: "CYCLE_NOISE_CONTROL_MODES"
+-            )!!,
+-            rightLongPressAction = StemAction.fromString(
+-                sharedPreferences.getString(
+-                    "right_long_press_action", "DIGITAL_ASSISTANT"
+-                ) ?: "DIGITAL_ASSISTANT"
+-            )!!,
++            leftSinglePressAction = stemActionFromPrefs("left_single_press_action", "PLAY_PAUSE"),
++            rightSinglePressAction = stemActionFromPrefs("right_single_press_action", "PLAY_PAUSE"),
++
++            leftDoublePressAction = stemActionFromPrefs("left_double_press_action", "PREVIOUS_TRACK"),
++            rightDoublePressAction = stemActionFromPrefs("right_double_press_action", "NEXT_TRACK"),
++
++            leftTriplePressAction = stemActionFromPrefs("left_triple_press_action", "PREVIOUS_TRACK"),
++            rightTriplePressAction = stemActionFromPrefs("right_triple_press_action", "PREVIOUS_TRACK"),
++
++            leftLongPressAction = stemActionFromPrefs("left_long_press_action", "CYCLE_NOISE_CONTROL_MODES"),
++            rightLongPressAction = stemActionFromPrefs("right_long_press_action", "DIGITAL_ASSISTANT"),
+ 
+             cameraAction = sharedPreferences.getString("camera_action", null)
+                 ?.let { StemPressType.valueOf(it) },
+ 
+             // Gym mode
+             gymModeEnabled = sharedPreferences.getBoolean("gym_mode_enabled", false),
+-            leftGymDoublePressAction = StemAction.fromString(
+-                sharedPreferences.getString("gym_left_double_press_action", "GYM_TIMER_START_STOP")
+-                    ?: "GYM_TIMER_START_STOP"
+-            )!!,
+-            rightGymDoublePressAction = StemAction.fromString(
+-                sharedPreferences.getString("gym_right_double_press_action", "GYM_TIMER_START_STOP")
+-                    ?: "GYM_TIMER_START_STOP"
+-            )!!,
+-            leftGymTriplePressAction = StemAction.fromString(
+-                sharedPreferences.getString("gym_left_triple_press_action", "GYM_TIMER_LAP")
+-                    ?: "GYM_TIMER_LAP"
+-            )!!,
+-            rightGymTriplePressAction = StemAction.fromString(
+-                sharedPreferences.getString("gym_right_triple_press_action", "GYM_TIMER_LAP")
+-                    ?: "GYM_TIMER_LAP"
+-            )!!,
+-            leftGymLongPressAction = StemAction.fromString(
+-                sharedPreferences.getString("gym_left_long_press_action", "GYM_TIMER_RESET")
+-                    ?: "GYM_TIMER_RESET"
+-            )!!,
+-            rightGymLongPressAction = StemAction.fromString(
+-                sharedPreferences.getString("gym_right_long_press_action", "GYM_TIMER_RESET")
+-                    ?: "GYM_TIMER_RESET"
+-            )!!,
++            leftGymDoublePressAction = stemActionFromPrefs("gym_left_double_press_action", "GYM_TIMER_START_STOP"),
++            rightGymDoublePressAction = stemActionFromPrefs("gym_right_double_press_action", "GYM_TIMER_START_STOP"),
++            leftGymTriplePressAction = stemActionFromPrefs("gym_left_triple_press_action", "GYM_TIMER_LAP"),
++            rightGymTriplePressAction = stemActionFromPrefs("gym_right_triple_press_action", "GYM_TIMER_LAP"),
++            leftGymLongPressAction = stemActionFromPrefs("gym_left_long_press_action", "GYM_TIMER_RESET"),
++            rightGymLongPressAction = stemActionFromPrefs("gym_right_long_press_action", "GYM_TIMER_RESET"),
+ 
+             // AirPods device information
+             airpodsName = sharedPreferences.getString("airpods_name", "") ?: "",
+@@ -2310,59 +2272,42 @@
+                 preferences.getBoolean(key, true)
+ 
+             "left_single_press_action" -> {
+-                config.leftSinglePressAction = StemAction.fromString(
+-                    preferences.getString(key, "PLAY_PAUSE") ?: "PLAY_PAUSE"
+-                )!!
++                config.leftSinglePressAction = stemActionFromPrefs(key, "PLAY_PAUSE")
+                 setupStemActions()
+             }
+ 
+             "right_single_press_action" -> {
+-                config.rightSinglePressAction = StemAction.fromString(
+-                    preferences.getString(key, "PLAY_PAUSE") ?: "PLAY_PAUSE"
+-                )!!
++                config.rightSinglePressAction = stemActionFromPrefs(key, "PLAY_PAUSE")
+                 setupStemActions()
+             }
+ 
+             "left_double_press_action" -> {
+-                config.leftDoublePressAction = StemAction.fromString(
+-                    preferences.getString(key, "PREVIOUS_TRACK") ?: "PREVIOUS_TRACK"
+-                )!!
++                config.leftDoublePressAction = stemActionFromPrefs(key, "PREVIOUS_TRACK")
+                 setupStemActions()
+             }
+ 
+             "right_double_press_action" -> {
+-                config.rightDoublePressAction = StemAction.fromString(
+-                    preferences.getString(key, "NEXT_TRACK") ?: "NEXT_TRACK"
+-                )!!
++                config.rightDoublePressAction = stemActionFromPrefs(key, "NEXT_TRACK")
+                 setupStemActions()
+             }
+ 
+             "left_triple_press_action" -> {
+-                config.leftTriplePressAction = StemAction.fromString(
+-                    preferences.getString(key, "PREVIOUS_TRACK") ?: "PREVIOUS_TRACK"
+-                )!!
++                config.leftTriplePressAction = stemActionFromPrefs(key, "PREVIOUS_TRACK")
+                 setupStemActions()
+             }
+ 
+             "right_triple_press_action" -> {
+-                config.rightTriplePressAction = StemAction.fromString(
+-                    preferences.getString(key, "PREVIOUS_TRACK") ?: "PREVIOUS_TRACK"
+-                )!!
++                config.rightTriplePressAction = stemActionFromPrefs(key, "PREVIOUS_TRACK")
+                 setupStemActions()
+             }
+ 
+             "left_long_press_action" -> {
+-                config.leftLongPressAction = StemAction.fromString(
+-                    preferences.getString(key, "CYCLE_NOISE_CONTROL_MODES")
+-                        ?: "CYCLE_NOISE_CONTROL_MODES"
+-                )!!
++                config.leftLongPressAction = stemActionFromPrefs(key, "CYCLE_NOISE_CONTROL_MODES")
+                 setupStemActions()
+             }
+ 
+             "right_long_press_action" -> {
+-                config.rightLongPressAction = StemAction.fromString(
+-                    preferences.getString(key, "DIGITAL_ASSISTANT") ?: "DIGITAL_ASSISTANT"
+-                )!!
++                config.rightLongPressAction = stemActionFromPrefs(key, "DIGITAL_ASSISTANT")
+                 setupStemActions()
+             }
+ 
+@@ -2376,39 +2321,27 @@
+             }
+ 
+             "gym_left_double_press_action" -> {
+-                config.leftGymDoublePressAction = StemAction.fromString(
+-                    preferences.getString(key, "GYM_TIMER_START_STOP") ?: "GYM_TIMER_START_STOP"
+-                )!!
++                config.leftGymDoublePressAction = stemActionFromPrefs(key, "GYM_TIMER_START_STOP")
+                 setupStemActions()
+             }
+             "gym_right_double_press_action" -> {
+-                config.rightGymDoublePressAction = StemAction.fromString(
+-                    preferences.getString(key, "GYM_TIMER_START_STOP") ?: "GYM_TIMER_START_STOP"
+-                )!!
++                config.rightGymDoublePressAction = stemActionFromPrefs(key, "GYM_TIMER_START_STOP")
+                 setupStemActions()
+             }
+             "gym_left_triple_press_action" -> {
+-                config.leftGymTriplePressAction = StemAction.fromString(
+-                    preferences.getString(key, "GYM_TIMER_LAP") ?: "GYM_TIMER_LAP"
+-                )!!
++                config.leftGymTriplePressAction = stemActionFromPrefs(key, "GYM_TIMER_LAP")
+                 setupStemActions()
+             }
+             "gym_right_triple_press_action" -> {
+-                config.rightGymTriplePressAction = StemAction.fromString(
+-                    preferences.getString(key, "GYM_TIMER_LAP") ?: "GYM_TIMER_LAP"
+-                )!!
++                config.rightGymTriplePressAction = stemActionFromPrefs(key, "GYM_TIMER_LAP")
+                 setupStemActions()
+             }
+             "gym_left_long_press_action" -> {
+-                config.leftGymLongPressAction = StemAction.fromString(
+-                    preferences.getString(key, "GYM_TIMER_RESET") ?: "GYM_TIMER_RESET"
+-                )!!
++                config.leftGymLongPressAction = stemActionFromPrefs(key, "GYM_TIMER_RESET")
+                 setupStemActions()
+             }
+             "gym_right_long_press_action" -> {
+-                config.rightGymLongPressAction = StemAction.fromString(
+-                    preferences.getString(key, "GYM_TIMER_RESET") ?: "GYM_TIMER_RESET"
+-                )!!
++                config.rightGymLongPressAction = stemActionFromPrefs(key, "GYM_TIMER_RESET")
+                 setupStemActions()
+             }
+ 

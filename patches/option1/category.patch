@@ -1,0 +1,13 @@
+--- a/android/app/src/main/java/io/automated/ventures/everypods/presentation/screens/CategoryScreen.kt
++++ b/android/app/src/main/java/io/automated/ventures/everypods/presentation/screens/CategoryScreen.kt
+@@ -1071,7 +1071,9 @@
+                 onAutomaticEarDetectionChanged = { viewModel.setAutomaticEarDetectionEnabled(it) },
+                 automaticConnectionEnabled = state.automaticConnectionEnabled,
+                 onAutomaticConnectionChanged = { viewModel.setAutomaticConnectionEnabled(it) },
+-                earDetectionAvailable = state.aacpAvailable)
++                earDetectionAvailable = state.aacpAvailable,
++                lidOpenLastHolderAutoconnect = state.lidOpenLastHolderAutoconnect,
++                onLidOpenLastHolderAutoconnectChanged = { viewModel.setLidOpenLastHolderAutoconnect(it) })
+         }
+         MenuDivider()
+         Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
