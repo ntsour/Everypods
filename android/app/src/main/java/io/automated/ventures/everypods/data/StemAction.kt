@@ -34,6 +34,16 @@ enum class StemAction {
         fun fromString(action: String): StemAction? {
             return entries.find { it.name == action }
         }
+
+        /**
+         * Parse a stem action name, falling back to [defaultName] when missing/unknown
+         * (e.g. prefs written by a newer build that introduced actions this build lacks).
+         */
+        fun fromStringOrDefault(action: String?, defaultName: String): StemAction {
+            fromString(action ?: defaultName)?.let { return it }
+            return fromString(defaultName) ?: PLAY_PAUSE
+        }
+
         val defaultActions: Map<AACPManager.Companion.StemPressType, StemAction> = mapOf(
             AACPManager.Companion.StemPressType.SINGLE_PRESS to PLAY_PAUSE,
             AACPManager.Companion.StemPressType.DOUBLE_PRESS to NEXT_TRACK,
