@@ -1,0 +1,47 @@
+--- a/android/app/src/main/java/io/automated/ventures/everypods/presentation/viewmodel/AirPodsViewModel.kt
++++ b/android/app/src/main/java/io/automated/ventures/everypods/presentation/viewmodel/AirPodsViewModel.kt
+@@ -95,6 +95,7 @@
+     val automaticConnectionEnabled: Boolean = true,
+     val crossDeviceEnabled: Boolean = false,
+     val crossDevicePeers: List<PeerUiInfo> = emptyList(),
++    val lidOpenLastHolderAutoconnect: Boolean = false,
+ 
+     val leftAction: StemAction = StemAction.CYCLE_NOISE_CONTROL_MODES,
+     val rightAction: StemAction = StemAction.CYCLE_NOISE_CONTROL_MODES,
+@@ -429,6 +430,11 @@
+             sharedPreferences.getBoolean("automatic_connection_ctrl_cmd", true)
+         val crossDeviceEnabled =
+             sharedPreferences.getBoolean("cross_device_enabled", CrossDevice.configuredPeers.isNotEmpty())
++        val lidOpenLastHolderAutoconnect =
++            sharedPreferences.getBoolean(
++                io.automated.ventures.everypods.utils.AudioLeasePrefs.KEY_LID_OPEN_LAST_HOLDER_AUTOCONNECT,
++                false
++            )
+         val headGesturesEnabled = sharedPreferences.getBoolean("head_gestures_enabled", false)
+         val headGesturesAnswerCall = sharedPreferences.getBoolean("head_gestures_answer_call", true)
+         val headGesturesMuteCall = sharedPreferences.getBoolean("head_gestures_mute_call", true)
+@@ -454,6 +460,7 @@
+                 automaticEarDetectionEnabled = automaticEarDetectionEnabled,
+                 automaticConnectionEnabled = automaticConnectionEnabled,
+                 crossDeviceEnabled = crossDeviceEnabled,
++                lidOpenLastHolderAutoconnect = lidOpenLastHolderAutoconnect,
+                 headGesturesEnabled = headGesturesEnabled,
+                 headGesturesAnswerCall = headGesturesAnswerCall,
+                 headGesturesMuteCall = headGesturesMuteCall,
+@@ -591,6 +598,16 @@
+         _uiState.update { it.copy(crossDeviceEnabled = enabled) }
+     }
+ 
++    fun setLidOpenLastHolderAutoconnect(enabled: Boolean) {
++        sharedPreferences.edit {
++            putBoolean(
++                io.automated.ventures.everypods.utils.AudioLeasePrefs.KEY_LID_OPEN_LAST_HOLDER_AUTOCONNECT,
++                enabled
++            )
++        }
++        _uiState.update { it.copy(lidOpenLastHolderAutoconnect = enabled) }
++    }
++
+     /** Add [mac] to the configured peer set and reconcile live links. */
+     @android.annotation.SuppressLint("MissingPermission")
+     fun addCrossDevicePeer(mac: String) {
