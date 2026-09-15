@@ -26,7 +26,25 @@ class AudioLeasePrefsTest {
     }
 
     @Test
-    fun `feature flag defaults false`() {
+    fun `feature flag defaults true when key missing`() {
+        assertTrue(AudioLeasePrefs.isFeatureEnabled(prefs))
+        assertFalse(prefs.contains(AudioLeasePrefs.KEY_LID_OPEN_LAST_HOLDER_AUTOCONNECT))
+    }
+
+    @Test
+    fun `ensureDefaultEnabled seeds true only when missing`() {
+        AudioLeasePrefs.ensureDefaultEnabled(prefs)
+        assertTrue(prefs.contains(AudioLeasePrefs.KEY_LID_OPEN_LAST_HOLDER_AUTOCONNECT))
+        assertTrue(AudioLeasePrefs.isFeatureEnabled(prefs))
+
+        AudioLeasePrefs.setFeatureEnabled(prefs, false)
+        AudioLeasePrefs.ensureDefaultEnabled(prefs)
+        assertFalse(AudioLeasePrefs.isFeatureEnabled(prefs))
+    }
+
+    @Test
+    fun `explicit false stays off`() {
+        AudioLeasePrefs.setFeatureEnabled(prefs, false)
         assertFalse(AudioLeasePrefs.isFeatureEnabled(prefs))
     }
 

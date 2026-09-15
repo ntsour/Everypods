@@ -791,9 +791,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     "takeover_when_media_start", true
                 )
 
-                // Option 1: lid-open auto-connect for last CrossDevice audio holder (default off).
+                // Option 1: lid-open auto-connect for last CrossDevice audio holder.
+                // New installs only (missing key) → ON; existing false stays false.
                 if (!contains(AudioLeasePrefs.KEY_LID_OPEN_LAST_HOLDER_AUTOCONNECT)) putBoolean(
-                    AudioLeasePrefs.KEY_LID_OPEN_LAST_HOLDER_AUTOCONNECT, false
+                    AudioLeasePrefs.KEY_LID_OPEN_LAST_HOLDER_AUTOCONNECT,
+                    AudioLeasePrefs.DEFAULT_ENABLED
                 )
 
                 // One-time migration: existing installs had these two defaulting to

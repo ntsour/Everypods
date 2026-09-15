@@ -34,8 +34,14 @@ object AudioLeasePrefs {
 
     const val PREFS_NAME = "settings"
 
-    /** Feature flag — default false until validated. */
+    /**
+     * Feature flag. Missing key → [DEFAULT_ENABLED] (new installs ON).
+     * Explicit `false` in prefs stays off — never force-enable users who opted out.
+     */
     const val KEY_LID_OPEN_LAST_HOLDER_AUTOCONNECT = "lid_open_last_holder_autoconnect"
+
+    /** Default when the preference key has never been written. */
+    const val DEFAULT_ENABLED: Boolean = true
 
     const val KEY_HOLDER_SELF = "audio_lease_holder_self"
     const val KEY_UPDATED_AT_MS = "audio_lease_updated_at_ms"
@@ -48,9 +54,23 @@ object AudioLeasePrefs {
         ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     fun isFeatureEnabled(prefs: SharedPreferences): Boolean =
-        prefs.getBoolean(KEY_LID_OPEN_LAST_HOLDER_AUTOCONNECT, false)
+        prefs.getBoolean(KEY_LID_OPEN_LAST_HOLDER_AUTOCONNECT, DEFAULT_ENABLED)
 
     fun isFeatureEnabled(ctx: Context): Boolean = isFeatureEnabled(prefs(ctx))
+
+    /**
+     * Seed [DEFAULT_ENABLED] only when the key is absent. No-op if the user (or a
+     * prior install) already wrote true/false.
+     */
+    fun ensureDefaultEnabled(prefs: SharedPreferences) {
+        if (!prefs.contains(KEY_LID_OPEN_LAST_HOLDER_AUTOCONNECT)) {
+            prefs.edit().putBoolean(KEY_LID_OPEN_LAST_HOLDER_AUTOCONNECT, DEFAULT_ENABLED).apply()
+        }
+    }
+
+    fun setFeatureEnabled(prefs: SharedPreferences, enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_LID_OPEN_LAST_HOLDER_AUTOCONNECT, enabled).apply()
+    }
 
     fun isLeaseHolder(prefs: SharedPreferences): Boolean =
         prefs.getBoolean(KEY_HOLDER_SELF, false)
