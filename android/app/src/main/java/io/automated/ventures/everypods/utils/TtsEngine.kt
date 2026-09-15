@@ -86,6 +86,10 @@ object TtsEngine {
         ensureAudioManager(ctx)
         if (!AnnouncementAudioRoute.canAnnounceToAirPods(ctx)) {
             Log.d(TAG, "Skipping announcement — AirPods are not the selected media route")
+            // The coordinator already considers this request active. Releasing it
+            // here is essential: otherwise one transient route loss suppresses
+            // every later timer announcement in the same process.
+            onDone()
             return
         }
         // Hold a CPU wake lock so the engine actually finishes speaking when the
@@ -101,6 +105,7 @@ object TtsEngine {
             }
             if (recentTexts.any { it.first == text }) {
                 Log.w(TAG, "DEDUPE: \"$text\" within ${DEDUPE_WINDOW_MS}ms — skipping")
+                onDone()
                 return
             }
             recentTexts.addLast(text to now)
@@ -138,7 +143,10 @@ object TtsEngine {
                     } else {
                         Log.w(TAG, "TTS init failed: $status")
                         initialising.set(false)
-                        synchronized(this) { pendingUtterances.clear() }
+                        val rejected = synchronized(this) {
+                            pendingUtterances.toList().also { pendingUtterances.clear() }
+                        }
+                        rejected.forEach { it.onDone() }
                     }
                 }
             }
@@ -250,7 +258,10 @@ object TtsEngine {
         synchronized(completionCallbacks) { completionCallbacks[id] = onDone }
         activeUtteranceCount.incrementAndGet()
         val params = Bundle()
-        engine.speak(text, TextToSpeech.QUEUE_ADD, params, id)
+        if (engine.speak(text, TextToSpeech.QUEUE_ADD, params, id) != TextToSpeech.SUCCESS) {
+            Log.w(TAG, "TTS rejected utterance: ${text.take(48)}")
+            onUtteranceDone(id)
+        }
     }
 
     private fun applyLanguage(languageTag: String) {

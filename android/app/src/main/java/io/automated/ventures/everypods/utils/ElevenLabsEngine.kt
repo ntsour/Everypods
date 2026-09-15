@@ -110,6 +110,7 @@ object ElevenLabsEngine {
             if (!AnnouncementAudioRoute.canAnnounceToAirPods(ctx)) {
                 Log.d(TAG, "Skipping ElevenLabs announcement — AirPods are not the selected media route")
                 speaking.set(false)
+                onDone()
                 return@submit
             }
             if (!hasValidatedInternet(ctx)) {
@@ -130,6 +131,7 @@ object ElevenLabsEngine {
                 if (!AnnouncementAudioRoute.canAnnounceToAirPods(ctx)) {
                     Log.d(TAG, "Route changed after fetch, discarding ElevenLabs audio")
                     speaking.set(false)
+                    onDone()
                     return@submit
                 }
                 if (bytes == null || bytes.isEmpty()) {
