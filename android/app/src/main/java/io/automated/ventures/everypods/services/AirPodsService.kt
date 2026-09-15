@@ -1328,6 +1328,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                             Log.d(TAG, "Battery: case-opened but shared arrangement and not holding A2DP — not grabbing, wait for user intent")
                         } else {
                             Log.d(TAG, "Battery: pods no longer both charging (case opened) → connectAudio")
+                            MediaController.clearAutoPlayForPassiveConnect("battery_case_opened")
+                            lastMusicTakeoverMs = 0L
                             connectAudio(this@AirPodsService, device)
                         }
                     }
@@ -2062,8 +2064,12 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             val nowSingle = newInEarData.count { it } == 1
 
             if (wasNone && nowSingle) {
-                MediaController.sendPlay()
-                MediaController.iPausedTheMedia = false
+                if (areBothPodsInCase()) {
+                    Log.d(TAG, "ear-in transition while both pods in case — not auto-playing")
+                } else {
+                    MediaController.sendPlay()
+                    MediaController.iPausedTheMedia = false
+                }
                 return
             }
 
@@ -2085,8 +2091,12 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             if (newInEarData.sorted() != inEarData.sorted()) {
                 if (inEar) {
                     if (!justEnabledA2dp) {
-                        MediaController.sendPlay()
-                        MediaController.iPausedTheMedia = false
+                        if (areBothPodsInCase()) {
+                            Log.d(TAG, "ear-detection in-ear while both pods in case — not auto-playing")
+                        } else {
+                            MediaController.sendPlay()
+                            MediaController.iPausedTheMedia = false
+                        }
                     }
                 } else {
                     MediaController.sendPause()
@@ -2114,10 +2124,19 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     )
 
                     if (state == BluetoothProfile.STATE_CONNECTED && previousState != BluetoothProfile.STATE_CONNECTED && device?.address == this@AirPodsService.device?.address) {
-
-                        Log.d("MediaController", "A2DP connected, sending play command")
-                        MediaController.sendPlay()
-                        MediaController.iPausedTheMedia = false
+                        val sinceLid = System.currentTimeMillis() - lastLidAutoconnectAttemptMs
+                        if (lastLidAutoconnectAttemptMs > 0L && sinceLid < LID_AUTOCONNECT_DEBOUNCE_MS) {
+                            Log.d(
+                                "MediaController",
+                                "A2DP connected after lid autoconnect (${sinceLid}ms) — not auto-playing"
+                            )
+                        } else if (areBothPodsInCase()) {
+                            Log.d("MediaController", "A2DP connected but both pods in case — not auto-playing")
+                        } else {
+                            Log.d("MediaController", "A2DP connected, sending play command")
+                            MediaController.sendPlay()
+                            MediaController.iPausedTheMedia = false
+                        }
 
                         context.unregisterReceiver(this)
                     }
@@ -5251,6 +5270,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         }
 
         lastLidAutoconnectAttemptMs = now
+        // Connect only — do not resume whatever was paused during an earlier handover.
+        MediaController.clearAutoPlayForPassiveConnect("lid_autoconnect")
+        lastMusicTakeoverMs = 0L
         Log.d(TAG, "<LogCollector:LidLease> connect_audio_attempt")
         connectAudio(this, savedDevice)
         // Same retry schedule as takeOver — do NOT set manual=true.

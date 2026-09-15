@@ -198,6 +198,23 @@ object MediaController {
     }
 
     /**
+     * Passive A2DP connect (lid-open / case-open auto-grab) must not resume media.
+     * Clears any leftover music-takeover arming and stops the route-land poller so
+     * a prior takeOver("music") (up to 60s window) cannot re-issue play when the
+     * AirPods reconnect from an open case with no user play press.
+     */
+    fun clearAutoPlayForPassiveConnect(reason: String) {
+        Log.d("MediaController", "clearAutoPlayForPassiveConnect($reason)")
+        cancelPendingMusicTakeover()
+        if (routeLandWatchPending) {
+            Log.d("MediaController", "  → stopping routeLandPoller")
+        }
+        routeLandWatchPending = false
+        handler.removeCallbacks(routeLandPoller)
+        routeLandPoller.reset()
+    }
+
+    /**
      * Restart the routeLandPoller explicitly. Used when A2DP PLAYING_STATE_CHANGED
      * → PLAYING fires, because on some devices (Xiaomi) the actual A2DP audio stream
      * starts many seconds after the device is added to the system. Pocket Casts
