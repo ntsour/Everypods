@@ -337,7 +337,7 @@ fun ConnectionSettings(
                     )
                 }
                 io.automated.ventures.everypods.presentation.components.RequiresAacpIcon()
-                Spacer(modifier.width(12.dp))
+                Spacer(Modifier.width(12.dp))
             }
         }
         HorizontalDivider(
@@ -372,7 +372,7 @@ fun ConnectionSettings(
                     )
                 }
                 io.automated.ventures.everypods.presentation.components.RequiresAacpIcon()
-                Spacer(modifier.width(12.dp))
+                Spacer(Modifier.width(12.dp))
             }
         }
     }
