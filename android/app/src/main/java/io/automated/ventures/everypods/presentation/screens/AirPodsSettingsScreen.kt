@@ -947,7 +947,9 @@ private fun DisconnectedScreen(
                         onAutomaticEarDetectionChanged = { viewModel.setAutomaticEarDetectionEnabled(it) },
                         automaticConnectionEnabled = state.automaticConnectionEnabled,
                         onAutomaticConnectionChanged = { viewModel.setAutomaticConnectionEnabled(it) },
-                        earDetectionAvailable = state.aacpAvailable
+                        earDetectionAvailable = state.aacpAvailable,
+                        lidOpenLastHolderAutoconnect = state.lidOpenLastHolderAutoconnect,
+                        onLidOpenLastHolderAutoconnectChanged = viewModel::setLidOpenLastHolderAutoconnect,
                     )
                 }
             }

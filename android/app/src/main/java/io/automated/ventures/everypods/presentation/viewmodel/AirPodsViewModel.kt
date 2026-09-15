@@ -459,17 +459,13 @@ class AirPodsViewModel(
         val headGesturesEnabled = sharedPreferences.getBoolean("head_gestures_enabled", false)
         val headGesturesAnswerCall = sharedPreferences.getBoolean("head_gestures_answer_call", true)
         val headGesturesMuteCall = sharedPreferences.getBoolean("head_gestures_mute_call", true)
-        val leftAction = StemAction.valueOf(
-            sharedPreferences.getString(
-                "left_long_press_action",
-                "CYCLE_NOISE_CONTROL_MODES"
-            ) ?: "CYCLE_NOISE_CONTROL_MODES"
+        val leftAction = StemAction.fromStringOrDefault(
+            sharedPreferences.getString("left_long_press_action", null),
+            "CYCLE_NOISE_CONTROL_MODES"
         )
-        val rightAction = StemAction.valueOf(
-            sharedPreferences.getString(
-                "right_long_press_action",
-                "CYCLE_NOISE_CONTROL_MODES"
-            ) ?: "CYCLE_NOISE_CONTROL_MODES"
+        val rightAction = StemAction.fromStringOrDefault(
+            sharedPreferences.getString("right_long_press_action", null),
+            "CYCLE_NOISE_CONTROL_MODES"
         )
         val dynamicEndOfCharge = sharedPreferences.getBoolean("dynamic_end_of_charge", true)
 
