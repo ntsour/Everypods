@@ -38,7 +38,7 @@
     <string name="back">Back</string>
     <string name="customizations">Customizations</string>
     <string name="relative_conversational_awareness_volume">Relative volume</string>
-    <string name="relative_conversational_awareness_volume_description">When on, the slider becomes a reduction (e.g. 40% means \"reduce current volume to 40% of itself\") instead of an absolute target.</string>
+    <string name="relative_conversational_awareness_volume_description">When on, the slider becomes a reduction (e.g. 40% means "reduce current volume to 40% of itself") instead of an absolute target.</string>
     <string name="conversational_awareness_pause_music">Pause Music</string>
     <string name="conversational_awareness_pause_music_description">When you start speaking, music will be paused instead of just lowered.</string>
     <string name="appwidget_text">EXAMPLE</string>
@@ -64,6 +64,8 @@
     <string name="cross_device_setup_title">Set up handover between your devices</string>
     <string name="cross_device_setup_description">Install EveryPods on each Android device, pair the phones in Android Bluetooth settings, and connect your AirPods to each phone once. Then enable handover and add the other phone under Connected devices.</string>
     <string name="cross_device_settings_hint">For handover, install EveryPods on each phone, pair the phones in Android Bluetooth settings, connect the AirPods to each phone once, and add each phone under Connected devices.</string>
+    <string name="lid_open_last_holder_autoconnect">Auto-connect on case open (last device)</string>
+    <string name="lid_open_last_holder_autoconnect_description">When you open the case, only the last phone that used the AirPods connects. Start music on another phone to switch. The last phone may connect even if it is not next to the case.</string>
     <string name="ear_detection">Automatic Ear Detection</string>
     <string name="auto_play">Auto Play</string>
     <string name="auto_pause">Auto Pause</string>
@@ -105,12 +107,12 @@
     <string name="press_and_hold_duration_description">Adjust the duration required to press and hold on your AirPods.</string>
     <string name="volume_swipe_speed">Volume Swipe Speed</string>
     <string name="volume_swipe_speed_description">To prevent unintended volume adjustments, select preferred wait time between swipes.</string>
-     <string name="equalizer">Equalizer</string>
      <string name="eq_recommended">Recommended</string>
      <string name="eq_custom">Custom</string>
      <string name="eq_bass">Bass</string>
      <string name="eq_mid">Mid</string>
      <string name="eq_treble">Treble</string>
+    <string name="equalizer">Equalizer</string>
     <string name="default_option">Default</string>
     <string name="slower">Slower</string>
     <string name="slowest">Slowest</string>
