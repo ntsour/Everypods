@@ -37,15 +37,20 @@ object AnnouncementCoordinator {
             Request(++nextToken, text, priority).also { incoming ->
                 val current = active
                 when {
-                    current == null -> active = incoming
+                    current == null -> {
+                        Log.d(TAG, "Starting ${incoming.priority} announcement: ${incoming.text.take(48)}")
+                        active = incoming
+                    }
                     incoming.priority == Priority.TIMER_SEQUENCE &&
                         current.priority == Priority.TIMER_SEQUENCE -> {
                         // Preparation numbers belong together: retain their order.
+                        Log.d(TAG, "Queueing preparation announcement: ${incoming.text}")
                         sequencePending.addLast(incoming)
                         return
                     }
                     incoming.priority.rank > current.priority.rank -> {
                         // A user control or safety message must not wait behind stale speech.
+                        Log.d(TAG, "Replacing ${current.priority} with ${incoming.priority}: ${incoming.text.take(48)}")
                         active = incoming
                         pending = null
                         sequencePending.clear()
@@ -54,9 +59,11 @@ object AnnouncementCoordinator {
                     incoming.priority == Priority.TIMER_PROGRESS ||
                         incoming.priority == Priority.TIMER_TIMING -> {
                         // Timing cues are useful only at their intended instant. Do not queue them.
+                        Log.d(TAG, "Dropping stale ${incoming.priority} announcement: ${incoming.text}")
                         return
                     }
                     pending == null || incoming.priority.rank >= pending!!.priority.rank -> {
+                        Log.d(TAG, "Queueing ${incoming.priority} announcement behind ${current.priority}")
                         pending = incoming
                         return
                     }
@@ -111,7 +118,12 @@ object AnnouncementCoordinator {
                 sequencePending.removeFirst()
             }
             active
-        } ?: return
+        }
+        if (next == null) {
+            Log.d(TAG, "Announcement completed; queue is empty")
+            return
+        }
+        Log.d(TAG, "Continuing with ${next.priority} announcement: ${next.text.take(48)}")
         speak(context, next)
     }
 
