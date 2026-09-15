@@ -1329,7 +1329,6 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                         } else {
                             Log.d(TAG, "Battery: pods no longer both charging (case opened) → connectAudio")
                             MediaController.clearAutoPlayForPassiveConnect("battery_case_opened")
-                            lastMusicTakeoverMs = 0L
                             connectAudio(this@AirPodsService, device)
                         }
                     }
@@ -5272,7 +5271,6 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         lastLidAutoconnectAttemptMs = now
         // Connect only — do not resume whatever was paused during an earlier handover.
         MediaController.clearAutoPlayForPassiveConnect("lid_autoconnect")
-        lastMusicTakeoverMs = 0L
         Log.d(TAG, "<LogCollector:LidLease> connect_audio_attempt")
         connectAudio(this, savedDevice)
         // Same retry schedule as takeOver — do NOT set manual=true.
