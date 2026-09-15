@@ -269,8 +269,13 @@ class AirPodsViewModel(
                     }
 
                     AirPodsNotifications.AIRPODS_DISCONNECTED -> {
+                        sharedPreferences.edit { putBoolean("connection_successful", false) }
                         _uiState.update {
-                            it.copy(isLocallyConnected = false)
+                            it.copy(
+                                isLocallyConnected = false,
+                                isA2dpConnected = false,
+                                connectionSuccessful = false,
+                            )
                         }
                         refreshInitialData()
                     }

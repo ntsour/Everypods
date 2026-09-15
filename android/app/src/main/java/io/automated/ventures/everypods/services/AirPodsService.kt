@@ -423,6 +423,30 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
          * before the proxy has reported in.
          */
         @Volatile @JvmStatic var a2dpConnectedToOurMac: Boolean = true
+
+        /**
+         * System Bluetooth turned off (or BLE-only half-on). ACL/A2DP disconnect
+         * broadcasts are often missing on Xiaomi — force the same cleanup path as
+         * a real ACL drop so UI / prefs / socket do not stay "Connected".
+         */
+        @JvmStatic
+        fun clearLocalConnectionForDisabledAdapter(context: Context, adapterState: Int) {
+            Log.d(
+                TAG,
+                "<LogCollector:Conn> BT adapter state=$adapterState — clearing local connection " +
+                    "(OEM may omit ACL/A2DP disconnect when BT is toggled off)"
+            )
+            a2dpConnectedToOurMac = false
+            context.getSharedPreferences("settings", Context.MODE_PRIVATE).edit {
+                putBoolean("connection_successful", false)
+            }
+            io.automated.ventures.everypods.utils.MediaController.resetMusicActiveState()
+            context.sendBroadcast(
+                Intent(AirPodsNotifications.AIRPODS_DISCONNECTED).apply {
+                    `package` = context.packageName
+                }
+            )
+        }
     }
 
     private val bleStatusListener = object : BLEManager.AirPodsStatusListener {
@@ -3530,6 +3554,27 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             val context = context?.applicationContext
             val name = context?.getSharedPreferences("settings", MODE_PRIVATE)
                 ?.getString("name", bluetoothDevice?.name)
+
+            // ACTION_STATE_CHANGED has no EXTRA_DEVICE, so it never enters the
+            // device!=null branch below. Xiaomi (and some Pixel paths) often skip
+            // ACL_DISCONNECTED / A2DP disconnect when the user turns system BT off
+            // (or leaves BLE-only on), leaving the UI stuck on "Connected".
+            if (action == BluetoothAdapter.ACTION_STATE_CHANGED && context != null) {
+                val state = intent.getIntExtra(
+                    BluetoothAdapter.EXTRA_STATE,
+                    BluetoothAdapter.ERROR
+                )
+                // Classic audio needs STATE_ON. STATE_OFF / TURNING_OFF / BLE_ON
+                // (half-on OEM mode) cannot route A2DP — clear local connected state.
+                // 15 = STATE_BLE_ON (hidden from public SDK; Xiaomi half-on).
+                val classicAudioGone = state == BluetoothAdapter.STATE_OFF ||
+                    state == BluetoothAdapter.STATE_TURNING_OFF ||
+                    state == 15
+                if (classicAudioGone) {
+                    clearLocalConnectionForDisabledAdapter(context, state)
+                }
+            }
+
             if (bluetoothDevice != null && !action.isNullOrEmpty()) {
                 Log.d(TAG, "Received bluetooth connection broadcast: action=$action, device=${bluetoothDevice.address}")
                 if (BluetoothDevice.ACTION_ACL_CONNECTED == action) {
@@ -4039,6 +4084,17 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     @SuppressLint("MissingPermission")
     private fun isA2dpConnectedTo(mac: String): Boolean {
         if (mac.isEmpty()) return false
+        val adapter = try {
+            getSystemService(BluetoothManager::class.java).adapter
+        } catch (_: Exception) {
+            null
+        }
+        // Classic A2DP requires STATE_ON. isEnabled() is false for STATE_OFF and
+        // STATE_BLE_ON (Xiaomi half-on) — never report connected in those states.
+        if (adapter == null || !adapter.isEnabled) {
+            a2dpConnectedToOurMac = false
+            return false
+        }
         val proxy = bluetoothA2dpProxy ?: return true.also {
             // Cache stays optimistic until the proxy connects.
             a2dpConnectedToOurMac = true
