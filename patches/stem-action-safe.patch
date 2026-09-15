@@ -80,7 +80,8 @@
  
              cameraAction = sharedPreferences.getString("camera_action", null)
                  ?.let { StemPressType.valueOf(it) },
-@@ -
+ 
+             // Gym mode
              gymModeEnabled = sharedPreferences.getBoolean("gym_mode_enabled", false),
 -            leftGymDoublePressAction = StemAction.fromString(
 -                sharedPreferences.getString("gym_left_double_press_action", "GYM_TIMER_START_STOP")
