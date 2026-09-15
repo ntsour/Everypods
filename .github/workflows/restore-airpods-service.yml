@@ -1,0 +1,23 @@
+name: restore-airpods-service
+on:
+  push:
+    paths:
+      - 'tmp/airpods_gz_parts/**'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  assemble:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assemble AirPodsService.kt
+        run: python3 tmp/airpods_gz_parts/assemble.py
+      - name: Commit restored file
+        run: |
+          git config user.name "ntsour"
+          git config user.email "ntsour@gmail.com"
+          git add android/app/src/main/java/io/automated/ventures/everypods/services/AirPodsService.kt
+          if git diff --staged --quiet; then echo "No changes"; exit 0; fi
+          git commit -m "fix(AirPodsService): safe StemAction prefs parse for unknown values"
+          git push
