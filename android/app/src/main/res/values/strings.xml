@@ -66,6 +66,7 @@
     <string name="cross_device_settings_hint">For handover, install EveryPods on each phone, pair the phones in Android Bluetooth settings, connect the AirPods to each phone once, and add each phone under Connected devices.</string>
     <string name="lid_open_last_holder_autoconnect">Auto-connect on case open (last device)</string>
     <string name="lid_open_last_holder_autoconnect_description">When you open the case, only the last phone that used the AirPods connects. Start music on another phone to switch. The last phone may connect even if it is not next to the case.</string>
+    <string name="lid_other_owner_takeover_hint">AirPods in use on another device — play here to take over</string>
     <string name="ear_detection">Automatic Ear Detection</string>
     <string name="auto_play">Auto Play</string>
     <string name="auto_pause">Auto Pause</string>

@@ -503,6 +503,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             if (lidOpen) {
                 Log.d(TAG, "Lid opened")
                 Log.d(TAG, "<LogCollector:LidLease> lid_open")
+                lidOtherOwnerNotifiedForOpen = false
                 showPopup(
                     this@AirPodsService,
                     getSharedPreferences("settings", MODE_PRIVATE).getString("name", "AirPods Pro")
@@ -540,6 +541,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             } else {
                 Log.d(TAG, "Lid closed")
                 cancelPendingLidAutoconnect("lid_closed")
+                lidOtherOwnerNotifiedForOpen = false
             }
         }
 
@@ -2651,6 +2653,15 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     /** Pending lid-open auto-grab; cancelled if lid closes before connect starts. */
     private var pendingLidAutoconnectRunnable: Runnable? = null
     private val lidAutoconnectHandler = Handler(Looper.getMainLooper())
+    /** One soft UX notify per lid-open when we skip because another device holds audio. */
+    private var lidOtherOwnerNotifiedForOpen: Boolean = false
+
+    private data class A2dpOwnerHint(
+        /** `peer_cross_device` when CrossDevice.holders is non-empty; else `foreign_or_unknown`. */
+        val kind: String,
+        val ownerMac: String?,
+        val displayName: String?,
+    )
 
     private fun armStartupBatteryAlert() {
         startupBatteryAlertArmed = true
@@ -4116,18 +4127,27 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 val lidPending = pendingLidAutoconnectRunnable != null ||
                     (lastLidAutoconnectAttemptMs > 0L &&
                         System.currentTimeMillis() - lastLidAutoconnectAttemptMs < 6_000L)
+                val hint = resolveA2dpOwnerHint()
                 Log.d(
                     TAG,
                     "<LogCollector:Conn> connect blocked — A2DP not connected to us for $deviceMac " +
-                        "(localProxySinks=$proxySinks; inference=foreign_or_disconnected; " +
-                        "lidAutoconnectRecent=$lidPending). Public BT APIs cannot identify the other phone."
+                        "(localProxySinks=$proxySinks; ownerKind=${hint.kind}; " +
+                        "ownerMac=${hint.ownerMac ?: "-"}; displayName=${hint.displayName ?: "-"}; " +
+                        "lidAutoconnectRecent=$lidPending)"
                 )
+                logLidOwnerContext("connect_blocked_a2dp", hint)
                 if (lidPending) {
                     Log.d(
                         TAG,
                         "<LogCollector:LidLease> connectToSocket gated until A2DP lands after connectAudio " +
                             "(expected brief race; lid path retries connectAudio, not L2CAP)"
                     )
+                    // If a CrossDevice peer is the known holder, soft-notify once for this lid.
+                    // foreign_or_unknown during the race after our own connectAudio is common —
+                    // only toast when we positively know a peer holds.
+                    if (hint.kind == "peer_cross_device") {
+                        maybeNotifyLidOtherOwner("connect_blocked_peer")
+                    }
                 }
                 return
             }
@@ -5017,6 +5037,75 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
      * which bypass this gate.
      */
 
+    @SuppressLint("MissingPermission")
+    private fun peerDisplayName(mac: String): String {
+        return try {
+            val adapter = getSystemService(BluetoothManager::class.java).adapter
+            val remote = runCatching { adapter?.getRemoteDevice(mac)?.name }.getOrNull()
+            remote?.takeIf { it.isNotBlank() }
+                ?: adapter?.bondedDevices?.find { it.address.equals(mac, ignoreCase = true) }?.name
+                ?: mac
+        } catch (_: Exception) {
+            mac
+        }
+    }
+
+    /**
+     * Best-effort owner hint for logs/UX. CrossDevice peers can be named; a foreign
+     * phone (old EveryPods / iPhone / Mac) is not visible via public A2DP APIs.
+     */
+    @SuppressLint("MissingPermission")
+    private fun resolveA2dpOwnerHint(): A2dpOwnerHint {
+        val peerMac = CrossDevice.holders.firstOrNull()
+        if (peerMac != null) {
+            return A2dpOwnerHint(
+                kind = "peer_cross_device",
+                ownerMac = peerMac,
+                displayName = peerDisplayName(peerMac),
+            )
+        }
+        return A2dpOwnerHint(
+            kind = "foreign_or_unknown",
+            ownerMac = null,
+            displayName = null,
+        )
+    }
+
+    private fun logLidOwnerContext(reason: String, hint: A2dpOwnerHint = resolveA2dpOwnerHint()) {
+        Log.d(
+            TAG,
+            "<LogCollector:LidLease> owner_context reason=$reason kind=${hint.kind} " +
+                "ownerMac=${hint.ownerMac ?: "-"} displayName=${hint.displayName ?: "-"} " +
+                "holders=${CrossDevice.holders.toList()}"
+        )
+    }
+
+    /** Soft UX once per lid-open: no auto-steal; playback/manual reconnect remains the path. */
+    private fun maybeNotifyLidOtherOwner(reason: String) {
+        if (!AudioLeasePrefs.isFeatureEnabled(sharedPreferences)) return
+        if (lidOtherOwnerNotifiedForOpen) return
+        lidOtherOwnerNotifiedForOpen = true
+        val hint = resolveA2dpOwnerHint()
+        logLidOwnerContext(reason, hint)
+        val message = getString(R.string.lid_other_owner_takeover_hint)
+        sendToast(message)
+        // Island when overlays enabled — name the CrossDevice peer if known.
+        if (sharedPreferences.getBoolean("show_island_popup", true) &&
+            Settings.canDrawOverlays(this)
+        ) {
+            val left = batteryNotification.getBattery()
+                .find { it.component == BatteryComponent.LEFT }?.level ?: 0
+            val right = batteryNotification.getBattery()
+                .find { it.component == BatteryComponent.RIGHT }?.level ?: 0
+            showIsland(
+                this,
+                left.coerceAtMost(right),
+                IslandType.MOVED_TO_OTHER_DEVICE,
+                otherDeviceName = hint.displayName ?: "another device",
+            )
+        }
+    }
+
     private fun cancelPendingLidAutoconnect(reason: String) {
         pendingLidAutoconnectRunnable?.let {
             lidAutoconnectHandler.removeCallbacks(it)
@@ -5066,7 +5155,13 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             return
         }
         if (shared && CrossDevice.isAvailable) {
-            Log.d(TAG, "<LogCollector:LidLease> skip reason=peer_holding")
+            val hint = resolveA2dpOwnerHint()
+            Log.d(
+                TAG,
+                "<LogCollector:LidLease> skip reason=peer_holding kind=${hint.kind} " +
+                    "ownerMac=${hint.ownerMac ?: "-"} displayName=${hint.displayName ?: "-"}"
+            )
+            maybeNotifyLidOtherOwner("peer_holding")
             return
         }
         if (!AudioLeasePrefs.mayLidAutoGrab(shared, holder, everSet)) {
