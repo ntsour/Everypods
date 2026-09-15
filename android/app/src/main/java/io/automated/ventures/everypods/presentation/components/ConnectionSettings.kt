@@ -209,6 +209,8 @@ fun ConnectionSettings(
     automaticConnectionEnabled: Boolean,
     onAutomaticConnectionChanged: (Boolean) -> Unit,
     earDetectionAvailable: Boolean = true,
+    lidOpenLastHolderAutoconnect: Boolean = false,
+    onLidOpenLastHolderAutoconnectChanged: (Boolean) -> Unit = {},
 ) {
     val isDarkTheme = isSystemInDarkTheme()
     val backgroundColor = if (isDarkTheme) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
@@ -298,6 +300,20 @@ fun ConnectionSettings(
                 .padding(horizontal = 12.dp)
         )
 
+        StyledToggle(
+            label = stringResource(R.string.lid_open_last_holder_autoconnect),
+            description = stringResource(R.string.lid_open_last_holder_autoconnect_description),
+            independent = false,
+            checked = lidOpenLastHolderAutoconnect,
+            onCheckedChange = onLidOpenLastHolderAutoconnectChanged
+        )
+        HorizontalDivider(
+            thickness = 1.dp,
+            color = Color(0x40888888),
+            modifier = Modifier
+                .padding(horizontal = 12.dp)
+        )
+
         if (earDetectionAvailable) {
             StyledToggle(
                 label = stringResource(R.string.ear_detection),
@@ -321,7 +337,7 @@ fun ConnectionSettings(
                     )
                 }
                 io.automated.ventures.everypods.presentation.components.RequiresAacpIcon()
-                Spacer(Modifier.width(12.dp))
+                Spacer(modifier.width(12.dp))
             }
         }
         HorizontalDivider(
@@ -356,7 +372,7 @@ fun ConnectionSettings(
                     )
                 }
                 io.automated.ventures.everypods.presentation.components.RequiresAacpIcon()
-                Spacer(Modifier.width(12.dp))
+                Spacer(modifier.width(12.dp))
             }
         }
     }
