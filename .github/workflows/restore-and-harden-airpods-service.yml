@@ -11,7 +11,7 @@ jobs:
   restore:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Restore AirPodsService from 1fea2e3 and apply StemAction harden
