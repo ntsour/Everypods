@@ -80,6 +80,7 @@ import io.automated.ventures.everypods.presentation.components.StyledToggle
 import io.automated.ventures.everypods.services.NotificationAnnouncementService
 import io.automated.ventures.everypods.utils.AnnouncementPrefs
 import io.automated.ventures.everypods.utils.ElevenLabsEngine
+import io.automated.ventures.everypods.utils.TtsEngine
 
 @Composable
 fun NotificationAnnouncementsScreen(navController: NavController) {
@@ -110,6 +111,20 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
     var elVoices by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
     var elVoicesLoading by remember { mutableStateOf(false) }
     var elVoiceDropdownOpen by remember { mutableStateOf(false) }
+    var spanishVoices by remember { mutableStateOf<List<TtsEngine.AvailableVoice>>(emptyList()) }
+    var englishVoices by remember { mutableStateOf<List<TtsEngine.AvailableVoice>>(emptyList()) }
+    var systemVoicesLoading by remember { mutableStateOf(false) }
+
+    LaunchedEffect(ttsEngine) {
+        if (ttsEngine == AnnouncementPrefs.TTS_ENGINE_SYSTEM) {
+            systemVoicesLoading = true
+            TtsEngine.loadAvailableVoices(context, "es") { spanishVoices = it }
+            TtsEngine.loadAvailableVoices(context, "en") {
+                englishVoices = it
+                systemVoicesLoading = false
+            }
+        }
+    }
 
     // Load voices when ElevenLabs is selected and key is present
     LaunchedEffect(ttsEngine, elApiKey) {
@@ -300,6 +315,21 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
                     }
                 ),
             ))
+
+            if (ttsEngine == AnnouncementPrefs.TTS_ENGINE_SYSTEM) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(20.dp)).padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text("System voices", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Bold, color = textColor.copy(alpha = 0.6f), fontFamily = FontFamily(Font(R.font.sf_pro))))
+                    Text("Automatic detection stays on. Choose a consistent installed voice for Spanish and English, or keep Android's default.", style = TextStyle(fontSize = 13.sp, color = textColor.copy(alpha = 0.6f), fontFamily = FontFamily(Font(R.font.sf_pro))))
+                    if (systemVoicesLoading) CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
+                    else {
+                        SystemVoicePicker("Spanish voice", "es", spanishVoices, context, textColor, isDark)
+                        SystemVoicePicker("English voice", "en", englishVoices, context, textColor, isDark)
+                    }
+                }
+            }
 
             if (ttsEngine == AnnouncementPrefs.TTS_ENGINE_ELEVENLABS) {
                 Column(
@@ -651,6 +681,56 @@ private fun TimeRow(
                 fontFamily = FontFamily(Font(R.font.sf_pro))
             )
         )
+    }
+}
+
+@Composable
+private fun SystemVoicePicker(
+    label: String,
+    languageTag: String,
+    voices: List<TtsEngine.AvailableVoice>,
+    context: android.content.Context,
+    textColor: Color,
+    isDark: Boolean,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    var selectedVoiceName by remember(languageTag) {
+        mutableStateOf(AnnouncementPrefs.systemTtsVoiceName(context, languageTag))
+    }
+    val selectedLabel = voices.firstOrNull { it.name == selectedVoiceName }?.label ?: "Android default"
+
+    Text(label, style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Bold, color = textColor.copy(alpha = 0.6f), fontFamily = FontFamily(Font(R.font.sf_pro))))
+    Box {
+        Row(
+            modifier = Modifier.fillMaxWidth()
+                .background(if (isDark) Color(0xFF2C2C2E) else Color(0xFFF2F2F7), RoundedCornerShape(10.dp))
+                .clickable { expanded = true }.padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(selectedLabel, style = TextStyle(fontSize = 14.sp, color = textColor, fontFamily = FontFamily(Font(R.font.sf_pro))))
+            Text("▾", style = TextStyle(fontSize = 13.sp, color = textColor.copy(alpha = 0.5f)))
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(text = { Text("Android default") }, onClick = {
+                selectedVoiceName = null
+                AnnouncementPrefs.setSystemTtsVoiceName(context, languageTag, null)
+                expanded = false
+            })
+            voices.forEach { voice ->
+                DropdownMenuItem(text = { Text(voice.label) }, onClick = {
+                    selectedVoiceName = voice.name
+                    AnnouncementPrefs.setSystemTtsVoiceName(context, languageTag, voice.name)
+                    expanded = false
+                })
+            }
+        }
+    }
+    TextButton(onClick = {
+        val sample = if (languageTag == "es") "Esta es la voz en español." else "This is the English voice."
+        TtsEngine.speak(context, sample, languageTag)
+    }, enabled = voices.isNotEmpty()) {
+        Text("Preview", color = Color(0xFF0A84FF), style = TextStyle(fontFamily = FontFamily(Font(R.font.sf_pro))))
     }
 }
 

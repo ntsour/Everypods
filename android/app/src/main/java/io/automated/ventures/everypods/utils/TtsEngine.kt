@@ -23,6 +23,8 @@ import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.PowerManager
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
@@ -52,6 +54,7 @@ object TtsEngine {
     @Volatile private var audioManager: AudioManager? = null
     @Volatile private var focusRequest: AudioFocusRequest? = null
     @Volatile private var configuredLanguage: String? = null
+    @Volatile private var configuredVoiceName: String? = null
     @Volatile private var wakeLock: PowerManager.WakeLock? = null
     private val initialised = AtomicBoolean(false)
     private val initialising = AtomicBoolean(false)
@@ -117,8 +120,9 @@ object TtsEngine {
         // the engine was initialised.
         val desiredLang = languageTag ?: AnnouncementPrefs.resolvedLanguage(ctx)
         if (initialised.get()) {
-            if (desiredLang != configuredLanguage) {
-                applyLanguage(desiredLang)
+            val desiredVoice = AnnouncementPrefs.systemTtsVoiceName(ctx, desiredLang)
+            if (desiredLang != configuredLanguage || desiredVoice != configuredVoiceName) {
+                applyLanguage(ctx, desiredLang)
             }
             enqueue(text, onDone)
             return
@@ -187,7 +191,7 @@ object TtsEngine {
 
     private fun configureEngine(ctx: Context) {
         val engine = tts ?: return
-        applyLanguage(AnnouncementPrefs.resolvedLanguage(ctx))
+        applyLanguage(ctx, AnnouncementPrefs.resolvedLanguage(ctx))
         engine.setAudioAttributes(
             AudioAttributes.Builder()
                 // Keep spoken feedback out of the app's music/podcast detector.
@@ -264,7 +268,7 @@ object TtsEngine {
         }
     }
 
-    private fun applyLanguage(languageTag: String) {
+    private fun applyLanguage(context: Context, languageTag: String) {
         val engine = tts ?: return
         val preferred = Locale.forLanguageTag(languageTag).takeIf { it.language.isNotEmpty() }
             ?: Locale(languageTag)
@@ -273,9 +277,53 @@ object TtsEngine {
             Log.w(TAG, "Locale $preferred unsupported; falling back to English")
             engine.setLanguage(Locale.ENGLISH)
             configuredLanguage = "en"
+            configuredVoiceName = null
         } else {
             Log.d(TAG, "TTS language set to $preferred (tag=$languageTag)")
             configuredLanguage = languageTag
+            val requestedVoiceName = AnnouncementPrefs.systemTtsVoiceName(context, languageTag)
+            val requestedVoice = requestedVoiceName?.let { name ->
+                engine.voices?.firstOrNull { it.name == name && it.locale.language == preferred.language }
+            }
+            if (requestedVoice != null && engine.setVoice(requestedVoice) == TextToSpeech.SUCCESS) {
+                configuredVoiceName = requestedVoice.name
+                Log.d(TAG, "TTS voice set to ${requestedVoice.name} for ${preferred.language}")
+            } else {
+                configuredVoiceName = null
+                if (requestedVoiceName != null) {
+                    Log.w(TAG, "Saved TTS voice $requestedVoiceName unavailable for $preferred; using Android default")
+                }
+            }
+        }
+    }
+
+    data class AvailableVoice(val name: String, val label: String)
+
+    /** Loads installed Android voices without changing an announcement in progress. */
+    fun loadAvailableVoices(context: Context, languageTag: String, onResult: (List<AvailableVoice>) -> Unit) {
+        val ctx = context.applicationContext
+        val language = Locale.forLanguageTag(languageTag).language
+        var probe: TextToSpeech? = null
+        probe = TextToSpeech(ctx) { status ->
+            val result = if (status == TextToSpeech.SUCCESS) {
+                runCatching {
+                    probe?.voices.orEmpty().asSequence()
+                        .filter { it.locale.language == language }
+                        .map { voice -> AvailableVoice(
+                            name = voice.name,
+                            label = buildString {
+                                append(voice.locale.toLanguageTag())
+                                append(" — ")
+                                append(voice.name)
+                                if (voice.isNetworkConnectionRequired) append(" (network)")
+                            }
+                        ) }
+                        .sortedBy { it.label }
+                        .toList()
+                }.getOrDefault(emptyList())
+            } else emptyList()
+            Handler(Looper.getMainLooper()).post { onResult(result) }
+            probe?.shutdown()
         }
     }
 
