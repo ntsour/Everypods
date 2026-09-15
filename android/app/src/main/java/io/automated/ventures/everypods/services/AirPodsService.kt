@@ -2400,6 +2400,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             )
         }
         val notificationIntent = Intent(this, MainActivity::class.java)
+            .setPackage(packageName)
             .putExtra(EXTRA_OPEN_GYM_TIMER, true)
             .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         val contentIntent = PendingIntent.getActivity(
@@ -2854,7 +2855,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         return // something causes too many notifications. turning off for now
         val notificationManager = getSystemService(NotificationManager::class.java)
 
-        val notificationIntent = Intent(this, MainActivity::class.java)
+        val notificationIntent = Intent(this, MainActivity::class.java).setPackage(packageName)
         val pendingIntent = PendingIntent.getActivity(
             this,
             0,
@@ -3012,7 +3013,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             val reconnectIntent = PendingIntent.getService(
                 this,
                 0,
-                Intent(this, AirPodsService::class.java).setAction(ACTION_WIDGET_RECONNECT),
+                Intent(this, AirPodsService::class.java)
+                    .setPackage(packageName)
+                    .setAction(ACTION_WIDGET_RECONNECT),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             it.setOnClickPendingIntent(R.id.battery_widget, reconnectIntent)
@@ -3150,7 +3153,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     ) {
         val notificationManager = getSystemService(NotificationManager::class.java)
 
-        val notificationIntent = Intent(this, MainActivity::class.java)
+        val notificationIntent = Intent(this, MainActivity::class.java).setPackage(packageName)
         val pendingIntent = PendingIntent.getActivity(
             this,
             0,
@@ -3228,7 +3231,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             if (disconnectedBecauseReversed) {
                 updatedNotificationBuilder.addAction(
                     R.drawable.ic_bluetooth, "Reconnect", PendingIntent.getService(
-                        this, 0, Intent(this, AirPodsService::class.java).apply {
+                        this, 0, Intent(this, AirPodsService::class.java).setPackage(packageName).apply {
                             action = "io.automated.ventures.everypods.RECONNECT_AFTER_REVERSE"
                         }, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                     )
@@ -3252,7 +3255,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         val pendingIntent = PendingIntent.getService(
             this,
             GYM_MODE_NOTIFICATION_REQUEST_CODE,
-            Intent(this, AirPodsService::class.java).setAction(ACTION_TOGGLE_GYM_MODE),
+            Intent(this, AirPodsService::class.java)
+                .setPackage(packageName)
+                .setAction(ACTION_TOGGLE_GYM_MODE),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         builder.addAction(R.drawable.airpods, label, pendingIntent)
@@ -3267,7 +3272,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         val pendingIntent = PendingIntent.getService(
             this,
             CONNECT_LAST_DEVICE_NOTIFICATION_REQUEST_CODE,
-            Intent(this, AirPodsService::class.java).setAction(ACTION_CONNECT_LAST_DEVICE),
+            Intent(this, AirPodsService::class.java)
+                .setPackage(packageName)
+                .setAction(ACTION_CONNECT_LAST_DEVICE),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         builder.addAction(R.drawable.ic_bluetooth, "Connect", pendingIntent)
