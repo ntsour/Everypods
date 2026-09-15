@@ -95,7 +95,7 @@ data class AirPodsUiState(
     val automaticConnectionEnabled: Boolean = true,
     val crossDeviceEnabled: Boolean = false,
     val crossDevicePeers: List<PeerUiInfo> = emptyList(),
-    val lidOpenLastHolderAutoconnect: Boolean = false,
+    val lidOpenLastHolderAutoconnect: Boolean = io.automated.ventures.everypods.utils.AudioLeasePrefs.DEFAULT_ENABLED,
 
     val leftAction: StemAction = StemAction.CYCLE_NOISE_CONTROL_MODES,
     val rightAction: StemAction = StemAction.CYCLE_NOISE_CONTROL_MODES,
@@ -451,11 +451,10 @@ class AirPodsViewModel(
             else sharedPreferences.getBoolean("automatic_connection_ctrl_cmd", false)
         val crossDeviceEnabled =
             sharedPreferences.getBoolean("cross_device_enabled", CrossDevice.configuredPeers.isNotEmpty())
+        // Seed missing key → ON (new installs). Never overwrite an explicit false.
+        io.automated.ventures.everypods.utils.AudioLeasePrefs.ensureDefaultEnabled(sharedPreferences)
         val lidOpenLastHolderAutoconnect =
-            sharedPreferences.getBoolean(
-                io.automated.ventures.everypods.utils.AudioLeasePrefs.KEY_LID_OPEN_LAST_HOLDER_AUTOCONNECT,
-                false
-            )
+            io.automated.ventures.everypods.utils.AudioLeasePrefs.isFeatureEnabled(sharedPreferences)
         val headGesturesEnabled = sharedPreferences.getBoolean("head_gestures_enabled", false)
         val headGesturesAnswerCall = sharedPreferences.getBoolean("head_gestures_answer_call", true)
         val headGesturesMuteCall = sharedPreferences.getBoolean("head_gestures_mute_call", true)
@@ -634,13 +633,14 @@ class AirPodsViewModel(
     }
 
     fun setLidOpenLastHolderAutoconnect(enabled: Boolean) {
-        sharedPreferences.edit {
-            putBoolean(
-                io.automated.ventures.everypods.utils.AudioLeasePrefs.KEY_LID_OPEN_LAST_HOLDER_AUTOCONNECT,
-                enabled
-            )
-        }
-        _uiState.update { it.copy(lidOpenLastHolderAutoconnect = enabled) }
+        io.automated.ventures.everypods.utils.AudioLeasePrefs.setFeatureEnabled(
+            sharedPreferences,
+            enabled
+        )
+        // Re-read so UI always mirrors the persisted value (not a stale param).
+        val persisted =
+            io.automated.ventures.everypods.utils.AudioLeasePrefs.isFeatureEnabled(sharedPreferences)
+        _uiState.update { it.copy(lidOpenLastHolderAutoconnect = persisted) }
     }
 
     /** Add [mac] to the configured peer set and reconcile live links. */
