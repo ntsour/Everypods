@@ -90,6 +90,13 @@ object MediaController {
     @Volatile
     private var pendingMusicTakeoverSetAt: Long = 0L
 
+    /**
+     * After lid/case-open passive connect, ignore A2DP PLAYING → routeLandPoller
+     * restarts for this long. Keeps lastMusicTakeoverMs intact for ownership.
+     */
+    private var suppressRouteLandRestartUntilMs: Long = 0L
+    private const val PASSIVE_CONNECT_ROUTELAND_SUPPRESS_MS = 20_000L
+
     // When an A2DP route change lands we watch for the app auto-pausing
     // (Pocket Casts, etc.) and re-issue play immediately. Unlike a single
     // timing guess, this polls the actual playback state with arithmetic
@@ -212,6 +219,13 @@ object MediaController {
         routeLandWatchPending = false
         handler.removeCallbacks(routeLandPoller)
         routeLandPoller.reset()
+        // Do NOT clear lastMusicTakeoverMs (ownership cold-connect window).
+        suppressRouteLandRestartUntilMs =
+            System.currentTimeMillis() + PASSIVE_CONNECT_ROUTELAND_SUPPRESS_MS
+        Log.d(
+            "MediaController",
+            "  → suppress routeLand restart for ${PASSIVE_CONNECT_ROUTELAND_SUPPRESS_MS}ms"
+        )
     }
 
     /**
@@ -222,6 +236,17 @@ object MediaController {
      * from onAudioDevicesAdded has already finished.
      */
     fun restartRouteLandPoller() {
+        val now = System.currentTimeMillis()
+        if (now < suppressRouteLandRestartUntilMs) {
+            Log.d(
+                "MediaController",
+                "restartRouteLandPoller skipped — passive-connect suppress " +
+                    "(${suppressRouteLandRestartUntilMs - now}ms left)"
+            )
+            return
+        }
+        // Intentional music takeover still in flight (armPending not yet consumed),
+        // or a late A2DP PLAYING after a real play — allow restart.
         Log.d("MediaController", "restartRouteLandPoller: resetting and starting fresh watch")
         routeLandWatchPending = false
         handler.removeCallbacks(routeLandPoller)
@@ -236,6 +261,29 @@ object MediaController {
     private var mediaSessionManager: MediaSessionManager? = null
     private val sessionCallbacks = mutableMapOf<android.media.session.MediaController, android.media.session.MediaController.Callback>()
     private val sessionLastState = mutableMapOf<android.media.session.MediaController, Int>()
+
+
+    /**
+     * True for real user media (music, podcasts, movies). False for battery/TTS
+     * announcements (USAGE_ASSISTANT + SPEECH) and other assistant streams that
+     * must not trigger takeOver("music") / auto-play after lid connect.
+     */
+    internal fun isUserMediaPlayback(usage: Int, contentType: Int): Boolean {
+        if (isAssistantAnnouncementUsage(usage)) return false
+        return usage == android.media.AudioAttributes.USAGE_MEDIA ||
+            contentType == android.media.AudioAttributes.CONTENT_TYPE_MUSIC ||
+            contentType == android.media.AudioAttributes.CONTENT_TYPE_MOVIE ||
+            // Podcasts sometimes use SPEECH with USAGE_MEDIA (already true above).
+            // Bare SPEECH without MEDIA is typically TTS — ignore.
+            (contentType == android.media.AudioAttributes.CONTENT_TYPE_SPEECH &&
+                usage == android.media.AudioAttributes.USAGE_MEDIA)
+    }
+
+    private fun isAssistantAnnouncementUsage(usage: Int): Boolean =
+        usage == android.media.AudioAttributes.USAGE_ASSISTANT ||
+            usage == android.media.AudioAttributes.USAGE_ASSISTANCE_ACCESSIBILITY ||
+            usage == android.media.AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE ||
+            usage == android.media.AudioAttributes.USAGE_ASSISTANCE_SONIFICATION
 
     fun initialize(audioManager: AudioManager, sharedPreferences: SharedPreferences, context: Context? = null) {
         if (this::audioManager.isInitialized) {
@@ -506,12 +554,7 @@ object MediaController {
             Log.d("MediaController", "Active audio attrs: $activeAttrs")
 
             val hasNewMusicOrMovie = activeAttrs.any { a ->
-                // Primary signal: usage=USAGE_MEDIA covers music, podcasts, movies, audiobooks.
-                a.usage == android.media.AudioAttributes.USAGE_MEDIA ||
-                // Fallback: explicit content type for older/odd apps.
-                a.contentType == android.media.AudioAttributes.CONTENT_TYPE_MUSIC ||
-                a.contentType == android.media.AudioAttributes.CONTENT_TYPE_MOVIE ||
-                a.contentType == android.media.AudioAttributes.CONTENT_TYPE_SPEECH
+                isUserMediaPlayback(a.usage, a.contentType)
             }
 
             Log.d("MediaController", "Has new music or movie: $hasNewMusicOrMovie")
