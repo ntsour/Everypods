@@ -62,6 +62,7 @@ fun PressActionsScreen(viewModel: AirPodsViewModel) {
         StemAction.PREVIOUS_TRACK          to "Prev. Track",
         StemAction.DIGITAL_ASSISTANT       to "Voice Assistant",
         StemAction.CYCLE_NOISE_CONTROL_MODES to "Listening Mode",
+        StemAction.TOGGLE_GYM_MODE         to "Gym Mode On / Off",
     )
     
     StyledScaffold(title = "Press Actions") { topPadding, hazeState, bottomPadding ->

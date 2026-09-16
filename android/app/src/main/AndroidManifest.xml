@@ -11,6 +11,7 @@
         tools:ignore="ForegroundServicesPolicy" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission
@@ -82,6 +83,12 @@
                     android:host="add-magic-keys" />
             </intent-filter> -->
         </activity>
+
+        <activity
+            android:name=".GymTimerLockScreenActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:theme="@style/Theme.EveryPods" />
 
         <activity
             android:name=".QuickSettingsDialogActivity"
