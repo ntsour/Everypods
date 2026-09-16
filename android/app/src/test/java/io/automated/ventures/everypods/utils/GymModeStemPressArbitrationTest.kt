@@ -2,6 +2,8 @@ package io.automated.ventures.everypods.utils
 
 import io.automated.ventures.everypods.bluetooth.AACPManager.Companion.StemPressBudType
 import io.automated.ventures.everypods.bluetooth.AACPManager.Companion.StemPressType
+import io.automated.ventures.everypods.data.StemAction
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -46,6 +48,42 @@ class GymModeStemPressArbitrationTest {
                 gymModeEnabled = true,
                 lastMultiPressAtMs = 1_000L,
                 nowMs = 1_251L,
+            )
+        )
+    }
+
+    @Test
+    fun longPressKeepsToggleGymModeEvenWhenGymModeIsOn() {
+        assertEquals(
+            StemAction.TOGGLE_GYM_MODE,
+            GymModeStemPressArbitration.resolveLongPressAction(
+                gymModeEnabled = true,
+                normalLongPress = StemAction.TOGGLE_GYM_MODE,
+                gymLongPress = StemAction.GYM_TIMER_RESET,
+            )
+        )
+    }
+
+    @Test
+    fun longPressUsesGymOverlayWhenNormalIsNotToggle() {
+        assertEquals(
+            StemAction.GYM_TIMER_RESET,
+            GymModeStemPressArbitration.resolveLongPressAction(
+                gymModeEnabled = true,
+                normalLongPress = StemAction.CYCLE_NOISE_CONTROL_MODES,
+                gymLongPress = StemAction.GYM_TIMER_RESET,
+            )
+        )
+    }
+
+    @Test
+    fun longPressUsesNormalWhenGymModeOff() {
+        assertEquals(
+            StemAction.TOGGLE_GYM_MODE,
+            GymModeStemPressArbitration.resolveLongPressAction(
+                gymModeEnabled = false,
+                normalLongPress = StemAction.TOGGLE_GYM_MODE,
+                gymLongPress = StemAction.GYM_TIMER_RESET,
             )
         )
     }

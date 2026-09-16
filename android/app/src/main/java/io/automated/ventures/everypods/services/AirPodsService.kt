@@ -1755,10 +1755,22 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             } else {
                 if (bud == AACPManager.Companion.StemPressBudType.LEFT) config.leftTriplePressAction else config.rightTriplePressAction
             }
-            StemPressType.LONG_PRESS -> if (config.gymModeEnabled) {
-                if (bud == AACPManager.Companion.StemPressBudType.LEFT) config.leftGymLongPressAction else config.rightGymLongPressAction
-            } else {
-                if (bud == AACPManager.Companion.StemPressBudType.LEFT) config.leftLongPressAction else config.rightLongPressAction
+            StemPressType.LONG_PRESS -> {
+                val normal = if (bud == AACPManager.Companion.StemPressBudType.LEFT) {
+                    config.leftLongPressAction
+                } else {
+                    config.rightLongPressAction
+                }
+                val gym = if (bud == AACPManager.Companion.StemPressBudType.LEFT) {
+                    config.leftGymLongPressAction
+                } else {
+                    config.rightGymLongPressAction
+                }
+                GymModeStemPressArbitration.resolveLongPressAction(
+                    config.gymModeEnabled,
+                    normal,
+                    gym,
+                )
             }
         }
     }
