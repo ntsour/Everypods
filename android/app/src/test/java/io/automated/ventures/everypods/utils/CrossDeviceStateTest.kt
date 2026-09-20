@@ -88,4 +88,31 @@ class CrossDeviceStateTest {
         assertEquals(setOf(aa), CrossDevice.holders.toSet())
     }
 
+    @Test
+    fun `ignored REQUEST_HANDOVER with pods in case does not sticky-hold peer`() {
+        CrossDevice.inEarOverrideForTesting = false
+
+        CrossDevice.processPacket(CrossDevicePackets.REQUEST_HANDOVER.packet, aa)
+
+        assertFalse(CrossDevice.holders.contains(aa))
+        assertTrue(CrossDevice.holders.isEmpty())
+    }
+
+    @Test
+    fun `accepted REQUEST_HANDOVER with pod in ear adds peer to holders`() {
+        CrossDevice.inEarOverrideForTesting = true
+
+        CrossDevice.processPacket(CrossDevicePackets.REQUEST_HANDOVER.packet, aa)
+
+        assertEquals(setOf(aa), CrossDevice.holders.toSet())
+    }
+
+    @Test
+    fun `ignored REQUEST_DISCONNECT with pods in case does not sticky-hold peer`() {
+        CrossDevice.inEarOverrideForTesting = false
+
+        CrossDevice.processPacket(CrossDevicePackets.REQUEST_DISCONNECT.packet, bb)
+
+        assertFalse(CrossDevice.holders.contains(bb))
+    }
 }

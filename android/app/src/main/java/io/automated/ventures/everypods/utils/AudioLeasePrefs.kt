@@ -91,7 +91,9 @@ object AudioLeasePrefs {
             .putLong(KEY_UPDATED_AT_MS, now)
             .putString(KEY_LEASE_ID, id)
             .apply()
-        Log.d(TAG, "<LogCollector:LidLease> lease_claim reason=$reason id=$id")
+        val claimLine = "<LogCollector:LidLease> lease_claim reason=$reason id=$id"
+        Log.d(TAG, claimLine)
+        LidAutoconnectDiagnostics.recordRawLine(claimLine)
     }
 
     fun claimLease(ctx: Context, reason: String) = claimLease(prefs(ctx), reason)
@@ -99,11 +101,15 @@ object AudioLeasePrefs {
     fun releaseLease(prefs: SharedPreferences, reason: String) {
         val wasHolder = prefs.getBoolean(KEY_HOLDER_SELF, false)
         if (!wasHolder && prefs.contains(KEY_HOLDER_SELF)) {
-            Log.d(TAG, "<LogCollector:LidLease> lease_release skip reason=$reason already_false")
+            val skipLine = "<LogCollector:LidLease> lease_release skip reason=$reason already_false"
+            Log.d(TAG, skipLine)
+            LidAutoconnectDiagnostics.recordRawLine(skipLine)
             return
         }
         if (!wasHolder && !prefs.contains(KEY_HOLDER_SELF)) {
-            Log.d(TAG, "<LogCollector:LidLease> lease_release skip reason=$reason never_set")
+            val neverLine = "<LogCollector:LidLease> lease_release skip reason=$reason never_set"
+            Log.d(TAG, neverLine)
+            LidAutoconnectDiagnostics.recordRawLine(neverLine)
             return
         }
         val now = System.currentTimeMillis()
@@ -111,7 +117,9 @@ object AudioLeasePrefs {
             .putBoolean(KEY_HOLDER_SELF, false)
             .putLong(KEY_UPDATED_AT_MS, now)
             .apply()
-        Log.d(TAG, "<LogCollector:LidLease> lease_release reason=$reason")
+        val releaseLine = "<LogCollector:LidLease> lease_release reason=$reason"
+        Log.d(TAG, releaseLine)
+        LidAutoconnectDiagnostics.recordRawLine(releaseLine)
     }
 
     fun releaseLease(ctx: Context, reason: String) = releaseLease(prefs(ctx), reason)
