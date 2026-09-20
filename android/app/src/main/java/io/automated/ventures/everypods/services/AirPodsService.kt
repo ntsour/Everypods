@@ -5783,11 +5783,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 LidAutoconnectDiagnostics.logEvent("a2dp_outcome", mapOf("state" to "connected"))
                 return@postDelayed
             }
-            val a2dpState = try {
-                bluetoothA2dpProxy?.getConnectionState(device)
-            } catch (_: Exception) {
-                null
-            }
+            val a2dpState = lidA2dpConnectionStateOrNull(device)
             when (a2dpState) {
                 BluetoothProfile.STATE_CONNECTED ->
                     LidAutoconnectDiagnostics.logEvent("a2dp_outcome", mapOf("state" to "connected"))
@@ -5797,6 +5793,22 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     LidAutoconnectDiagnostics.logEvent("a2dp_outcome", mapOf("state" to "failed_timeout"))
             }
         }, 6_000L)
+    }
+
+    /** Permission-guarded A2DP connection state for lid diagnostics (lint-safe). */
+    private fun lidA2dpConnectionStateOrNull(device: android.bluetooth.BluetoothDevice): Int? {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                return null
+            }
+        }
+        return try {
+            bluetoothA2dpProxy?.getConnectionState(device)
+        } catch (_: SecurityException) {
+            null
+        } catch (_: Exception) {
+            null
+        }
     }
 
     /**
