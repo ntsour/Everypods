@@ -83,9 +83,9 @@ object ProximityBands {
     const val RIGHT_HERE_EXIT_DELTA = 3f // leave when drop below enter - 3 → -58
 
     // Tuned for small apartments: Same room needs a stronger signal so
-    // doorway / next-room walks leave SAME_ROOM promptly (was -70/-85, then -63/-79).
-    const val SAME_ROOM_LOW = -61f
-    const val NEXT_ROOM_LOW = -77f
+    // doorway / next-room walks leave SAME_ROOM promptly (iterated: -70/-85 → -61/-77 → -59/-75).
+    const val SAME_ROOM_LOW = -59f
+    const val NEXT_ROOM_LOW = -75f
 
     /** Coarse path-loss helpers (txPower - smoothedRssi). Secondary to RSSI. */
     const val PATH_LOSS_NEAR = 45f
@@ -274,10 +274,10 @@ class DeviceSignalTracker(
         ): RoomBand {
             val hyst = ProximityBands.HYSTERESIS_DB
             val rightHereExit = ProximityBands.rightHereExit(rightHereEnter)
-            val sameRoomExitLow = ProximityBands.SAME_ROOM_LOW - hyst // -64
-            val sameRoomEnterFromNext = ProximityBands.SAME_ROOM_LOW + hyst // -58
-            val nextExitLow = ProximityBands.NEXT_ROOM_LOW - hyst // -80
-            val nextEnterFromFar = ProximityBands.NEXT_ROOM_LOW + hyst // -74
+            val sameRoomExitLow = ProximityBands.SAME_ROOM_LOW - hyst // -62
+            val sameRoomEnterFromNext = ProximityBands.SAME_ROOM_LOW + hyst // -56
+            val nextExitLow = ProximityBands.NEXT_ROOM_LOW - hyst // -78
+            val nextEnterFromFar = ProximityBands.NEXT_ROOM_LOW + hyst // -72
 
             var next = when (current) {
                 RoomBand.SEARCHING -> classifyRaw(rssi, rightHereEnter)

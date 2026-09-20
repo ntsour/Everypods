@@ -40,26 +40,26 @@ class ProximitySignalPipelineTest {
     @Test
     fun bandHysteresis_sameRoomThroughWallAndBack() {
         var band = RoomBand.SEARCHING
-        // SAME_ROOM_LOW=-61 → enter Same room with -59
-        band = DeviceSignalTracker.updateBand(band, -59f, pathLossDb = null)
+        // SAME_ROOM_LOW=-59 → enter Same room with -57
+        band = DeviceSignalTracker.updateBand(band, -57f, pathLossDb = null)
         assertEquals(RoomBand.SAME_ROOM, band)
 
-        // Exit low = -64; stay inside hysteresis
-        band = DeviceSignalTracker.updateBand(band, -63f, null)
+        // Exit low = -62; stay inside hysteresis
+        band = DeviceSignalTracker.updateBand(band, -61f, null)
         assertEquals("should stay SAME_ROOM inside exit hysteresis", RoomBand.SAME_ROOM, band)
 
-        band = DeviceSignalTracker.updateBand(band, -66f, null)
+        band = DeviceSignalTracker.updateBand(band, -64f, null)
         assertEquals(RoomBand.NEXT_ROOM, band)
 
         band = DeviceSignalTracker.updateBand(band, -85f, null)
         assertEquals(RoomBand.FARTHER, band)
 
-        // NEXT_ROOM enter from far = -74
-        band = DeviceSignalTracker.updateBand(band, -73f, null)
+        // NEXT_ROOM enter from far = -72
+        band = DeviceSignalTracker.updateBand(band, -71f, null)
         assertEquals(RoomBand.NEXT_ROOM, band)
 
-        // SAME_ROOM enter from next = -58
-        band = DeviceSignalTracker.updateBand(band, -57f, null)
+        // SAME_ROOM enter from next = -56
+        band = DeviceSignalTracker.updateBand(band, -55.5f, null)
         assertEquals(RoomBand.SAME_ROOM, band)
 
         band = DeviceSignalTracker.updateBand(band, -50f, null)
@@ -117,7 +117,7 @@ class ProximitySignalPipelineTest {
     fun pathLoss_nudgesNearEdge() {
         val band = DeviceSignalTracker.updateBand(
             current = RoomBand.SAME_ROOM,
-            rssi = -60f,
+            rssi = -58f,
             pathLossDb = 75f,
         )
         assertEquals(RoomBand.NEXT_ROOM, band)
