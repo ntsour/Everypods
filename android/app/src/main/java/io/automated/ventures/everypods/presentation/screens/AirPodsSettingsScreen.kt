@@ -892,7 +892,7 @@ private fun DisconnectedScreen(
             ) {
                 // App launcher icon — not AirPods product art
                 Image(
-                    painter = painterResource(R.mipmap.ic_launcher),
+                    painter = painterResource(R.mipmap.ic_launcher_foreground),
                     contentDescription = stringResource(R.string.app_name),
                     contentScale = ContentScale.Fit,
                     modifier = Modifier
