@@ -25,6 +25,8 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.os.Build
+import android.content.Intent
+import androidx.core.content.FileProvider
 import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -46,6 +48,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Send
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -87,6 +91,7 @@ import io.automated.ventures.everypods.presentation.components.StyledScaffold
 import io.automated.ventures.everypods.data.BatteryStatus
 import io.automated.ventures.everypods.data.isHeadTrackingData
 import io.automated.ventures.everypods.services.ServiceManager
+import io.automated.ventures.everypods.utils.LidAutoconnectDiagnostics
 import kotlin.io.encoding.ExperimentalEncodingApi
 
 data class PacketInfo(
@@ -349,6 +354,82 @@ fun DebugScreen(navController: NavController) {
                 .padding(horizontal = 16.dp)
         ) {
             Spacer(modifier = Modifier.height(topPadding))
+
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                shape = RoundedCornerShape(8.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (isSystemInDarkTheme()) Color(0xFF1C1B20) else Color(0xFFF2F2F7),
+                )
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Text(
+                        text = "Report lid-open connect failure",
+                        style = TextStyle(
+                            fontSize = 16.sp,
+                            fontFamily = FontFamily(Font(R.font.sf_pro)),
+                            fontWeight = FontWeight.Bold,
+                            color = if (isSystemInDarkTheme()) Color.White else Color.Black
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Use after lid open didn't auto-connect; saves recent lid/BT logs.",
+                        style = TextStyle(
+                            fontSize = 13.sp,
+                            fontFamily = FontFamily(Font(R.font.sf_pro)),
+                            color = if (isSystemInDarkTheme()) Color(0xFFAEAEB2) else Color(0xFF6C6C70)
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = {
+                            val empty = LidAutoconnectDiagnostics.isBufferEmpty()
+                            val file = LidAutoconnectDiagnostics.writeFailureReport(context)
+                            val uri = FileProvider.getUriForFile(
+                                context,
+                                "${context.packageName}.provider",
+                                file
+                            )
+                            val share = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_STREAM, uri)
+                                putExtra(Intent.EXTRA_SUBJECT, "EveryPods lid-open failure report")
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            try {
+                                context.startActivity(Intent.createChooser(share, "Share lid-open report"))
+                                Toast.makeText(
+                                    context,
+                                    if (empty) "Buffer empty — report file shared anyway" else "Lid-open failure report ready",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            } catch (e: Exception) {
+                                Toast.makeText(
+                                    context,
+                                    "Report saved: ${file.name}",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isSystemInDarkTheme()) Color(0xFF0A84FF) else Color(0xFF007AFF)
+                        )
+                    ) {
+                        Text(
+                            text = "Export & share report",
+                            style = TextStyle(
+                                fontFamily = FontFamily(Font(R.font.sf_pro)),
+                                color = Color.White
+                            )
+                        )
+                    }
+                }
+            }
+
             LazyColumn(
                 state = listState,
                 modifier = Modifier

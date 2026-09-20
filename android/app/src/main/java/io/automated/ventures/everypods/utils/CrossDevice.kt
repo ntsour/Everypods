@@ -95,6 +95,14 @@ object CrossDevice {
      *  REQUEST_HANDOVER / REQUEST_DISCONNECT / AIRPODS_CONNECTED / AIRPODS_DATA. */
     val holders: MutableSet<String> = CopyOnWriteArraySet()
 
+    /**
+     * Test-only in-ear override so unit tests can exercise accept/ignore handover
+     * without mocking [AirPodsService] (which loads native `bluetooth_socket`).
+     * `null` = consult ServiceManager; non-null forces the in-ear answer.
+     */
+    @Volatile
+    internal var inEarOverrideForTesting: Boolean? = null
+
     /** True when any peer holds the AirPods (i.e. [holders] is non-empty).
      *  Only the setter for false (holders.clear) is used internally now. */
     var isAvailable: Boolean
@@ -349,39 +357,46 @@ object CrossDevice {
      * not broadcast — so a courtesy verdict for one requester can't be mis-latched by
      * an unrelated peer (the 3-device correctness fix).
      */
+
+    /**
+     * Accept REQUEST_HANDOVER / REQUEST_DISCONNECT when a pod is in ear (or unknown).
+     * Returns false only when we positively know pods are in the case.
+     */
+    internal fun shouldAcceptHandoverRequest(): Boolean {
+        inEarOverrideForTesting?.let { return it }
+        return ServiceManager.getService()?.isAnyPodInEar() != false
+    }
+
     internal fun processPacket(raw: ByteArray, sourceMac: String) {
         Log.d(TAG, "[$sourceMac] received: ${raw.joinToString("") { "%02x".format(it) }}")
         when {
             raw.contentEquals(CrossDevicePackets.REQUEST_HANDOVER.packet) -> {
                 // Peer wants the AirPods — release them if we hold the connection.
-                // Eagerly mark the peer as holder: for *our* takeOver gate
-                // ("crossDeviceAvailable=false → bail") to work on a quick reversal
-                // play press, the peer must register as "having them" immediately —
-                // without waiting for its AACP handshake and eventual AIRPODS_CONNECTED
-                // reply, which can be 5–60 s later.
-                Log.d(TAG, "[$sourceMac] REQUEST_HANDOVER — releasing AirPods (eagerly marking peer as holder)")
-                holders.add(sourceMac)
-                ServiceManager.getService()?.markPeerTakeoverAttempt()
-                // Only hand over if a pod is actually in ear. If both pods are in the
-                // case (BLE reports neither in ear), the peer has nothing to hand over
-                // to — ignore the request rather than disconnecting and showing a popup.
+                // Only eagerly mark the peer as holder when we *accept* the takeover
+                // (pod in ear / unknown). Ignoring when pods are in the case must NOT
+                // sticky-add the peer — that blocked lid-open autoconnect via peer_holding.
                 val service = ServiceManager.getService()
-                if (service?.isAnyPodInEar() != false) {
+                if (shouldAcceptHandoverRequest()) {
+                    Log.d(TAG, "[$sourceMac] REQUEST_HANDOVER — releasing AirPods (eagerly marking peer as holder)")
+                    holders.add(sourceMac)
+                    service?.markPeerTakeoverAttempt()
                     service?.disconnectForCD()
                 } else {
+                    // Prefer check-in-ear-first: never add on ignore. Defensive remove
+                    // covers any older path that added before the ignore branch.
+                    holders.remove(sourceMac)
                     Log.d(TAG, "[$sourceMac] REQUEST_HANDOVER ignored — no pod in ear (pods in case)")
                 }
             }
             raw.contentEquals(CrossDevicePackets.REQUEST_DISCONNECT.packet) -> {
-                // Mark that a peer is taking over so we apply cooldown appropriately.
-                // Eagerly attribute ownership to this specific peer (mirrors REQUEST_HANDOVER)
-                // so hasPods reflects the real taker, not all configured peers.
-                holders.add(sourceMac)
-                ServiceManager.getService()?.markPeerTakeoverAttempt()
+                // Same accept-only eager mark as REQUEST_HANDOVER.
                 val service = ServiceManager.getService()
-                if (service?.isAnyPodInEar() != false) {
+                if (shouldAcceptHandoverRequest()) {
+                    holders.add(sourceMac)
+                    service?.markPeerTakeoverAttempt()
                     service?.disconnectForCD()
                 } else {
+                    holders.remove(sourceMac)
                     Log.d(TAG, "[$sourceMac] REQUEST_DISCONNECT ignored — no pod in ear (pods in case)")
                 }
             }
@@ -577,6 +592,7 @@ object CrossDevice {
         peerAudioActive = false
         batteryBytes = byteArrayOf()
         ancBytes = byteArrayOf()
+        inEarOverrideForTesting = null
     }
 
     @SuppressLint("MissingPermission")
