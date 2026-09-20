@@ -72,6 +72,8 @@ fun GymPressActionsScreen(viewModel: AirPodsViewModel) {
     val cardColor = if (dark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
 
     var selectedBud by rememberSaveable { mutableStateOf("left") }
+    // Bumped on Reset so dropdown labels re-seed from prefs.
+    var prefsEpoch by remember { mutableStateOf(0) }
 
     fun readGymAction(key: String, default: StemAction): StemAction =
         runCatching { StemAction.valueOf(sharedPrefs.getString(key, default.name) ?: default.name) }.getOrDefault(default)
@@ -154,7 +156,7 @@ fun GymPressActionsScreen(viewModel: AirPodsViewModel) {
                     val prefKey = "gym_${selectedBud}_${pressType.name.lowercase()}_action"
                     val isLong = pressType == AACPManager.Companion.StemPressType.LONG_PRESS
                     val locked = isLong && longPressLockedByControls
-                    val currentAction = if (locked) {
+                    val seedAction = if (locked) {
                         StemAction.TOGGLE_GYM_MODE
                     } else {
                         readGymAction(prefKey, defaultAction)
@@ -166,9 +168,10 @@ fun GymPressActionsScreen(viewModel: AirPodsViewModel) {
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Column(Modifier.weight(1f)) {
-                            GymPressDropdown(
+                            StatefulGymPressDropdown(
+                                seedKey = "$prefsEpoch-$selectedBud-$label-$locked",
+                                seedAction = seedAction,
                                 label = label,
-                                currentAction = currentAction,
                                 options = options,
                                 dark = dark,
                                 enabled = !locked,
@@ -200,6 +203,7 @@ fun GymPressActionsScreen(viewModel: AirPodsViewModel) {
                     .putString("gym_left_long_press_action", StemAction.GYM_TIMER_RESET.name)
                     .putString("gym_right_long_press_action", StemAction.GYM_TIMER_RESET.name)
                     .apply()
+                prefsEpoch++
             }.padding(horizontal = 16.dp, vertical = 14.dp),
                 horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
             ) {
@@ -210,6 +214,36 @@ fun GymPressActionsScreen(viewModel: AirPodsViewModel) {
             Spacer(Modifier.height(bottomPadding))
         }
     }
+}
+
+/**
+ * Owns [currentAction] so the label updates immediately on selection without
+ * waiting for a SharedPreferences-driven recomposition.
+ */
+@Composable
+private fun StatefulGymPressDropdown(
+    seedKey: String,
+    seedAction: StemAction,
+    label: String,
+    options: List<Pair<StemAction, String>>,
+    dark: Boolean,
+    enabled: Boolean,
+    lockedHint: String?,
+    onSelect: (StemAction) -> Unit,
+) {
+    var currentAction by remember(seedKey) { mutableStateOf(seedAction) }
+    GymPressDropdown(
+        label = label,
+        currentAction = currentAction,
+        options = options,
+        dark = dark,
+        enabled = enabled,
+        lockedHint = lockedHint,
+        onSelect = { action ->
+            currentAction = action
+            onSelect(action)
+        },
+    )
 }
 
 @Composable
