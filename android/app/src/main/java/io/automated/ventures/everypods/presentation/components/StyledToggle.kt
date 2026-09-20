@@ -170,10 +170,6 @@ fun StyledToggle(
                 Box(
                     modifier = Modifier
                         .padding(horizontal = 16.dp)
-                        .background(
-                            if (isDarkTheme) Color(0xFF000000)
-                            else Color(0xFFF2F2F7)
-                        )
                 ) {
                     Text(
                         text = description,
