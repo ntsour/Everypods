@@ -94,6 +94,25 @@ class ProximitySignalPipelineTest {
         assertEquals(SignalTrend.FARTHER, lastTrend)
     }
 
+
+    @Test
+    fun trend_farBand_respondsToSmallDeltas() {
+        val tracker = DeviceSignalTracker()
+        var t = 20_000L
+        // Settle in FARTHER (~-90)
+        repeat(8) {
+            tracker.push(-90, null, t)
+            t += 400L
+        }
+        // Slow walk closer with ~0.7 dB steps — under near threshold but over FAR 0.6
+        var last = SignalTrend.STABLE
+        for (rssi in listOf(-89, -88, -87, -86, -85, -84, -83, -82)) {
+            last = tracker.push(rssi, null, t).trend
+            t += 450L
+        }
+        assertEquals(SignalTrend.CLOSER, last)
+    }
+
     @Test
     fun pathLoss_nudgesNearEdge() {
         val band = DeviceSignalTracker.updateBand(
