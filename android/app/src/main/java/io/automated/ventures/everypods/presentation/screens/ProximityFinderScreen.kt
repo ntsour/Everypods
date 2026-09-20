@@ -72,6 +72,8 @@ import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import dev.chrisbanes.haze.hazeSource
 import io.automated.ventures.everypods.R
 import io.automated.ventures.everypods.bluetooth.ProximityScanner
+import io.automated.ventures.everypods.bluetooth.RoomBand
+import io.automated.ventures.everypods.bluetooth.SignalTrend
 import io.automated.ventures.everypods.presentation.components.StyledButton
 import io.automated.ventures.everypods.presentation.components.StyledIconButton
 import io.automated.ventures.everypods.presentation.components.StyledScaffold
@@ -82,6 +84,8 @@ fun ProximityFinderScreen(navController: NavController) {
     val context = LocalContext.current
     val scanner = remember { ProximityScanner(context.applicationContext) }
     val state by scanner.state.collectAsState()
+    var showSignalDetails by remember { mutableStateOf(false) }
+    var showWalkTip by remember { mutableStateOf(true) }
 
     DisposableEffect(scanner) {
         scanner.start()
@@ -120,12 +124,18 @@ fun ProximityFinderScreen(navController: NavController) {
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item(key = "top") { Spacer(modifier = Modifier.height(topPadding)) }
-            item(key = "radar") {
-                RadarCard(
+            item(key = "warmth") {
+                WarmthCard(
                     device = state.focusedDevice,
                     isScanning = state.isScanning,
-                    error = state.error
+                    error = state.error,
+                    showSignalDetails = showSignalDetails,
                 )
+            }
+            if (showWalkTip) {
+                item(key = "walk_tip") {
+                    WalkTipCard(onDismiss = { showWalkTip = false })
+                }
             }
             item(key = "calibration") {
                 CalibrationCard(
@@ -143,6 +153,7 @@ fun ProximityFinderScreen(navController: NavController) {
                     isScanning = state.isScanning,
                     hasDevices = state.devices.isNotEmpty(),
                     feedbackMode = state.feedbackMode,
+                    showSignalDetails = showSignalDetails,
                     onScanToggle = { if (state.isScanning) scanner.stop() else scanner.start() },
                     onFocusStrongest = scanner::focusStrongest,
                     onToggleFeedback = {
@@ -152,7 +163,8 @@ fun ProximityFinderScreen(navController: NavController) {
                             else
                                 ProximityScanner.FeedbackMode.SOUND
                         )
-                    }
+                    },
+                    onToggleSignalDetails = { showSignalDetails = !showSignalDetails },
                 )
             }
             if (state.devices.isEmpty()) {
@@ -170,6 +182,7 @@ fun ProximityFinderScreen(navController: NavController) {
                     CandidateCard(
                         device = device,
                         focused = state.focusedId == device.id,
+                        showSignalDetails = showSignalDetails,
                         onFocus = { scanner.focus(device.id) }
                     )
                 }
@@ -180,16 +193,29 @@ fun ProximityFinderScreen(navController: NavController) {
 }
 
 @Composable
-private fun RadarCard(
+private fun WarmthCard(
     device: ProximityScanner.ProximityDevice?,
     isScanning: Boolean,
-    error: String?
+    error: String?,
+    showSignalDetails: Boolean,
 ) {
     val isDarkTheme = isSystemInDarkTheme()
     val backgroundColor = if (isDarkTheme) Color(0xFF1C1C1E) else Color.White
     val textColor = if (isDarkTheme) Color.White else Color.Black
     val accentColor = signalColor(device?.score ?: 0)
     val sfPro = FontFamily(Font(R.font.sf_pro))
+
+    val primary = when {
+        error != null -> error
+        device != null -> roomBandLabel(device.band)
+        isScanning -> stringResource(R.string.proximity_band_searching)
+        else -> stringResource(R.string.scan_paused)
+    }
+    val secondary = when {
+        error != null -> stringResource(R.string.no_signal_selected)
+        device != null -> roomTrendLabel(device.trend)
+        else -> stringResource(R.string.no_signal_selected)
+    }
 
     Column(
         modifier = Modifier
@@ -198,20 +224,16 @@ private fun RadarCard(
             .padding(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        RadarCanvas(
+        WarmthPulse(
             score = device?.score ?: 0,
             hasSignal = device != null,
-            accentColor = accentColor
+            accentColor = accentColor,
         )
 
         Spacer(modifier = Modifier.height(12.dp))
 
         Text(
-            text = error ?: device?.proximityLabel ?: if (isScanning) {
-                stringResource(R.string.scanning)
-            } else {
-                stringResource(R.string.scan_paused)
-            },
+            text = primary,
             style = TextStyle(
                 fontSize = 24.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -223,7 +245,7 @@ private fun RadarCard(
         Spacer(modifier = Modifier.height(4.dp))
 
         Text(
-            text = device?.displayName ?: stringResource(R.string.no_signal_selected),
+            text = secondary,
             style = TextStyle(
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Normal,
@@ -233,6 +255,31 @@ private fun RadarCard(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
+
+        if (device != null && error == null) {
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = device.displayName,
+                style = TextStyle(
+                    fontSize = 13.sp,
+                    color = textColor.copy(alpha = 0.48f),
+                    fontFamily = sfPro
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = stringResource(R.string.proximity_coach_zones),
+                style = TextStyle(
+                    fontSize = 12.sp,
+                    color = textColor.copy(alpha = 0.42f),
+                    fontFamily = sfPro
+                ),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -244,67 +291,125 @@ private fun RadarCard(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            SignalMetric("Score", "${device?.score ?: 0}%", textColor)
-            SignalMetric("RSSI", device?.let { "${it.smoothedRssi.toInt()} dBm" } ?: "-", textColor)
-            SignalMetric("Seen", device?.seenCount?.toString() ?: "0", textColor)
+            SignalMetric(
+                stringResource(R.string.proximity_metric_trend),
+                device?.let { shortRoomTrendLabel(it.trend) } ?: "—",
+                textColor
+            )
+            SignalMetric(
+                stringResource(R.string.proximity_metric_band),
+                device?.let { shortRoomBandLabel(it.band) } ?: "—",
+                textColor
+            )
+            if (showSignalDetails) {
+                SignalMetric(
+                    stringResource(R.string.proximity_metric_rssi),
+                    device?.let { "${it.smoothedRssi.toInt()} dBm" } ?: "—",
+                    textColor
+                )
+            } else {
+                SignalMetric(
+                    stringResource(R.string.proximity_metric_seen),
+                    device?.seenCount?.toString() ?: "0",
+                    textColor
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Strength-only warmer/colder pulse. Centered rings grow with signal —
+ * never offset a "blip" that looks like left/right bearing.
+ */
+@Composable
+private fun WarmthPulse(
+    score: Int,
+    hasSignal: Boolean,
+    accentColor: Color,
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "warmth pulse")
+    val pulse by infiniteTransition.animateFloat(
+        initialValue = 0.15f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = (1400 - (score * 8)).coerceIn(520, 1400)),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "pulse",
+    )
+    val ringColor = if (isSystemInDarkTheme()) Color.White else Color.Black
+    val strength = (score / 100f).coerceIn(0f, 1f)
+
+    Canvas(modifier = Modifier.size(200.dp)) {
+        val center = Offset(size.width / 2f, size.height / 2f)
+        val maxRadius = size.minDimension / 2.15f
+
+        // Soft static rings — ambient only, not a compass.
+        for (index in 1..3) {
+            drawCircle(
+                color = ringColor.copy(alpha = 0.06f),
+                radius = maxRadius * index / 3f,
+                center = center,
+                style = Stroke(width = 1.dp.toPx()),
+            )
+        }
+
+        if (hasSignal) {
+            val coreRadius = maxRadius * (0.22f + 0.55f * strength)
+            drawCircle(
+                color = accentColor.copy(alpha = 0.22f),
+                radius = coreRadius,
+                center = center,
+            )
+            drawCircle(
+                color = accentColor.copy(alpha = 0.55f),
+                radius = coreRadius * 0.42f,
+                center = center,
+            )
+            // Expanding warmth ring — radius tracks strength, not heading.
+            drawCircle(
+                color = accentColor.copy(alpha = 0.28f * (1f - pulse)),
+                radius = (coreRadius + (maxRadius - coreRadius) * pulse).coerceAtMost(maxRadius),
+                center = center,
+                style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round),
+            )
         }
     }
 }
 
 @Composable
-private fun RadarCanvas(
-    score: Int,
-    hasSignal: Boolean,
-    accentColor: Color
-) {
-    val infiniteTransition = rememberInfiniteTransition(label = "proximity pulse")
-    val pulse by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1600),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "pulse"
-    )
-    val ringColor = if (isSystemInDarkTheme()) Color.White else Color.Black
-
-    Canvas(
-        modifier = Modifier.size(220.dp)
+private fun WalkTipCard(onDismiss: () -> Unit) {
+    val isDarkTheme = isSystemInDarkTheme()
+    val backgroundColor = if (isDarkTheme) Color(0xFF1C1C1E) else Color.White
+    val textColor = if (isDarkTheme) Color.White else Color.Black
+    val sfPro = FontFamily(Font(R.font.sf_pro))
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(backgroundColor, RoundedCornerShape(18.dp))
+            .padding(16.dp),
     ) {
-        val center = Offset(size.width / 2f, size.height / 2f)
-        val maxRadius = size.minDimension / 2.2f
-
-        for (index in 1..4) {
-            drawCircle(
-                color = ringColor.copy(alpha = 0.08f),
-                radius = maxRadius * index / 4f,
-                center = center,
-                style = Stroke(width = 1.dp.toPx())
-            )
-        }
-
-        if (hasSignal) {
-            drawCircle(
-                color = accentColor.copy(alpha = 0.16f * (1f - pulse)),
-                radius = maxRadius * pulse,
-                center = center,
-                style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
-            )
-
-            val normalized = score / 100f
-            val dotDistance = maxRadius * (1f - normalized) * 0.78f
-            val dot = Offset(center.x, center.y - dotDistance)
-
-            drawCircle(
-                color = accentColor.copy(alpha = 0.18f),
-                radius = 18.dp.toPx(),
-                center = dot
-            )
-            drawCircle(
-                color = accentColor,
-                radius = 7.dp.toPx(),
-                center = dot
+        Text(
+            text = stringResource(R.string.proximity_walk_tip),
+            style = TextStyle(
+                fontSize = 14.sp,
+                color = textColor.copy(alpha = 0.78f),
+                fontFamily = sfPro,
+            ),
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        StyledButton(
+            onClick = onDismiss,
+            backdrop = rememberLayerBackdrop(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 44.dp),
+            maxScale = 0.05f,
+        ) {
+            Text(
+                text = stringResource(R.string.proximity_walk_tip_dismiss),
+                style = buttonTextStyle(),
             )
         }
     }
@@ -315,9 +420,11 @@ private fun FinderControls(
     isScanning: Boolean,
     hasDevices: Boolean,
     feedbackMode: ProximityScanner.FeedbackMode,
+    showSignalDetails: Boolean,
     onScanToggle: () -> Unit,
     onFocusStrongest: () -> Unit,
-    onToggleFeedback: () -> Unit
+    onToggleFeedback: () -> Unit,
+    onToggleSignalDetails: () -> Unit,
 ) {
     val sfPro = FontFamily(Font(R.font.sf_pro))
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -366,7 +473,34 @@ private fun FinderControls(
             maxScale = 0.05f
         ) {
             Text(
-                text = if (isSound) "􀊡  Feedback: Sound" else "􀝗  Feedback: Vibration",
+                text = if (isSound) {
+                    stringResource(R.string.proximity_feedback_sound)
+                } else {
+                    stringResource(R.string.proximity_feedback_vibration)
+                },
+                style = TextStyle(
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = if (isSystemInDarkTheme()) Color.White else Color.Black,
+                    fontFamily = sfPro
+                )
+            )
+        }
+
+        StyledButton(
+            onClick = onToggleSignalDetails,
+            backdrop = rememberLayerBackdrop(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp),
+            maxScale = 0.05f
+        ) {
+            Text(
+                text = if (showSignalDetails) {
+                    stringResource(R.string.proximity_hide_signal_details)
+                } else {
+                    stringResource(R.string.proximity_show_signal_details)
+                },
                 style = TextStyle(
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Medium,
@@ -382,6 +516,7 @@ private fun FinderControls(
 private fun CandidateCard(
     device: ProximityScanner.ProximityDevice,
     focused: Boolean,
+    showSignalDetails: Boolean,
     onFocus: () -> Unit
 ) {
     val isDarkTheme = isSystemInDarkTheme()
@@ -429,7 +564,7 @@ private fun CandidateCard(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = "${device.ownerLabel} - ${device.kind.label} - ${device.proximityLabel}",
+                    text = "${device.ownerLabel} · ${device.kind.label} · ${roomBandLabel(device.band)}",
                     style = TextStyle(
                         fontSize = 13.sp,
                         color = textColor.copy(alpha = 0.62f),
@@ -457,9 +592,29 @@ private fun CandidateCard(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            SignalMetric("RSSI", "${device.smoothedRssi.toInt()} dBm", textColor)
-            SignalMetric("Match", "${device.ownerScore}%", textColor)
-            SignalMetric("Last", ageText(device.lastSeen), textColor)
+            SignalMetric(
+                stringResource(R.string.proximity_metric_band),
+                shortRoomBandLabel(device.band),
+                textColor
+            )
+            SignalMetric(
+                stringResource(R.string.proximity_metric_trend),
+                shortRoomTrendLabel(device.trend),
+                textColor
+            )
+            if (showSignalDetails) {
+                SignalMetric(
+                    stringResource(R.string.proximity_metric_rssi),
+                    "${device.smoothedRssi.toInt()} dBm",
+                    textColor
+                )
+            } else {
+                SignalMetric(
+                    "Match",
+                    "${device.ownerScore}%",
+                    textColor
+                )
+            }
         }
 
         if (device.hints.isNotEmpty()) {
@@ -664,7 +819,7 @@ private fun EmptyFinderCard(isScanning: Boolean) {
         )
         Spacer(modifier = Modifier.height(6.dp))
         Text(
-            text = stringResource(R.string.find_nearby_empty_description),
+            text = stringResource(R.string.proximity_empty_tip),
             style = TextStyle(
                 fontSize = 13.sp,
                 color = textColor.copy(alpha = 0.62f),
@@ -747,6 +902,39 @@ private fun signalColor(score: Int): Color {
         score >= 25 -> Color(0xFFFF9F0A)
         else -> Color(0xFFFF453A)
     }
+}
+
+
+@Composable
+private fun roomBandLabel(band: RoomBand): String = when (band) {
+    RoomBand.RIGHT_HERE -> stringResource(R.string.proximity_band_right_here)
+    RoomBand.SAME_ROOM -> stringResource(R.string.proximity_band_same_room)
+    RoomBand.NEXT_ROOM -> stringResource(R.string.proximity_band_next_room)
+    RoomBand.FARTHER -> stringResource(R.string.proximity_band_farther)
+    RoomBand.SEARCHING -> stringResource(R.string.proximity_band_searching)
+}
+
+@Composable
+private fun shortRoomBandLabel(band: RoomBand): String = when (band) {
+    RoomBand.RIGHT_HERE -> stringResource(R.string.proximity_band_right_here_short)
+    RoomBand.SAME_ROOM -> stringResource(R.string.proximity_band_same_room_short)
+    RoomBand.NEXT_ROOM -> stringResource(R.string.proximity_band_next_room_short)
+    RoomBand.FARTHER -> stringResource(R.string.proximity_band_farther_short)
+    RoomBand.SEARCHING -> stringResource(R.string.proximity_band_searching_short)
+}
+
+@Composable
+private fun roomTrendLabel(trend: SignalTrend): String = when (trend) {
+    SignalTrend.CLOSER -> stringResource(R.string.proximity_trend_closer)
+    SignalTrend.FARTHER -> stringResource(R.string.proximity_trend_farther)
+    SignalTrend.STABLE -> stringResource(R.string.proximity_trend_stable)
+}
+
+@Composable
+private fun shortRoomTrendLabel(trend: SignalTrend): String = when (trend) {
+    SignalTrend.CLOSER -> stringResource(R.string.proximity_trend_closer_short)
+    SignalTrend.FARTHER -> stringResource(R.string.proximity_trend_farther_short)
+    SignalTrend.STABLE -> stringResource(R.string.proximity_trend_stable_short)
 }
 
 private fun ageText(lastSeen: Long): String {
