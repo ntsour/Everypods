@@ -73,6 +73,9 @@ class ProximityScanner(private val context: Context) {
         val appleManufacturerPrefix: String?,
         val serviceUuids: List<String>,
         val txPower: Int?,
+        val band: RoomBand,
+        val trend: SignalTrend,
+        val pathLossDb: Float?,
         val ownerScore: Int,
         val ownerLabel: String
     ) {
@@ -80,12 +83,19 @@ class ProximityScanner(private val context: Context) {
             get() = name ?: model ?: kind.label
 
         val proximityLabel: String
-            get() = when {
-                score >= 85 -> "Very close"
-                score >= 68 -> "Near"
-                score >= 48 -> "In this room"
-                score >= 28 -> "Weak"
-                else -> "Faint"
+            get() = when (band) {
+                RoomBand.RIGHT_HERE -> "Right here"
+                RoomBand.SAME_ROOM -> "Same room"
+                RoomBand.NEXT_ROOM -> "Nearby / next room"
+                RoomBand.FARTHER -> "Farther"
+                RoomBand.SEARCHING -> "Searching…"
+            }
+
+        val trendLabel: String
+            get() = when (trend) {
+                SignalTrend.CLOSER -> "Getting closer"
+                SignalTrend.FARTHER -> "Getting farther"
+                SignalTrend.STABLE -> "Hold still"
             }
     }
 
@@ -128,8 +138,22 @@ class ProximityScanner(private val context: Context) {
         var appleManufacturerHex: String?,
         var appleManufacturerPrefix: String?,
         var serviceUuids: List<String>,
-        var txPower: Int?
+        var txPower: Int?,
+        val signalTracker: DeviceSignalTracker = DeviceSignalTracker(),
+        var band: RoomBand = RoomBand.SEARCHING,
+        var trend: SignalTrend = SignalTrend.STABLE,
+        var pathLossDb: Float? = null,
+        var score: Int = 0
     ) {
+        fun applySignal(rawRssi: Int, txPowerAt: Int?, nowMs: Long) {
+            val snap = signalTracker.push(rawRssi, txPowerAt, nowMs)
+            smoothedRssi = snap.smoothedRssi
+            band = snap.band
+            trend = snap.trend
+            pathLossDb = snap.pathLossDb
+            score = snap.score
+        }
+
         fun snapshot(ownerFingerprint: OwnerFingerprint?): ProximityDevice {
             val ownerScore = ownerFingerprint?.matchScore(
                 kind = kind,
@@ -146,7 +170,7 @@ class ProximityScanner(private val context: Context) {
                 confidence = confidence,
                 rssi = rssi,
                 smoothedRssi = smoothedRssi,
-                score = rssiToScore(smoothedRssi),
+                score = score,
                 firstSeen = firstSeen,
                 lastSeen = lastSeen,
                 seenCount = seenCount,
@@ -156,6 +180,9 @@ class ProximityScanner(private val context: Context) {
                 appleManufacturerPrefix = appleManufacturerPrefix,
                 serviceUuids = serviceUuids,
                 txPower = txPower,
+                band = band,
+                trend = trend,
+                pathLossDb = pathLossDb,
                 ownerScore = ownerScore,
                 ownerLabel = ownerLabel(ownerScore)
             )
@@ -215,6 +242,7 @@ class ProximityScanner(private val context: Context) {
     private var callback: ScanCallback? = null
     private var focusedId: String? = null
     private var ownerFingerprint: OwnerFingerprint? = loadOwnerFingerprint()
+    private var rightHereEnter: Float = loadRightHereEnter()
     private var calibrationEndsAt: Long = 0L
     private val calibrationSamples = linkedMapOf<String, CalibrationSample>()
 
@@ -358,7 +386,16 @@ class ProximityScanner(private val context: Context) {
 
     fun clearOwnerFingerprint() {
         ownerFingerprint = null
-        sharedPreferences.edit { clear() }
+        rightHereEnter = ProximityBands.RIGHT_HERE_ENTER
+        sharedPreferences.edit {
+            remove(PREF_KIND)
+            remove(PREF_NAME)
+            remove(PREF_MODEL)
+            remove(PREF_PREFIXES)
+            remove(PREF_SERVICE_UUIDS)
+            remove(PREF_RIGHT_HERE_ENTER)
+        }
+        devices.values.forEach { it.signalTracker.setRightHereEnter(rightHereEnter) }
         publish()
     }
 
@@ -397,13 +434,14 @@ class ProximityScanner(private val context: Context) {
                 serviceUuids = serviceUuids,
                 txPower = txPower
             )
+            devices[id]!!.signalTracker.setRightHereEnter(rightHereEnter)
+            devices[id]!!.applySignal(result.rssi, txPower, now)
         } else {
             existing.name = name ?: existing.name
             existing.kind = classification.kind
             existing.confidence = classification.confidence
             existing.rssi = result.rssi
-            existing.smoothedRssi = (existing.smoothedRssi * RSSI_SMOOTHING) +
-                (result.rssi * (1f - RSSI_SMOOTHING))
+            existing.applySignal(result.rssi, existing.txPower, now)
             existing.lastSeen = now
             existing.seenCount += 1
             existing.model = classification.model ?: existing.model
@@ -464,10 +502,11 @@ class ProximityScanner(private val context: Context) {
             else -> allSnapshots
         }
 
-        // Fire proximity pulse based on focused device score
+        // Fire proximity pulse from room band (primary), score only gates silence.
+        val focusedBand = focused?.band ?: RoomBand.SEARCHING
         val focusedScore = focused?.score ?: 0
-        if (isScanning && focused != null && focusedScore >= 20) {
-            val interval = pulseInterval(focusedScore)
+        if (isScanning && focused != null && focusedBand != RoomBand.SEARCHING && focusedScore >= 15) {
+            val interval = pulseInterval(focusedBand)
             if (now - lastPulseAt >= interval) {
                 lastPulseAt = now
                 when (feedbackMode) {
@@ -492,13 +531,7 @@ class ProximityScanner(private val context: Context) {
         )
     }
 
-    private fun pulseInterval(score: Int): Long = when {
-        score >= 85 -> 300L
-        score >= 70 -> 500L
-        score >= 55 -> 750L
-        score >= 40 -> 1100L
-        else -> 1500L
-    }
+    private fun pulseInterval(band: RoomBand): Long = ProximityBands.pulseIntervalMs(band)
 
     /** Play a short beep exclusively through the built-in earpiece/speaker. */
     private fun playSpeakerBeep() {
@@ -619,6 +652,13 @@ class ProximityScanner(private val context: Context) {
             )
             saveOwnerFingerprint(ownerFingerprint!!)
             focusedId = bestSample.id
+            val nearbyRssi = devices[bestSample.id]?.smoothedRssi
+            if (nearbyRssi != null && nearbyRssi > -65f) {
+                // TODO: optional dedicated 10s "Near me" calibrate UI; for now piggyback owner calibrate.
+                rightHereEnter = (nearbyRssi - 3f).coerceIn(-60f, -40f)
+                saveRightHereEnter(rightHereEnter)
+                devices.values.forEach { it.signalTracker.setRightHereEnter(rightHereEnter) }
+            }
         }
 
         calibrationEndsAt = 0L
@@ -746,6 +786,14 @@ class ProximityScanner(private val context: Context) {
         return take(8).joinToString("") { "%02X".format(it) }
     }
 
+    private fun loadRightHereEnter(): Float {
+        return sharedPreferences.getFloat(PREF_RIGHT_HERE_ENTER, ProximityBands.RIGHT_HERE_ENTER)
+    }
+
+    private fun saveRightHereEnter(enter: Float) {
+        sharedPreferences.edit { putFloat(PREF_RIGHT_HERE_ENTER, enter) }
+    }
+
     private fun loadOwnerFingerprint(): OwnerFingerprint? {
         val kind = sharedPreferences.getString(PREF_KIND, null)?.let {
             runCatching { DeviceKind.valueOf(it) }.getOrNull()
@@ -783,6 +831,7 @@ class ProximityScanner(private val context: Context) {
         private const val PREF_PREFIXES = "owner.prefixes"
         private const val PREF_SERVICE_UUIDS = "owner.service_uuids"
         private const val PREF_FEEDBACK_MODE = "feedback.mode"
+        private const val PREF_RIGHT_HERE_ENTER = "near_me.right_here_enter"
 
         private val modelNames = mapOf(
             0x0E20 to "AirPods Pro",

@@ -72,6 +72,8 @@ import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import dev.chrisbanes.haze.hazeSource
 import io.automated.ventures.everypods.R
 import io.automated.ventures.everypods.bluetooth.ProximityScanner
+import io.automated.ventures.everypods.bluetooth.RoomBand
+import io.automated.ventures.everypods.bluetooth.SignalTrend
 import io.automated.ventures.everypods.presentation.components.StyledButton
 import io.automated.ventures.everypods.presentation.components.StyledIconButton
 import io.automated.ventures.everypods.presentation.components.StyledScaffold
@@ -82,6 +84,7 @@ fun ProximityFinderScreen(navController: NavController) {
     val context = LocalContext.current
     val scanner = remember { ProximityScanner(context.applicationContext) }
     val state by scanner.state.collectAsState()
+    var showSignalDetails by remember { mutableStateOf(false) }
 
     DisposableEffect(scanner) {
         scanner.start()
@@ -124,7 +127,8 @@ fun ProximityFinderScreen(navController: NavController) {
                 RadarCard(
                     device = state.focusedDevice,
                     isScanning = state.isScanning,
-                    error = state.error
+                    error = state.error,
+                    showSignalDetails = showSignalDetails,
                 )
             }
             item(key = "calibration") {
@@ -143,6 +147,7 @@ fun ProximityFinderScreen(navController: NavController) {
                     isScanning = state.isScanning,
                     hasDevices = state.devices.isNotEmpty(),
                     feedbackMode = state.feedbackMode,
+                    showSignalDetails = showSignalDetails,
                     onScanToggle = { if (state.isScanning) scanner.stop() else scanner.start() },
                     onFocusStrongest = scanner::focusStrongest,
                     onToggleFeedback = {
@@ -152,7 +157,8 @@ fun ProximityFinderScreen(navController: NavController) {
                             else
                                 ProximityScanner.FeedbackMode.SOUND
                         )
-                    }
+                    },
+                    onToggleSignalDetails = { showSignalDetails = !showSignalDetails },
                 )
             }
             if (state.devices.isEmpty()) {
@@ -170,6 +176,7 @@ fun ProximityFinderScreen(navController: NavController) {
                     CandidateCard(
                         device = device,
                         focused = state.focusedId == device.id,
+                        showSignalDetails = showSignalDetails,
                         onFocus = { scanner.focus(device.id) }
                     )
                 }
@@ -183,13 +190,26 @@ fun ProximityFinderScreen(navController: NavController) {
 private fun RadarCard(
     device: ProximityScanner.ProximityDevice?,
     isScanning: Boolean,
-    error: String?
+    error: String?,
+    showSignalDetails: Boolean,
 ) {
     val isDarkTheme = isSystemInDarkTheme()
     val backgroundColor = if (isDarkTheme) Color(0xFF1C1C1E) else Color.White
     val textColor = if (isDarkTheme) Color.White else Color.Black
     val accentColor = signalColor(device?.score ?: 0)
     val sfPro = FontFamily(Font(R.font.sf_pro))
+
+    val primary = when {
+        error != null -> error
+        device != null -> roomBandLabel(device.band)
+        isScanning -> stringResource(R.string.proximity_band_searching)
+        else -> stringResource(R.string.scan_paused)
+    }
+    val secondary = when {
+        error != null -> stringResource(R.string.no_signal_selected)
+        device != null -> roomTrendLabel(device.trend)
+        else -> stringResource(R.string.no_signal_selected)
+    }
 
     Column(
         modifier = Modifier
@@ -207,11 +227,7 @@ private fun RadarCard(
         Spacer(modifier = Modifier.height(12.dp))
 
         Text(
-            text = error ?: device?.proximityLabel ?: if (isScanning) {
-                stringResource(R.string.scanning)
-            } else {
-                stringResource(R.string.scan_paused)
-            },
+            text = primary,
             style = TextStyle(
                 fontSize = 24.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -223,7 +239,7 @@ private fun RadarCard(
         Spacer(modifier = Modifier.height(4.dp))
 
         Text(
-            text = device?.displayName ?: stringResource(R.string.no_signal_selected),
+            text = secondary,
             style = TextStyle(
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Normal,
@@ -233,6 +249,20 @@ private fun RadarCard(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
+
+        if (device != null && error == null) {
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = device.displayName,
+                style = TextStyle(
+                    fontSize = 13.sp,
+                    color = textColor.copy(alpha = 0.48f),
+                    fontFamily = sfPro
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -244,9 +274,29 @@ private fun RadarCard(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            SignalMetric("Score", "${device?.score ?: 0}%", textColor)
-            SignalMetric("RSSI", device?.let { "${it.smoothedRssi.toInt()} dBm" } ?: "-", textColor)
-            SignalMetric("Seen", device?.seenCount?.toString() ?: "0", textColor)
+            SignalMetric(
+                stringResource(R.string.proximity_metric_trend),
+                device?.let { shortRoomTrendLabel(it.trend) } ?: "—",
+                textColor
+            )
+            SignalMetric(
+                stringResource(R.string.proximity_metric_band),
+                device?.let { shortRoomBandLabel(it.band) } ?: "—",
+                textColor
+            )
+            if (showSignalDetails) {
+                SignalMetric(
+                    stringResource(R.string.proximity_metric_rssi),
+                    device?.let { "${it.smoothedRssi.toInt()} dBm" } ?: "—",
+                    textColor
+                )
+            } else {
+                SignalMetric(
+                    stringResource(R.string.proximity_metric_seen),
+                    device?.seenCount?.toString() ?: "0",
+                    textColor
+                )
+            }
         }
     }
 }
@@ -315,9 +365,11 @@ private fun FinderControls(
     isScanning: Boolean,
     hasDevices: Boolean,
     feedbackMode: ProximityScanner.FeedbackMode,
+    showSignalDetails: Boolean,
     onScanToggle: () -> Unit,
     onFocusStrongest: () -> Unit,
-    onToggleFeedback: () -> Unit
+    onToggleFeedback: () -> Unit,
+    onToggleSignalDetails: () -> Unit,
 ) {
     val sfPro = FontFamily(Font(R.font.sf_pro))
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -366,7 +418,34 @@ private fun FinderControls(
             maxScale = 0.05f
         ) {
             Text(
-                text = if (isSound) "􀊡  Feedback: Sound" else "􀝗  Feedback: Vibration",
+                text = if (isSound) {
+                    stringResource(R.string.proximity_feedback_sound)
+                } else {
+                    stringResource(R.string.proximity_feedback_vibration)
+                },
+                style = TextStyle(
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = if (isSystemInDarkTheme()) Color.White else Color.Black,
+                    fontFamily = sfPro
+                )
+            )
+        }
+
+        StyledButton(
+            onClick = onToggleSignalDetails,
+            backdrop = rememberLayerBackdrop(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp),
+            maxScale = 0.05f
+        ) {
+            Text(
+                text = if (showSignalDetails) {
+                    stringResource(R.string.proximity_hide_signal_details)
+                } else {
+                    stringResource(R.string.proximity_show_signal_details)
+                },
                 style = TextStyle(
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Medium,
@@ -382,6 +461,7 @@ private fun FinderControls(
 private fun CandidateCard(
     device: ProximityScanner.ProximityDevice,
     focused: Boolean,
+    showSignalDetails: Boolean,
     onFocus: () -> Unit
 ) {
     val isDarkTheme = isSystemInDarkTheme()
@@ -429,7 +509,7 @@ private fun CandidateCard(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = "${device.ownerLabel} - ${device.kind.label} - ${device.proximityLabel}",
+                    text = "${device.ownerLabel} · ${device.kind.label} · ${roomBandLabel(device.band)}",
                     style = TextStyle(
                         fontSize = 13.sp,
                         color = textColor.copy(alpha = 0.62f),
@@ -457,9 +537,29 @@ private fun CandidateCard(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            SignalMetric("RSSI", "${device.smoothedRssi.toInt()} dBm", textColor)
-            SignalMetric("Match", "${device.ownerScore}%", textColor)
-            SignalMetric("Last", ageText(device.lastSeen), textColor)
+            SignalMetric(
+                stringResource(R.string.proximity_metric_band),
+                shortRoomBandLabel(device.band),
+                textColor
+            )
+            SignalMetric(
+                stringResource(R.string.proximity_metric_trend),
+                shortRoomTrendLabel(device.trend),
+                textColor
+            )
+            if (showSignalDetails) {
+                SignalMetric(
+                    stringResource(R.string.proximity_metric_rssi),
+                    "${device.smoothedRssi.toInt()} dBm",
+                    textColor
+                )
+            } else {
+                SignalMetric(
+                    "Match",
+                    "${device.ownerScore}%",
+                    textColor
+                )
+            }
         }
 
         if (device.hints.isNotEmpty()) {
@@ -664,7 +764,7 @@ private fun EmptyFinderCard(isScanning: Boolean) {
         )
         Spacer(modifier = Modifier.height(6.dp))
         Text(
-            text = stringResource(R.string.find_nearby_empty_description),
+            text = stringResource(R.string.proximity_empty_tip),
             style = TextStyle(
                 fontSize = 13.sp,
                 color = textColor.copy(alpha = 0.62f),
@@ -747,6 +847,39 @@ private fun signalColor(score: Int): Color {
         score >= 25 -> Color(0xFFFF9F0A)
         else -> Color(0xFFFF453A)
     }
+}
+
+
+@Composable
+private fun roomBandLabel(band: RoomBand): String = when (band) {
+    RoomBand.RIGHT_HERE -> stringResource(R.string.proximity_band_right_here)
+    RoomBand.SAME_ROOM -> stringResource(R.string.proximity_band_same_room)
+    RoomBand.NEXT_ROOM -> stringResource(R.string.proximity_band_next_room)
+    RoomBand.FARTHER -> stringResource(R.string.proximity_band_farther)
+    RoomBand.SEARCHING -> stringResource(R.string.proximity_band_searching)
+}
+
+@Composable
+private fun shortRoomBandLabel(band: RoomBand): String = when (band) {
+    RoomBand.RIGHT_HERE -> stringResource(R.string.proximity_band_right_here_short)
+    RoomBand.SAME_ROOM -> stringResource(R.string.proximity_band_same_room_short)
+    RoomBand.NEXT_ROOM -> stringResource(R.string.proximity_band_next_room_short)
+    RoomBand.FARTHER -> stringResource(R.string.proximity_band_farther_short)
+    RoomBand.SEARCHING -> stringResource(R.string.proximity_band_searching_short)
+}
+
+@Composable
+private fun roomTrendLabel(trend: SignalTrend): String = when (trend) {
+    SignalTrend.CLOSER -> stringResource(R.string.proximity_trend_closer)
+    SignalTrend.FARTHER -> stringResource(R.string.proximity_trend_farther)
+    SignalTrend.STABLE -> stringResource(R.string.proximity_trend_stable)
+}
+
+@Composable
+private fun shortRoomTrendLabel(trend: SignalTrend): String = when (trend) {
+    SignalTrend.CLOSER -> stringResource(R.string.proximity_trend_closer_short)
+    SignalTrend.FARTHER -> stringResource(R.string.proximity_trend_farther_short)
+    SignalTrend.STABLE -> stringResource(R.string.proximity_trend_stable_short)
 }
 
 private fun ageText(lastSeen: Long): String {

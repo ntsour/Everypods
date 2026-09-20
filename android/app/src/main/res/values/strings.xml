@@ -212,7 +212,7 @@
 
     <!-- Proximity finder strings -->
     <string name="find_nearby">Find Nearby</string>
-    <string name="find_nearby_empty_description">Open the case briefly, put it in pairing mode, or walk room to room while the scanner listens.</string>
+    <string name="find_nearby_empty_description">Open the case briefly, hold the phone out, and walk doorway to doorway. Bands are relative — not exact meters.</string>
     <string name="focus">Focus</string>
     <string name="focus_strongest">Focus Strongest</string>
     <string name="focused">Focused</string>
@@ -224,4 +224,30 @@
     <string name="scan_paused">Scan Paused</string>
     <string name="scanning">Scanning</string>
     <string name="start_scan">Start Scan</string>
+
+    <string name="proximity_band_right_here">Right here</string>
+    <string name="proximity_band_same_room">Same room</string>
+    <string name="proximity_band_next_room">Nearby / next room</string>
+    <string name="proximity_band_farther">Farther</string>
+    <string name="proximity_band_searching">Searching…</string>
+    <string name="proximity_band_right_here_short">Here</string>
+    <string name="proximity_band_same_room_short">Same room</string>
+    <string name="proximity_band_next_room_short">Next room</string>
+    <string name="proximity_band_farther_short">Farther</string>
+    <string name="proximity_band_searching_short">…</string>
+    <string name="proximity_trend_closer">Getting closer</string>
+    <string name="proximity_trend_farther">Getting farther</string>
+    <string name="proximity_trend_stable">Hold still</string>
+    <string name="proximity_trend_closer_short">Closer</string>
+    <string name="proximity_trend_farther_short">Farther</string>
+    <string name="proximity_trend_stable_short">Stable</string>
+    <string name="proximity_metric_trend">Trend</string>
+    <string name="proximity_metric_band">Band</string>
+    <string name="proximity_metric_rssi">RSSI</string>
+    <string name="proximity_metric_seen">Seen</string>
+    <string name="proximity_show_signal_details">Show signal details</string>
+    <string name="proximity_hide_signal_details">Hide signal details</string>
+    <string name="proximity_feedback_sound">􀊡  Feedback: Sound</string>
+    <string name="proximity_feedback_vibration">􀝗  Feedback: Vibration</string>
+    <string name="proximity_empty_tip">Open the case briefly, hold the phone out, and walk doorway to doorway. Bands are relative — not exact meters.</string>
 </resources>
