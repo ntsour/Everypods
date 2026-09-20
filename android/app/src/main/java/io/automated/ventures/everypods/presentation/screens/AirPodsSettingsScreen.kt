@@ -896,8 +896,8 @@ private fun DisconnectedScreen(
                     contentDescription = stringResource(R.string.app_name),
                     contentScale = ContentScale.Fit,
                     modifier = Modifier
-                        .size(72.dp)
-                        .clip(RoundedCornerShape(18.dp))
+                        .size(108.dp)
+                        .clip(RoundedCornerShape(27.dp))
                 )
                 Text(
                     stringResource(titleRes),
