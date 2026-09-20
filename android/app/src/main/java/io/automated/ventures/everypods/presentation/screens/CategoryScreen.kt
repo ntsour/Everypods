@@ -1147,7 +1147,7 @@ private fun HelpContent(
         MenuNavRow("Version Info", dark) { navController.navigate("version_info") }
         if (!BuildConfig.PLAY_BUILD) {
             MenuDivider()
-            MenuNavRow("Troubleshooting", dark) { navController.navigate("troubleshooting") }
+            MenuNavRow("Troubleshooting", dark) { navController.navigate("debug") }
         }
         MenuDivider()
         MenuNavRow("Email Support", dark) {

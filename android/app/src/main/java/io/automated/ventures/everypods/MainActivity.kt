@@ -337,6 +337,10 @@ fun Main(gymTimerNavigationRequest: Int = 0) {
                     composable("debug") {
                         DebugScreen(navController = navController)
                     }
+                    // Alias: Help → Troubleshooting used to navigate here by name.
+                    composable("troubleshooting") {
+                        DebugScreen(navController = navController)
+                    }
                     composable("long_press/{bud}") { navBackStackEntry ->
                         if (airPodsViewModel != null) LongPress(
                             viewModel = airPodsViewModel,
