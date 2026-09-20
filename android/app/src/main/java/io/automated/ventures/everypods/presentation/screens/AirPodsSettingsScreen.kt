@@ -61,9 +61,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.clearText
@@ -129,7 +127,7 @@ import io.automated.ventures.everypods.presentation.components.AppInfoCard
 import io.automated.ventures.everypods.presentation.components.AudioSettings
 import io.automated.ventures.everypods.presentation.components.BatteryView
 import io.automated.ventures.everypods.presentation.components.CallControlSettings
-import io.automated.ventures.everypods.presentation.components.ConnectionSettings
+import io.automated.ventures.everypods.presentation.components.CrossDevicePeersInline
 
 import io.automated.ventures.everypods.presentation.components.DeviceInfoCard
 import io.automated.ventures.everypods.presentation.components.MicrophoneSettings
@@ -832,6 +830,15 @@ private fun DisconnectedScreen(
     val textColor = if (dark) Color.White else Color.Black
     val tapCount  = remember { mutableIntStateOf(0) }
     val lastTap   = remember { mutableLongStateOf(0L) }
+    val peerCount = state.crossDevicePeers.size
+    val handoverUnlocked = peerCount >= 1
+    // Same gate as before: show reconnect when a saved MAC exists (or a prior
+    // successful connection left one). Subtitle uses the last known AirPods name.
+    val showReconnect = state.hasSavedDevice || state.connectionSuccessful
+    val lastDeviceName = state.deviceName.takeIf {
+        it.isNotBlank() && !it.equals("AirPods", ignoreCase = true) &&
+            !it.equals("AirPods Pro", ignoreCase = true)
+    }
 
     LazyColumn(
         Modifier.fillMaxSize()
@@ -850,11 +857,26 @@ private fun DisconnectedScreen(
     ) {
         item(key = "spacer_top") { Spacer(Modifier.height(topPadding + 16.dp)) }
 
+        // 1) Hero — status + reconnect in one stacked card (no product artwork)
         item(key = "status") {
             val heroColor = if (dark) Color(0xFF143D32) else Color(0xFFD7F9E9)
             val heroTextColor = if (dark) Color(0xFFF3FFFA) else Color(0xFF12352A)
             val heroSecondaryColor = if (dark) Color(0xFFB4D9CA) else Color(0xFF416C5C)
-            val statusLabel = if (state.isA2dpConnected) "Connected via Bluetooth" else "Waiting to connect"
+            val statusLabel = if (state.isA2dpConnected) {
+                stringResource(R.string.connected_via_bluetooth)
+            } else {
+                stringResource(R.string.airpods_not_connected)
+            }
+            val titleRes = if (state.isA2dpConnected) {
+                R.string.connected_via_bluetooth
+            } else {
+                R.string.airpods_not_connected
+            }
+            val guideRes = if (state.isA2dpConnected) {
+                R.string.connected_via_bluetooth_description
+            } else {
+                R.string.disconnected_hero_guide
+            }
 
             Column(
                 modifier = Modifier
@@ -862,19 +884,8 @@ private fun DisconnectedScreen(
                     .background(heroColor, RoundedCornerShape(24.dp))
                     .padding(horizontal = 20.dp, vertical = 22.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Image(
-                    painter = painterResource(R.mipmap.ic_launcher_foreground),
-                    contentDescription = "EveryPods",
-                    modifier = Modifier
-                        .size(104.dp)
-                )
-                // On devices where the AACP socket never connects (e.g. non-rooted
-                // Xiaomi) the AirPods can still be connected over standard Bluetooth
-                // A2DP — handover works. Show that accurately instead of "not connected".
-                val titleRes = if (state.isA2dpConnected) R.string.connected_via_bluetooth else R.string.airpods_not_connected
-                val descRes = if (state.isA2dpConnected) R.string.connected_via_bluetooth_description else R.string.airpods_not_connected_description
                 Text(
                     stringResource(titleRes),
                     style = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.SemiBold, color = heroTextColor, fontFamily = SfPro),
@@ -882,7 +893,7 @@ private fun DisconnectedScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
                 Text(
-                    stringResource(descRes),
+                    stringResource(guideRes),
                     style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Normal, color = heroSecondaryColor, fontFamily = SfPro),
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
@@ -904,11 +915,39 @@ private fun DisconnectedScreen(
                         style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium, color = heroTextColor, fontFamily = SfPro)
                     )
                 }
+                if (showReconnect) {
+                    StyledButton(
+                        onClick = { viewModel.reconnectFromSavedMac() },
+                        backdrop = backdrop,
+                        height = 56.dp,
+                        surfaceColor = if (dark) Color(0xFF0091FF) else Color(0xFF0088FF),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                stringResource(R.string.reconnect_to_last),
+                                style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold, fontFamily = SfPro, color = Color.White),
+                                textAlign = TextAlign.Center
+                            )
+                            if (lastDeviceName != null) {
+                                Text(
+                                    lastDeviceName,
+                                    style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Normal, fontFamily = SfPro, color = Color.White.copy(alpha = 0.85f)),
+                                    textAlign = TextAlign.Center,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
 
-        // Battery display — shown on AACP-less devices when A2DP is connected.
-        // Data arrives via BLE (no AACP needed) so it's already in state.battery.
+        // Battery when A2DP is up but we are still on the disconnected surface
         if (state.isA2dpConnected && state.battery.isNotEmpty()) {
             item(key = "battery_a2dp") {
                 BatteryView(
@@ -919,109 +958,143 @@ private fun DisconnectedScreen(
             }
         }
 
-        if (state.connectionSuccessful) {
-            item(key = "connection_settings") {
-                Column(Modifier.fillMaxWidth().background(cardBg, RoundedCornerShape(18.dp)).padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Connection Settings", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = textColor.copy(0.6f), fontFamily = SfPro))
-                    Text("Configure Bluetooth and cross-device settings.", style = TextStyle(fontSize = 14.sp, fontFamily = SfPro, color = textColor.copy(0.55f)))
-                    StyledButton(onClick = { navController.navigate("connection_settings") }, backdrop = backdrop, modifier = Modifier.fillMaxWidth()) {
-                        Text("Open Settings", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro, color = textColor))
-                    }
-                }
-            }
-        } else {
-            // Cross-device settings — surfaced here on limited-mode devices because
-            // the CategoryScreen / AppSettings copies are unreachable (no category
-            // grid). The full ConnectionSettings component gives the user the master
-            // toggle, peer selector, and reconnect button.
-            item(key = "connection_settings") {
-                Column(Modifier.fillMaxWidth().background(cardBg, RoundedCornerShape(18.dp)).padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Connection Settings", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = textColor.copy(0.6f), fontFamily = SfPro))
-                    Text("Configure Bluetooth and cross-device settings.", style = TextStyle(fontSize = 14.sp, fontFamily = SfPro, color = textColor.copy(0.55f)))
-                    ConnectionSettings(
-                        crossDeviceEnabled = state.crossDeviceEnabled,
-                        onCrossDeviceChanged = { viewModel.setCrossDeviceEnabled(it) },
-                        crossDevicePeers = state.crossDevicePeers,
-                        navController = navController,
-                        automaticEarDetectionEnabled = state.automaticEarDetectionEnabled,
-                        onAutomaticEarDetectionChanged = { viewModel.setAutomaticEarDetectionEnabled(it) },
-                        automaticConnectionEnabled = state.automaticConnectionEnabled,
-                        onAutomaticConnectionChanged = { viewModel.setAutomaticConnectionEnabled(it) },
-                        earDetectionAvailable = state.aacpAvailable,
-                        lidOpenLastHolderAutoconnect = state.lidOpenLastHolderAutoconnect,
-                        onLidOpenLastHolderAutoconnectChanged = viewModel::setLidOpenLastHolderAutoconnect,
-                    )
-                }
-            }
-            // Handover toggles — on a limited-mode device the CategoryScreen /
-            // AppSettings copies are unreachable (no category grid), so surface the
-            // two takeover toggles that gate takeOver("music") / takeOver("call").
-            item(key = "handover_settings") {
-                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Handover", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = textColor.copy(0.6f), fontFamily = SfPro))
-                    StyledToggle(
-                        label = stringResource(R.string.takeover_media_start),
-                        description = stringResource(R.string.takeover_media_start_desc),
-                        checked = appState.takeoverWhenMediaStart,
-                        onCheckedChange = appSettingsViewModel::setTakeoverWhenMediaStart,
-                        independent = true
-                    )
-                    StyledToggle(
-                        label = stringResource(R.string.takeover_ringing_call),
-                        description = stringResource(R.string.takeover_ringing_call_desc),
-                        checked = appState.takeoverWhenRingingCall,
-                        onCheckedChange = appSettingsViewModel::setTakeoverWhenRingingCall,
-                        independent = true
-                    )
-                }
-            }
-        }
-
-        if (state.hasSavedDevice || state.connectionSuccessful) {
-            item(key = "quick_actions_label") {
+        // 2) Connections — peers + lid-open autoconnect (no ear detection)
+        item(key = "connections") {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .background(cardBg, RoundedCornerShape(22.dp))
+                    .padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 Text(
-                    "QUICK ACTIONS",
-                    style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = textColor.copy(0.5f), fontFamily = SfPro),
-                    modifier = Modifier.padding(start = 4.dp, top = 4.dp)
+                    stringResource(R.string.connections_title),
+                    style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = textColor.copy(0.6f), fontFamily = SfPro)
+                )
+                Text(
+                    stringResource(R.string.connections_guide),
+                    style = TextStyle(fontSize = 14.sp, fontFamily = SfPro, color = textColor.copy(0.55f))
+                )
+                CrossDevicePeersInline(
+                    peers = state.crossDevicePeers,
+                    onAddPeer = viewModel::addCrossDevicePeer,
+                    onRemovePeer = viewModel::removeCrossDevicePeer,
+                )
+                HorizontalDivider(thickness = 1.dp, color = Color(0x40888888))
+                StyledToggle(
+                    label = stringResource(R.string.lid_open_last_holder_autoconnect),
+                    description = stringResource(R.string.lid_open_last_holder_autoconnect_description),
+                    checked = state.lidOpenLastHolderAutoconnect,
+                    onCheckedChange = viewModel::setLidOpenLastHolderAutoconnect,
+                    independent = true
                 )
             }
-            item(key = "reconnect") {
-                Column(Modifier.fillMaxWidth().background(cardBg, RoundedCornerShape(22.dp)).padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Reconnect to Previous Device", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = textColor.copy(0.6f), fontFamily = SfPro))
-                    Text("Your AirPods were previously connected to this device.", style = TextStyle(fontSize = 14.sp, fontFamily = SfPro, color = textColor.copy(0.55f)))
-                    StyledButton(
-                        onClick = { viewModel.reconnectFromSavedMac() },
-                        backdrop = backdrop,
-                        height = 64.dp,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            stringResource(R.string.reconnect_to_last_device),
-                            style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro, color = textColor),
-                            textAlign = TextAlign.Center
-                        )
-                    }
+        }
+
+        // 3) Handover — master + two triggers; gated on ≥1 configured peer
+        item(key = "handover") {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .background(cardBg, RoundedCornerShape(22.dp))
+                    .padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    stringResource(R.string.handover_title),
+                    style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = textColor.copy(0.6f), fontFamily = SfPro)
+                )
+                Text(
+                    stringResource(R.string.handover_guide),
+                    style = TextStyle(fontSize = 14.sp, fontFamily = SfPro, color = textColor.copy(0.55f))
+                )
+                if (!handoverUnlocked) {
+                    Text(
+                        stringResource(R.string.handover_needs_peer_helper),
+                        style = TextStyle(fontSize = 13.sp, fontFamily = SfPro, color = textColor.copy(0.5f))
+                    )
                 }
+                StyledToggle(
+                    label = stringResource(R.string.cross_device_handover),
+                    description = stringResource(R.string.cross_device_handover_description),
+                    checked = state.crossDeviceEnabled,
+                    onCheckedChange = { viewModel.setCrossDeviceEnabled(it) },
+                    independent = true,
+                    enabled = handoverUnlocked
+                )
+                StyledToggle(
+                    label = stringResource(R.string.takeover_media_start),
+                    description = stringResource(R.string.takeover_media_start_desc),
+                    checked = appState.takeoverWhenMediaStart,
+                    onCheckedChange = appSettingsViewModel::setTakeoverWhenMediaStart,
+                    independent = true,
+                    enabled = handoverUnlocked
+                )
+                StyledToggle(
+                    label = stringResource(R.string.takeover_ringing_call),
+                    description = stringResource(R.string.takeover_ringing_call_desc),
+                    checked = appState.takeoverWhenRingingCall,
+                    onCheckedChange = appSettingsViewModel::setTakeoverWhenRingingCall,
+                    independent = true,
+                    enabled = handoverUnlocked
+                )
             }
         }
 
+        // 4) Find My AirPods
         item(key = "find_nearby") {
-            Column(Modifier.fillMaxWidth().background(cardBg, RoundedCornerShape(22.dp)).padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Find My AirPods", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = textColor.copy(0.6f), fontFamily = SfPro))
-                Text("Locate your AirPods using Bluetooth signal proximity.", style = TextStyle(fontSize = 14.sp, fontFamily = SfPro, color = textColor.copy(0.55f)))
-                StyledButton(onClick = { navController.navigate("proximity_finder") }, backdrop = backdrop, modifier = Modifier.fillMaxWidth()) {
-                    Text("Find Nearby", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro, color = textColor))
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .background(cardBg, RoundedCornerShape(22.dp))
+                    .padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    stringResource(R.string.find_my_airpods_title),
+                    style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = textColor.copy(0.6f), fontFamily = SfPro)
+                )
+                Text(
+                    stringResource(R.string.find_my_airpods_guide),
+                    style = TextStyle(fontSize = 14.sp, fontFamily = SfPro, color = textColor.copy(0.55f))
+                )
+                StyledButton(
+                    onClick = { navController.navigate("proximity_finder") },
+                    backdrop = backdrop,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        stringResource(R.string.find_nearby),
+                        style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro, color = textColor)
+                    )
                 }
             }
         }
 
+        // 5) Get Help
         item(key = "help") {
-            Column(Modifier.fillMaxWidth().background(cardBg, RoundedCornerShape(22.dp)).padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Get Help", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = textColor.copy(0.6f), fontFamily = SfPro))
-                Text("Contact support by email or report issues on GitHub.", style = TextStyle(fontSize = 14.sp, fontFamily = SfPro, color = textColor.copy(0.55f)))
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .background(cardBg, RoundedCornerShape(22.dp))
+                    .padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    stringResource(R.string.get_help_title),
+                    style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = textColor.copy(0.6f), fontFamily = SfPro)
+                )
+                Text(
+                    stringResource(R.string.get_help_guide),
+                    style = TextStyle(fontSize = 14.sp, fontFamily = SfPro, color = textColor.copy(0.55f))
+                )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StyledButton(onClick = onOpenContact, backdrop = backdrop, modifier = Modifier.weight(1f)) { Text("Email", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro, color = textColor)) }
-                    StyledButton(onClick = { context.openEveryPodsIssues() }, backdrop = backdrop, modifier = Modifier.weight(1f)) { Text("GitHub", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro, color = textColor)) }
+                    StyledButton(onClick = onOpenContact, backdrop = backdrop, modifier = Modifier.weight(1f)) {
+                        Text("Email", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro, color = textColor))
+                    }
+                    StyledButton(onClick = { context.openEveryPodsIssues() }, backdrop = backdrop, modifier = Modifier.weight(1f)) {
+                        Text("GitHub", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro, color = textColor))
+                    }
                 }
             }
         }

@@ -344,3 +344,188 @@ fun ConnectionSettings(
         // Params automaticConnectionEnabled / onAutomaticConnectionChanged kept for easy revert.
     }
 }
+
+/**
+ * Inline peer list for the disconnected Connections card.
+ * Reuses the same ViewModel add/remove APIs as [io.automated.ventures.everypods.presentation.screens.PairedDevicesScreen].
+ * Does not include ear detection — that stays on the connected Connection Settings surface.
+ */
+@SuppressLint("MissingPermission")
+@Composable
+fun CrossDevicePeersInline(
+    peers: List<PeerUiInfo>,
+    onAddPeer: (String) -> Unit,
+    onRemovePeer: (String) -> Unit,
+    emptyMessage: String = stringResource(R.string.connections_empty),
+    addLabel: String = stringResource(R.string.add_peer),
+) {
+    val isDarkTheme = isSystemInDarkTheme()
+    val textColor = if (isDarkTheme) Color.White else Color.Black
+    val context = LocalContext.current
+    var showPicker by remember { mutableStateOf(false) }
+    var confirmRemoveMac by remember { mutableStateOf<String?>(null) }
+
+    val bondedDevices = remember {
+        val bt = context.getSystemService(BluetoothManager::class.java)
+        bt?.adapter?.bondedDevices?.toList() ?: emptyList()
+    }
+
+    if (showPicker) {
+        AlertDialog(
+            onDismissRequest = { showPicker = false },
+            title = { Text(stringResource(R.string.add_peer_android_device)) },
+            text = {
+                LazyColumn {
+                    items(bondedDevices) { device ->
+                        TextButton(
+                            onClick = {
+                                onAddPeer(device.address)
+                                showPicker = false
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(device.name ?: device.address)
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showPicker = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    confirmRemoveMac?.let { mac ->
+        val peer = peers.find { it.mac == mac }
+        AlertDialog(
+            onDismissRequest = { confirmRemoveMac = null },
+            title = { Text(stringResource(R.string.remove_peer_confirm_title)) },
+            text = {
+                Text(
+                    stringResource(
+                        R.string.remove_peer_confirm_message,
+                        peer?.name ?: mac
+                    )
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    onRemovePeer(mac)
+                    confirmRemoveMac = null
+                }) {
+                    Text(stringResource(R.string.remove_peer), color = Color(0xFFFF3B30))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmRemoveMac = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        if (peers.isEmpty()) {
+            Text(
+                text = emptyMessage,
+                style = TextStyle(
+                    fontSize = 14.sp,
+                    fontFamily = FontFamily(Font(R.font.sf_pro)),
+                    color = if (isDarkTheme) Color.White.copy(alpha = 0.55f)
+                    else Color.Black.copy(alpha = 0.55f)
+                ),
+                modifier = Modifier.padding(vertical = 4.dp)
+            )
+            TextButton(onClick = { showPicker = true }) {
+                Text(
+                    text = "+ $addLabel",
+                    style = TextStyle(
+                        fontSize = 16.sp,
+                        fontFamily = FontFamily(Font(R.font.sf_pro)),
+                        color = Color(0xFF007AFF)
+                    )
+                )
+            }
+        } else {
+            peers.forEachIndexed { index, peer ->
+                if (index > 0) {
+                    HorizontalDivider(
+                        thickness = 1.dp,
+                        color = Color(0x40888888),
+                        modifier = Modifier.padding(vertical = 2.dp)
+                    )
+                }
+                InlinePeerRow(
+                    peer = peer,
+                    textColor = textColor,
+                    onRemove = { confirmRemoveMac = peer.mac }
+                )
+            }
+            TextButton(onClick = { showPicker = true }) {
+                Text(
+                    text = "+ $addLabel",
+                    style = TextStyle(
+                        fontSize = 16.sp,
+                        fontFamily = FontFamily(Font(R.font.sf_pro)),
+                        color = Color(0xFF007AFF)
+                    )
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun InlinePeerRow(
+    peer: PeerUiInfo,
+    textColor: Color,
+    onRemove: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .padding(end = 10.dp)
+                .size(8.dp)
+                .background(
+                    color = if (peer.connected) Color(0xFF34C759) else Color(0xFF8E8E93),
+                    shape = CircleShape
+                )
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = peer.name,
+                style = TextStyle(
+                    fontSize = 16.sp,
+                    fontFamily = FontFamily(Font(R.font.sf_pro)),
+                    color = textColor
+                )
+            )
+            Text(
+                text = stringResource(
+                    if (peer.connected) R.string.peer_online else R.string.peer_offline
+                ),
+                style = TextStyle(
+                    fontSize = 12.sp,
+                    fontFamily = FontFamily(Font(R.font.sf_pro)),
+                    color = if (peer.connected) Color(0xFF34C759) else Color(0xFF8E8E93)
+                )
+            )
+        }
+        TextButton(onClick = onRemove) {
+            Text(
+                stringResource(R.string.remove_peer),
+                style = TextStyle(
+                    fontSize = 14.sp,
+                    fontFamily = FontFamily(Font(R.font.sf_pro)),
+                    color = Color(0xFFFF3B30)
+                )
+            )
+        }
+    }
+}
