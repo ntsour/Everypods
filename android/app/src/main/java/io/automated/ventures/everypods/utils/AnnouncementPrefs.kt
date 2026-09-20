@@ -52,6 +52,8 @@ object AnnouncementPrefs {
     const val KEY_TTS_ENGINE = "announce_tts_engine"          // "system" | "elevenlabs"
     const val KEY_ELEVENLABS_API_KEY = "elevenlabs_api_key"
     const val KEY_ELEVENLABS_VOICE_ID = "elevenlabs_voice_id"
+    /** Selected Android System TTS voice name, suffixed with a language tag. */
+    const val KEY_SYSTEM_TTS_VOICE_PREFIX = "announce_system_tts_voice_"
     const val TTS_ENGINE_SYSTEM = "system"
     const val TTS_ENGINE_ELEVENLABS = "elevenlabs"
 
@@ -107,6 +109,21 @@ object AnnouncementPrefs {
 
     fun rawLanguage(ctx: Context): String =
         prefs(ctx).getString(KEY_LANGUAGE, LANG_SYSTEM) ?: LANG_SYSTEM
+
+    /** A voice is stored per language because automatic detection may switch languages. */
+    fun systemTtsVoiceName(ctx: Context, languageTag: String): String? =
+        prefs(ctx).getString(KEY_SYSTEM_TTS_VOICE_PREFIX + languageKey(languageTag), null)
+            ?.takeIf { it.isNotBlank() }
+
+    fun setSystemTtsVoiceName(ctx: Context, languageTag: String, voiceName: String?) {
+        prefs(ctx).edit().apply {
+            val key = KEY_SYSTEM_TTS_VOICE_PREFIX + languageKey(languageTag)
+            if (voiceName.isNullOrBlank()) remove(key) else putString(key, voiceName)
+        }.apply()
+    }
+
+    private fun languageKey(languageTag: String): String =
+        Locale.forLanguageTag(languageTag).language.takeIf { it.isNotBlank() } ?: languageTag
 
     fun languageForText(ctx: Context, text: String): String {
         val pref = rawLanguage(ctx)

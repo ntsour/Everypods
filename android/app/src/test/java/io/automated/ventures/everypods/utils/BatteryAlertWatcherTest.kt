@@ -31,11 +31,13 @@ class BatteryAlertWatcherTest {
 
         mockkObject(TtsEngine)
         mockkObject(ElevenLabsEngine)
+        mockkObject(AnnouncementCoordinator)
         mockkObject(AnnouncementAudioRoute)
 
         every { AnnouncementAudioRoute.canAnnounceToAirPods(any()) } returns true
         every { TtsEngine.speak(any(), any(), any()) } just Runs
         every { ElevenLabsEngine.speak(any(), any(), any(), any(), any(), any(), any()) } just Runs
+        every { AnnouncementCoordinator.announce(any(), any(), any()) } just Runs
     }
 
     @After
@@ -66,7 +68,7 @@ class BatteryAlertWatcherTest {
     }
 
     @Test
-    fun `speak uses system TTS when system engine is selected`() {
+    fun `battery alerts use the shared safety-priority coordinator`() {
         setSystemTtsEngine()
         setBatteryAlertsEnabled(threshold = 50)
 
@@ -74,12 +76,11 @@ class BatteryAlertWatcherTest {
 
         BatteryAlertWatcher.checkAndMaybeAlert(context, listOf(battery), anyBudInEar = true)
 
-        verify { TtsEngine.speak(any(), any(), any()) }
-        verify(exactly = 0) { ElevenLabsEngine.speak(any(), any(), any(), any(), any(), any(), any()) }
+        verify { AnnouncementCoordinator.announce(any(), any(), AnnouncementCoordinator.Priority.SAFETY) }
     }
 
     @Test
-    fun `speak uses ElevenLabs when elevenlabs engine is selected and API key is present`() {
+    fun `battery alerts use the coordinator regardless of voice engine`() {
         setElevenLabsTtsEngine()
         setBatteryAlertsEnabled(threshold = 50)
 
@@ -87,17 +88,11 @@ class BatteryAlertWatcherTest {
 
         BatteryAlertWatcher.checkAndMaybeAlert(context, listOf(battery), anyBudInEar = true)
 
-        verify {
-            ElevenLabsEngine.speak(
-                any(), any(), apiKey = "test-api-key", voiceId = "test-voice-id",
-                any(), any(), any()
-            )
-        }
-        verify(exactly = 0) { TtsEngine.speak(any(), any(), any()) }
+        verify { AnnouncementCoordinator.announce(any(), any(), AnnouncementCoordinator.Priority.SAFETY) }
     }
 
     @Test
-    fun `speak falls back to system TTS when elevenlabs is selected but no API key`() {
+    fun `battery alerts do not need to choose a voice engine`() {
         setElevenLabsTtsEngine(apiKey = "")
         setBatteryAlertsEnabled(threshold = 50)
 
@@ -105,27 +100,19 @@ class BatteryAlertWatcherTest {
 
         BatteryAlertWatcher.checkAndMaybeAlert(context, listOf(battery), anyBudInEar = true)
 
-        verify { TtsEngine.speak(any(), any(), any()) }
-        verify(exactly = 0) { ElevenLabsEngine.speak(any(), any(), any(), any(), any(), any(), any()) }
+        verify { AnnouncementCoordinator.announce(any(), any(), AnnouncementCoordinator.Priority.SAFETY) }
     }
 
     @Test
-    fun `speak falls back to system TTS when ElevenLabs onFallback is called`() {
+    fun `battery alerts do not handle voice-engine fallbacks themselves`() {
         setElevenLabsTtsEngine()
         setBatteryAlertsEnabled(threshold = 50)
-
-        every {
-            ElevenLabsEngine.speak(any(), any(), any(), any(), any(), any(), captureLambda())
-        } answers {
-            val onFallback = lambda<(String) -> Unit>().captured
-            onFallback("No internet connection")
-        }
 
         val battery = Battery(BatteryComponent.LEFT, 30, BatteryStatus.NOT_CHARGING)
 
         BatteryAlertWatcher.checkAndMaybeAlert(context, listOf(battery), anyBudInEar = true)
 
-        verify { TtsEngine.speak(any(), any(), any()) }
+        verify { AnnouncementCoordinator.announce(any(), any(), AnnouncementCoordinator.Priority.SAFETY) }
     }
 
     @Test
@@ -137,8 +124,7 @@ class BatteryAlertWatcherTest {
 
         BatteryAlertWatcher.checkAndMaybeAlert(context, listOf(battery), anyBudInEar = true)
 
-        verify(exactly = 0) { TtsEngine.speak(any(), any(), any()) }
-        verify(exactly = 0) { ElevenLabsEngine.speak(any(), any(), any(), any(), any(), any(), any()) }
+        verify(exactly = 0) { AnnouncementCoordinator.announce(any(), any(), any()) }
     }
 
     @Test
@@ -150,11 +136,11 @@ class BatteryAlertWatcherTest {
 
         BatteryAlertWatcher.checkAndMaybeAlert(context, listOf(battery), anyBudInEar = true)
 
-        verify(exactly = 0) { TtsEngine.speak(any(), any(), any()) }
+        verify(exactly = 0) { AnnouncementCoordinator.announce(any(), any(), any()) }
     }
 
     @Test
-    fun `speak uses system TTS with correct language tag`() {
+    fun `battery alerts use safety priority for every language`() {
         setSystemTtsEngine()
         setBatteryAlertsEnabled(threshold = 50)
         prefs.edit().putString(AnnouncementPrefs.KEY_LANGUAGE, "es").apply()
@@ -163,7 +149,7 @@ class BatteryAlertWatcherTest {
 
         BatteryAlertWatcher.checkAndMaybeAlert(context, listOf(battery), anyBudInEar = true)
 
-        verify { TtsEngine.speak(any(), any(), eq("es")) }
+        verify { AnnouncementCoordinator.announce(any(), any(), AnnouncementCoordinator.Priority.SAFETY) }
     }
 
     @Test
@@ -178,7 +164,7 @@ class BatteryAlertWatcherTest {
             context, listOf(Battery(BatteryComponent.LEFT, 20, BatteryStatus.NOT_CHARGING)), anyBudInEar = true
         )
 
-        verify(exactly = 1) { TtsEngine.speak(any(), any(), any()) }
+        verify(exactly = 1) { AnnouncementCoordinator.announce(any(), any(), any()) }
     }
 
     @Test
@@ -193,6 +179,6 @@ class BatteryAlertWatcherTest {
             )
         }
 
-        verify(exactly = 1) { TtsEngine.speak(any(), any(), any()) }
+        verify(exactly = 1) { AnnouncementCoordinator.announce(any(), any(), any()) }
     }
 }

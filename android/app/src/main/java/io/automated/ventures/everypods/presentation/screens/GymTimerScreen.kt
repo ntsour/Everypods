@@ -81,12 +81,28 @@ fun GymTimerScreen() {
     var timerState by remember { mutableStateOf(GymTimer.state()) }
     var timerMode by remember { mutableStateOf(GymTimer.mode()) }
     var voiceEnabled by remember { mutableStateOf(GymModePrefs.voiceAnnouncementsEnabled(context)) }
+    var intermediateAnnouncementsEnabled by remember {
+        mutableStateOf(GymModePrefs.intermediateAnnouncementsEnabled(context))
+    }
+    var finalCountdownEnabled by remember { mutableStateOf(GymModePrefs.finalCountdownEnabled(context)) }
+    var wakeScreenOnTimerStart by remember { mutableStateOf(GymModePrefs.wakeScreenOnTimerStart(context)) }
+    var preparationCountdownEnabled by remember {
+        mutableStateOf(GymModePrefs.preparationCountdownEnabled(context))
+    }
+    var stopwatchAnnouncementIntervalMinutes by remember {
+        mutableIntStateOf(GymModePrefs.stopwatchAnnouncementIntervalMinutes(context))
+    }
     var laps by remember { mutableStateOf(GymTimer.laps()) }
     var countdownRemainingMs by remember { mutableLongStateOf(GymTimer.countdownRemainingMs()) }
     var countdownDurationSec by remember { mutableIntStateOf((GymTimer.getCountdownDurationMs() / 1000).toInt()) }
     var hiitWorkSec by remember { mutableIntStateOf((GymTimer.getHiitWorkMs() / 1000).toInt()) }
     var hiitRestSec by remember { mutableIntStateOf((GymTimer.getHiitRestMs() / 1000).toInt()) }
     var hiitRounds by remember { mutableIntStateOf(GymTimer.getHiitRounds()) }
+
+    DisposableEffect(preparationCountdownEnabled) {
+        GymTimer.setPreparationCountdownEnabled(preparationCountdownEnabled)
+        onDispose { }
+    }
 
     DisposableEffect(Unit) {
         val listener = {
@@ -210,6 +226,18 @@ fun GymTimerScreen() {
                         )
                     }
                 }
+                if (timerState == GymTimer.State.PREPARING) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Starting in ${GymTimer.preparationSecondsRemaining()}",
+                        style = TextStyle(
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium,
+                            fontFamily = SfPro,
+                            color = if (dark) Color.White.copy(0.65f) else Color.Black.copy(0.65f)
+                        )
+                    )
+                }
             }
 
             // Controls
@@ -224,10 +252,11 @@ fun GymTimerScreen() {
                         when {
                             isFinished -> {
                                 // If finished, reset and immediately start new timer
-                                GymTimer.reset()
+                                GymTimer.reset(announce = false)
                                 GymTimer.start()
                             }
                             timerState == GymTimer.State.IDLE -> GymTimer.start()
+                            timerState == GymTimer.State.PREPARING -> GymTimer.reset()
                             timerState == GymTimer.State.RUNNING -> GymTimer.pause()
                             timerState == GymTimer.State.PAUSED -> GymTimer.start()
                         }
@@ -238,6 +267,7 @@ fun GymTimerScreen() {
                     val label = when {
                         isFinished -> "START"  // Show START when finished instead of RESUME
                         timerState == GymTimer.State.IDLE -> "START"
+                        timerState == GymTimer.State.PREPARING -> "CANCEL"
                         timerState == GymTimer.State.RUNNING -> "PAUSE"
                         timerState == GymTimer.State.PAUSED -> "RESUME"
                         else -> "START"
@@ -320,11 +350,23 @@ fun GymTimerScreen() {
                 }
             }
 
-            // Voice toggle
+            // Timer announcements are independent from notification announcements.
             Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp)).padding(16.dp)) {
                 StyledToggle(
-                    label = "Voice announcements",
-                    description = "Announce voice timer events",
+                    label = "5-second start countdown",
+                    description = "Count down before a new timer begins",
+                    checked = preparationCountdownEnabled,
+                    onCheckedChange = {
+                        preparationCountdownEnabled = it
+                        GymModePrefs.setPreparationCountdownEnabled(context, it)
+                        GymTimer.setPreparationCountdownEnabled(it)
+                    },
+                    independent = true
+                )
+                Spacer(Modifier.height(14.dp))
+                StyledToggle(
+                    label = "Timer announcements",
+                    description = "Hear timer progress, controls, and completion",
                     checked = voiceEnabled,
                     onCheckedChange = {
                         voiceEnabled = it
@@ -332,9 +374,108 @@ fun GymTimerScreen() {
                     },
                     independent = true
                 )
+
+                if (voiceEnabled && timerMode == GymTimer.Mode.STOPWATCH) {
+                    Spacer(Modifier.height(14.dp))
+                    Text(
+                        "Stopwatch elapsed-time cue",
+                        style = TextStyle(
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            fontFamily = SfPro,
+                            color = if (dark) Color.White else Color.Black
+                        )
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    StopwatchAnnouncementIntervalSelector(
+                        selectedMinutes = stopwatchAnnouncementIntervalMinutes,
+                        dark = dark,
+                        onSelect = { minutes ->
+                            stopwatchAnnouncementIntervalMinutes = minutes
+                            GymModePrefs.setStopwatchAnnouncementIntervalMinutes(context, minutes)
+                        }
+                    )
+                }
+
+                if (voiceEnabled) {
+                    Spacer(Modifier.height(14.dp))
+                    StyledToggle(
+                        label = "Intermediate announcements",
+                        description = "Countdown quarters, HIIT phases, laps, and stopwatch intervals",
+                        checked = intermediateAnnouncementsEnabled,
+                        onCheckedChange = {
+                            intermediateAnnouncementsEnabled = it
+                            GymModePrefs.setIntermediateAnnouncementsEnabled(context, it)
+                        },
+                        independent = true
+                    )
+                    Spacer(Modifier.height(14.dp))
+                    StyledToggle(
+                        label = "Final countdown",
+                        description = "Speak the final 5 seconds before countdown and HIIT phases end",
+                        checked = finalCountdownEnabled,
+                        onCheckedChange = {
+                            finalCountdownEnabled = it
+                            GymModePrefs.setFinalCountdownEnabled(context, it)
+                        },
+                        independent = true
+                    )
+                }
+            }
+
+            Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp)).padding(16.dp)) {
+                StyledToggle(
+                    label = "Wake screen and show timer",
+                    description = "Open the full timer interface when a gesture starts or resumes it",
+                    checked = wakeScreenOnTimerStart,
+                    onCheckedChange = {
+                        wakeScreenOnTimerStart = it
+                        GymModePrefs.setWakeScreenOnTimerStart(context, it)
+                    },
+                    independent = true
+                )
             }
 
             Spacer(Modifier.height(bottomPadding))
+        }
+    }
+}
+
+@Composable
+private fun StopwatchAnnouncementIntervalSelector(
+    selectedMinutes: Int,
+    dark: Boolean,
+    onSelect: (Int) -> Unit
+) {
+    val options = listOf(0 to "Off", 1 to "1 min", 5 to "5 min", 10 to "10 min")
+    val textColor = if (dark) Color.White else Color.Black
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        options.forEach { (minutes, label) ->
+            val selected = minutes == selectedMinutes
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .background(
+                        if (selected) Color(0xFF0A84FF) else if (dark) Color(0xFF2C2C2E) else Color(0xFFF2F2F7),
+                        RoundedCornerShape(10.dp)
+                    )
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { onSelect(minutes) }
+                    .padding(vertical = 10.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    label,
+                    style = TextStyle(
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        fontFamily = SfPro,
+                        color = if (selected) Color.White else textColor
+                    )
+                )
+            }
         }
     }
 }
@@ -402,7 +543,7 @@ private fun CountdownSettings(
             Text("Quick", style = bodyStyle(dark))
             Spacer(Modifier.height(6.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                listOf(10, 15, 20, 30, 45, 60).forEach { s ->
+                listOf(20, 30, 40, 45, 60, 90).forEach { s ->
                     val selected = durationSec == s
                     val bg = if (selected) Color(0xFF0A84FF) else if (dark) Color(0xFF2C2C2E) else Color(0xFFF2F2F7)
                     val fg = if (selected) Color.White else if (dark) Color.White else Color.Black

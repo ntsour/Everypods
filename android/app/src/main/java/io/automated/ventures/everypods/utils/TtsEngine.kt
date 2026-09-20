@@ -23,6 +23,8 @@ import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.PowerManager
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
@@ -46,19 +48,22 @@ object TtsEngine {
     private const val TAG = "TtsEngine"
     private const val IDLE_RELEASE_MS = 5 * 60 * 1000L  // 5 minutes
     private const val DEDUPE_WINDOW_MS = 3_000L   // suppress identical text within 3s (double-delivery guard only)
-    private const val MAX_QUEUE = 5              // drop new announcements above this
     private const val DEDUPE_HISTORY_CAP = 20    // ring buffer size
 
     @Volatile private var tts: TextToSpeech? = null
     @Volatile private var audioManager: AudioManager? = null
     @Volatile private var focusRequest: AudioFocusRequest? = null
     @Volatile private var configuredLanguage: String? = null
+    @Volatile private var configuredVoiceName: String? = null
     @Volatile private var wakeLock: PowerManager.WakeLock? = null
     private val initialised = AtomicBoolean(false)
     private val initialising = AtomicBoolean(false)
-    private val pendingUtterances = mutableListOf<String>()
+    private data class PendingUtterance(val text: String, val onDone: () -> Unit)
+    private val pendingUtterances = mutableListOf<PendingUtterance>()
+    private val completionCallbacks = mutableMapOf<String, () -> Unit>()
     private val lastUseAt = AtomicLong(0L)
     private val activeUtteranceCount = java.util.concurrent.atomic.AtomicInteger(0)
+    private val audibleUtteranceIds = mutableSetOf<String>()
     private val recentTexts = ArrayDeque<Pair<String, Long>>()  // (text, timestamp)
     // Timestamp of the last utterance-done event (-1 = none/cleared). Keeps
     // isSpeaking() true during A2DP buffer drain after onDone fires.
@@ -74,11 +79,20 @@ object TtsEngine {
      * user has switched to phone speaker). This avoids announcing through
      * the phone speaker, which would defeat the purpose.
      */
-    fun speak(context: Context, text: String, languageTag: String? = null) {
+    fun speak(
+        context: Context,
+        text: String,
+        languageTag: String? = null,
+        onDone: () -> Unit = {},
+    ) {
         val ctx = context.applicationContext
         ensureAudioManager(ctx)
         if (!AnnouncementAudioRoute.canAnnounceToAirPods(ctx)) {
             Log.d(TAG, "Skipping announcement — AirPods are not the selected media route")
+            // The coordinator already considers this request active. Releasing it
+            // here is essential: otherwise one transient route loss suppresses
+            // every later timer announcement in the same process.
+            onDone()
             return
         }
         // Hold a CPU wake lock so the engine actually finishes speaking when the
@@ -94,14 +108,7 @@ object TtsEngine {
             }
             if (recentTexts.any { it.first == text }) {
                 Log.w(TAG, "DEDUPE: \"$text\" within ${DEDUPE_WINDOW_MS}ms — skipping")
-                return
-            }
-            // Queue cap: drop overflowing announcements rather than backing up.
-            // The TTS engine itself serialises utterances via QUEUE_ADD, so
-            // back-to-back messages naturally play in order — no throttle needed.
-            val pending = activeUtteranceCount.get() + pendingUtterances.size
-            if (pending >= MAX_QUEUE) {
-                Log.d(TAG, "Queue cap reached ($pending/$MAX_QUEUE), skipping")
+                onDone()
                 return
             }
             recentTexts.addLast(text to now)
@@ -113,18 +120,19 @@ object TtsEngine {
         // the engine was initialised.
         val desiredLang = languageTag ?: AnnouncementPrefs.resolvedLanguage(ctx)
         if (initialised.get()) {
-            if (desiredLang != configuredLanguage) {
-                applyLanguage(desiredLang)
+            val desiredVoice = AnnouncementPrefs.systemTtsVoiceName(ctx, desiredLang)
+            if (desiredLang != configuredLanguage || desiredVoice != configuredVoiceName) {
+                applyLanguage(ctx, desiredLang)
             }
-            enqueue(text)
+            enqueue(text, onDone)
             return
         }
         synchronized(this) {
             if (initialised.get()) {
-                enqueue(text)
+                enqueue(text, onDone)
                 return
             }
-            pendingUtterances.add(text)
+            pendingUtterances.add(PendingUtterance(text, onDone))
             if (initialising.compareAndSet(false, true)) {
                 Log.d(TAG, "Initialising TextToSpeech engine")
                 tts = TextToSpeech(ctx) { status ->
@@ -133,13 +141,16 @@ object TtsEngine {
                         initialised.set(true)
                         initialising.set(false)
                         synchronized(this) {
-                            pendingUtterances.forEach { enqueue(it) }
+                            pendingUtterances.forEach { enqueue(it.text, it.onDone) }
                             pendingUtterances.clear()
                         }
                     } else {
                         Log.w(TAG, "TTS init failed: $status")
                         initialising.set(false)
-                        synchronized(this) { pendingUtterances.clear() }
+                        val rejected = synchronized(this) {
+                            pendingUtterances.toList().also { pendingUtterances.clear() }
+                        }
+                        rejected.forEach { it.onDone() }
                     }
                 }
             }
@@ -156,6 +167,11 @@ object TtsEngine {
         return t >= 0L && System.currentTimeMillis() - t < A2DP_GRACE_MS
     }
 
+    /** Unlike [isSpeaking], excludes queued utterances and A2DP drain grace. */
+    fun isAudiblySpeaking(): Boolean = synchronized(audibleUtteranceIds) {
+        audibleUtteranceIds.isNotEmpty()
+    }
+
     /**
      * Cancel any in-progress and queued utterances, abandon focus.
      * Used when a stem-press should silence the announcement immediately.
@@ -168,37 +184,47 @@ object TtsEngine {
         }
         abandonFocus()
         activeUtteranceCount.set(0)
+        synchronized(completionCallbacks) { completionCallbacks.clear() }
+        synchronized(audibleUtteranceIds) { audibleUtteranceIds.clear() }
         lastDoneAt.set(-1L)  // clear A2DP grace so next press is play/pause
     }
 
     private fun configureEngine(ctx: Context) {
         val engine = tts ?: return
-        applyLanguage(AnnouncementPrefs.resolvedLanguage(ctx))
+        applyLanguage(ctx, AnnouncementPrefs.resolvedLanguage(ctx))
         engine.setAudioAttributes(
             AudioAttributes.Builder()
+                // Keep spoken feedback out of the app's music/podcast detector.
+                // This matches the ElevenLabs player and still routes to A2DP.
                 .setUsage(AudioAttributes.USAGE_ASSISTANT)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                 .build()
         )
         engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(utteranceId: String?) {
+                utteranceId?.let { id -> synchronized(audibleUtteranceIds) { audibleUtteranceIds.add(id) } }
+                AnnouncementCoordinator.onSpeechAudibleStarted()
                 requestFocus()
             }
             override fun onDone(utteranceId: String?) {
-                onUtteranceDone()
+                onUtteranceDone(utteranceId)
             }
             @Deprecated("Deprecated in Java")
             override fun onError(utteranceId: String?) {
-                onUtteranceDone()
+                onUtteranceDone(utteranceId)
             }
             override fun onError(utteranceId: String?, errorCode: Int) {
                 Log.w(TAG, "TTS utterance error $utteranceId: $errorCode")
-                onUtteranceDone()
+                onUtteranceDone(utteranceId)
             }
         })
     }
 
-    private fun onUtteranceDone() {
+    private fun onUtteranceDone(utteranceId: String?) {
+        utteranceId?.let { id ->
+            synchronized(completionCallbacks) { completionCallbacks.remove(id) }?.invoke()
+            synchronized(audibleUtteranceIds) { audibleUtteranceIds.remove(id) }
+        }
         if (activeUtteranceCount.decrementAndGet() <= 0) {
             activeUtteranceCount.set(0)
             lastDoneAt.set(System.currentTimeMillis())
@@ -230,15 +256,19 @@ object TtsEngine {
         wakeLock = null
     }
 
-    private fun enqueue(text: String) {
+    private fun enqueue(text: String, onDone: () -> Unit) {
         val engine = tts ?: return
         val id = UUID.randomUUID().toString()
+        synchronized(completionCallbacks) { completionCallbacks[id] = onDone }
         activeUtteranceCount.incrementAndGet()
         val params = Bundle()
-        engine.speak(text, TextToSpeech.QUEUE_ADD, params, id)
+        if (engine.speak(text, TextToSpeech.QUEUE_ADD, params, id) != TextToSpeech.SUCCESS) {
+            Log.w(TAG, "TTS rejected utterance: ${text.take(48)}")
+            onUtteranceDone(id)
+        }
     }
 
-    private fun applyLanguage(languageTag: String) {
+    private fun applyLanguage(context: Context, languageTag: String) {
         val engine = tts ?: return
         val preferred = Locale.forLanguageTag(languageTag).takeIf { it.language.isNotEmpty() }
             ?: Locale(languageTag)
@@ -247,9 +277,53 @@ object TtsEngine {
             Log.w(TAG, "Locale $preferred unsupported; falling back to English")
             engine.setLanguage(Locale.ENGLISH)
             configuredLanguage = "en"
+            configuredVoiceName = null
         } else {
             Log.d(TAG, "TTS language set to $preferred (tag=$languageTag)")
             configuredLanguage = languageTag
+            val requestedVoiceName = AnnouncementPrefs.systemTtsVoiceName(context, languageTag)
+            val requestedVoice = requestedVoiceName?.let { name ->
+                engine.voices?.firstOrNull { it.name == name && it.locale.language == preferred.language }
+            }
+            if (requestedVoice != null && engine.setVoice(requestedVoice) == TextToSpeech.SUCCESS) {
+                configuredVoiceName = requestedVoice.name
+                Log.d(TAG, "TTS voice set to ${requestedVoice.name} for ${preferred.language}")
+            } else {
+                configuredVoiceName = null
+                if (requestedVoiceName != null) {
+                    Log.w(TAG, "Saved TTS voice $requestedVoiceName unavailable for $preferred; using Android default")
+                }
+            }
+        }
+    }
+
+    data class AvailableVoice(val name: String, val label: String)
+
+    /** Loads installed Android voices without changing an announcement in progress. */
+    fun loadAvailableVoices(context: Context, languageTag: String, onResult: (List<AvailableVoice>) -> Unit) {
+        val ctx = context.applicationContext
+        val language = Locale.forLanguageTag(languageTag).language
+        var probe: TextToSpeech? = null
+        probe = TextToSpeech(ctx) { status ->
+            val result = if (status == TextToSpeech.SUCCESS) {
+                runCatching {
+                    probe?.voices.orEmpty().asSequence()
+                        .filter { it.locale.language == language }
+                        .map { voice -> AvailableVoice(
+                            name = voice.name,
+                            label = buildString {
+                                append(voice.locale.toLanguageTag())
+                                append(" — ")
+                                append(voice.name)
+                                if (voice.isNetworkConnectionRequired) append(" (network)")
+                            }
+                        ) }
+                        .sortedBy { it.label }
+                        .toList()
+                }.getOrDefault(emptyList())
+            } else emptyList()
+            Handler(Looper.getMainLooper()).post { onResult(result) }
+            probe?.shutdown()
         }
     }
 

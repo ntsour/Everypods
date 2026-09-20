@@ -19,10 +19,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@06832c7b30a0129d7fb559bcc6e43d26f6374244 # v4.3.1
       - uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
         with:
-          # Default still includes obsolete `tools` (removed from sdkmanager).
           packages: platform-tools
-      - name: Install NDK
-        run: sdkmanager "ndk;30.0.14904198"
+      - name: Install Android SDK components
+        run: sdkmanager "platform-tools" "platforms;android-37.0" "build-tools;37.0.0" "ndk;30.0.14904198"
       - name: Configure signing
         env:
           RELEASE_KEYSTORE_FILE: ${{ secrets.RELEASE_KEYSTORE_FILE }}
