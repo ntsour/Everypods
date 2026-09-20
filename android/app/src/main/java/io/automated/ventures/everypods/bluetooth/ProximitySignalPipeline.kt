@@ -80,13 +80,13 @@ object ProximityBands {
     const val HYSTERESIS_DB = 3f
 
     /** Default RIGHT_HERE enter threshold (dBm). Personal floor may raise this. */
-    // Apartment peaks ~-44; enter slightly below peak.
-    const val RIGHT_HERE_ENTER = -50f
-    const val RIGHT_HERE_EXIT_DELTA = 3f // leave when drop below enter - 3 → -53
+    // Closest observed ~-42; enter Right here a bit below peak.
+    const val RIGHT_HERE_ENTER = -48f
+    const val RIGHT_HERE_EXIT_DELTA = 3f // leave when drop below enter - 3 → -51
 
-    // Nikos apartment calibration: leave Same room ~-56; Farther beyond ~-85.
+    // Leave Same room ~-56; apartment far end ~-75 then Farther.
     const val SAME_ROOM_LOW = -56f
-    const val NEXT_ROOM_LOW = -85f
+    const val NEXT_ROOM_LOW = -75f
 
     /** Coarse path-loss helpers (txPower - smoothedRssi). Secondary to RSSI. */
     const val PATH_LOSS_NEAR = 45f
@@ -101,18 +101,18 @@ object ProximityBands {
      * apartment corner-to-corner walk only moved ~half the radar. Use a tighter
      * home-scale window and a mild curve so small walks read more clearly.
      */
-    // Observed apartment span ~-44..-88; map that onto the full radar.
-    const val SCORE_RSSI_NEAR = -44f
-    const val SCORE_RSSI_FAR = -88f
+    // Nikos apartment: closest ~-42, far end of flat ~-75.
+    const val SCORE_RSSI_NEAR = -42f
+    const val SCORE_RSSI_FAR = -75f
 
     fun scoreFromRssi(rssi: Float): Int {
         val near = SCORE_RSSI_NEAR
         val far = SCORE_RSSI_FAR
-        val span = near - far // 35 dB
+        val span = near - far // 33 dB
         val clamped = rssi.coerceIn(far, near)
         val linear = ((clamped - far) / span).coerceIn(0f, 1f)
-        // pow < 1 expands the farther half so mid/far walks move the dial more.
-        val shaped = linear.toDouble().pow(0.72).toFloat()
+        // Stronger non-linearity (pow ~0.5): -57→-63 drops the dial more than linear.
+        val shaped = linear.toDouble().pow(0.50).toFloat()
         return (shaped * 100f).roundToInt().coerceIn(0, 100)
     }
 

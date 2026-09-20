@@ -7,10 +7,22 @@ import org.junit.Test
 class ProximitySignalPipelineTest {
 
 
+
+    @Test
+    fun scoreFromRssi_midRangeDropIsPunchy() {
+        val at57 = ProximityBands.scoreFromRssi(-57f)
+        val at63 = ProximityBands.scoreFromRssi(-63f)
+        val drop = at57 - at63
+        assertTrue(
+            "6 dB mid-apartment drop should move radar a lot (got drop=$drop)",
+            drop >= 12,
+        )
+    }
+
     @Test
     fun scoreFromRssi_apartmentSpanUsesMostOfRadar() {
-        val nearCorner = ProximityBands.scoreFromRssi(-46f)
-        val farCorner = ProximityBands.scoreFromRssi(-86f)
+        val nearCorner = ProximityBands.scoreFromRssi(-44f)
+        val farCorner = ProximityBands.scoreFromRssi(-74f)
         val span = nearCorner - farCorner
         assertTrue(
             "apartment corner-to-corner should use a large share of the radar (got span=$span)",
@@ -66,24 +78,24 @@ class ProximitySignalPipelineTest {
         band = DeviceSignalTracker.updateBand(band, -60f, null)
         assertEquals(RoomBand.NEXT_ROOM, band)
 
-        band = DeviceSignalTracker.updateBand(band, -90f, null)
+        band = DeviceSignalTracker.updateBand(band, -80f, null)
         assertEquals(RoomBand.FARTHER, band)
 
-        // NEXT_ROOM enter from far = -82
-        band = DeviceSignalTracker.updateBand(band, -81f, null)
+        // NEXT_ROOM enter from far = -72
+        band = DeviceSignalTracker.updateBand(band, -71f, null)
         assertEquals(RoomBand.NEXT_ROOM, band)
 
         // SAME_ROOM enter from next = -53
         band = DeviceSignalTracker.updateBand(band, -52f, null)
         assertEquals(RoomBand.SAME_ROOM, band)
 
-        band = DeviceSignalTracker.updateBand(band, -48f, null)
+        band = DeviceSignalTracker.updateBand(band, -46f, null)
         assertEquals(RoomBand.RIGHT_HERE, band)
 
-        // RIGHT_HERE exit = -53
-        band = DeviceSignalTracker.updateBand(band, -52f, null)
+        // RIGHT_HERE exit = -51
+        band = DeviceSignalTracker.updateBand(band, -50f, null)
         assertEquals(RoomBand.RIGHT_HERE, band)
-        band = DeviceSignalTracker.updateBand(band, -54f, null)
+        band = DeviceSignalTracker.updateBand(band, -52f, null)
         assertEquals(RoomBand.SAME_ROOM, band)
     }
 
