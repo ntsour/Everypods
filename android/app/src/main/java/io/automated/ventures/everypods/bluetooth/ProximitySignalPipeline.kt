@@ -19,6 +19,7 @@
 package io.automated.ventures.everypods.bluetooth
 
 import kotlin.math.abs
+import kotlin.math.pow
 import kotlin.math.roundToInt
 
 /** Relative room-level proximity band. Not meters / not a floor map. */
@@ -93,9 +94,25 @@ object ProximityBands {
 
     fun rightHereExit(enter: Float = RIGHT_HERE_ENTER): Float = enter - RIGHT_HERE_EXIT_DELTA
 
+    /**
+     * Map RSSI onto the radar / signal bar.
+     *
+     * Old range (-100…-45) wasted most of the dial on outdoor distances — an
+     * apartment corner-to-corner walk only moved ~half the radar. Use a tighter
+     * home-scale window and a mild curve so small walks read more clearly.
+     */
+    const val SCORE_RSSI_NEAR = -50f
+    const val SCORE_RSSI_FAR = -85f
+
     fun scoreFromRssi(rssi: Float): Int {
-        val clamped = rssi.coerceIn(-100f, -45f)
-        return (((clamped + 100f) / 55f) * 100f).roundToInt().coerceIn(0, 100)
+        val near = SCORE_RSSI_NEAR
+        val far = SCORE_RSSI_FAR
+        val span = near - far // 35 dB
+        val clamped = rssi.coerceIn(far, near)
+        val linear = ((clamped - far) / span).coerceIn(0f, 1f)
+        // pow < 1 expands the farther half so mid/far walks move the dial more.
+        val shaped = linear.toDouble().pow(0.72).toFloat()
+        return (shaped * 100f).roundToInt().coerceIn(0, 100)
     }
 
     fun pulseIntervalMs(band: RoomBand): Long = when (band) {

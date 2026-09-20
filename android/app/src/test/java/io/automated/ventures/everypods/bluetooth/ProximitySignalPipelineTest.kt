@@ -6,6 +6,21 @@ import org.junit.Test
 
 class ProximitySignalPipelineTest {
 
+
+    @Test
+    fun scoreFromRssi_apartmentSpanUsesMostOfRadar() {
+        val nearCorner = ProximityBands.scoreFromRssi(-52f)
+        val farCorner = ProximityBands.scoreFromRssi(-80f)
+        val span = nearCorner - farCorner
+        assertTrue(
+            "apartment corner-to-corner should use a large share of the radar (got span=$span)",
+            span >= 55,
+        )
+        // Old -100..-45 mapping gave only ~36 points for -55..-75
+        val oldStyleSpan = ((((-55f + 100f) / 55f) * 100f) - (((-75f + 100f) / 55f) * 100f)).toInt()
+        assertTrue(span > oldStyleSpan)
+    }
+
     @Test
     fun medianOf_oddAndEvenWindows() {
         assertEquals(5f, DeviceSignalTracker.medianOf(listOf(1, 5, 9)))
