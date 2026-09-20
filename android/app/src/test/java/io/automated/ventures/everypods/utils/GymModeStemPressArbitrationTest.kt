@@ -67,11 +67,11 @@ class GymModeStemPressArbitrationTest {
     @Test
     fun longPressUsesGymOverlayWhenNormalIsNotToggle() {
         assertEquals(
-            StemAction.GYM_TIMER_RESET,
+            StemAction.GYM_TIMER_LAP,
             GymModeStemPressArbitration.resolveLongPressAction(
                 gymModeEnabled = true,
                 normalLongPress = StemAction.CYCLE_NOISE_CONTROL_MODES,
-                gymLongPress = StemAction.GYM_TIMER_RESET,
+                gymLongPress = StemAction.GYM_TIMER_LAP,
             )
         )
     }
@@ -84,6 +84,43 @@ class GymModeStemPressArbitrationTest {
                 gymModeEnabled = false,
                 normalLongPress = StemAction.TOGGLE_GYM_MODE,
                 gymLongPress = StemAction.GYM_TIMER_RESET,
+            )
+        )
+    }
+
+    @Test
+    fun leftControlsToggleDoesNotForceRightBudToToggle() {
+        // Simulate right bud while left Controls is TOGGLE: right uses its own maps.
+        assertEquals(
+            StemAction.GYM_TIMER_LAP,
+            GymModeStemPressArbitration.resolveLongPressAction(
+                gymModeEnabled = true,
+                normalLongPress = StemAction.CYCLE_NOISE_CONTROL_MODES,
+                gymLongPress = StemAction.GYM_TIMER_LAP,
+            )
+        )
+    }
+
+    @Test
+    fun gymOverlayToggleIsNeverHonoredWhileGymOn() {
+        assertEquals(
+            StemAction.GYM_TIMER_RESET,
+            GymModeStemPressArbitration.resolveLongPressAction(
+                gymModeEnabled = true,
+                normalLongPress = StemAction.CYCLE_NOISE_CONTROL_MODES,
+                gymLongPress = StemAction.TOGGLE_GYM_MODE,
+            )
+        )
+    }
+
+    @Test
+    fun locksGymLongPressOnlyWhenControlsOwnsToggle() {
+        assertTrue(
+            GymModeStemPressArbitration.isGymLongPressLockedByControls(StemAction.TOGGLE_GYM_MODE)
+        )
+        assertFalse(
+            GymModeStemPressArbitration.isGymLongPressLockedByControls(
+                StemAction.CYCLE_NOISE_CONTROL_MODES
             )
         )
     }

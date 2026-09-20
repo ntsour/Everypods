@@ -26,9 +26,13 @@ object GymModeStemPressArbitration {
         nowMs - lastMultiPressAtMs in 0..MULTI_PRESS_SINGLE_GUARD_MS
 
     /**
-     * When Gym Mode is on, stem long-press normally uses the gym overlay action
-     * (default timer reset). If AirPods Controls assigned TOGGLE_GYM_MODE to the
-     * non-gym long-press, keep that so the same gesture can enter and exit Gym Mode.
+     * Resolve long-press for **one bud** while Gym Mode may be on.
+     *
+     * - AirPods Controls `TOGGLE_GYM_MODE` on **this** bud wins even when gym is on
+     *   (so that bud can enter and exit Gym Mode).
+     * - The other bud is unaffected: it uses its own Controls / Gym Press Actions map.
+     * - Gym Press Actions must never own gym on/off — if the gym overlay map still
+     *   has `TOGGLE_GYM_MODE`, fall back to timer reset.
      */
     fun resolveLongPressAction(
         gymModeEnabled: Boolean,
@@ -36,7 +40,12 @@ object GymModeStemPressArbitration {
         gymLongPress: StemAction,
     ): StemAction {
         if (!gymModeEnabled) return normalLongPress
-        if (normalLongPress == StemAction.TOGGLE_GYM_MODE) return normalLongPress
+        if (normalLongPress == StemAction.TOGGLE_GYM_MODE) return StemAction.TOGGLE_GYM_MODE
+        if (gymLongPress == StemAction.TOGGLE_GYM_MODE) return StemAction.GYM_TIMER_RESET
         return gymLongPress
     }
+
+    /** True when Gym Press Actions long-press for this bud is owned by AirPods Controls. */
+    fun isGymLongPressLockedByControls(normalLongPress: StemAction): Boolean =
+        normalLongPress == StemAction.TOGGLE_GYM_MODE
 }

@@ -59,6 +59,7 @@ import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import io.automated.ventures.everypods.R
 import io.automated.ventures.everypods.bluetooth.AACPManager
 import io.automated.ventures.everypods.data.StemAction
+import io.automated.ventures.everypods.utils.GymModeStemPressArbitration
 import io.automated.ventures.everypods.presentation.components.StyledScaffold
 import io.automated.ventures.everypods.presentation.viewmodel.AirPodsViewModel
 
@@ -86,7 +87,7 @@ fun GymPressActionsScreen(viewModel: AirPodsViewModel) {
         StemAction.NEXT_TRACK              to "Next Track",
         StemAction.PREVIOUS_TRACK          to "Prev. Track",
         StemAction.CYCLE_NOISE_CONTROL_MODES to "Listening Mode",
-        StemAction.TOGGLE_GYM_MODE         to "Gym Mode On / Off",
+        // Gym Mode On/Off is owned by AirPods Controls long-press only (per bud).
         StemAction.GYM_TIMER_START_STOP    to "Timer Start / Stop",
         StemAction.GYM_TIMER_LAP           to "Timer Lap",
         StemAction.GYM_TIMER_RESET         to "Timer Reset",
@@ -135,16 +136,45 @@ fun GymPressActionsScreen(viewModel: AirPodsViewModel) {
 
                 Spacer(Modifier.height(8.dp))
 
+                val controlsLongKey =
+                    if (selectedBud == "left") "left_long_press_action" else "right_long_press_action"
+                val controlsLongDefault =
+                    if (selectedBud == "left") StemAction.CYCLE_NOISE_CONTROL_MODES
+                    else StemAction.DIGITAL_ASSISTANT
+                val controlsLongPress = runCatching {
+                    StemAction.valueOf(
+                        sharedPrefs.getString(controlsLongKey, controlsLongDefault.name)
+                            ?: controlsLongDefault.name
+                    )
+                }.getOrDefault(controlsLongDefault)
+                val longPressLockedByControls =
+                    GymModeStemPressArbitration.isGymLongPressLockedByControls(controlsLongPress)
+
                 pressTypes.forEach { (label, pressType, defaultAction) ->
                     val prefKey = "gym_${selectedBud}_${pressType.name.lowercase()}_action"
-                    val currentAction = readGymAction(prefKey, defaultAction)
+                    val isLong = pressType == AACPManager.Companion.StemPressType.LONG_PRESS
+                    val locked = isLong && longPressLockedByControls
+                    val currentAction = if (locked) {
+                        StemAction.TOGGLE_GYM_MODE
+                    } else {
+                        readGymAction(prefKey, defaultAction)
+                    }
+                    val options = if (locked) {
+                        listOf(StemAction.TOGGLE_GYM_MODE to "Gym Mode On / Off")
+                    } else {
+                        actionOptions
+                    }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Column(Modifier.weight(1f)) {
                             GymPressDropdown(
                                 label = label,
                                 currentAction = currentAction,
-                                options = actionOptions,
+                                options = options,
                                 dark = dark,
+                                enabled = !locked,
+                                lockedHint = if (locked) {
+                                    "Set in AirPods Controls for this bud"
+                                } else null,
                                 onSelect = { action ->
                                     sharedPrefs.edit().putString(prefKey, action.name).apply()
                                     viewModel.setGymPressAction(selectedBud, pressType, action)
@@ -188,6 +218,8 @@ private fun GymPressDropdown(
     currentAction: StemAction,
     options: List<Pair<StemAction, String>>,
     dark: Boolean,
+    enabled: Boolean = true,
+    lockedHint: String? = null,
     onSelect: (StemAction) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -198,10 +230,16 @@ private fun GymPressDropdown(
     Column(
         Modifier
             .fillMaxWidth()
+            .alpha(if (enabled) 1f else 0.55f)
             .background(bgColor, RoundedCornerShape(12.dp))
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
-                expanded = true
-            }
+            .then(
+                if (enabled) {
+                    Modifier.clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                    ) { expanded = true }
+                } else Modifier
+            )
             .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
@@ -210,27 +248,45 @@ private fun GymPressDropdown(
                 color = textColor.copy(alpha = 0.5f)))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically) {
-            Text(actionName, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium,
-                    fontFamily = SfPro, color = textColor), modifier = Modifier.weight(1f))
-            Text("▾", style = TextStyle(fontSize = 11.sp, fontFamily = SfPro, color = textColor.copy(alpha = 0.4f)))
+            Column(Modifier.weight(1f)) {
+                Text(actionName, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium,
+                        fontFamily = SfPro, color = textColor))
+                if (lockedHint != null) {
+                    Text(
+                        lockedHint,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        style = TextStyle(
+                            fontSize = 10.sp,
+                            fontFamily = SfPro,
+                            color = textColor.copy(alpha = 0.45f),
+                        ),
+                    )
+                }
+            }
+            if (enabled) {
+                Text("▾", style = TextStyle(fontSize = 11.sp, fontFamily = SfPro, color = textColor.copy(alpha = 0.4f)))
+            }
         }
     }
-    DropdownMenu(
-        expanded = expanded,
-        onDismissRequest = { expanded = false },
-        modifier = Modifier.background(if (dark) Color(0xFF2C2C2E) else Color.White)
-    ) {
-        options.forEach { (action, name) ->
-            DropdownMenuItem(
-                text = {
-                    Text(name, style = TextStyle(fontSize = 15.sp, fontFamily = SfPro,
-                        color = if (action == currentAction) Color(0xFF0A84FF) else textColor))
-                },
-                trailingIcon = if (action == currentAction) {{ Text("✓", style = TextStyle(
-                    fontSize = 14.sp, color = Color(0xFF0A84FF))) }} else null,
-                onClick = { onSelect(action); expanded = false }
-            )
+    if (enabled) {
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.background(if (dark) Color(0xFF2C2C2E) else Color.White)
+        ) {
+            options.forEach { (action, name) ->
+                DropdownMenuItem(
+                    text = {
+                        Text(name, style = TextStyle(fontSize = 15.sp, fontFamily = SfPro,
+                            color = if (action == currentAction) Color(0xFF0A84FF) else textColor))
+                    },
+                    trailingIcon = if (action == currentAction) {{ Text("✓", style = TextStyle(
+                        fontSize = 14.sp, color = Color(0xFF0A84FF))) }} else null,
+                    onClick = { onSelect(action); expanded = false }
+                )
+            }
         }
     }
 }

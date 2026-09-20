@@ -1766,11 +1766,16 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 } else {
                     config.rightGymLongPressAction
                 }
-                GymModeStemPressArbitration.resolveLongPressAction(
+                val resolved = GymModeStemPressArbitration.resolveLongPressAction(
                     config.gymModeEnabled,
                     normal,
                     gym,
                 )
+                Log.d(
+                    "AirPodsParser",
+                    "LONG_PRESS bud=$bud gymOn=${config.gymModeEnabled} controls=$normal gymMap=$gym → $resolved"
+                )
+                resolved
             }
         }
     }
