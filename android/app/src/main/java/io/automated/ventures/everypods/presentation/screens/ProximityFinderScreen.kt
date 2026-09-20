@@ -262,6 +262,17 @@ private fun RadarCard(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = stringResource(R.string.proximity_coach_zones),
+                style = TextStyle(
+                    fontSize = 12.sp,
+                    color = textColor.copy(alpha = 0.42f),
+                    fontFamily = sfPro
+                ),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
         }
 
         Spacer(modifier = Modifier.height(16.dp))

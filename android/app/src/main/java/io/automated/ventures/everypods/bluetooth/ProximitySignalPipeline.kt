@@ -54,8 +54,10 @@ object ProximityBands {
     const val WINDOW_SIZE = 6
     const val EMA_ALPHA = 0.40f
     const val SPIKE_REJECT_DB = 12f
-    const val TREND_WINDOW_MS = 2_500L
-    const val TREND_THRESHOLD_DB = 2.5f
+    // Slightly longer window + lower threshold so walking across a doorway
+    // registers CLOSER/FARTHER even when band edges flip with small dB steps.
+    const val TREND_WINDOW_MS = 3_200L
+    const val TREND_THRESHOLD_DB = 1.2f
     const val HYSTERESIS_DB = 3f
 
     /** Default RIGHT_HERE enter threshold (dBm). Personal floor may raise this. */
@@ -201,9 +203,19 @@ class DeviceSignalTracker(
 
     private fun classifyTrend(): SignalTrend {
         if (smoothedHistory.size < 2) return SignalTrend.STABLE
-        val oldest = smoothedHistory.first().second
         val newest = smoothedHistory.last().second
-        val delta = newest - oldest
+        val fullDelta = newest - smoothedHistory.first().second
+        // Recent half of the window catches short doorway walks sooner.
+        val halfMs = ProximityBands.TREND_WINDOW_MS / 2
+        val newestTs = smoothedHistory.last().first
+        val midSample = smoothedHistory.lastOrNull { newestTs - it.first >= halfMs }
+            ?: smoothedHistory.first()
+        val recentDelta = newest - midSample.second
+        val delta = if (kotlin.math.abs(recentDelta) >= kotlin.math.abs(fullDelta)) {
+            recentDelta
+        } else {
+            fullDelta
+        }
         return when {
             delta >= ProximityBands.TREND_THRESHOLD_DB -> SignalTrend.CLOSER
             delta <= -ProximityBands.TREND_THRESHOLD_DB -> SignalTrend.FARTHER
