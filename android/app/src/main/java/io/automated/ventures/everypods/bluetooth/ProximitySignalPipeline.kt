@@ -80,13 +80,13 @@ object ProximityBands {
     const val HYSTERESIS_DB = 3f
 
     /** Default RIGHT_HERE enter threshold (dBm). Personal floor may raise this. */
-    const val RIGHT_HERE_ENTER = -55f
-    const val RIGHT_HERE_EXIT_DELTA = 3f // leave when drop below enter - 3 → -58
+    // Apartment peaks ~-44; enter slightly below peak.
+    const val RIGHT_HERE_ENTER = -50f
+    const val RIGHT_HERE_EXIT_DELTA = 3f // leave when drop below enter - 3 → -53
 
-    // Tuned for small apartments: Same room needs a stronger signal so
-    // doorway / next-room walks leave SAME_ROOM promptly (iterated: -70/-85 → -61/-77 → -59/-75).
-    const val SAME_ROOM_LOW = -59f
-    const val NEXT_ROOM_LOW = -75f
+    // Nikos apartment calibration: leave Same room ~-56; Farther beyond ~-85.
+    const val SAME_ROOM_LOW = -56f
+    const val NEXT_ROOM_LOW = -85f
 
     /** Coarse path-loss helpers (txPower - smoothedRssi). Secondary to RSSI. */
     const val PATH_LOSS_NEAR = 45f
@@ -101,8 +101,9 @@ object ProximityBands {
      * apartment corner-to-corner walk only moved ~half the radar. Use a tighter
      * home-scale window and a mild curve so small walks read more clearly.
      */
-    const val SCORE_RSSI_NEAR = -50f
-    const val SCORE_RSSI_FAR = -85f
+    // Observed apartment span ~-44..-88; map that onto the full radar.
+    const val SCORE_RSSI_NEAR = -44f
+    const val SCORE_RSSI_FAR = -88f
 
     fun scoreFromRssi(rssi: Float): Int {
         val near = SCORE_RSSI_NEAR
