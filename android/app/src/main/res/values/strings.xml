@@ -241,7 +241,9 @@
     <string name="proximity_trend_closer_short">Closer</string>
     <string name="proximity_trend_farther_short">Farther</string>
     <string name="proximity_trend_stable_short">Steady</string>
-    <string name="proximity_coach_zones">Zone = where the case feels. Direction = keep walking or change path.</string>
+    <string name="proximity_walk_tip">Walk room to room and watch whether you are getting closer. The graphic is warmer/colder only - it does not point at the case.</string>
+    <string name="proximity_walk_tip_dismiss">Got it</string>
+    <string name="proximity_coach_zones">Warmer = closer. Zone = roughly where you are. Direction = whether walking helps.</string>
     <string name="proximity_metric_trend">Direction</string>
     <string name="proximity_metric_band">Where you are</string>
     <string name="proximity_metric_rssi">RSSI</string>
@@ -250,5 +252,5 @@
     <string name="proximity_hide_signal_details">Hide signal details</string>
     <string name="proximity_feedback_sound">􀊡  Feedback: Sound</string>
     <string name="proximity_feedback_vibration">􀝗  Feedback: Vibration</string>
-    <string name="proximity_empty_tip">Open the case briefly, hold the phone out, and walk doorway to doorway. The large label is which zone you are in; the line under it says whether walking is helping (closer, farther, or signal steady). Relative only - not exact meters.</string>
+    <string name="proximity_empty_tip">Open the case briefly, hold the phone out, and walk doorway to doorway. Watch the zone and whether you are getting warmer or colder. Relative only - not left/right and not exact meters.</string>
 </resources>

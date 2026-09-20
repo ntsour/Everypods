@@ -85,6 +85,7 @@ fun ProximityFinderScreen(navController: NavController) {
     val scanner = remember { ProximityScanner(context.applicationContext) }
     val state by scanner.state.collectAsState()
     var showSignalDetails by remember { mutableStateOf(false) }
+    var showWalkTip by remember { mutableStateOf(true) }
 
     DisposableEffect(scanner) {
         scanner.start()
@@ -123,13 +124,18 @@ fun ProximityFinderScreen(navController: NavController) {
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item(key = "top") { Spacer(modifier = Modifier.height(topPadding)) }
-            item(key = "radar") {
-                RadarCard(
+            item(key = "warmth") {
+                WarmthCard(
                     device = state.focusedDevice,
                     isScanning = state.isScanning,
                     error = state.error,
                     showSignalDetails = showSignalDetails,
                 )
+            }
+            if (showWalkTip) {
+                item(key = "walk_tip") {
+                    WalkTipCard(onDismiss = { showWalkTip = false })
+                }
             }
             item(key = "calibration") {
                 CalibrationCard(
@@ -187,7 +193,7 @@ fun ProximityFinderScreen(navController: NavController) {
 }
 
 @Composable
-private fun RadarCard(
+private fun WarmthCard(
     device: ProximityScanner.ProximityDevice?,
     isScanning: Boolean,
     error: String?,
@@ -218,10 +224,10 @@ private fun RadarCard(
             .padding(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        RadarCanvas(
+        WarmthPulse(
             score = device?.score ?: 0,
             hasSignal = device != null,
-            accentColor = accentColor
+            accentColor = accentColor,
         )
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -312,60 +318,98 @@ private fun RadarCard(
     }
 }
 
+/**
+ * Strength-only warmer/colder pulse. Centered rings grow with signal —
+ * never offset a "blip" that looks like left/right bearing.
+ */
 @Composable
-private fun RadarCanvas(
+private fun WarmthPulse(
     score: Int,
     hasSignal: Boolean,
-    accentColor: Color
+    accentColor: Color,
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "proximity pulse")
+    val infiniteTransition = rememberInfiniteTransition(label = "warmth pulse")
     val pulse by infiniteTransition.animateFloat(
-        initialValue = 0f,
+        initialValue = 0.15f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1600),
-            repeatMode = RepeatMode.Restart
+            animation = tween(durationMillis = (1400 - (score * 8)).coerceIn(520, 1400)),
+            repeatMode = RepeatMode.Restart,
         ),
-        label = "pulse"
+        label = "pulse",
     )
     val ringColor = if (isSystemInDarkTheme()) Color.White else Color.Black
+    val strength = (score / 100f).coerceIn(0f, 1f)
 
-    Canvas(
-        modifier = Modifier.size(220.dp)
-    ) {
+    Canvas(modifier = Modifier.size(200.dp)) {
         val center = Offset(size.width / 2f, size.height / 2f)
-        val maxRadius = size.minDimension / 2.2f
+        val maxRadius = size.minDimension / 2.15f
 
-        for (index in 1..4) {
+        // Soft static rings — ambient only, not a compass.
+        for (index in 1..3) {
             drawCircle(
-                color = ringColor.copy(alpha = 0.08f),
-                radius = maxRadius * index / 4f,
+                color = ringColor.copy(alpha = 0.06f),
+                radius = maxRadius * index / 3f,
                 center = center,
-                style = Stroke(width = 1.dp.toPx())
+                style = Stroke(width = 1.dp.toPx()),
             )
         }
 
         if (hasSignal) {
+            val coreRadius = maxRadius * (0.22f + 0.55f * strength)
             drawCircle(
-                color = accentColor.copy(alpha = 0.16f * (1f - pulse)),
-                radius = maxRadius * pulse,
+                color = accentColor.copy(alpha = 0.22f),
+                radius = coreRadius,
                 center = center,
-                style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
-            )
-
-            val normalized = score / 100f
-            val dotDistance = maxRadius * (1f - normalized) * 0.78f
-            val dot = Offset(center.x, center.y - dotDistance)
-
-            drawCircle(
-                color = accentColor.copy(alpha = 0.18f),
-                radius = 18.dp.toPx(),
-                center = dot
             )
             drawCircle(
-                color = accentColor,
-                radius = 7.dp.toPx(),
-                center = dot
+                color = accentColor.copy(alpha = 0.55f),
+                radius = coreRadius * 0.42f,
+                center = center,
+            )
+            // Expanding warmth ring — radius tracks strength, not heading.
+            drawCircle(
+                color = accentColor.copy(alpha = 0.28f * (1f - pulse)),
+                radius = (coreRadius + (maxRadius - coreRadius) * pulse).coerceAtMost(maxRadius),
+                center = center,
+                style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round),
+            )
+        }
+    }
+}
+
+@Composable
+private fun WalkTipCard(onDismiss: () -> Unit) {
+    val isDarkTheme = isSystemInDarkTheme()
+    val backgroundColor = if (isDarkTheme) Color(0xFF1C1C1E) else Color.White
+    val textColor = if (isDarkTheme) Color.White else Color.Black
+    val sfPro = FontFamily(Font(R.font.sf_pro))
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(backgroundColor, RoundedCornerShape(18.dp))
+            .padding(16.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.proximity_walk_tip),
+            style = TextStyle(
+                fontSize = 14.sp,
+                color = textColor.copy(alpha = 0.78f),
+                fontFamily = sfPro,
+            ),
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        StyledButton(
+            onClick = onDismiss,
+            backdrop = rememberLayerBackdrop(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 44.dp),
+            maxScale = 0.05f,
+        ) {
+            Text(
+                text = stringResource(R.string.proximity_walk_tip_dismiss),
+                style = buttonTextStyle(),
             )
         }
     }
