@@ -44,7 +44,7 @@ android {
         applicationId = "io.automated.ventures.everypods"
         minSdk = 33
         targetSdk = 37
-        versionCode = 100
+        versionCode = 107
         versionName = appVersionName
     }
     buildTypes {

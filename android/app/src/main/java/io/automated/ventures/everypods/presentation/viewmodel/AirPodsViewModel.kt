@@ -168,20 +168,6 @@ class AirPodsViewModel(
 
     private lateinit var broadcastReceiver: BroadcastReceiver
 
-    private val _cameraAction = MutableStateFlow(
-        sharedPreferences.getString("camera_action", null)
-            ?.let { value -> AACPManager.Companion.StemPressType.entries.find { it.name == value } })
-
-    val cameraAction: StateFlow<AACPManager.Companion.StemPressType?> = _cameraAction
-
-    fun setCameraAction(action: AACPManager.Companion.StemPressType?) {
-        sharedPreferences.edit {
-            if (action == null) remove("camera_action")
-            else putString("camera_action", action.name)
-        }
-        _cameraAction.value = action
-    }
-
     init {
         observeBroadcasts()
         loadName()

@@ -20,9 +20,6 @@ package io.automated.ventures.everypods.presentation.screens
 
 import android.Manifest
 import android.app.TimePickerDialog
-import android.content.pm.PackageManager
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -135,21 +132,15 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
         }
     }
 
-    fun isGranted(perm: String) = context.checkSelfPermission(perm) == PackageManager.PERMISSION_GRANTED
-
     var notifAccess       by remember { mutableStateOf(NotificationAnnouncementService.isAccessGranted(context)) }
-    var contactsGranted   by remember { mutableStateOf(isGranted(Manifest.permission.READ_CONTACTS)) }
-    var callLogGranted    by remember { mutableStateOf(isGranted(Manifest.permission.READ_CALL_LOG)) }
-    var phoneStateGranted by remember { mutableStateOf(isGranted(Manifest.permission.READ_PHONE_STATE)) }
+    var phoneStateGranted by remember { mutableStateOf(context.checkSelfPermission(Manifest.permission.READ_PHONE_STATE) == android.content.pm.PackageManager.PERMISSION_GRANTED) }
 
     // Poll all permission states every second (user may grant in system settings)
     LaunchedEffect(Unit) {
         while (true) {
             kotlinx.coroutines.delay(1000)
             notifAccess       = NotificationAnnouncementService.isAccessGranted(context)
-            contactsGranted   = isGranted(Manifest.permission.READ_CONTACTS)
-            callLogGranted    = isGranted(Manifest.permission.READ_CALL_LOG)
-            phoneStateGranted = isGranted(Manifest.permission.READ_PHONE_STATE)
+            phoneStateGranted = context.checkSelfPermission(Manifest.permission.READ_PHONE_STATE) == android.content.pm.PackageManager.PERMISSION_GRANTED
         }
     }
 
@@ -158,31 +149,6 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
             data = android.net.Uri.fromParts("package", context.packageName, null)
             addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
         })
-    }
-
-    val multiPermLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) { _ ->
-        // Refresh all — the polling will also catch it
-        contactsGranted   = isGranted(Manifest.permission.READ_CONTACTS)
-        callLogGranted    = isGranted(Manifest.permission.READ_CALL_LOG)
-        phoneStateGranted = isGranted(Manifest.permission.READ_PHONE_STATE)
-    }
-
-    // Track if we tried the launcher dialog already in THIS screen session
-    val triedLauncher = remember { mutableSetOf<String>() }
-
-    // Grant permission: try system dialog first, then app settings as fallback
-    fun grantPermission(perm: String) {
-        if (isGranted(perm)) return
-        if (perm !in triedLauncher) {
-            // First attempt in this session — always try the system dialog
-            triedLauncher.add(perm)
-            multiPermLauncher.launch(arrayOf(perm))
-        } else {
-            // Already tried the dialog and it didn't work — open app settings permissions page
-            openAppSettings()
-        }
     }
 
     StyledScaffold(title = "Notification Announcements") { topPadding, _, bottomPadding ->
@@ -221,14 +187,8 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
                     else null,
                     onClick = { NotificationAnnouncementService.openAccessSettings(context) }
                 )
-                PermStatusRow("Contacts (caller name lookup)", contactsGranted) {
-                    grantPermission(Manifest.permission.READ_CONTACTS)
-                }
-                PermStatusRow("Call log (incoming caller number)", callLogGranted) {
-                    grantPermission(Manifest.permission.READ_CALL_LOG)
-                }
                 PermStatusRow("Phone state (call detection)", phoneStateGranted) {
-                    grantPermission(Manifest.permission.READ_PHONE_STATE)
+                    openAppSettings()
                 }
             }
 
