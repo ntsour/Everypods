@@ -25,19 +25,50 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import io.automated.ventures.everypods.R
 
-class FOSSBillingProvider(context: Context): BillingProvider {
+class FOSSBillingProvider(private val context: Context) : BillingProvider {
     private val _isPremium = MutableStateFlow(true)
     override val isPremium: StateFlow<Boolean> = _isPremium
 
     private val _price = MutableStateFlow(context.getString(R.string.name_your_own_price))
     override val price: StateFlow<String> = _price
 
+    private val _tipProducts = MutableStateFlow(
+        TipSkus.ALL.map { id ->
+            TipProduct(
+                productId = id,
+                title = TipSkus.fallbackTitle(id),
+                description = "",
+                formattedPrice = context.getString(R.string.tip_price_unavailable),
+            )
+        }
+    )
+    override val tipProducts: StateFlow<List<TipProduct>> = _tipProducts
+
+    private val _tipPurchaseEvent = MutableStateFlow(TipPurchaseEvent())
+    override val tipPurchaseEvent: StateFlow<TipPurchaseEvent> = _tipPurchaseEvent
+
+    private val _billingAvailable = MutableStateFlow(false)
+    override val billingAvailable: StateFlow<Boolean> = _billingAvailable
+
     init {
         queryPurchases()
     }
 
+    override fun tip(activity: Activity, productId: String) {
+        Toast.makeText(
+            activity,
+            activity.getString(R.string.tip_foss_unavailable),
+            Toast.LENGTH_SHORT
+        ).show()
+        _tipPurchaseEvent.value = TipPurchaseEvent(
+            status = TipPurchaseStatus.Unavailable,
+            productId = productId,
+            message = activity.getString(R.string.tip_foss_unavailable),
+        )
+    }
+
     override fun purchase(activity: Activity) {
-        Toast.makeText(activity, "EveryPods is free. Donations are optional.", Toast.LENGTH_SHORT).show()
+        tip(activity, TipSkus.COFFEE)
     }
 
     override fun queryPurchases() {
@@ -46,5 +77,9 @@ class FOSSBillingProvider(context: Context): BillingProvider {
 
     override fun restorePurchases() {
         _isPremium.value = true
+    }
+
+    override fun acknowledgeTipEvent() {
+        _tipPurchaseEvent.value = TipPurchaseEvent()
     }
 }

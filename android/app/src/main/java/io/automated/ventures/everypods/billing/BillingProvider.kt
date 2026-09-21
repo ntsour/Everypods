@@ -22,9 +22,22 @@ import android.app.Activity
 import kotlinx.coroutines.flow.StateFlow
 
 interface BillingProvider {
+    /** Always true — tips never unlock or lock features. */
     val isPremium: StateFlow<Boolean>
+
+    /** Legacy single-price field; unused by the tip UI. */
     val price: StateFlow<String>
+
+    val tipProducts: StateFlow<List<TipProduct>>
+    val tipPurchaseEvent: StateFlow<TipPurchaseEvent>
+    val billingAvailable: StateFlow<Boolean>
+
+    fun tip(activity: Activity, productId: String)
+
+    /** @deprecated Prefer [tip]. Kept so older call sites still compile. */
     fun purchase(activity: Activity)
+
     fun queryPurchases()
     fun restorePurchases()
+    fun acknowledgeTipEvent()
 }
