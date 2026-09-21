@@ -47,6 +47,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
+import android.content.pm.ServiceInfo
 import android.content.res.Resources
 import android.graphics.Color
 import android.media.AudioManager
@@ -697,6 +698,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             Log.i(TAG, "W5 startup power state: battExempt=$isExempt doze=${pm.isDeviceIdleMode}")
         } catch (e: Exception) { Log.w(TAG, "W5 battery state check failed: ${e.message}") }
 
+        // Call startForeground BEFORE heavy init. startForegroundService requires
+        // startForeground within the system timeout; typed connectedDevice for
+        // Android 14+ / targetSdk 34+.
+        startForegroundNotification()
+
         sharedPreferencesLogs = getSharedPreferences("packet_logs", MODE_PRIVATE)
 
         inMemoryLogs.addAll(
@@ -748,7 +754,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             putBoolean("automatic_connection_ctrl_cmd", false)
         }
 
-        startForegroundNotification()
+        // startForegroundNotification() already ran at the top of onCreate.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             initGestureDetector()
         } else {
@@ -2861,8 +2867,14 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         val notification = notificationBuilder.build()
 
         try {
-            startForeground(1, notification)
+            startForeground(
+                1,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
+            )
+            Log.i(TAG, "startForeground connectedDevice ok")
         } catch (e: Exception) {
+            Log.e(TAG, "startForeground failed: $e")
             e.printStackTrace()
         }
     }
@@ -4080,6 +4092,13 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     @SuppressLint("InlinedApi", "MissingPermission", "UnspecifiedRegisterReceiverFlag")
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d(TAG, "Service started with intent action: ${intent?.action}")
+
+        // Re-assert FGS on sticky restart / activity retry after a denied first start.
+        try {
+            startForegroundNotification()
+        } catch (e: Exception) {
+            Log.w(TAG, "onStartCommand startForeground: ${e.message}")
+        }
 
         if (intent?.action == "io.automated.ventures.everypods.RECONNECT_AFTER_REVERSE") {
             Log.d(TAG, "reconnect after reversed received, taking over")
