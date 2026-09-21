@@ -84,6 +84,15 @@ class BLEManager(private val context: Context) {
     private var lastBroadcastTime: Long = 0
     private val processedAddresses = mutableSetOf<String>()
 
+    /** True while the service wants BLE proximity scanning (Option 1 / battery / lid). */
+    @Volatile private var scanningDesired: Boolean = false
+    /** True after a successful startScan until stop or onScanFailed. */
+    @Volatile private var scanCallbackActive: Boolean = false
+    @Volatile private var lastScanStartAtMs: Long = 0L
+    @Volatile private var consecutiveScanFailures: Int = 0
+    private val scanRetryHandler = Handler(Looper.getMainLooper())
+    private var pendingScanRetry: Runnable? = null
+
     // Global (not per-address) cache so MAC rotation doesn't lose the last known value
     private var lastValidCaseLevel: Int? = null
     private var lastValidCaseCharging: Boolean = false
@@ -125,30 +134,89 @@ class BLEManager(private val context: Context) {
         airPodsStatusListener = listener
     }
 
+    fun isScanCallbackActive(): Boolean = scanCallbackActive
+
+    fun isScanningDesired(): Boolean = scanningDesired
+
+    /** Milliseconds since last processed AirPods advertisement, or -1 if never. */
+    fun msSinceLastAdvertisement(): Long {
+        if (lastBroadcastTime <= 0L) return -1L
+        return (System.currentTimeMillis() - lastBroadcastTime).coerceAtLeast(0L)
+    }
+
+    /**
+     * Keep scanning alive across BT toggles, scan failures, and silent stalls.
+     * Safe to call often; no-ops when already healthy unless [force] is true.
+     */
+    /**
+     * True when we should treat the scanner as dead: callback gone, or no ads for
+     * [STALE_SCAN_RESTART_MS] after the scan has had time to deliver something.
+     * Fresh starts with no ads yet are NOT stale until the grace window elapses.
+     */
+    fun isScanStale(): Boolean {
+        if (!scanCallbackActive) return true
+        val age = msSinceLastAdvertisement()
+        if (age >= 0L) return age >= STALE_SCAN_RESTART_MS
+        // Never seen an ad: only stale once the start grace window has elapsed.
+        if (lastScanStartAtMs <= 0L) return true
+        return System.currentTimeMillis() - lastScanStartAtMs >= STALE_SCAN_RESTART_MS
+    }
+
+    @SuppressLint("MissingPermission")
+    fun ensureScanning(reason: String = "ensure", force: Boolean = false) {
+        scanningDesired = true
+        val age = msSinceLastAdvertisement()
+        val stale = isScanStale()
+        val needsRestart = force || stale
+        if (!needsRestart) {
+            Log.d(TAG, "ensureScanning skip reason=$reason already_healthy ageMs=$age active=$scanCallbackActive")
+            return
+        }
+        Log.d(
+            TAG,
+            "ensureScanning restart reason=$reason force=$force active=$scanCallbackActive ageMs=$age stale=$stale"
+        )
+        startScanningInternal(reason)
+    }
+
     @SuppressLint("MissingPermission")
     fun startScanning() {
+        scanningDesired = true
+        startScanningInternal("start")
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun startScanningInternal(reason: String) {
+        cancelPendingScanRetry()
         try {
-            Log.d(TAG, "Starting BLE scanner")
+            Log.d(TAG, "Starting BLE scanner reason=$reason")
 
             val btManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
             val btAdapter = btManager.adapter
 
             if (btAdapter == null) {
                 Log.d(TAG, "No Bluetooth adapter available")
+                scanCallbackActive = false
                 return
             }
 
-            if (mBluetoothLeScanner != null && mScanCallback != null) {
-                mBluetoothLeScanner?.stopScan(mScanCallback)
-                mScanCallback = null
-            }
+            // Always clear any prior callback before (re)starting so we never leave
+            // a half-dead scanner that reports "started" but delivers nothing.
+            stopScanCallbackOnly()
 
             if (!btAdapter.isEnabled) {
-                Log.d(TAG, "Bluetooth is disabled")
+                Log.d(TAG, "Bluetooth is disabled — will retry when adapter is on")
+                scanCallbackActive = false
                 return
             }
 
             mBluetoothLeScanner = btAdapter.bluetoothLeScanner
+            if (mBluetoothLeScanner == null) {
+                Log.w(TAG, "bluetoothLeScanner null (adapter on) — scheduling retry")
+                scanCallbackActive = false
+                scheduleScanRetry("scanner_null")
+                return
+            }
 
             val scanSettings = ScanSettings.Builder()
                 .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
@@ -189,27 +257,76 @@ class BLEManager(private val context: Context) {
 
                 override fun onScanFailed(errorCode: Int) {
                     Log.e(TAG, "BLE scan failed with error code: $errorCode")
+                    scanCallbackActive = false
+                    mScanCallback = null
+                    consecutiveScanFailures++
+                    if (scanningDesired) {
+                        scheduleScanRetry("onScanFailed_$errorCode")
+                    }
                 }
             }
 
             mBluetoothLeScanner?.startScan(listOf(scanFilter), scanSettings, mScanCallback)
-            Log.d(TAG, "BLE scanner started successfully")
+            scanCallbackActive = true
+            lastScanStartAtMs = System.currentTimeMillis()
+            consecutiveScanFailures = 0
+            Log.d(TAG, "BLE scanner started successfully reason=$reason")
 
+            cleanupHandler.removeCallbacks(cleanupRunnable)
             cleanupHandler.postDelayed(cleanupRunnable, CLEANUP_INTERVAL_MS)
         } catch (t: Throwable) {
-            Log.e(TAG, "Error starting BLE scanner", t)
+            Log.e(TAG, "Error starting BLE scanner reason=$reason", t)
+            scanCallbackActive = false
+            if (scanningDesired) {
+                scheduleScanRetry("start_exception")
+            }
         }
     }
 
     @SuppressLint("MissingPermission")
+    private fun stopScanCallbackOnly() {
+        try {
+            if (mBluetoothLeScanner != null && mScanCallback != null) {
+                mBluetoothLeScanner?.stopScan(mScanCallback)
+            }
+        } catch (t: Throwable) {
+            Log.e(TAG, "Error stopping BLE scan callback", t)
+        } finally {
+            mScanCallback = null
+            scanCallbackActive = false
+        }
+    }
+
+    private fun scheduleScanRetry(reason: String) {
+        if (!scanningDesired) return
+        cancelPendingScanRetry()
+        val attempt = consecutiveScanFailures.coerceAtLeast(1)
+        val delayMs = (SCAN_RETRY_BASE_MS * attempt.toLong()).coerceAtMost(SCAN_RETRY_MAX_MS)
+        Log.d(TAG, "Scheduling BLE scan retry in ${delayMs}ms reason=$reason failures=$consecutiveScanFailures")
+        val runnable = Runnable {
+            pendingScanRetry = null
+            if (scanningDesired) {
+                startScanningInternal("retry_$reason")
+            }
+        }
+        pendingScanRetry = runnable
+        scanRetryHandler.postDelayed(runnable, delayMs)
+    }
+
+    private fun cancelPendingScanRetry() {
+        pendingScanRetry?.let { scanRetryHandler.removeCallbacks(it) }
+        pendingScanRetry = null
+    }
+
+    @SuppressLint("MissingPermission")
     fun stopScanning() {
+        scanningDesired = false
+        cancelPendingScanRetry()
         try {
             if (mBluetoothLeScanner != null && mScanCallback != null) {
                 Log.d(TAG, "Stopping BLE scanner")
-                mBluetoothLeScanner?.stopScan(mScanCallback)
-                mScanCallback = null
             }
-
+            stopScanCallbackOnly()
             cleanupHandler.removeCallbacks(cleanupRunnable)
         } catch (t: Throwable) {
             Log.e(TAG, "Error stopping BLE scanner", t)
@@ -518,6 +635,10 @@ class BLEManager(private val context: Context) {
         private const val CLEANUP_INTERVAL_MS = 10000L
         private const val STALE_DEVICE_TIMEOUT_MS = 15000L
         private const val LID_CLOSE_TIMEOUT_MS = 2500L
+        /** No ads for this long while scanningDesired → treat scan as dead and restart. */
+        const val STALE_SCAN_RESTART_MS = 45_000L
+        private const val SCAN_RETRY_BASE_MS = 2_000L
+        private const val SCAN_RETRY_MAX_MS = 30_000L
         // Minimum RSSI (dBm) accepted when no IRK is available (limited-mode devices).
         // Rejects distant/neighbour AirPods while accepting the user's own device which
         // is worn on the body and typically reads −45 to −65 dBm.
