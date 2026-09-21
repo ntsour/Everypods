@@ -47,6 +47,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
+import android.content.pm.ServiceInfo
 import android.content.res.Resources
 import android.graphics.Color
 import android.media.AudioManager
@@ -687,22 +688,20 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     override fun onCreate() {
         super.onCreate()
         Log.i(TAG, "lib exempt worked: ${isBluetoothSocketExempted()}")
-        // W5: request battery-optimization exemption if not already granted. Without it,
-        // the OS can freeze our background threads in Doze/standby and kill the RFCOMM
-        // keep-alive that prevents coordination link drops. Shows a one-time system dialog.
+        // W5: log battery-optimization state only. Do NOT startActivity here —
+        // ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS with NEW_TASK during onCreate
+        // races MainActivity's first bind and leaves home stuck on "Starting…" until
+        // force-stop. MainActivity prompts after bind + first frame (activity-owned).
         try {
             val pm = getSystemService(POWER_SERVICE) as android.os.PowerManager
             val isExempt = pm.isIgnoringBatteryOptimizations(packageName)
             Log.i(TAG, "W5 startup power state: battExempt=$isExempt doze=${pm.isDeviceIdleMode}")
-            if (!isExempt) {
-                Log.i(TAG, "W5: requesting battery optimization exemption (needed for RFCOMM keep-alive)")
-                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                    data = Uri.parse("package:$packageName")
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                startActivity(intent)
-            }
-        } catch (e: Exception) { Log.w(TAG, "W5 battery exemption request failed: ${e.message}") }
+        } catch (e: Exception) { Log.w(TAG, "W5 battery state check failed: ${e.message}") }
+
+        // Call startForeground BEFORE heavy init. startForegroundService requires
+        // startForeground within the system timeout; typed connectedDevice for
+        // Android 14+ / targetSdk 34+.
+        startForegroundNotification()
 
         sharedPreferencesLogs = getSharedPreferences("packet_logs", MODE_PRIVATE)
 
@@ -755,7 +754,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             putBoolean("automatic_connection_ctrl_cmd", false)
         }
 
-        startForegroundNotification()
+        // startForegroundNotification() already ran at the top of onCreate.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             initGestureDetector()
         } else {
@@ -1239,9 +1238,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 //            clearPacketLogs()
 //        }
 
-        CoroutineScope(Dispatchers.IO).launch {
-            bleManager.startScanning()
-        }
+        ensureBleScanning("onCreate")
+        startBleScanWatchdog()
     }
 
     @Suppress("unused")
@@ -2869,8 +2867,14 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         val notification = notificationBuilder.build()
 
         try {
-            startForeground(1, notification)
+            startForeground(
+                1,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
+            )
+            Log.i(TAG, "startForeground connectedDevice ok")
         } catch (e: Exception) {
+            Log.e(TAG, "startForeground failed: $e")
             e.printStackTrace()
         }
     }
@@ -3339,7 +3343,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     private var activeCallGestureLoopRunning = false
     private var mutedReminderJob: kotlinx.coroutines.Job? = null
     private var notifListenerWatchdogJob: kotlinx.coroutines.Job? = null
+    private var bleScanWatchdogJob: kotlinx.coroutines.Job? = null
     private var staleNotificationCleanupJob: kotlinx.coroutines.Job? = null
+    @Volatile private var lastBleRecoverAtMs: Long = 0L
+    private val bleScanWatchdogIntervalMs = 20_000L
+    private val bleRecoverThrottleMs = 15_000L
 
     private fun startMutedReminder() {
         mutedReminderJob?.cancel()
@@ -3869,6 +3877,13 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     state == 15
                 if (classicAudioGone) {
                     clearLocalConnectionForDisabledAdapter(context, state)
+                } else if (state == BluetoothAdapter.STATE_ON) {
+                    // Scan is started once in onCreate and is otherwise sticky-dead after
+                    // BT off/on or a failed startScan. Re-arm without requiring force-stop.
+                    ServiceManager.getService()?.let { svc ->
+                        svc.ensureBleScanning("bt_state_on", force = true)
+                        svc.ensureA2dpProxyBound("bt_state_on")
+                    }
                 }
             }
 
@@ -4078,6 +4093,13 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d(TAG, "Service started with intent action: ${intent?.action}")
 
+        // Re-assert FGS on sticky restart / activity retry after a denied first start.
+        try {
+            startForegroundNotification()
+        } catch (e: Exception) {
+            Log.w(TAG, "onStartCommand startForeground: ${e.message}")
+        }
+
         if (intent?.action == "io.automated.ventures.everypods.RECONNECT_AFTER_REVERSE") {
             Log.d(TAG, "reconnect after reversed received, taking over")
             disconnectedBecauseReversed = false
@@ -4091,6 +4113,13 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         if (intent?.action == ACTION_WIDGET_RECONNECT || intent?.action == ACTION_CONNECT_LAST_DEVICE) {
             Log.d(TAG, "reconnect last device tapped")
             reconnectFromSavedMac()
+        }
+
+        // Re-enter paths (sticky restart, activity bind churn, Play Billing activity)
+        // must not leave Option 1 without a live BLE lid listener.
+        if (::bleManager.isInitialized) {
+            ensureBleScanning("onStartCommand")
+            ensureA2dpProxyBound("onStartCommand")
         }
 
         return START_STICKY
@@ -4420,6 +4449,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     "<LogCollector:Conn> A2DP check miss for $mac; localProxySinks=$summary " +
                         "(empty list ⇒ nothing connected here; non-empty other MAC ⇒ different sink on this phone)"
                 )
+                maybeRecoverAfterA2dpMiss(mac, summary)
             }
             hit
         } catch (e: Exception) {
@@ -4459,6 +4489,14 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 if (profile == BluetoothProfile.A2DP) {
                     bluetoothA2dpProxy = null
                     Log.d(TAG, "A2DP profile proxy disconnected")
+                    // System dropped the profile binder — rebind and keep BLE lid path alive
+                    // so Option 1 does not require a process restart.
+                    Handler(Looper.getMainLooper()).post {
+                        ensureA2dpProxyBound("a2dp_proxy_disconnected")
+                        if (::bleManager.isInitialized) {
+                            ensureBleScanning("a2dp_proxy_disconnected")
+                        }
+                    }
                 }
             }
         }, BluetoothProfile.A2DP)
@@ -5370,6 +5408,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         startupBatteryAlertArmed = false
         notifListenerWatchdogJob?.cancel()
         notifListenerWatchdogJob = null
+        bleScanWatchdogJob?.cancel()
+        bleScanWatchdogJob = null
         staleNotificationCleanupJob?.cancel()
         staleNotificationCleanupJob = null
         if (checkSelfPermission("android.permission.READ_PHONE_STATE") == PackageManager.PERMISSION_GRANTED) {
@@ -5572,6 +5612,98 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         pendingFluxRecheckRunnable?.let {
             lidAutoconnectHandler.removeCallbacks(it)
             pendingFluxRecheckRunnable = null
+        }
+    }
+
+    /**
+     * Restart / keep BLE proximity scanning alive. Without this, a single failed
+     * startScan (or BT off→on without re-arm) leaves Option 1 with zero lid_open
+     * events until the process is force-stopped.
+     */
+    fun ensureBleScanning(reason: String, force: Boolean = false) {
+        if (!::bleManager.isInitialized) return
+        val ageBefore = bleManager.msSinceLastAdvertisement()
+        val wasActive = bleManager.isScanCallbackActive()
+        LidAutoconnectDiagnostics.logEvent(
+            "ble_scan_ensure",
+            mapOf(
+                "reason" to reason,
+                "force" to force,
+                "wasActive" to wasActive,
+                "ageMs" to ageBefore,
+            ),
+        )
+        CoroutineScope(Dispatchers.IO).launch {
+            bleManager.ensureScanning(reason, force = force)
+        }
+    }
+
+    /** Re-acquire A2DP profile proxy if the system dropped the binder. */
+    fun ensureA2dpProxyBound(reason: String) {
+        if (bluetoothA2dpProxy != null) return
+        LidAutoconnectDiagnostics.logEvent("a2dp_proxy_rebind", mapOf("reason" to reason))
+        acquireA2dpProxy()
+    }
+
+    /**
+     * When A2DP reports no local sink AND BLE has gone silent, restart the scan
+     * (throttled). Matches the post-install stall: recurring A2DP miss with quiet
+     * AirPodsBLE and no lid_open until process restart.
+     */
+    private fun maybeRecoverAfterA2dpMiss(mac: String, sinksSummary: String) {
+        if (!::bleManager.isInitialized) return
+        val now = System.currentTimeMillis()
+        if (now - lastBleRecoverAtMs < bleRecoverThrottleMs) return
+        if (!bleManager.isScanStale()) return
+        val age = bleManager.msSinceLastAdvertisement()
+        lastBleRecoverAtMs = now
+        LidAutoconnectDiagnostics.logEvent(
+            "ble_recover_a2dp_miss",
+            mapOf(
+                "mac" to mac,
+                "sinks" to sinksSummary,
+                "ageMs" to age,
+                "scanActive" to bleManager.isScanCallbackActive(),
+            ),
+        )
+        ensureBleScanning("a2dp_miss_ble_silent", force = true)
+        ensureA2dpProxyBound("a2dp_miss_ble_silent")
+    }
+
+    private fun startBleScanWatchdog() {
+        bleScanWatchdogJob?.cancel()
+        bleScanWatchdogJob = CoroutineScope(Dispatchers.Default).launch {
+            while (isActive) {
+                delay(bleScanWatchdogIntervalMs)
+                if (!::bleManager.isInitialized) continue
+                val adapter = try {
+                    getSystemService(BluetoothManager::class.java).adapter
+                } catch (_: Exception) {
+                    null
+                }
+                if (adapter == null || !adapter.isEnabled) continue
+                // Only care when we have a bonded / saved AirPods identity — otherwise
+                // there is nothing for Option 1 to listen for.
+                val hasIdentity = macAddress.isNotEmpty() ||
+                    (try {
+                        sharedPreferences.getString("mac_address", "")?.isNotEmpty() == true
+                    } catch (_: Exception) {
+                        false
+                    })
+                if (!hasIdentity) continue
+                if (bleManager.isScanStale()) {
+                    val age = bleManager.msSinceLastAdvertisement()
+                    LidAutoconnectDiagnostics.logEvent(
+                        "ble_scan_watchdog",
+                        mapOf(
+                            "active" to bleManager.isScanCallbackActive(),
+                            "ageMs" to age,
+                            "action" to "restart",
+                        ),
+                    )
+                    ensureBleScanning("watchdog", force = true)
+                }
+            }
         }
     }
 

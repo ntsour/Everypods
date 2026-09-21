@@ -35,6 +35,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
+import java.util.concurrent.atomic.AtomicBoolean
 import android.provider.Settings
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -82,6 +83,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.delay
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -263,18 +265,113 @@ fun Main(gymTimerNavigationRequest: Int = 0) {
         }
     }
 
+    // Service bind state — cold install can start/bind before BT FGS is allowed
+    // (or before runtime grants), leaving airPodsViewModel null forever because the
+    // old DisposableEffect(Unit) never retried. Retry on resume, after perms, and
+    // on a timeout; never leave home on infinite "Starting…".
+    var lastBindError by remember { mutableStateOf<String?>(null) }
+    val bindRegistered = remember { AtomicBoolean(false) }
+    val serviceConnectionImpl = remember {
+        object : ServiceConnection {
+            override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+                val binder = service as AirPodsService.LocalBinder
+                airPodsService.value = binder.getService()
+                lastBindError = null
+                if (airPodsService.value?.isConnected() == true) {
+                    isConnected.value = true
+                }
+                Log.i(
+                    "MainActivity",
+                    "<LogCollector:LidLease> service_bound name=$name connected=${airPodsService.value?.isConnected()}"
+                )
+            }
+
+            override fun onServiceDisconnected(name: ComponentName?) {
+                Log.w("MainActivity", "<LogCollector:LidLease> service_disconnected name=$name")
+                airPodsService.value = null
+            }
+        }
+    }
+
+    fun hasCriticalBtPerms(): Boolean =
+        context.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED &&
+            context.checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED
+
+    fun ensureAirPodsBound(reason: String) {
+        if (airPodsService.value != null) {
+            Log.d("MainActivity", "ensureAirPodsBound skip already bound reason=$reason")
+            return
+        }
+        if (!hasCriticalBtPerms()) {
+            Log.w("MainActivity", "ensureAirPodsBound skip missing BT perms reason=$reason")
+            return
+        }
+        Log.i("MainActivity", "<LogCollector:LidLease> ensure_bind reason=$reason")
+        try {
+            context.startForegroundService(Intent(context, AirPodsService::class.java))
+            Log.i("MainActivity", "startForegroundService ok reason=$reason")
+        } catch (e: Exception) {
+            Log.e("MainActivity", "startForegroundService failed reason=$reason: $e")
+            lastBindError = e.message ?: e.javaClass.simpleName
+        }
+        if (bindRegistered.get()) {
+            try {
+                context.unbindService(serviceConnectionImpl)
+            } catch (e: Exception) {
+                Log.w("MainActivity", "unbind before rebind: ${e.message}")
+            }
+            bindRegistered.set(false)
+        }
+        try {
+            val bound = context.bindService(
+                Intent(context, AirPodsService::class.java),
+                serviceConnectionImpl,
+                Context.BIND_AUTO_CREATE
+            )
+            bindRegistered.set(bound)
+            serviceConnection = serviceConnectionImpl
+            Log.d("MainActivity", "bindService bound=$bound reason=$reason")
+            if (!bound) {
+                lastBindError = "bindService returned false"
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "bindService failed reason=$reason: $e")
+            lastBindError = e.message ?: e.javaClass.simpleName
+            bindRegistered.set(false)
+        }
+    }
+
     // AACP capability may become available asynchronously after the ViewModel was
     // created (e.g. the OEM companion app finishes its own setup). Re-evaluate every
     // time the activity resumes so AACP controls un-grey once it's actually available.
+    // Also rebind if the cold-start FGS/bind never connected (force-stop was the only
+    // recovery before this retry path).
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner, airPodsViewModel) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
                 airPodsViewModel?.refreshAacpAvailable()
+                if (airPodsService.value == null) {
+                    ensureAirPodsBound("on_resume")
+                }
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    // While home is stuck on Starting…, periodically retry start+bind (covers
+    // FGS-denied-then-allowed races without requiring process kill).
+    LaunchedEffect(Unit) {
+        for (attempt in 1..8) {
+            delay(1_500)
+            if (airPodsService.value != null) return@LaunchedEffect
+            if (!hasCriticalBtPerms()) continue
+            ensureAirPodsBound("timeout_retry_$attempt")
+        }
+        if (airPodsService.value == null && hasCriticalBtPerms() && lastBindError == null) {
+            lastBindError = "Service did not connect"
+        }
     }
 
     val startDestination = if (needsPermissions) "permissions" else "settings"
@@ -283,6 +380,31 @@ fun Main(gymTimerNavigationRequest: Int = 0) {
     LaunchedEffect(gymTimerNavigationRequest, needsPermissions) {
         if (gymTimerNavigationRequest > 0 && !needsPermissions) {
             navController.navigate("gym_timer") { launchSingleTop = true }
+        }
+    }
+
+    // W5 battery exemption: activity-owned, after bind clears "Starting…".
+    // Never launch from AirPodsService.onCreate — that NEW_TASK Settings dialog
+    // raced first bind and left home stuck until force-stop. Do not gate
+    // connection / Waiting UI on the exemption result; Settings tip in App
+    // Settings remains available if the user dismisses this prompt.
+    LaunchedEffect(airPodsViewModel, needsPermissions) {
+        if (airPodsViewModel == null || needsPermissions) return@LaunchedEffect
+        // Let home (Waiting / disconnected) paint before any Settings intent.
+        delay(1_500)
+        try {
+            val pm = context.getSystemService(android.os.PowerManager::class.java) ?: return@LaunchedEffect
+            if (pm.isIgnoringBatteryOptimizations(context.packageName)) return@LaunchedEffect
+            val promptedKey = "battery_exemption_auto_prompted"
+            if (prefs.getBoolean(promptedKey, false)) return@LaunchedEffect
+            prefs.edit().putBoolean(promptedKey, true).apply()
+            Log.i("MainActivity", "W5: requesting battery optimization exemption (post-bind, activity-owned)")
+            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                data = "package:${context.packageName}".toUri()
+            }
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            Log.w("MainActivity", "W5 battery exemption request failed: ${e.message}")
         }
     }
 
@@ -326,11 +448,29 @@ fun Main(gymTimerNavigationRequest: Int = 0) {
                             // The service hasn't bound yet (or can't — e.g. permissions
                             // missing). Render a placeholder instead of nothing so the
                             // user never sees a pure-black screen while we wait/recover.
+                            // After retries fail, surface the error + Retry (never infinite
+                            // Starting… with no way out short of force-stop).
                             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                Text(
-                                    text = "Starting…",
-                                    color = if (isSystemInDarkTheme()) Color.White else Color.Black
-                                )
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        text = if (lastBindError != null) "Couldn't start service" else "Starting…",
+                                        color = if (isSystemInDarkTheme()) Color.White else Color.Black
+                                    )
+                                    if (lastBindError != null) {
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(
+                                            text = lastBindError ?: "",
+                                            color = if (isSystemInDarkTheme()) Color.LightGray else Color.DarkGray
+                                        )
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        Button(onClick = {
+                                            lastBindError = null
+                                            ensureAirPodsBound("user_retry")
+                                        }) {
+                                            Text("Retry")
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -389,6 +529,9 @@ fun Main(gymTimerNavigationRequest: Int = 0) {
                         // and the "restored flag but missing grant" re-onboarding case.
                         val onGranted: (() -> Unit)? = if (needsPermissions) ({
                             prefs.edit().putBoolean("permissions_completed", true).apply()
+                            // BT grants just landed — start+bind now (composition bind
+                            // may have run earlier and been denied / skipped).
+                            ensureAirPodsBound("perms_granted")
                             navController.navigate("settings") {
                                 popUpTo("permissions") { inclusive = true }
                             }
@@ -522,43 +665,23 @@ fun Main(gymTimerNavigationRequest: Int = 0) {
             }
         }
 
-        // Bind once for this composition; rebind after process/config changes.
-        // Do not bind as a raw composition side-effect or unbind in Activity.onStop —
-        // that raced and left airPodsViewModel null ("Starting…") permanently.
+        // Own the ServiceConnection for this composition. Actual start+bind is in
+        // ensureAirPodsBound (composition / on_resume / perms_granted / timeout / Retry)
+        // so a cold-install FGS denial does not stick until force-stop.
         DisposableEffect(Unit) {
-            val connection = object : ServiceConnection {
-                override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
-                    val binder = service as AirPodsService.LocalBinder
-                    airPodsService.value = binder.getService()
-                    if (airPodsService.value?.isConnected() == true) {
-                        isConnected.value = true
-                    }
-                }
-
-                override fun onServiceDisconnected(name: ComponentName?) {
-                    airPodsService.value = null
-                }
-            }
-            serviceConnection = connection
-            try {
-                context.startForegroundService(Intent(context, AirPodsService::class.java))
-            } catch (e: Exception) {
-                Log.e("MainActivity", "startForegroundService failed: $e")
-            }
-            val bound = context.bindService(
-                Intent(context, AirPodsService::class.java),
-                connection,
-                Context.BIND_AUTO_CREATE
-            )
-            Log.d("MainActivity", "bindService requested bound=$bound")
+            serviceConnection = serviceConnectionImpl
+            ensureAirPodsBound("composition")
             onDispose {
                 try {
-                    context.unbindService(connection)
-                    Log.d("MainActivity", "Unbound service (DisposableEffect)")
+                    if (bindRegistered.get()) {
+                        context.unbindService(serviceConnectionImpl)
+                        Log.d("MainActivity", "Unbound service (DisposableEffect)")
+                    }
                 } catch (e: Exception) {
                     Log.e("MainActivity", "Error while unbinding service: $e")
                 }
-                if (serviceConnection === connection) {
+                bindRegistered.set(false)
+                if (serviceConnection === serviceConnectionImpl) {
                     serviceConnection = null
                 }
                 airPodsService.value = null
