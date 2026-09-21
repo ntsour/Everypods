@@ -57,6 +57,9 @@ class PlayBillingProvider(private val context: Context) : BillingProvider, Purch
     private val _billingAvailable = MutableStateFlow(false)
     override val billingAvailable: StateFlow<Boolean> = _billingAvailable
 
+    private val _tipProductsLoaded = MutableStateFlow(false)
+    override val tipProductsLoaded: StateFlow<Boolean> = _tipProductsLoaded
+
     private val productDetailsById = mutableMapOf<String, ProductDetails>()
     private val offerTokenById = mutableMapOf<String, String>()
 
@@ -76,23 +79,32 @@ class PlayBillingProvider(private val context: Context) : BillingProvider, Purch
     private fun startConnection() {
         if (billingClient.isReady) {
             queryProductDetails()
-            queryPurchases()
+            queryPurchasesInternal()
             return
         }
         billingClient.startConnection(object : BillingClientStateListener {
             override fun onBillingSetupFinished(billingResult: BillingResult) {
+                Log.i(
+                    TAG,
+                    "Billing setup finished responseCode=${billingResult.responseCode} " +
+                        "(${responseCodeName(billingResult.responseCode)}) " +
+                        "debug=${billingResult.debugMessage}",
+                )
                 if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
                     _billingAvailable.value = true
+                    // Keep tipProductsLoaded=false until queryProductDetails completes.
                     queryProductDetails()
-                    queryPurchases()
+                    queryPurchasesInternal()
                 } else {
                     Log.w(TAG, "Billing setup failed: ${billingResult.debugMessage}")
                     _billingAvailable.value = false
                     _tipProducts.value = emptyList()
+                    _tipProductsLoaded.value = true
                 }
             }
 
             override fun onBillingServiceDisconnected() {
+                Log.w(TAG, "Billing service disconnected")
                 _billingAvailable.value = false
                 // Soft reconnect on next tip / queryPurchases
             }
@@ -100,7 +112,10 @@ class PlayBillingProvider(private val context: Context) : BillingProvider, Purch
     }
 
     private fun queryProductDetails() {
-        if (!billingClient.isReady) return
+        if (!billingClient.isReady) {
+            Log.w(TAG, "queryProductDetails skipped: BillingClient not ready")
+            return
+        }
 
         val productList = TipSkus.ALL.map { sku ->
             QueryProductDetailsParams.Product.newBuilder()
@@ -112,14 +127,47 @@ class PlayBillingProvider(private val context: Context) : BillingProvider, Purch
             .setProductList(productList)
             .build()
 
+        Log.i(TAG, "queryProductDetails requesting SKUs=${TipSkus.ALL}")
         billingClient.queryProductDetailsAsync(params) { billingResult, result ->
-            if (billingResult.responseCode != BillingClient.BillingResponseCode.OK) {
-                Log.w(TAG, "queryProductDetails failed: ${billingResult.debugMessage}")
+            val code = billingResult.responseCode
+            Log.i(
+                TAG,
+                "queryProductDetails responseCode=$code (${responseCodeName(code)}) " +
+                    "debug=${billingResult.debugMessage}",
+            )
+
+            if (code != BillingClient.BillingResponseCode.OK) {
+                Log.w(TAG, "queryProductDetails failed; clearing tip products")
+                productDetailsById.clear()
+                offerTokenById.clear()
                 _tipProducts.value = emptyList()
+                _price.value = ""
+                // Billing client may still be up, but tips are not usable — exit loading.
+                _tipProductsLoaded.value = true
                 return@queryProductDetailsAsync
             }
 
             val productDetailsList = result.productDetailsList
+            val unfetched = result.unfetchedProductList
+            Log.i(
+                TAG,
+                "queryProductDetails productCount=${productDetailsList.size} " +
+                    "unfetchedCount=${unfetched.size}",
+            )
+            if (unfetched.isNotEmpty()) {
+                Log.w(
+                    TAG,
+                    "queryProductDetails unfetched=" +
+                        unfetched.joinToString { "${it.productId}(status=${it.statusCode})" },
+                )
+            }
+
+            val returnedIds = productDetailsList.map { it.productId }.toSet()
+            val missingSkus = TipSkus.ALL.filter { it !in returnedIds }
+            if (missingSkus.isNotEmpty()) {
+                Log.w(TAG, "queryProductDetails missing SKU IDs: $missingSkus")
+            }
+
             productDetailsById.clear()
             offerTokenById.clear()
             val tips = productDetailsList
@@ -143,6 +191,17 @@ class PlayBillingProvider(private val context: Context) : BillingProvider, Purch
                 }
             _tipProducts.value = tips
             _price.value = tips.firstOrNull()?.formattedPrice.orEmpty()
+            _tipProductsLoaded.value = true
+            if (tips.isEmpty()) {
+                // Setup succeeded but Play returned no usable tip SKUs (common on
+                // sideloaded playDebug before Active consumables exist / Play install).
+                Log.w(
+                    TAG,
+                    "queryProductDetails returned 0 tip products — treating tips as unavailable",
+                )
+            } else {
+                Log.i(TAG, "queryProductDetails loaded tips=${tips.map { it.productId }}")
+            }
         }
     }
 
@@ -251,17 +310,31 @@ class PlayBillingProvider(private val context: Context) : BillingProvider, Purch
     }
 
     override fun queryPurchases() {
+        // Used as screen refresh / Retry: re-show loading and re-query tip SKUs.
         _isPremium.value = true
+        _tipProductsLoaded.value = false
         if (!billingClient.isReady) {
             startConnection()
             return
         }
+        queryProductDetails()
+        queryPurchasesInternal()
+    }
+
+    private fun queryPurchasesInternal() {
+        if (!billingClient.isReady) return
 
         // Consume any leftover unconsumed tip purchases (e.g. process death mid-flow).
         val params = QueryPurchasesParams.newBuilder()
             .setProductType(BillingClient.ProductType.INAPP)
             .build()
         billingClient.queryPurchasesAsync(params) { billingResult, purchases ->
+            Log.i(
+                TAG,
+                "queryPurchases responseCode=${billingResult.responseCode} " +
+                    "(${responseCodeName(billingResult.responseCode)}) " +
+                    "count=${purchases.size}",
+            )
             if (billingResult.responseCode != BillingClient.BillingResponseCode.OK) return@queryPurchasesAsync
             purchases
                 .filter { purchase ->
@@ -283,5 +356,22 @@ class PlayBillingProvider(private val context: Context) : BillingProvider, Purch
 
     companion object {
         private const val TAG = "PlayBillingProvider"
+
+        private fun responseCodeName(code: Int): String = when (code) {
+            BillingClient.BillingResponseCode.SERVICE_TIMEOUT -> "SERVICE_TIMEOUT"
+            BillingClient.BillingResponseCode.FEATURE_NOT_SUPPORTED -> "FEATURE_NOT_SUPPORTED"
+            BillingClient.BillingResponseCode.SERVICE_DISCONNECTED -> "SERVICE_DISCONNECTED"
+            BillingClient.BillingResponseCode.OK -> "OK"
+            BillingClient.BillingResponseCode.USER_CANCELED -> "USER_CANCELED"
+            BillingClient.BillingResponseCode.SERVICE_UNAVAILABLE -> "SERVICE_UNAVAILABLE"
+            BillingClient.BillingResponseCode.BILLING_UNAVAILABLE -> "BILLING_UNAVAILABLE"
+            BillingClient.BillingResponseCode.ITEM_UNAVAILABLE -> "ITEM_UNAVAILABLE"
+            BillingClient.BillingResponseCode.DEVELOPER_ERROR -> "DEVELOPER_ERROR"
+            BillingClient.BillingResponseCode.ERROR -> "ERROR"
+            BillingClient.BillingResponseCode.ITEM_ALREADY_OWNED -> "ITEM_ALREADY_OWNED"
+            BillingClient.BillingResponseCode.ITEM_NOT_OWNED -> "ITEM_NOT_OWNED"
+            BillingClient.BillingResponseCode.NETWORK_ERROR -> "NETWORK_ERROR"
+            else -> "UNKNOWN($code)"
+        }
     }
 }

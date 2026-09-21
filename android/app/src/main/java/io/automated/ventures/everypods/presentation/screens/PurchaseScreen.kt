@@ -215,27 +215,8 @@ fun PurchaseScreen(
                             onTip = { sku -> viewModel.tip(context, sku) }
                         )
                     }
-                    !state.billingAvailable -> {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(cardBackgroundColor, RoundedCornerShape(28.dp))
-                                .padding(horizontal = 20.dp, vertical = 20.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(
-                                text = stringResource(R.string.tip_billing_unavailable),
-                                style = TextStyle(
-                                    fontSize = 15.sp,
-                                    fontFamily = SfPro,
-                                    color = textColor.copy(alpha = 0.7f),
-                                    textAlign = TextAlign.Center
-                                ),
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-                    }
-                    else -> {
+                    // Loading only while the first (or retry) query is in flight.
+                    !state.tipProductsLoaded -> {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -252,6 +233,50 @@ fun PurchaseScreen(
                                 ),
                                 modifier = Modifier.fillMaxWidth()
                             )
+                        }
+                    }
+                    else -> {
+                        // Query finished with 0 products, or billing setup failed.
+                        val emptyMessage = if (state.billingAvailable) {
+                            stringResource(R.string.tip_products_unavailable)
+                        } else {
+                            stringResource(R.string.tip_billing_unavailable)
+                        }
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(cardBackgroundColor, RoundedCornerShape(28.dp))
+                                .padding(horizontal = 20.dp, vertical = 20.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Text(
+                                text = emptyMessage,
+                                style = TextStyle(
+                                    fontSize = 15.sp,
+                                    fontFamily = SfPro,
+                                    color = textColor.copy(alpha = 0.7f),
+                                    textAlign = TextAlign.Center
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            StyledButton(
+                                onClick = { viewModel.refresh() },
+                                backdrop = rememberLayerBackdrop(),
+                                modifier = Modifier.fillMaxWidth(),
+                                maxScale = 0.05f,
+                                surfaceColor = accent
+                            ) {
+                                Text(
+                                    stringResource(R.string.tip_retry),
+                                    style = TextStyle(
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        fontFamily = SfPro,
+                                        color = Color.White
+                                    ),
+                                )
+                            }
                         }
                     }
                 }

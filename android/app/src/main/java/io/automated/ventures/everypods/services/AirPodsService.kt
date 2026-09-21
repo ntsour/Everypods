@@ -823,6 +823,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     "takeover_when_media_start", true
                 )
 
+                // Handover master switch — core feature; fresh installs get it ON.
+                // Missing key only (never overwrite an explicit false).
+                if (!contains("cross_device_enabled")) putBoolean("cross_device_enabled", true)
+
                 // Option 1: lid-open auto-connect for last CrossDevice audio holder.
                 // New installs only (missing key) → ON; existing false stays false.
                 if (!contains(AudioLeasePrefs.KEY_LID_OPEN_LAST_HOLDER_AUTOCONNECT)) putBoolean(

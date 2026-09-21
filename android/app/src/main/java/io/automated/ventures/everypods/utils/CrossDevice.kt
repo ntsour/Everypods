@@ -133,12 +133,12 @@ object CrossDevice {
     fun init(context: Context) {
         val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
         configuredPeers = loadAndMigratePeers(prefs)
-        // Auto-enable when a peer is saved but the flag was never explicitly set
-        // (covers devices that configured a peer before this flag existed).
-        isEnabled = prefs.getBoolean("cross_device_enabled", configuredPeers.isNotEmpty())
-        if (isEnabled && !prefs.contains("cross_device_enabled")) {
+        // Fresh installs: Handover ON by default. Persist missing key so UI and
+        // service agree; never overwrite an explicit false.
+        if (!prefs.contains("cross_device_enabled")) {
             prefs.edit().putBoolean("cross_device_enabled", true).apply()
         }
+        isEnabled = prefs.getBoolean("cross_device_enabled", true)
         if (!isEnabled) {
             Log.d(TAG, "Cross-device disabled by preference")
             return

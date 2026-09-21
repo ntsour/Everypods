@@ -93,7 +93,7 @@ data class AirPodsUiState(
 
     val automaticEarDetectionEnabled: Boolean = true,
     val automaticConnectionEnabled: Boolean = true,
-    val crossDeviceEnabled: Boolean = false,
+    val crossDeviceEnabled: Boolean = true,
     val crossDevicePeers: List<PeerUiInfo> = emptyList(),
     val lidOpenLastHolderAutoconnect: Boolean = io.automated.ventures.everypods.utils.AudioLeasePrefs.DEFAULT_ENABLED,
 
@@ -450,7 +450,7 @@ class AirPodsViewModel(
             if (AUTOMATIC_CONNECTION_EXPERIMENT_FORCE_OFF) false
             else sharedPreferences.getBoolean("automatic_connection_ctrl_cmd", false)
         val crossDeviceEnabled =
-            sharedPreferences.getBoolean("cross_device_enabled", CrossDevice.configuredPeers.isNotEmpty())
+            sharedPreferences.getBoolean("cross_device_enabled", true)
         // Seed missing key → ON (new installs). Never overwrite an explicit false.
         io.automated.ventures.everypods.utils.AudioLeasePrefs.ensureDefaultEnabled(sharedPreferences)
         val lidOpenLastHolderAutoconnect =
