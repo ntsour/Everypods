@@ -37,6 +37,7 @@ data class PurchaseUiState(
     val price: String = "",
     val tipProducts: List<TipProduct> = emptyList(),
     val billingAvailable: Boolean = false,
+    val tipProductsLoaded: Boolean = false,
     val tipEvent: TipPurchaseEvent = TipPurchaseEvent(),
     val purchasingSku: String? = null,
 )
@@ -69,6 +70,11 @@ class PurchaseViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             provider.billingAvailable.collect { available ->
                 _uiState.update { it.copy(billingAvailable = available) }
+            }
+        }
+        viewModelScope.launch {
+            provider.tipProductsLoaded.collect { loaded ->
+                _uiState.update { it.copy(tipProductsLoaded = loaded) }
             }
         }
         viewModelScope.launch {

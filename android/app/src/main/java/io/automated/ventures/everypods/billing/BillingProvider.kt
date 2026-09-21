@@ -32,6 +32,9 @@ interface BillingProvider {
     val tipPurchaseEvent: StateFlow<TipPurchaseEvent>
     val billingAvailable: StateFlow<Boolean>
 
+    /** True after the first tip-product query attempt finishes (ok, empty, or error). */
+    val tipProductsLoaded: StateFlow<Boolean>
+
     fun tip(activity: Activity, productId: String)
 
     /** @deprecated Prefer [tip]. Kept so older call sites still compile. */

@@ -202,6 +202,8 @@
     <string name="tip_thank_you_body">Your tip helps keep EveryPods free and improving.</string>
     <string name="tips_are_voluntary">Tips are voluntary. All features stay free.</string>
     <string name="tip_billing_unavailable">Tips are unavailable right now. Try again later.</string>
+    <string name="tip_products_unavailable">Couldn\'t load tip options. In Play Console, confirm tip_coffee, tip_beer, tip_lunch, and tip_supporter are Active consumables for this app.</string>
+    <string name="tip_retry">Retry</string>
     <string name="tip_loading_prices">Loading tip options…</string>
     <string name="tip_purchase_error">Something went wrong. Please try again.</string>
     <string name="tip_foss_unavailable">Play Billing tips are only available in the Play Store build.</string>

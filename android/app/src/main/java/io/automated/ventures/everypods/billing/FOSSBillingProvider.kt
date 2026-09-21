@@ -50,6 +50,9 @@ class FOSSBillingProvider(private val context: Context) : BillingProvider {
     private val _billingAvailable = MutableStateFlow(false)
     override val billingAvailable: StateFlow<Boolean> = _billingAvailable
 
+    private val _tipProductsLoaded = MutableStateFlow(true)
+    override val tipProductsLoaded: StateFlow<Boolean> = _tipProductsLoaded
+
     init {
         queryPurchases()
     }
