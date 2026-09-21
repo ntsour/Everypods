@@ -140,6 +140,9 @@ import io.automated.ventures.everypods.presentation.components.NoiseControlSetti
 import io.automated.ventures.everypods.presentation.components.SelectItem
 import io.automated.ventures.everypods.presentation.components.StyledBottomSheet
 import io.automated.ventures.everypods.presentation.components.StyledButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.VolunteerActivism
+import androidx.compose.material3.Icon
 import io.automated.ventures.everypods.presentation.components.StyledIconButton
 import io.automated.ventures.everypods.presentation.components.StyledInputField
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -234,6 +237,7 @@ private fun buildSearchIndex(): List<SearchableItem> = listOf(
     // Help
     SearchableItem("Open Source Licenses",     "Help & Troubleshooting", "help", "open_source_licenses", keywords = listOf("license", "credits")),
     SearchableItem("Version Info",             "Help & Troubleshooting", "help", "version_info", keywords = listOf("about", "app version")),
+    SearchableItem("Support EveryPods",       "Help & Troubleshooting", "help", "purchase_screen", keywords = listOf("tip", "donate", "support", "coffee")),
     SearchableItem("Email Support",            "Help & Troubleshooting", "help", "email_support", keywords = listOf("contact")),
     SearchableItem("GitHub Issues",            "Help & Troubleshooting", "help", "github_issues", keywords = listOf("bug", "report")),
 )
@@ -417,36 +421,58 @@ fun AirPodsSettingsScreen(
     StyledScaffold(
         title = if (searchActive) "" else deviceName.text,
         titleAlign = androidx.compose.ui.text.style.TextAlign.Start,
-        actionButtons = if (state.isLocallyConnected || (!state.aacpAvailable && state.isA2dpConnected)) listOf({ scaffoldBackdrop ->
-            if (searchActive) {
-                Row(
-                    Modifier.fillMaxWidth().padding(end = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    BasicTextField(
-                        value = searchQuery,
-                        onValueChange = { searchQuery = it },
-                        singleLine = true,
-                        textStyle = TextStyle(fontSize = 16.sp, fontFamily = SfPro, color = if (dark) Color.White else Color.Black),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        keyboardActions = KeyboardActions(onSearch = {}),
-                        modifier = Modifier.weight(1f)
-                            .testTag("search_input")
-                            .focusRequester(searchFocusRequester)
-                            .background(if (dark) Color(0xFF2C2C2E) else Color(0xFFE5E5EA), RoundedCornerShape(10.dp))
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                        decorationBox = { innerTextField ->
-                            if (searchQuery.isEmpty()) Text("Search settings...", style = TextStyle(fontSize = 16.sp, fontFamily = SfPro, color = if (dark) Color.White.copy(0.4f) else Color.Black.copy(0.35f)))
-                            innerTextField()
-                        }
-                    )
-                    Spacer(Modifier.padding(start = 8.dp))
-                    StyledIconButton(onClick = { searchActive = false; searchQuery = "" }, icon = "􀆄", backdrop = scaffoldBackdrop)
+        actionButtons = buildList {
+            val showSearch = state.isLocallyConnected || (!state.aacpAvailable && state.isA2dpConnected)
+            if (searchActive && showSearch) {
+                add { scaffoldBackdrop ->
+                    Row(
+                        Modifier.fillMaxWidth().padding(end = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        BasicTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            singleLine = true,
+                            textStyle = TextStyle(fontSize = 16.sp, fontFamily = SfPro, color = if (dark) Color.White else Color.Black),
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                            keyboardActions = KeyboardActions(onSearch = {}),
+                            modifier = Modifier.weight(1f)
+                                .testTag("search_input")
+                                .focusRequester(searchFocusRequester)
+                                .background(if (dark) Color(0xFF2C2C2E) else Color(0xFFE5E5EA), RoundedCornerShape(10.dp))
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            decorationBox = { innerTextField ->
+                                if (searchQuery.isEmpty()) Text("Search settings...", style = TextStyle(fontSize = 16.sp, fontFamily = SfPro, color = if (dark) Color.White.copy(0.4f) else Color.Black.copy(0.35f)))
+                                innerTextField()
+                            }
+                        )
+                        Spacer(Modifier.padding(start = 8.dp))
+                        StyledIconButton(onClick = { searchActive = false; searchQuery = "" }, icon = "􀆄", backdrop = scaffoldBackdrop)
+                    }
                 }
             } else {
-                StyledIconButton(onClick = { searchActive = true }, icon = "􀊫", backdrop = scaffoldBackdrop, modifier = Modifier.testTag("nav_settings_search_button"))
+                // Tip jar immediately next to Search (tip left, search rightmost).
+                add { scaffoldBackdrop ->
+                    StyledIconButton(
+                        imageVector = Icons.Filled.VolunteerActivism,
+                        contentDescription = stringResource(R.string.support_content_description),
+                        backdrop = scaffoldBackdrop,
+                        onClick = { navController.navigate("purchase_screen") },
+                        modifier = Modifier.testTag("nav_support_tip_button")
+                    )
+                }
+                if (showSearch) {
+                    add { scaffoldBackdrop ->
+                        StyledIconButton(
+                            onClick = { searchActive = true },
+                            icon = "􀊫",
+                            backdrop = scaffoldBackdrop,
+                            modifier = Modifier.testTag("nav_settings_search_button")
+                        )
+                    }
+                }
             }
-        }) else emptyList(),
+        },
         snackbarHostState = snackbarHostState
     ) { topPadding, hazeState, bottomPadding ->
         var blockTouches by remember { mutableStateOf(false) }
@@ -1084,7 +1110,7 @@ private fun DisconnectedScreen(
             }
         }
 
-        // 5) Get Help
+        // 5) Get Help — Support tip card first, then Email / GitHub
         item(key = "help") {
             Column(
                 Modifier
@@ -1097,6 +1123,40 @@ private fun DisconnectedScreen(
                     stringResource(R.string.get_help_title),
                     style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = textColor.copy(0.6f), fontFamily = SfPro)
                 )
+                // Support EveryPods card (first)
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .background(
+                            if (dark) Color(0xFF2C2C2E) else Color(0xFFF2F2F7),
+                            RoundedCornerShape(16.dp)
+                        )
+                        .clickable(
+                            remember { MutableInteractionSource() },
+                            null
+                        ) { navController.navigate("purchase_screen") }
+                        .padding(horizontal = 14.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.VolunteerActivism,
+                        contentDescription = null,
+                        tint = if (dark) Color(0xFF64D2FF) else Color(0xFF0088FF),
+                        modifier = Modifier.size(28.dp)
+                    )
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            stringResource(R.string.support_everypods_title),
+                            style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold, fontFamily = SfPro, color = textColor)
+                        )
+                        Text(
+                            stringResource(R.string.support_everypods_card_subtitle),
+                            style = TextStyle(fontSize = 13.sp, fontFamily = SfPro, color = textColor.copy(0.55f))
+                        )
+                    }
+                    Text("›", style = TextStyle(fontSize = 20.sp, fontFamily = SfPro, color = textColor.copy(0.35f)))
+                }
                 Text(
                     stringResource(R.string.get_help_guide),
                     style = TextStyle(fontSize = 14.sp, fontFamily = SfPro, color = textColor.copy(0.55f))

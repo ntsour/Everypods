@@ -23,27 +23,31 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.VolunteerActivism
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.Font
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -53,8 +57,9 @@ import androidx.navigation.NavController
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import dev.chrisbanes.haze.hazeSource
-import io.automated.ventures.everypods.BuildConfig
 import io.automated.ventures.everypods.R
+import io.automated.ventures.everypods.billing.TipProduct
+import io.automated.ventures.everypods.billing.TipPurchaseStatus
 import io.automated.ventures.everypods.presentation.components.StyledButton
 import io.automated.ventures.everypods.presentation.components.StyledScaffold
 import io.automated.ventures.everypods.presentation.viewmodel.PurchaseViewModel
@@ -67,11 +72,21 @@ fun PurchaseScreen(
     val context = LocalContext.current
     val scrollState = rememberScrollState()
     val state by viewModel.uiState.collectAsState()
+    val isDarkTheme = isSystemInDarkTheme()
+    val backgroundColor = if (isDarkTheme) Color(0xFF000000) else Color(0xFFF2F2F7)
+    val cardBackgroundColor = if (isDarkTheme) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
+    val textColor = if (isDarkTheme) Color.White else Color.Black
+    val accent = if (isDarkTheme) Color(0xFF0091FF) else Color(0xFF0088FF)
 
     val backdrop = rememberLayerBackdrop()
+    val thankYou = state.tipEvent.status == TipPurchaseStatus.Success
+
+    LaunchedEffect(Unit) {
+        viewModel.refresh()
+    }
 
     StyledScaffold(
-        title = stringResource(R.string.unlock_advanced_features)
+        title = stringResource(R.string.support_everypods_title)
     ) { topPadding, hazeState, bottomPadding ->
         Column(
             modifier = Modifier
@@ -83,412 +98,290 @@ fun PurchaseScreen(
         ) {
             Spacer(modifier = Modifier.height(topPadding))
 
-            val isDarkTheme = isSystemInDarkTheme()
-            val backgroundColor = if (isDarkTheme) Color(0xFF000000) else Color(0xFFF2F2F7)
-            val cardBackgroundColor = if (isDarkTheme) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
-            val textColor = if (isDarkTheme) Color.White else Color.Black
-            LaunchedEffect(state.isPremium) {
-                if (state.isPremium) {
-                    navController.popBackStack()
-                }
-            }
-            if (!state.isPremium) {
-                Box(
-                    modifier = Modifier
-                        .background(backgroundColor)
-                        .padding(horizontal = 16.dp, vertical = 4.dp)
-                ) {
-                    Text(
-                        text = stringResource(R.string.free_features),
-                        style = TextStyle(
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = textColor.copy(alpha = 0.6f),
-                            fontFamily = FontFamily(Font(R.font.sf_pro))
-                        )
-                    )
-                }
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(cardBackgroundColor, RoundedCornerShape(28.dp))
-                        .padding(horizontal = 8.dp, vertical = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 4.dp),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.ear_detection),
-                            style = TextStyle(
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Normal,
-                                fontFamily = FontFamily(Font(R.font.sf_pro)),
-                                color = textColor
-                            )
-                        )
-                        Text(
-                            text = stringResource(R.string.ear_detection_description),
-                            style = TextStyle(
-                                fontSize = 12.sp,
-                                color = textColor.copy(0.6f),
-                                fontFamily = FontFamily(Font(R.font.sf_pro)),
-                            )
-                        )
-                    }
-                    HorizontalDivider(
-                        thickness = 1.dp,
-                        color = Color(0x40888888),
-                        modifier = Modifier
-                            .padding(horizontal = 12.dp)
-                    )
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 4.dp),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.battery),
-                            style = TextStyle(
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Normal,
-                                fontFamily = FontFamily(Font(R.font.sf_pro)),
-                                color = textColor
-                            )
-                        )
-                        Text(
-                            text = stringResource(R.string.battery_description),
-                            style = TextStyle(
-                                fontSize = 12.sp,
-                                color = textColor.copy(0.6f),
-                                fontFamily = FontFamily(Font(R.font.sf_pro)),
-                            )
-                        )
-                    }
-                    HorizontalDivider(
-                        thickness = 1.dp,
-                        color = Color(0x40888888),
-                        modifier = Modifier
-                            .padding(horizontal = 12.dp)
-                    )
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 4.dp),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.noise_control),
-                            style = TextStyle(
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Normal,
-                                fontFamily = FontFamily(Font(R.font.sf_pro)),
-                                color = textColor
-                            )
-                        )
-                        Text(
-                            text = stringResource(R.string.noise_control_description),
-                            style = TextStyle(
-                                fontSize = 12.sp,
-                                color = textColor.copy(0.6f),
-                                fontFamily = FontFamily(Font(R.font.sf_pro)),
-                            )
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-                Box(
-                    modifier = Modifier
-                        .background(backgroundColor)
-                        .padding(horizontal = 16.dp, vertical = 4.dp)
-                ) {
-                    Text(
-                        text = stringResource(R.string.advanced_features),
-                        style = TextStyle(
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = textColor.copy(alpha = 0.6f),
-                            fontFamily = FontFamily(Font(R.font.sf_pro))
-                        )
-                    )
-                }
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(cardBackgroundColor, RoundedCornerShape(28.dp))
-                        .padding(horizontal = 8.dp, vertical = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 4.dp),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.conversational_awareness),
-                            style = TextStyle(
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Normal,
-                                fontFamily = FontFamily(Font(R.font.sf_pro)),
-                                color = textColor
-                            )
-                        )
-                        Text(
-                            text = stringResource(R.string.conversational_awareness_description),
-                            style = TextStyle(
-                                fontSize = 12.sp,
-                                color = textColor.copy(0.6f),
-                                fontFamily = FontFamily(Font(R.font.sf_pro)),
-                            )
-                        )
-                    }
-                    HorizontalDivider(
-                        thickness = 1.dp,
-                        color = Color(0x40888888),
-                        modifier = Modifier
-                            .padding(horizontal = 12.dp)
-                    )
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 4.dp),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.digital_assistant_on_long_press),
-                            style = TextStyle(
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Normal,
-                                fontFamily = FontFamily(Font(R.font.sf_pro)),
-                                color = textColor
-                            )
-                        )
-                        Text(
-                            text = stringResource(R.string.digital_assistant_on_long_press_description),
-                            style = TextStyle(
-                                fontSize = 12.sp,
-                                color = textColor.copy(0.6f),
-                                fontFamily = FontFamily(Font(R.font.sf_pro)),
-                            )
-                        )
-                    }
-                    HorizontalDivider(
-                        thickness = 1.dp,
-                        color = Color(0x40888888),
-                        modifier = Modifier
-                            .padding(horizontal = 12.dp)
-                    )
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 4.dp),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.head_gestures),
-                            style = TextStyle(
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Normal,
-                                fontFamily = FontFamily(Font(R.font.sf_pro)),
-                                color = textColor
-                            )
-                        )
-                        Text(
-                            text = stringResource(R.string.head_gestures_details),
-                            style = TextStyle(
-                                fontSize = 12.sp,
-                                color = textColor.copy(0.6f),
-                                fontFamily = FontFamily(Font(R.font.sf_pro)),
-                            )
-                        )
-                    }
-                    HorizontalDivider(
-                        thickness = 1.dp,
-                        color = Color(0x40888888),
-                        modifier = Modifier
-                            .padding(horizontal = 12.dp)
-                    )
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 4.dp),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.advanced_device_settings),
-                            style = TextStyle(
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Normal,
-                                fontFamily = FontFamily(Font(R.font.sf_pro)),
-                                color = textColor
-                            )
-                        )
-                        Text(
-                            text = stringResource(R.string.advanced_device_settings_description),
-                            style = TextStyle(
-                                fontSize = 12.sp,
-                                color = textColor.copy(0.6f),
-                                fontFamily = FontFamily(Font(R.font.sf_pro)),
-                            )
-                        )
-                    }
-                    HorizontalDivider(
-                        thickness = 1.dp,
-                        color = Color(0x40888888),
-                        modifier = Modifier
-                            .padding(horizontal = 12.dp)
-                    )
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 4.dp),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.automatic_connection),
-                            style = TextStyle(
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Normal,
-                                fontFamily = FontFamily(Font(R.font.sf_pro)),
-                                color = textColor
-                            )
-                        )
-                        Text(
-                            text = stringResource(R.string.automatic_connection_description),
-                            style = TextStyle(
-                                fontSize = 12.sp,
-                                color = textColor.copy(0.6f),
-                                fontFamily = FontFamily(Font(R.font.sf_pro)),
-                            )
-                        )
-                    }
-                    HorizontalDivider(
-                        thickness = 1.dp,
-                        color = Color(0x40888888),
-                        modifier = Modifier
-                            .padding(horizontal = 12.dp)
-                    )
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 4.dp),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.customizations),
-                            style = TextStyle(
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Normal,
-                                fontFamily = FontFamily(Font(R.font.sf_pro)),
-                                color = textColor
-                            )
-                        )
-                        Text(
-                            text = stringResource(R.string.customizations_description),
-                            style = TextStyle(
-                                fontSize = 12.sp,
-                                color = textColor.copy(0.6f),
-                                fontFamily = FontFamily(Font(R.font.sf_pro)),
-                            )
-                        )
-                    }
-                    HorizontalDivider(
-                        thickness = 1.dp,
-                        color = Color(0x40888888),
-                        modifier = Modifier
-                            .padding(horizontal = 12.dp)
-                    )
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 4.dp),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.support_the_development),
-                            style = TextStyle(
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Normal,
-                                fontFamily = FontFamily(Font(R.font.sf_pro)),
-                                color = textColor
-                            )
-                        )
-                        Text(
-                            text = stringResource(R.string.support_development_description),
-                            style = TextStyle(
-                                fontSize = 12.sp,
-                                color = textColor.copy(0.6f),
-                                fontFamily = FontFamily(Font(R.font.sf_pro)),
-                            )
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(8.dp))
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(cardBackgroundColor, RoundedCornerShape(28.dp))
+                    .padding(horizontal = 20.dp, vertical = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.VolunteerActivism,
+                    contentDescription = null,
+                    tint = accent,
+                    modifier = Modifier.size(40.dp)
+                )
                 Text(
-                    text = stringResource(R.string.feature_availability_disclaimer),
-                    modifier = Modifier.fillMaxWidth(),
+                    text = stringResource(R.string.support_everypods_title),
                     style = TextStyle(
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Light,
-                        fontFamily = FontFamily(Font(R.font.sf_pro)),
-                        color = textColor.copy(alpha = 0.6f),
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        fontFamily = SfPro,
+                        color = textColor,
                         textAlign = TextAlign.Center
                     ),
+                    modifier = Modifier.fillMaxWidth()
                 )
+                Text(
+                    text = stringResource(R.string.support_everypods_body),
+                    style = TextStyle(
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Normal,
+                        fontFamily = SfPro,
+                        color = textColor.copy(alpha = 0.65f),
+                        textAlign = TextAlign.Center
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
 
+            Spacer(modifier = Modifier.height(20.dp))
 
-                Spacer(modifier = Modifier.height(24.dp))
-
-                StyledButton(
-                    onClick = {
-                        viewModel.purchase(context)
-                    },
-                    backdrop = rememberLayerBackdrop(),
-                    modifier = Modifier.fillMaxWidth(),
-                    maxScale = 0.05f,
-                    surfaceColor = if (isSystemInDarkTheme()) Color(0xFF0091FF)
-                    else  Color(0xFF0088FF) // if (isSystemInDarkTheme()) Color(0xFF916100) else Color(0xFFE59900)
+            if (thankYou) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(cardBackgroundColor, RoundedCornerShape(28.dp))
+                        .padding(horizontal = 20.dp, vertical = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        stringResource(R.string.buy_price, state.price),
+                        text = stringResource(R.string.tip_thank_you_title),
                         style = TextStyle(
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium,
-                            fontFamily = FontFamily(Font(R.font.sf_pro)),
-                            color = Color.White
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            fontFamily = SfPro,
+                            color = textColor,
+                            textAlign = TextAlign.Center
                         ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        text = stringResource(R.string.tip_thank_you_body),
+                        style = TextStyle(
+                            fontSize = 14.sp,
+                            fontFamily = SfPro,
+                            color = textColor.copy(alpha = 0.65f),
+                            textAlign = TextAlign.Center
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    StyledButton(
+                        onClick = { viewModel.acknowledgeTipEvent() },
+                        backdrop = rememberLayerBackdrop(),
+                        modifier = Modifier.fillMaxWidth(),
+                        maxScale = 0.05f,
+                        surfaceColor = accent
+                    ) {
+                        Text(
+                            stringResource(R.string.tip_again),
+                            style = TextStyle(
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium,
+                                fontFamily = SfPro,
+                                color = Color.White
+                            ),
+                        )
+                    }
+                }
+            } else {
+                Box(
+                    modifier = Modifier
+                        .background(backgroundColor)
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.tip_choose_amount),
+                        style = TextStyle(
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = textColor.copy(alpha = 0.6f),
+                            fontFamily = SfPro
+                        )
                     )
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                when {
+                    state.tipProducts.isNotEmpty() -> {
+                        TipTierList(
+                            products = state.tipProducts,
+                            purchasingSku = state.purchasingSku,
+                            textColor = textColor,
+                            cardBackgroundColor = cardBackgroundColor,
+                            accent = accent,
+                            onTip = { sku -> viewModel.tip(context, sku) }
+                        )
+                    }
+                    !state.billingAvailable -> {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(cardBackgroundColor, RoundedCornerShape(28.dp))
+                                .padding(horizontal = 20.dp, vertical = 20.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.tip_billing_unavailable),
+                                style = TextStyle(
+                                    fontSize = 15.sp,
+                                    fontFamily = SfPro,
+                                    color = textColor.copy(alpha = 0.7f),
+                                    textAlign = TextAlign.Center
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+                    else -> {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(cardBackgroundColor, RoundedCornerShape(28.dp))
+                                .padding(horizontal = 20.dp, vertical = 20.dp)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.tip_loading_prices),
+                                style = TextStyle(
+                                    fontSize = 15.sp,
+                                    fontFamily = SfPro,
+                                    color = textColor.copy(alpha = 0.7f),
+                                    textAlign = TextAlign.Center
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+                }
 
-                StyledButton(
-                    onClick = {
-                        viewModel.restorePurchases()
-                    },
-                    backdrop = rememberLayerBackdrop(),
-                    modifier = Modifier.fillMaxWidth(),
-                    maxScale = 0.05f,
-                    isInteractive = false
-                ) {
+                val errorMsg = when (state.tipEvent.status) {
+                    TipPurchaseStatus.Error,
+                    TipPurchaseStatus.Unavailable -> state.tipEvent.message
+                    else -> null
+                }
+                if (!errorMsg.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        stringResource(R.string.restore_purchases),
+                        text = errorMsg,
+                        modifier = Modifier.fillMaxWidth(),
                         style = TextStyle(
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium,
-                            fontFamily = FontFamily(Font(R.font.sf_pro)),
-                            color = textColor
+                            fontSize = 13.sp,
+                            fontFamily = SfPro,
+                            color = textColor.copy(alpha = 0.55f),
+                            textAlign = TextAlign.Center
                         ),
                     )
                 }
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = stringResource(R.string.tips_are_voluntary),
+                modifier = Modifier.fillMaxWidth(),
+                style = TextStyle(
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Light,
+                    fontFamily = SfPro,
+                    color = textColor.copy(alpha = 0.5f),
+                    textAlign = TextAlign.Center
+                ),
+            )
+
             Spacer(modifier = Modifier.height(bottomPadding))
+        }
+    }
+}
+
+@Composable
+private fun TipTierList(
+    products: List<TipProduct>,
+    purchasingSku: String?,
+    textColor: Color,
+    cardBackgroundColor: Color,
+    accent: Color,
+    onTip: (String) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(cardBackgroundColor, RoundedCornerShape(28.dp))
+            .padding(horizontal = 8.dp, vertical = 8.dp),
+    ) {
+        products.forEachIndexed { index, product ->
+            TipTierRow(
+                product = product,
+                busy = purchasingSku == product.productId,
+                textColor = textColor,
+                accent = accent,
+                onTip = { onTip(product.productId) }
+            )
+            if (index < products.lastIndex) {
+                HorizontalDivider(
+                    thickness = 1.dp,
+                    color = Color(0x40888888),
+                    modifier = Modifier.padding(horizontal = 12.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TipTierRow(
+    product: TipProduct,
+    busy: Boolean,
+    textColor: Color,
+    accent: Color,
+    onTip: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = product.title,
+                style = TextStyle(
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    fontFamily = SfPro,
+                    color = textColor
+                )
+            )
+            Text(
+                text = product.formattedPrice,
+                style = TextStyle(
+                    fontSize = 13.sp,
+                    fontFamily = SfPro,
+                    color = textColor.copy(alpha = 0.55f)
+                )
+            )
+        }
+        StyledButton(
+            onClick = onTip,
+            backdrop = rememberLayerBackdrop(),
+            maxScale = 0.05f,
+            surfaceColor = accent,
+            enabled = !busy
+        ) {
+            Text(
+                if (busy) stringResource(R.string.tip_pending)
+                else stringResource(R.string.tip_button),
+                style = TextStyle(
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    fontFamily = SfPro,
+                    color = Color.White
+                ),
+            )
         }
     }
 }

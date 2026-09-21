@@ -19,9 +19,15 @@
 package io.automated.ventures.everypods.billing
 
 import android.content.Context
+import io.automated.ventures.everypods.BuildConfig
+
 object BillingProviderFactory {
 
     fun create(context: Context): BillingProvider {
-        return FOSSBillingProvider(context)
+        return if (BuildConfig.PLAY_BUILD) {
+            PlayBillingProvider(context.applicationContext)
+        } else {
+            FOSSBillingProvider(context.applicationContext)
+        }
     }
 }

@@ -131,6 +131,9 @@ import io.automated.ventures.everypods.utils.GymTimer
 import io.automated.ventures.everypods.utils.SleepTimer
 import io.automated.ventures.everypods.utils.SmartFeaturesPrefs
 import io.automated.ventures.everypods.utils.openEveryPodsIssues
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.VolunteerActivism
+import androidx.compose.material3.Icon
 import io.automated.ventures.everypods.utils.openEveryPodsSupportEmail
 
 // ─── Category metadata ────────────────────────────────────────────────────────
@@ -1132,6 +1135,52 @@ private fun HelpContent(
     val cardColor = if (dark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
 
     Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp))) {
+        // Support EveryPods — first card above Email / GitHub / issues
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clickable(remember { MutableInteractionSource() }, null) {
+                    navController.navigate("purchase_screen")
+                }
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Filled.VolunteerActivism,
+                contentDescription = null,
+                tint = if (dark) Color(0xFF64D2FF) else Color(0xFF0088FF),
+                modifier = Modifier.size(26.dp)
+            )
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    stringResource(R.string.support_everypods_title),
+                    style = TextStyle(
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        fontFamily = SfPro,
+                        color = if (dark) Color.White else Color.Black
+                    )
+                )
+                Text(
+                    stringResource(R.string.support_everypods_card_subtitle),
+                    style = TextStyle(
+                        fontSize = 13.sp,
+                        fontFamily = SfPro,
+                        color = if (dark) Color.White.copy(0.55f) else Color.Black.copy(0.55f)
+                    )
+                )
+            }
+            Text(
+                "›",
+                style = TextStyle(
+                    fontSize = 20.sp,
+                    fontFamily = SfPro,
+                    color = if (dark) Color.White.copy(0.35f) else Color.Black.copy(0.35f)
+                )
+            )
+        }
+        MenuDivider()
         Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
             AboutCard(navController = navController, modelName = state.modelName,
                 actualModel = state.actualModel, serialNumbers = state.serialNumbers,
