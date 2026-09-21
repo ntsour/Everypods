@@ -203,22 +203,6 @@ fun AppSettingsScreen(
 
                 // Conversation Awareness moved to AirPods Settings menu in AirPodsSettingsScreen
 
-//            if (!BuildConfig.PLAY_BUILD) {
-//                Spacer(modifier = Modifier.height(16.dp))
-//
-//                NavigationButton(
-//                    to = "",
-//                    title = stringResource(R.string.camera_control),
-//                    name = stringResource(R.string.set_custom_camera_package),
-//                    navController = navController,
-//                    onClick = {
-//                        if (state.isPremium) viewModel.setShowCameraDialog(true)
-//                    },
-//                    independent = true,
-//                    description = stringResource(R.string.camera_control_app_description)
-//                )
-//            }
-
                 Spacer(modifier = Modifier.height(16.dp))
                 if (context.checkSelfPermission("android.permission.BLUETOOTH_PRIVILEGED") == PackageManager.PERMISSION_GRANTED) {
                     StyledToggle(
@@ -368,73 +352,6 @@ fun AppSettingsScreen(
 
             Spacer(modifier = Modifier.height(bottomPadding))
 
-            if (state.showCameraDialog) {
-                AlertDialog(onDismissRequest = { viewModel.setShowCameraDialog(false) }, title = {
-                    Text(
-                        stringResource(R.string.set_custom_camera_package),
-                        fontFamily = FontFamily(Font(R.font.sf_pro)),
-                        fontWeight = FontWeight.Medium
-                    )
-                }, text = {
-                    Column {
-                        Text(
-                            stringResource(R.string.enter_custom_camera_package),
-                            fontFamily = FontFamily(Font(R.font.sf_pro)),
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-
-                        OutlinedTextField(
-                            value = state.cameraPackageValue,
-                            onValueChange = {
-                                viewModel.setCameraPackageValue(it)
-                                viewModel.setCameraPackageError(null)
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            isError = state.cameraPackageError != null,
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Ascii,
-                                capitalization = KeyboardCapitalization.None
-                            ),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = if (isDarkTheme) Color(0xFF007AFF) else Color(
-                                    0xFF3C6DF5
-                                ),
-                                unfocusedBorderColor = if (isDarkTheme) Color.Gray else Color.LightGray
-                            ),
-                            supportingText = {
-                                if (state.cameraPackageError != null) {
-                                    Text(
-                                        state.cameraPackageError ?: "",
-                                        color = MaterialTheme.colorScheme.error
-                                    )
-                                }
-                            },
-                            label = { Text(stringResource(R.string.custom_camera_package)) })
-                    }
-                }, confirmButton = {
-                    val successText = stringResource(R.string.custom_camera_package_set_success)
-                    TextButton(
-                        onClick = {
-                            viewModel.saveCameraPackage()
-                            Toast.makeText(context, successText, Toast.LENGTH_SHORT).show()
-                        }) {
-                        Text(
-                            "Save",
-                            fontFamily = FontFamily(Font(R.font.sf_pro)),
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }, dismissButton = {
-                    TextButton(
-                        onClick = { viewModel.setShowCameraDialog(false) }) {
-                        Text(
-                            "Cancel",
-                            fontFamily = FontFamily(Font(R.font.sf_pro)),
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                })
-            }
         }
         StyledBottomSheet(
             visible = contactBottomSheet.value,

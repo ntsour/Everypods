@@ -179,7 +179,6 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     var localMac = ""
     lateinit var aacpManager: AACPManager
     var airpodsInstance: AirPodsInstance? = null
-    var cameraActive = false
     private var disconnectedBecauseReversed = false
 
     data class ServiceConfig(
@@ -220,8 +219,6 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
         var leftLongPressAction: StemAction = StemAction.defaultActions[StemPressType.LONG_PRESS]!!,
         var rightLongPressAction: StemAction = StemAction.defaultActions[StemPressType.LONG_PRESS]!!,
-
-        var cameraAction: StemPressType? = null,
 
         // Gym mode
         var gymModeEnabled: Boolean = false,
@@ -1246,20 +1243,6 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         startBleScanWatchdog()
     }
 
-    @Suppress("unused")
-    fun cameraOpened() {
-        if (cameraActive) return  // already active, don't resend config
-        Log.d(TAG, "Camera opened — enabling stem press interception")
-        cameraActive = true
-        setupStemActions()
-    }
-
-    @Suppress("unused")
-    fun cameraClosed() {
-        cameraActive = false
-        setupStemActions()
-    }
-
     fun isCustomAction(
         action: StemAction?, default: StemAction?
     ): Boolean {
@@ -1291,7 +1274,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             config.leftLongPressAction, longPressDefault
         ) || isCustomAction(
             config.rightLongPressAction, longPressDefault
-        ) || (cameraActive && config.cameraAction == StemPressType.LONG_PRESS)
+        )
         Log.d(
             TAG,
             "Setting up stem actions: inCall=$inCall, gymMode=$gymMode, Single=$singlePressCustomized, Double=$doublePressCustomized, Triple=$triplePressCustomized, Long=$longPressCustomized"
@@ -1591,7 +1574,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 Log.d(TAG, "onStemPressReceived: raw=${stemPress.joinToString(" ") { "%02X".format(it) }}")
 
                 val (stemPressType, bud) = aacpManager.parseStemPressResponse(stemPress)
-                Log.d(TAG, "onStemPressReceived: type=$stemPressType, bud=$bud, cameraActive=$cameraActive, cameraAction=${config.cameraAction}")
+                Log.d(TAG, "onStemPressReceived: type=$stemPressType, bud=$bud")
 
                 val inCall = isInAnyCall()
                 Log.d(TAG, "onStemPressReceived: isInAnyCall=$inCall")
@@ -1633,19 +1616,13 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     cancelPendingGymModeSinglePressIfSuperseded(bud, stemPressType)
                 }
 
-                if (cameraActive && config.cameraAction != null && stemPressType == config.cameraAction) {
-                    // Trigger camera shutter via the accessibility service gesture tap
-                    AppListenerService.instance?.triggerShutter()
-                        ?: Log.w(TAG, "Camera shutter: AppListenerService not live — enable Camera listener in Accessibility settings")
-                } else {
-                    val action = getActionFor(bud, stemPressType)
-                    Log.d("AirPodsParser", "$bud $stemPressType action: $action")
-                    action?.let {
-                        if (GymModeStemPressArbitration.shouldDeferSinglePress(config.gymModeEnabled, stemPressType)) {
-                            deferGymModeSinglePress(bud, it)
-                        } else {
-                            executeStemAction(it)
-                        }
+                val action = getActionFor(bud, stemPressType)
+                Log.d("AirPodsParser", "$bud $stemPressType action: $action")
+                action?.let {
+                    if (GymModeStemPressArbitration.shouldDeferSinglePress(config.gymModeEnabled, stemPressType)) {
+                        deferGymModeSinglePress(bud, it)
+                    } else {
+                        executeStemAction(it)
                     }
                 }
             }
@@ -2295,9 +2272,6 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             leftLongPressAction = stemActionFromPrefs("left_long_press_action", "CYCLE_NOISE_CONTROL_MODES"),
             rightLongPressAction = stemActionFromPrefs("right_long_press_action", "DIGITAL_ASSISTANT"),
 
-            cameraAction = sharedPreferences.getString("camera_action", null)
-                ?.let { StemPressType.valueOf(it) },
-
             // Gym mode
             gymModeEnabled = sharedPreferences.getBoolean("gym_mode_enabled", false),
             leftGymDoublePressAction = stemActionFromPrefs("gym_left_double_press_action", "GYM_TIMER_START_STOP"),
@@ -2567,9 +2541,6 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 config.rightLongPressAction = stemActionFromPrefs(key, "DIGITAL_ASSISTANT")
                 setupStemActions()
             }
-
-            "camera_action" -> config.cameraAction =
-                preferences.getString(key, null)?.let { StemPressType.valueOf(it) }
 
             "gym_mode_enabled" -> {
                 config.gymModeEnabled = preferences.getBoolean(key, false)

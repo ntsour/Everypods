@@ -156,7 +156,6 @@ import io.automated.ventures.everypods.presentation.components.StyledSlider
 import io.automated.ventures.everypods.presentation.components.StyledToggle
 import io.automated.ventures.everypods.presentation.viewmodel.AirPodsViewModel
 import io.automated.ventures.everypods.presentation.viewmodel.AppSettingsViewModel
-import io.automated.ventures.everypods.services.AppListenerService
 import io.automated.ventures.everypods.utils.SleepTimer
 import io.automated.ventures.everypods.utils.SmartFeaturesPrefs
 import io.automated.ventures.everypods.utils.openEveryPodsIssues
@@ -205,7 +204,6 @@ private fun buildSearchIndex(): List<SearchableItem> = listOf(
     SearchableItem("Find my Case",             "Smart Features", "smart", "proximity_finder", keywords = listOf("locate", "nearby", "radar")),
     SearchableItem("Head Gestures",            "Smart Features", "smart", "head_tracking", keywords = listOf("nod", "shake", "answer call")),
     SearchableItem("Adaptive Audio",           "Smart Features", "smart", "adaptive_audio", keywords = listOf("anc strength", "noise control")),
-    SearchableItem("Camera Control",           "Smart Features", "smart", "camera_control", keywords = listOf("shutter", "photo")),
     SearchableItem("Sleep Detection",          "Smart Features", "smart", "smart_automation", keywords = listOf("auto sleep", "bedtime")),
     SearchableItem("Optimized Charging",       "Smart Features", "smart", "smart_automation", keywords = listOf("battery health", "slow charge")),
     SearchableItem("Resume Media After Call",  "Smart Features", "smart", "smart_automation", keywords = listOf("auto resume", "playback")),

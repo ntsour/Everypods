@@ -19,16 +19,13 @@
 package io.automated.ventures.everypods.presentation.screens
 
 import android.Manifest
-import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.Activity
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
-import android.view.accessibility.AccessibilityManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -70,7 +67,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.core.app.ActivityCompat
 import io.automated.ventures.everypods.R
 import io.automated.ventures.everypods.presentation.components.StyledScaffold
-import io.automated.ventures.everypods.services.AppListenerService
 import io.automated.ventures.everypods.services.CallNotifListener
 
 private val PermSfPro get() = FontFamily(Font(R.font.sf_pro))
@@ -90,13 +86,6 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
     fun isGranted(perm: String) =
         context.checkSelfPermission(perm) == PackageManager.PERMISSION_GRANTED
 
-    fun isAppListenerEnabled(): Boolean {
-        val am = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
-        val sc = ComponentName(context, AppListenerService::class.java)
-        return am.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
-            .any { it.resolveInfo.serviceInfo.packageName == sc.packageName && it.resolveInfo.serviceInfo.name == sc.className }
-    }
-
     fun openAppSettings() {
         context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
             data = Uri.fromParts("package", context.packageName, null)
@@ -109,11 +98,8 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
     var locationGranted     by remember { mutableStateOf(false) }
     var notifGranted        by remember { mutableStateOf(false) }
     var phoneGranted        by remember { mutableStateOf(false) }
-    var contactsGranted     by remember { mutableStateOf(false) }
     var overlayGranted      by remember { mutableStateOf(false) }
     var notifAccessGranted  by remember { mutableStateOf(false) }
-    var cameraAccessGranted by remember { mutableStateOf(false) }
-    var callLogGranted      by remember { mutableStateOf(false) }
 
     fun refreshAll() {
         btGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
@@ -125,11 +111,8 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
             isGranted(Manifest.permission.ACCESS_FINE_LOCATION)
         notifGranted        = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) isGranted(Manifest.permission.POST_NOTIFICATIONS) else true
         phoneGranted        = isGranted(Manifest.permission.READ_PHONE_STATE) && isGranted(Manifest.permission.ANSWER_PHONE_CALLS)
-        contactsGranted     = isGranted(Manifest.permission.READ_CONTACTS)
         overlayGranted      = Settings.canDrawOverlays(context)
         notifAccessGranted  = CallNotifListener.isAccessGranted(context)
-        cameraAccessGranted = isAppListenerEnabled()
-        callLogGranted      = isGranted(Manifest.permission.READ_CALL_LOG)
     }
 
     LaunchedEffect(Unit) {
@@ -235,7 +218,7 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
                     granted = btGranted, dark = dark, accent = accent, green = green
                 ) {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
-                        grantRuntime(arrayOf(Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_ADVERTISE))
+                        grantRuntime(arrayOf(Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN))
                     else
                         grantRuntime(arrayOf(Manifest.permission.BLUETOOTH, Manifest.permission.BLUETOOTH_ADMIN))
                 }
@@ -262,18 +245,12 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
                     description = "Answer calls with head gestures and stem press",
                     granted = phoneGranted, dark = dark, accent = accent, green = green
                 ) { grantRuntime(arrayOf(Manifest.permission.READ_PHONE_STATE, Manifest.permission.ANSWER_PHONE_CALLS)) }
-                RowDivider()
-                PermissionRow(
-                    title = "Contacts",
-                    description = "Show caller names in notification announcements",
-                    granted = contactsGranted, dark = dark, accent = accent, green = green
-                ) { grantRuntime(arrayOf(Manifest.permission.READ_CONTACTS)) }
             }
 
             // ── Grant all outstanding permissions ────────────────────────
             val locationNeeded = Build.VERSION.SDK_INT < Build.VERSION_CODES.S && !locationGranted
             val notifNeeded = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !notifGranted
-            val anyCriticalMissing = !btGranted || locationNeeded || notifNeeded || !phoneGranted || !contactsGranted
+            val anyCriticalMissing = !btGranted || locationNeeded || notifNeeded || !phoneGranted
             if (anyCriticalMissing) {
                 Button(
                     onClick = {
@@ -282,7 +259,6 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                                     add(Manifest.permission.BLUETOOTH_CONNECT)
                                     add(Manifest.permission.BLUETOOTH_SCAN)
-                                    add(Manifest.permission.BLUETOOTH_ADVERTISE)
                                 } else {
                                     add(Manifest.permission.BLUETOOTH)
                                     add(Manifest.permission.BLUETOOTH_ADMIN)
@@ -294,7 +270,6 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
                                 add(Manifest.permission.READ_PHONE_STATE)
                                 add(Manifest.permission.ANSWER_PHONE_CALLS)
                             }
-                            if (!contactsGranted) add(Manifest.permission.READ_CONTACTS)
                         }
                         if (toRequest.isNotEmpty()) multiLauncher.launch(toRequest.toTypedArray())
                     },
@@ -345,29 +320,6 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
                     description = "Sync mute state with Teams/Viber; announce notifications aloud",
                     granted = notifAccessGranted, dark = dark, accent = accent, green = green
                 ) { CallNotifListener.openAccessSettings(context) }
-                RowDivider()
-                PermissionRow(
-                    title = "Accessibility — Camera Listener",
-                    description = "Detect camera app open to trigger shutter via stem press",
-                    granted = cameraAccessGranted, dark = dark, accent = accent, green = green
-                ) {
-                    val cn = "${context.packageName}/.services.AppListenerService"
-                    val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-                        putExtra(":settings:show_fragment_args",
-                            android.os.Bundle().apply { putString(":settings:fragment_args_key", cn) })
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                    runCatching { context.startActivity(intent) }.onFailure {
-                        context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-                            .apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
-                    }
-                }
-                RowDivider()
-                PermissionRow(
-                    title = "Call Log",
-                    description = "See call history for notification announcements",
-                    granted = callLogGranted, dark = dark, accent = accent, green = green
-                ) { grantRuntime(arrayOf(Manifest.permission.READ_CALL_LOG)) }
             }
 
             // Continue button for first-launch flow

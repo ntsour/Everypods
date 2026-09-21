@@ -143,7 +143,6 @@ import io.automated.ventures.everypods.presentation.screens.AdaptiveStrengthScre
 import io.automated.ventures.everypods.presentation.screens.AirPodsSettingsScreen
 import io.automated.ventures.everypods.presentation.screens.EqualizerScreen
 import io.automated.ventures.everypods.presentation.screens.AppSettingsScreen
-import io.automated.ventures.everypods.presentation.screens.CameraControlScreen
 import io.automated.ventures.everypods.presentation.screens.DebugScreen
 import io.automated.ventures.everypods.presentation.screens.HeadTrackingScreen
 import io.automated.ventures.everypods.presentation.screens.HearingProtectionScreen
@@ -507,9 +506,6 @@ fun Main(gymTimerNavigationRequest: Int = 0) {
                      composable("equalizer_screen") {
                          if (airPodsViewModel != null) EqualizerScreen(airPodsViewModel)
                      }
-                     composable("camera_control") {
-                        if (airPodsViewModel != null) CameraControlScreen(airPodsViewModel)
-                    }
                     composable("open_source_licenses") {
                         OpenSourceLicensesScreen(navController)
                     }

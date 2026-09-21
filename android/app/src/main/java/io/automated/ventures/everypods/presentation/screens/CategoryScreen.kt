@@ -20,15 +20,12 @@
 
 package io.automated.ventures.everypods.presentation.screens
 
-import android.accessibilityservice.AccessibilityServiceInfo
-import android.content.ComponentName
 import android.content.Context
 import android.content.Context.MODE_PRIVATE
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.provider.Settings
-import android.view.accessibility.AccessibilityManager
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -125,7 +122,6 @@ import io.automated.ventures.everypods.presentation.viewmodel.AirPodsUiState
 import io.automated.ventures.everypods.presentation.viewmodel.AirPodsViewModel
 import io.automated.ventures.everypods.presentation.viewmodel.AppSettingsUiState
 import io.automated.ventures.everypods.presentation.viewmodel.AppSettingsViewModel
-import io.automated.ventures.everypods.services.AppListenerService
 import io.automated.ventures.everypods.utils.GymModePrefs
 import io.automated.ventures.everypods.utils.GymTimer
 import io.automated.ventures.everypods.utils.SleepTimer
@@ -774,69 +770,6 @@ private fun SmartContent(
                     startIcon = "􀊥", endIcon = "􀊩", independent = true,
                     description = stringResource(R.string.adaptive_audio_description),
                     enabled = state.isPremium && state.aacpAvailable)
-            }
-        }
-
-        // Camera Control
-        if (capabilities.contains(Capability.STEM_CONFIG) && !BuildConfig.PLAY_BUILD) {
-            MenuDivider()
-            MenuSectionHeader("Camera Control", dark, requiresAacp = !state.aacpAvailable)
-            Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                val currentCameraAction by viewModel.cameraAction.collectAsState()
-                var accessibilityGranted by remember {
-                    mutableStateOf(
-                        (context.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager)
-                            .getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
-                            .any { val sc = ComponentName(context, AppListenerService::class.java)
-                                it.resolveInfo.serviceInfo.packageName == sc.packageName && it.resolveInfo.serviceInfo.name == sc.className }
-                    )
-                }
-                LaunchedEffect(Unit) {
-                    while (true) {
-                        delay(1000)
-                        accessibilityGranted = (context.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager)
-                            .getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
-                            .any { val sc = ComponentName(context, AppListenerService::class.java)
-                                it.resolveInfo.serviceInfo.packageName == sc.packageName && it.resolveInfo.serviceInfo.name == sc.className }
-                    }
-                }
-                if (!accessibilityGranted) {
-                    Row(Modifier.fillMaxWidth().background(if (dark) Color(0xFF2C2C2E) else Color(0xFFFFF3E0), RoundedCornerShape(12.dp))
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("Accessibility permission required", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, fontFamily = SfPro, color = Color(0xFFFF9500)))
-                            Spacer(Modifier.height(2.dp))
-                            Text("Camera Control needs an Accessibility Service. Tap Grant → find \"Camera listener\" → toggle it ON.",
-                                style = TextStyle(fontSize = 12.sp, fontFamily = SfPro, color = if (dark) Color.White.copy(0.65f) else Color.Black.copy(0.65f)))
-                        }
-                        StyledButton(onClick = {
-                            val cn = "${context.packageName}/.services.AppListenerService"
-                            val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-                                putExtra(":settings:show_fragment_args", android.os.Bundle().apply { putString(":settings:fragment_args_key", cn) })
-                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            }
-                            runCatching { context.startActivity(intent) }.onFailure {
-                                context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
-                            }
-                        }, backdrop = rememberLayerBackdrop(), modifier = Modifier.heightIn(min = 36.dp)) {
-                            Text("Grant", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro, color = if (dark) Color.White else Color.Black))
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
-                }
-                val camEnabled = accessibilityGranted && state.aacpAvailable
-                Column(Modifier.alpha(if (camEnabled) 1f else DisabledAlpha.toFloat())) {
-                    StyledSelectList(items = listOf(
-                        SelectItem("Off", selected = currentCameraAction == null,
-                            enabled = camEnabled || currentCameraAction == null,
-                            onClick = { viewModel.setCameraAction(null) }),
-                        SelectItem("Press once", selected = currentCameraAction == AACPManager.Companion.StemPressType.SINGLE_PRESS,
-                            enabled = camEnabled, onClick = { viewModel.setCameraAction(AACPManager.Companion.StemPressType.SINGLE_PRESS) }),
-                        SelectItem("Press and hold", selected = currentCameraAction == AACPManager.Companion.StemPressType.LONG_PRESS,
-                            enabled = camEnabled, onClick = { viewModel.setCameraAction(AACPManager.Companion.StemPressType.LONG_PRESS) }),
-                    ))
-                }
             }
         }
 

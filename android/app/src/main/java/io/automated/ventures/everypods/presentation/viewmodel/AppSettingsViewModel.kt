@@ -28,9 +28,6 @@ data class AppSettingsUiState(
     val headTrackingEnabled: Boolean = false,
     val useAlternateHeadTrackingPackets: Boolean = true,
     val conversationalAwarenessVolume: Float = 43f,
-    val showCameraDialog: Boolean = false,
-    val cameraPackageValue: String = "",
-    val cameraPackageError: String? = null,
     val isPremium: Boolean = true,
     val connectionSuccessful: Boolean = false,
     val showBottomSheetPopup: Boolean = false,
@@ -85,7 +82,6 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
                 headTrackingEnabled = sharedPreferences.getBoolean("head_tracking_enabled", false),
                 useAlternateHeadTrackingPackets = sharedPreferences.getBoolean("use_alternate_head_tracking_packets", true),
                 conversationalAwarenessVolume = sharedPreferences.getInt("conversational_awareness_volume", 43).toFloat(),
-                cameraPackageValue = sharedPreferences.getString("custom_camera_package", "") ?: "",
                 connectionSuccessful = sharedPreferences.getBoolean("connection_successful", false),
                 showBottomSheetPopup = sharedPreferences.getBoolean("show_bottom_sheet_popup", false),
                 showIslandPopup = sharedPreferences.getBoolean("show_island_popup", true)
@@ -157,27 +153,6 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
     fun setConversationalAwarenessVolume(volume: Float) {
         sharedPreferences.edit { putInt("conversational_awareness_volume", volume.roundToInt()) }
         _uiState.update { it.copy(conversationalAwarenessVolume = volume) }
-    }
-
-    fun setShowCameraDialog(show: Boolean) {
-        _uiState.update { it.copy(showCameraDialog = show) }
-    }
-
-    fun setCameraPackageValue(value: String) {
-        _uiState.update { it.copy(cameraPackageValue = value) }
-    }
-
-    fun setCameraPackageError(error: String?) {
-        _uiState.update { it.copy(cameraPackageError = error) }
-    }
-
-    fun saveCameraPackage() {
-        if (_uiState.value.cameraPackageValue.isBlank()) {
-            sharedPreferences.edit { remove("custom_camera_package") }
-        } else {
-            sharedPreferences.edit { putString("custom_camera_package", _uiState.value.cameraPackageValue) }
-        }
-        setShowCameraDialog(false)
     }
 
     fun setShowBottomSheetPopup(enabled: Boolean) {
