@@ -82,6 +82,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.delay
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -283,6 +284,31 @@ fun Main(gymTimerNavigationRequest: Int = 0) {
     LaunchedEffect(gymTimerNavigationRequest, needsPermissions) {
         if (gymTimerNavigationRequest > 0 && !needsPermissions) {
             navController.navigate("gym_timer") { launchSingleTop = true }
+        }
+    }
+
+    // W5 battery exemption: activity-owned, after bind clears "Starting…".
+    // Never launch from AirPodsService.onCreate — that NEW_TASK Settings dialog
+    // raced first bind and left home stuck until force-stop. Do not gate
+    // connection / Waiting UI on the exemption result; Settings tip in App
+    // Settings remains available if the user dismisses this prompt.
+    LaunchedEffect(airPodsViewModel, needsPermissions) {
+        if (airPodsViewModel == null || needsPermissions) return@LaunchedEffect
+        // Let home (Waiting / disconnected) paint before any Settings intent.
+        delay(1_500)
+        try {
+            val pm = context.getSystemService(android.os.PowerManager::class.java) ?: return@LaunchedEffect
+            if (pm.isIgnoringBatteryOptimizations(context.packageName)) return@LaunchedEffect
+            val promptedKey = "battery_exemption_auto_prompted"
+            if (prefs.getBoolean(promptedKey, false)) return@LaunchedEffect
+            prefs.edit().putBoolean(promptedKey, true).apply()
+            Log.i("MainActivity", "W5: requesting battery optimization exemption (post-bind, activity-owned)")
+            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                data = "package:${context.packageName}".toUri()
+            }
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            Log.w("MainActivity", "W5 battery exemption request failed: ${e.message}")
         }
     }
 

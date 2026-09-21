@@ -687,22 +687,15 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     override fun onCreate() {
         super.onCreate()
         Log.i(TAG, "lib exempt worked: ${isBluetoothSocketExempted()}")
-        // W5: request battery-optimization exemption if not already granted. Without it,
-        // the OS can freeze our background threads in Doze/standby and kill the RFCOMM
-        // keep-alive that prevents coordination link drops. Shows a one-time system dialog.
+        // W5: log battery-optimization state only. Do NOT startActivity here —
+        // ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS with NEW_TASK during onCreate
+        // races MainActivity's first bind and leaves home stuck on "Starting…" until
+        // force-stop. MainActivity prompts after bind + first frame (activity-owned).
         try {
             val pm = getSystemService(POWER_SERVICE) as android.os.PowerManager
             val isExempt = pm.isIgnoringBatteryOptimizations(packageName)
             Log.i(TAG, "W5 startup power state: battExempt=$isExempt doze=${pm.isDeviceIdleMode}")
-            if (!isExempt) {
-                Log.i(TAG, "W5: requesting battery optimization exemption (needed for RFCOMM keep-alive)")
-                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                    data = Uri.parse("package:$packageName")
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                startActivity(intent)
-            }
-        } catch (e: Exception) { Log.w(TAG, "W5 battery exemption request failed: ${e.message}") }
+        } catch (e: Exception) { Log.w(TAG, "W5 battery state check failed: ${e.message}") }
 
         sharedPreferencesLogs = getSharedPreferences("packet_logs", MODE_PRIVATE)
 
