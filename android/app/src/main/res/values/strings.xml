@@ -42,6 +42,10 @@
     <string name="add_peer_android_device">Add peer Android device</string>
     <string name="peer_online">Online</string>
     <string name="peer_offline">Offline</string>
+    <string name="peer_connection_warning_title">Handover connection lost</string>
+    <string name="peer_connection_warning_one">%1$s is offline. Automatic handover and case-open connection can be unreliable until it reconnects.</string>
+    <string name="peer_connection_warning_many">%1$d paired devices are offline. Automatic handover and case-open connection can be unreliable until they reconnect.</string>
+    <string name="peer_connection_warning_retry">Retry connection</string>
     <string name="remove_peer">Remove</string>
     <string name="remove_peer_confirm_title">Remove device</string>
     <string name="remove_peer_confirm_message">Remove %1$s from connected devices?</string>

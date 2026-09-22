@@ -654,9 +654,12 @@ class AirPodsViewModel(
         }
     }
 
-    /** Cancel the backoff delay for [mac] and retry its RFCOMM connect immediately. */
+    /** Request one immediate user-initiated RFCOMM retry for [mac]. */
+    @android.annotation.SuppressLint("MissingPermission")
     fun reconnectCrossDevicePeer(mac: String) {
-        CrossDeviceClient.retryNow(mac)
+        val adapter = appContext.getSystemService(android.bluetooth.BluetoothManager::class.java)
+            ?.adapter ?: return
+        CrossDeviceClient.requestManualReconnect(adapter, mac)
     }
 
     /** Legacy single-peer setter — kept for callers that haven't been updated yet. */
