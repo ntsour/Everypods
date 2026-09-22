@@ -25,6 +25,7 @@ import io.automated.ventures.everypods.utils.CrossDeviceClient
 import io.automated.ventures.everypods.utils.CrossDevicePackets
 import io.automated.ventures.everypods.utils.AudioLeasePrefs
 import io.automated.ventures.everypods.utils.LidAutoconnectDiagnostics
+import io.automated.ventures.everypods.utils.LidAutoconnectPolicy
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Notification
@@ -2907,6 +2908,12 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     private var pendingLidAutoconnectRunnable: Runnable? = null
     /** Single pending a2dp_flux follow-up; never more than one at a time. */
     private var pendingFluxRecheckRunnable: Runnable? = null
+    /** Delayed A2DP retries for one passive lid-open attempt. */
+    private val pendingLidAutoconnectRetries = mutableSetOf<Runnable>()
+    /** A2DP connect timestamp attributable to the current passive lid attempt. */
+    private var lidAutoconnectA2dpConnectedAtMs: Long = 0L
+    /** Passive lid attempts are quiet briefly after an ownership contention. */
+    private var lidAutoconnectContentionUntilMs: Long = 0L
     private val lidAutoconnectHandler = Handler(Looper.getMainLooper())
     /** One soft UX notify per lid-open when we skip because another device holds audio. */
     private var lidOtherOwnerNotifiedForOpen: Boolean = false
@@ -3976,6 +3983,12 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                             lastA2dpStateChangeMs = System.currentTimeMillis()
                         }
                         if (connectionState == 1) { // BluetoothProfile.STATE_CONNECTED
+                            if (action == "android.bluetooth.a2dp.profile.action.CONNECTION_STATE_CHANGED" &&
+                                lastLidAutoconnectAttemptMs > 0L &&
+                                System.currentTimeMillis() - lastLidAutoconnectAttemptMs < 6_000L
+                            ) {
+                                ServiceManager.getService()?.recordLidA2dpConnected(System.currentTimeMillis())
+                            }
                             Log.d(TAG, "Profile connected for AirPods (${bluetoothDevice.address}), firing AIRPODS_CONNECTION_DETECTED")
                             val detectedIntent = Intent(AirPodsNotifications.AIRPODS_CONNECTION_DETECTED)
                             detectedIntent.putExtra("name", bluetoothDevice.name)
@@ -4020,6 +4033,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                             }
                         } else if (connectionState == 0) { // BluetoothProfile.STATE_DISCONNECTED
                             Log.d(TAG, "Profile disconnected for AirPods (${bluetoothDevice.address})")
+                            if (action == "android.bluetooth.a2dp.profile.action.CONNECTION_STATE_CHANGED") {
+                                ServiceManager.getService()?.abortContestedLidAutoconnect(System.currentTimeMillis())
+                            }
                             a2dpConnectedToOurMac = false
                             context?.sendBroadcast(
                                 Intent(AirPodsNotifications.AIRPODS_DISCONNECTED).apply {
@@ -4913,6 +4929,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         // Option 1: peer announced ownership while we no longer hold → release lease.
         if (!holdsAirPods()) {
             AudioLeasePrefs.releaseLease(sharedPreferences, "peer_ownership_confirmed")
+            cancelPendingLidAutoconnect("peer_ownership_confirmed")
         }
         if (!expectingPeerTakeover) return
         peerDropCooldownUntilMs = System.currentTimeMillis() + PEER_DROP_COOLDOWN_MS
@@ -5581,6 +5598,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             )
         }
         cancelPendingFluxRecheck()
+        cancelPendingLidAutoconnectRetries(reason)
     }
 
     private fun cancelPendingFluxRecheck() {
@@ -5588,6 +5606,64 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             lidAutoconnectHandler.removeCallbacks(it)
             pendingFluxRecheckRunnable = null
         }
+    }
+
+    private fun cancelPendingLidAutoconnectRetries(reason: String) {
+        if (pendingLidAutoconnectRetries.isEmpty()) return
+        pendingLidAutoconnectRetries.forEach(lidAutoconnectHandler::removeCallbacks)
+        pendingLidAutoconnectRetries.clear()
+        LidAutoconnectDiagnostics.logEvent("skip", mapOf("reason" to "cancelled_retries_$reason"))
+    }
+
+    /**
+     * An A2DP route that appears and disappears immediately after a passive lid
+     * attempt means a remote owner rejected or reclaimed it. Do not turn that into
+     * the normal 1/2.5/4.5-second retry burst.
+     */
+    fun recordLidA2dpConnected(connectedAtMs: Long) {
+        lidAutoconnectA2dpConnectedAtMs = connectedAtMs
+    }
+
+    fun abortContestedLidAutoconnect(disconnectedAtMs: Long) {
+        if (!LidAutoconnectPolicy.isContestedConnection(
+                lidAttemptAtMs = lastLidAutoconnectAttemptMs,
+                a2dpConnectedAtMs = lidAutoconnectA2dpConnectedAtMs,
+                a2dpDisconnectedAtMs = disconnectedAtMs,
+            )
+        ) return
+
+        lidAutoconnectContentionUntilMs =
+            disconnectedAtMs + LidAutoconnectPolicy.CONTENTION_COOLDOWN_MS
+        cancelPendingLidAutoconnect("a2dp_contention")
+        AudioLeasePrefs.releaseLease(sharedPreferences, "lid_a2dp_contention")
+        LidAutoconnectDiagnostics.logEvent(
+            "skip",
+            mapOf(
+                "reason" to "a2dp_contention",
+                "cooldownMs" to LidAutoconnectPolicy.CONTENTION_COOLDOWN_MS,
+            ),
+        )
+    }
+
+    /** Re-check ownership before every delayed passive retry. */
+    private fun mayContinueLidAutoconnect(): Boolean {
+        val now = System.currentTimeMillis()
+        if (now < lidAutoconnectContentionUntilMs) {
+            LidAutoconnectDiagnostics.logEvent(
+                "skip",
+                mapOf("reason" to "a2dp_contention_cooldown"),
+            )
+            return false
+        }
+        val shared = CrossDevice.isEnabled && CrossDevice.configuredPeers.isNotEmpty()
+        if (shared && CrossDevice.isAvailable) {
+            LidAutoconnectDiagnostics.logEvent(
+                "skip",
+                mapOf("reason" to "peer_holding_retry"),
+            )
+            return false
+        }
+        return true
     }
 
     /**
@@ -5774,6 +5850,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             LidAutoconnectDiagnostics.logEvent("skip", mapOf("reason" to "no_bonded_mac", "macPresent" to false))
             return
         }
+        if (!mayContinueLidAutoconnect()) return
         if (holdsAirPods()) {
             LidAutoconnectDiagnostics.logEvent("skip", mapOf("reason" to "already_holds"))
             return
@@ -5842,8 +5919,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
      */
     @SuppressLint("MissingPermission")
     private fun startLidConnectWithRetries(savedDevice: android.bluetooth.BluetoothDevice) {
+        if (!mayContinueLidAutoconnect()) return
         val now = System.currentTimeMillis()
         lastLidAutoconnectAttemptMs = now
+        lidAutoconnectA2dpConnectedAtMs = 0L
         // Connect only — do not resume whatever was paused during an earlier handover.
         MediaController.clearAutoPlayForPassiveConnect("lid_autoconnect")
         LidAutoconnectDiagnostics.logEvent("connect_audio_attempt", mapOf("attempt" to "1"))
@@ -5851,7 +5930,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         scheduleLidA2dpOutcomeWatch(savedDevice)
         val retryDevice = savedDevice
         for (retryDelay in TAKEOVER_RETRY_DELAYS_MS) {
-            Handler(Looper.getMainLooper()).postDelayed({
+            lateinit var retryRunnable: Runnable
+            retryRunnable = Runnable retry@{
+                pendingLidAutoconnectRetries.remove(retryRunnable)
+                if (!mayContinueLidAutoconnect()) return@retry
                 val a2dpState = try {
                     bluetoothA2dpProxy?.getConnectionState(retryDevice)
                 } catch (_: Exception) {
@@ -5866,18 +5948,20 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                             "state" to if (a2dpState == BluetoothProfile.STATE_CONNECTED) "connected" else "connecting",
                         ),
                     )
-                    return@postDelayed
+                    return@retry
                 }
                 if (holdsAirPods()) {
                     LidAutoconnectDiagnostics.logEvent("a2dp_outcome", mapOf("state" to "already"))
-                    return@postDelayed
+                    return@retry
                 }
                 LidAutoconnectDiagnostics.logEvent(
                     "connect_audio_attempt",
                     mapOf("attempt" to "retry", "retryAfterMs" to retryDelay),
                 )
                 connectAudio(this, retryDevice, lidDiagSource = "lid")
-            }, retryDelay)
+            }
+            pendingLidAutoconnectRetries.add(retryRunnable)
+            lidAutoconnectHandler.postDelayed(retryRunnable, retryDelay)
         }
     }
 

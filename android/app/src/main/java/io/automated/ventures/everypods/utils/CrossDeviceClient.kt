@@ -75,6 +75,9 @@ object CrossDeviceClient {
         @Volatile var isConnected: Boolean = false
         @Volatile var job: Job? = null
         @Volatile var backoffJob: Job? = null
+        @Volatile var heldHeadsetDelayJob: Job? = null
+        /** Set only by a deliberate user retry; consumed before the next connect. */
+        @Volatile var manualHeldHeadsetAttemptRequested: Boolean = false
     }
 
     private val links = ConcurrentHashMap<String, PeerLink>()
@@ -100,8 +103,13 @@ object CrossDeviceClient {
     }
 
     @SuppressLint("MissingPermission")
-    private fun startLink(adapter: BluetoothAdapter, peerMac: String) {
+    private fun startLink(
+        adapter: BluetoothAdapter,
+        peerMac: String,
+        manualHeldHeadsetAttemptRequested: Boolean = false,
+    ) {
         val link = PeerLink(peerMac)
+        link.manualHeldHeadsetAttemptRequested = manualHeldHeadsetAttemptRequested
         links[peerMac] = link
         link.job = CoroutineScope(Dispatchers.IO).launch {
             var backoff = INITIAL_BACKOFF_MS
@@ -112,10 +120,23 @@ object CrossDeviceClient {
             while (isActive) {
                 // Don't page the peer while we hold the AirPods — the failed
                 // RFCOMM connect attempts jam the radio and drop the headset.
-                if (ServiceManager.getService()?.isConnected() == true) {
+                // A deliberate user retry can bypass this guard once.
+                val localAirPodsConnected = ServiceManager.getService()?.isConnected() == true
+                if (!CrossDeviceReconnectPolicy.mayAttempt(
+                        localAirPodsConnected = localAirPodsConnected,
+                        manualAttemptRequested = link.manualHeldHeadsetAttemptRequested,
+                    )
+                ) {
                     Log.d(TAG, "[$peerMac] AirPods connected here — deferring connect to protect the headset link")
-                    delay(HEADSET_HELD_RECHECK_MS)
+                    val heldHeadsetDelay = launch { delay(HEADSET_HELD_RECHECK_MS) }
+                    link.heldHeadsetDelayJob = heldHeadsetDelay
+                    heldHeadsetDelay.join()
+                    link.heldHeadsetDelayJob = null
                     continue
+                }
+                if (link.manualHeldHeadsetAttemptRequested) {
+                    link.manualHeldHeadsetAttemptRequested = false
+                    Log.d(TAG, "[$peerMac] attempting user-requested RFCOMM reconnect")
                 }
                 // W5-C1: if this peer is already reachable via an inbound server socket
                 // (e.g. Windows connected to our server), opening a redundant outbound
@@ -276,6 +297,30 @@ object CrossDeviceClient {
         }
     }
 
+    /**
+     * Request one immediate connection attempt for a user-visible Retry action.
+     * Unlike passive recovery, this may run while the local phone holds the
+     * AirPods, and is therefore never invoked automatically.
+     */
+    @SuppressLint("MissingPermission")
+    fun requestManualReconnect(adapter: BluetoothAdapter, mac: String) {
+        val link = links[mac]
+        if (link?.isConnected == true || CrossDevice.isConnectedTo(mac)) return
+        if (link == null) {
+            // This phone may be the server-only side of role election. A manual
+            // retry must still work from its warning banner, so create one
+            // user-requested client link. The remote's normal client will pause
+            // itself after accepting this inbound link, avoiding a lasting duel.
+            Log.d(TAG, "[$mac] manual reconnect requested from server-only side")
+            startLink(adapter, mac, manualHeldHeadsetAttemptRequested = true)
+            return
+        }
+        link.manualHeldHeadsetAttemptRequested = true
+        Log.d(TAG, "[$mac] manual reconnect requested")
+        link.backoffJob?.cancel()
+        link.heldHeadsetDelayJob?.cancel()
+    }
+
     /** Send to a single peer's link. No-op if that peer has no live socket. */
     fun send(mac: String, data: ByteArray) {
         if (data.isEmpty()) return
@@ -309,6 +354,7 @@ object CrossDeviceClient {
         val link = links.remove(mac) ?: return
         link.isConnected = false
         link.backoffJob?.cancel()
+        link.heldHeadsetDelayJob?.cancel()
         link.job?.cancel()
         link.socket?.runCatching { close() }
         link.socket = null

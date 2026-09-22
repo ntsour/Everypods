@@ -70,6 +70,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -594,6 +595,52 @@ fun AirPodsSettingsScreen(
 //  CONNECTED MODE
 // ═══════════════════════════════════════════════════════════════════════════════
 
+@Composable
+private fun PeerConnectionWarning(
+    state: io.automated.ventures.everypods.presentation.viewmodel.AirPodsUiState,
+    dark: Boolean,
+    onRetry: () -> Unit,
+) {
+    val offlinePeers = state.crossDevicePeers.filter { !it.connected }
+    if (offlinePeers.isEmpty()) return
+
+    val warningBackground = if (dark) Color(0xFF4A3514) else Color(0xFFFFF1CD)
+    val warningTitle = if (dark) Color(0xFFFFC85A) else Color(0xFF5B3B00)
+    val warningBody = if (dark) Color(0xFFFFF3D6) else Color(0xFF5B430B)
+    val message = if (offlinePeers.size == 1) {
+        stringResource(R.string.peer_connection_warning_one, offlinePeers.single().name)
+    } else {
+        stringResource(R.string.peer_connection_warning_many, offlinePeers.size)
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("peer_connection_warning")
+            .background(warningBackground, RoundedCornerShape(16.dp))
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(
+            stringResource(R.string.peer_connection_warning_title),
+            style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = warningTitle, fontFamily = SfPro),
+        )
+        Text(
+            message,
+            style = TextStyle(fontSize = 14.sp, color = warningBody, fontFamily = SfPro),
+        )
+        TextButton(
+            onClick = onRetry,
+            modifier = Modifier.testTag("peer_connection_warning_retry"),
+        ) {
+            Text(
+                stringResource(R.string.peer_connection_warning_retry),
+                style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = warningTitle, fontFamily = SfPro),
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 private fun ConnectedScreen(
@@ -662,6 +709,15 @@ private fun ConnectedScreen(
                 )
             )
         }
+
+        PeerConnectionWarning(
+            state = state,
+            dark = dark,
+            onRetry = {
+                state.crossDevicePeers.filter { !it.connected }
+                    .forEach { viewModel.reconnectCrossDevicePeer(it.mac) }
+            },
+        )
 
         // ── Battery ──────────────────────────────────────────────────────────
         BatteryView(
@@ -982,6 +1038,17 @@ private fun DisconnectedScreen(
                     }
                 }
             }
+        }
+
+        item(key = "peer_connection_warning") {
+            PeerConnectionWarning(
+                state = state,
+                dark = dark,
+                onRetry = {
+                    state.crossDevicePeers.filter { !it.connected }
+                        .forEach { viewModel.reconnectCrossDevicePeer(it.mac) }
+                },
+            )
         }
 
         // Battery when A2DP is up but we are still on the disconnected surface
