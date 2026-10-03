@@ -150,9 +150,8 @@ fun GymPressActionsScreen(viewModel: AirPodsViewModel) {
 
                 val controlsLongKey =
                     if (selectedBud == "left") "left_long_press_action" else "right_long_press_action"
-                val controlsLongDefault =
-                    if (selectedBud == "left") StemAction.CYCLE_NOISE_CONTROL_MODES
-                    else StemAction.DIGITAL_ASSISTANT
+                val controlsLongDefault = io.automated.ventures.everypods.data.StemPressDefaults
+                    .defaultFor(selectedBud, AACPManager.Companion.StemPressType.LONG_PRESS)
                 val controlsLongPress = runCatching {
                     StemAction.valueOf(
                         sharedPrefs.getString(controlsLongKey, controlsLongDefault.name)
