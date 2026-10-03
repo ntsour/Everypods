@@ -796,18 +796,6 @@ class AirPodsViewModel(
         }
     }
 
-    /** Reset all AirPods Controls stem-press actions (both buds) to [StemPressDefaults]. */
-    fun resetPressActionsToDefaults() {
-        val values = io.automated.ventures.everypods.data.StemPressDefaults.resetValues()
-        sharedPreferences.edit { values.forEach { (k, v) -> putString(k, v) } }
-        _uiState.update {
-            it.copy(
-                leftAction = io.automated.ventures.everypods.data.StemPressDefaults.LEFT_LONG,
-                rightAction = io.automated.ventures.everypods.data.StemPressDefaults.RIGHT_LONG,
-            )
-        }
-    }
-
     fun setGymPressAction(side: String, pressType: io.automated.ventures.everypods.bluetooth.AACPManager.Companion.StemPressType, action: StemAction) {
         val sideLower = side.lowercase()
         val pressShort = when (pressType) {

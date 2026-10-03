@@ -25,7 +25,7 @@ import io.automated.ventures.everypods.bluetooth.AACPManager.Companion.StemPress
  * (`{left,right}_{single,double,triple,long}_press_action`).
  *
  * Used by the service config / prefs fallbacks, first-run seeding, the
- * ViewModel + Controls UI, and "reset to defaults". Pure Kotlin (no Android)
+ * ViewModel, and the Controls / Gym Press Actions UI. Pure Kotlin (no Android)
  * so it can be unit-tested on the JVM.
  */
 object StemPressDefaults {
@@ -66,7 +66,7 @@ object StemPressDefaults {
     fun prefKey(side: String, type: StemPressType): String =
         "${normSide(side)}_${type.name.lowercase()}_action"
 
-    /** All 8 Controls keys → default action (seeding and reset-to-defaults). */
+    /** All 8 Controls keys → default action (first-run seeding). */
     val allDefaults: Map<String, StemAction> by lazy {
         buildMap {
             for (side in listOf(SIDE_LEFT, SIDE_RIGHT)) {
@@ -77,10 +77,4 @@ object StemPressDefaults {
 
     /** Default for a Controls pref key, or null when [key] is not one. */
     fun defaultForKey(key: String): StemAction? = allDefaults[key]
-
-    /**
-     * Prefs edits for "Reset to defaults": every Controls key set explicitly to
-     * its default (key → action name).
-     */
-    fun resetValues(): Map<String, String> = allDefaults.mapValues { it.value.name }
 }

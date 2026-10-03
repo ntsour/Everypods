@@ -1,6 +1,7 @@
 package io.automated.ventures.everypods.data
 
 import io.automated.ventures.everypods.bluetooth.AACPManager.Companion.StemPressType
+import io.automated.ventures.everypods.utils.GymModeStemPressArbitration
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -47,15 +48,36 @@ class StemPressDefaultsTest {
     }
 
     @Test
-    fun resetToDefaultsGivesListeningModeOnBothBuds() {
-        val reset = StemPressDefaults.resetValues()
-        assertEquals("CYCLE_NOISE_CONTROL_MODES", reset["left_long_press_action"])
-        assertEquals("CYCLE_NOISE_CONTROL_MODES", reset["right_long_press_action"])
-        assertEquals("PLAY_PAUSE", reset["left_single_press_action"])
-        assertEquals("NEXT_TRACK", reset["left_double_press_action"])
-        assertEquals("NEXT_TRACK", reset["right_double_press_action"])
-        assertEquals("PREVIOUS_TRACK", reset["right_triple_press_action"])
-        assertEquals(8, reset.size)
+    fun firstRunSeedingWritesListeningModeOnBothBuds() {
+        // AirPodsService.onCreate seeds missing keys from allDefaults.
+        val seed = StemPressDefaults.allDefaults
+        assertEquals(StemAction.CYCLE_NOISE_CONTROL_MODES, seed["left_long_press_action"])
+        assertEquals(StemAction.CYCLE_NOISE_CONTROL_MODES, seed["right_long_press_action"])
+        assertEquals(StemAction.PLAY_PAUSE, seed["left_single_press_action"])
+        assertEquals(StemAction.NEXT_TRACK, seed["left_double_press_action"])
+        assertEquals(StemAction.NEXT_TRACK, seed["right_double_press_action"])
+        assertEquals(StemAction.PREVIOUS_TRACK, seed["right_triple_press_action"])
+    }
+
+    /**
+     * Gym Press Actions "Reset to defaults" removes gym_{left,right}_long_press_action,
+     * so with Gym Mode on each bud falls back to its Controls long press. On default
+     * Controls that is Listening Mode on both buds.
+     */
+    @Test
+    fun gymResetFallsBackToControlsDefaultCycleOnBothBuds() {
+        for (side in listOf("left", "right")) {
+            val controls = StemAction.fromStringOrDefault(
+                null, StemPressDefaults.defaultFor(side, StemPressType.LONG_PRESS).name
+            )
+            for (gymOn in listOf(true, false)) {
+                assertEquals(
+                    "$side gymOn=$gymOn",
+                    StemAction.CYCLE_NOISE_CONTROL_MODES,
+                    GymModeStemPressArbitration.resolveLongPressAction(gymOn, controls, null)
+                )
+            }
+        }
     }
 
     @Test

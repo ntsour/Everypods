@@ -109,7 +109,6 @@ import io.automated.ventures.everypods.data.BatteryComponent
 import io.automated.ventures.everypods.data.BatteryStatus
 import io.automated.ventures.everypods.data.StemAction
 import io.automated.ventures.everypods.data.StemPressDefaults
-import io.automated.ventures.everypods.utils.StemPressDefaultMigration
 import io.automated.ventures.everypods.data.isHeadTrackingData
 import io.automated.ventures.everypods.presentation.overlays.IslandType
 import io.automated.ventures.everypods.presentation.overlays.IslandWindow
@@ -712,8 +711,6 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         _packetLogsFlow.value = inMemoryLogs.toSet()
 
         sharedPreferences = getSharedPreferences("settings", MODE_PRIVATE)
-        // Idempotent safety net (normally already done in EveryPodsApplication).
-        StemPressDefaultMigration.run(sharedPreferences)
         GymTimer.setPreparationCountdownEnabled(GymModePrefs.preparationCountdownEnabled(this))
         initializeConfig()
 
@@ -857,8 +854,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 if (!contains("name")) putString("name", "AirPods")
 
                 // Controls stem-press defaults: missing keys only, from the single
-                // source of truth. (StemPressDefaultMigration already ran in
-                // Application.onCreate, so legacy values for upgrades are in place.)
+                // source of truth (StemPressDefaults).
                 StemPressDefaults.allDefaults.forEach { (key, action) ->
                     if (!contains(key)) putString(key, action.name)
                 }
