@@ -100,6 +100,11 @@ object GymModePrefs {
         else      -> StemAction.PLAY_PAUSE
     }
 
+    /**
+     * Note: for "long" an unset key reads as GYM_TIMER_RESET here; the stem-press
+     * resolver instead treats an unset gym long-press as "Same as Controls". Use
+     * [getGymLongPressOverride] when the unset/explicit distinction matters.
+     */
     fun getGymAction(ctx: Context, side: String, pressType: String): StemAction {
         val key = when (side.lowercase() + "_" + pressType.lowercase()) {
             "left_double"  -> KEY_LEFT_DOUBLE
@@ -113,6 +118,16 @@ object GymModePrefs {
         return runCatching {
             StemAction.valueOf(prefs(ctx).getString(key, defaultGymAction(pressType).name)!!)
         }.getOrDefault(defaultGymAction(pressType))
+    }
+
+    /**
+     * Explicit Gym Press Actions long-press for [side], or null when the key is absent
+     * (the bud then keeps its normal Controls long-press while Gym Mode is on).
+     */
+    fun getGymLongPressOverride(ctx: Context, side: String): StemAction? {
+        val key = if (side.lowercase() == "left") KEY_LEFT_LONG else KEY_RIGHT_LONG
+        val raw = prefs(ctx).getString(key, null) ?: return null
+        return StemAction.fromString(raw) ?: StemAction.GYM_TIMER_RESET
     }
 
     fun setGymAction(ctx: Context, side: String, pressType: String, action: StemAction) {

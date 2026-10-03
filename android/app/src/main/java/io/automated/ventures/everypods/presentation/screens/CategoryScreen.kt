@@ -123,6 +123,7 @@ import io.automated.ventures.everypods.presentation.viewmodel.AirPodsViewModel
 import io.automated.ventures.everypods.presentation.viewmodel.AppSettingsUiState
 import io.automated.ventures.everypods.presentation.viewmodel.AppSettingsViewModel
 import io.automated.ventures.everypods.utils.GymModePrefs
+import io.automated.ventures.everypods.utils.GymModeStemPressArbitration
 import io.automated.ventures.everypods.utils.GymTimer
 import io.automated.ventures.everypods.utils.SleepTimer
 import io.automated.ventures.everypods.utils.SmartFeaturesPrefs
@@ -344,6 +345,14 @@ private fun ControlsContent(
                             enabled = selectedBud == "right" && state.aacpAvailable,
                             dark = dark, modifier = Modifier.weight(1f),
                             readAction = { k, d -> readAction(k, d) }
+                        )
+                    }
+                    if (pressType == AACPManager.Companion.StemPressType.LONG_PRESS) {
+                        GymLongPressOverrideHints(
+                            state = state,
+                            sharedPrefs = sharedPrefs,
+                            navController = navController,
+                            dark = dark,
                         )
                     }
                 }
@@ -1278,6 +1287,61 @@ private fun PressDropdown(
                         fontSize = 14.sp, color = Color(0xFF0A84FF))) }} else null,
                     onClick = { if (optionEnabled) { onSelect(action); expanded = false } }
                 )
+            }
+        }
+    }
+}
+
+/**
+ * Per-bud hint under Long Press when Gym Mode is on and that bud has an explicit
+ * Gym Press Actions long-press (which then replaces the Controls long-press).
+ */
+@Composable
+private fun GymLongPressOverrideHints(
+    state: AirPodsUiState,
+    sharedPrefs: SharedPreferences,
+    navController: NavController,
+    dark: Boolean,
+) {
+    val context = LocalContext.current
+    // Re-read gym prefs whenever they change (Gym Mode toggle / Gym Press Actions edits).
+    var prefsTick by remember { mutableStateOf(0) }
+    DisposableEffect(sharedPrefs) {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == null || key.startsWith("gym_")) prefsTick++
+        }
+        sharedPrefs.registerOnSharedPreferenceChangeListener(listener)
+        onDispose { sharedPrefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
+    val (leftOverride, rightOverride) = remember(prefsTick, state.leftAction, state.rightAction) {
+        val gymOn = GymModePrefs.isEnabled(context)
+        GymModeStemPressArbitration.gymLongPressOverridesControls(
+            gymOn, state.leftAction, GymModePrefs.getGymLongPressOverride(context, "left")
+        ) to GymModeStemPressArbitration.gymLongPressOverridesControls(
+            gymOn, state.rightAction, GymModePrefs.getGymLongPressOverride(context, "right")
+        )
+    }
+    if (!leftOverride && !rightOverride) return
+    val textColor = if (dark) Color.White else Color.Black
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        listOf(leftOverride, rightOverride).forEach { show ->
+            Column(Modifier.weight(1f)) {
+                if (show) {
+                    Text(
+                        stringResource(R.string.gym_long_press_overrides_controls_hint),
+                        style = TextStyle(fontSize = 10.sp, fontFamily = SfPro,
+                            color = textColor.copy(alpha = 0.55f)),
+                    )
+                    Text(
+                        stringResource(R.string.gym_long_press_open_gym_press_actions),
+                        style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.Medium,
+                            fontFamily = SfPro, color = Color(0xFF0A84FF)),
+                        modifier = Modifier.clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                        ) { navController.navigate("gym_press_actions") },
+                    )
+                }
             }
         }
     }

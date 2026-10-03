@@ -227,8 +227,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         var rightGymDoublePressAction: StemAction = StemAction.GYM_TIMER_START_STOP,
         var leftGymTriplePressAction: StemAction = StemAction.GYM_TIMER_LAP,
         var rightGymTriplePressAction: StemAction = StemAction.GYM_TIMER_LAP,
-        var leftGymLongPressAction: StemAction = StemAction.GYM_TIMER_RESET,
-        var rightGymLongPressAction: StemAction = StemAction.GYM_TIMER_RESET,
+        // null = gym long-press pref unset for this bud → falls back to Controls long-press.
+        var leftGymLongPressAction: StemAction? = null,
+        var rightGymLongPressAction: StemAction? = null,
 
         // AirPods device information
         var airpodsName: String = "",
@@ -1764,6 +1765,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     "AirPodsParser",
                     "LONG_PRESS bud=$bud gymOn=${config.gymModeEnabled} controls=$normal gymMap=$gym → $resolved"
                 )
+                Log.d(
+                    TAG,
+                    "<LogCollector:StemAction> resolveLongPress bud=$bud gymOn=${config.gymModeEnabled} normal=$normal gym=${gym?.name ?: "unset"} result=$resolved"
+                )
                 resolved
             }
         }
@@ -2218,6 +2223,14 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         return resolved
     }
 
+    /**
+     * Gym long-press for one bud, or null when the key is absent ("Same as Controls").
+     * Presence is checked explicitly so an unset key never turns into GYM_TIMER_RESET;
+     * an explicitly saved value (including GYM_TIMER_RESET) is returned as-is.
+     */
+    private fun gymLongPressFromPrefs(key: String): StemAction? =
+        if (sharedPreferences.contains(key)) stemActionFromPrefs(key, "GYM_TIMER_RESET") else null
+
     private fun initializeConfig() {
         config = ServiceConfig(
             deviceName = sharedPreferences.getString("name", "AirPods") ?: "AirPods",
@@ -2279,8 +2292,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             rightGymDoublePressAction = stemActionFromPrefs("gym_right_double_press_action", "GYM_TIMER_START_STOP"),
             leftGymTriplePressAction = stemActionFromPrefs("gym_left_triple_press_action", "GYM_TIMER_LAP"),
             rightGymTriplePressAction = stemActionFromPrefs("gym_right_triple_press_action", "GYM_TIMER_LAP"),
-            leftGymLongPressAction = stemActionFromPrefs("gym_left_long_press_action", "GYM_TIMER_RESET"),
-            rightGymLongPressAction = stemActionFromPrefs("gym_right_long_press_action", "GYM_TIMER_RESET"),
+            leftGymLongPressAction = gymLongPressFromPrefs("gym_left_long_press_action"),
+            rightGymLongPressAction = gymLongPressFromPrefs("gym_right_long_press_action"),
 
             // AirPods device information
             airpodsName = sharedPreferences.getString("airpods_name", "") ?: "",
@@ -2567,11 +2580,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 setupStemActions()
             }
             "gym_left_long_press_action" -> {
-                config.leftGymLongPressAction = stemActionFromPrefs(key, "GYM_TIMER_RESET")
+                config.leftGymLongPressAction = gymLongPressFromPrefs(key)
                 setupStemActions()
             }
             "gym_right_long_press_action" -> {
-                config.rightGymLongPressAction = stemActionFromPrefs(key, "GYM_TIMER_RESET")
+                config.rightGymLongPressAction = gymLongPressFromPrefs(key)
                 setupStemActions()
             }
 

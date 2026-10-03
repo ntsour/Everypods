@@ -294,4 +294,7 @@
     <string name="proximity_feedback_sound">􀊡  Feedback: Sound</string>
     <string name="proximity_feedback_vibration">􀝗  Feedback: Vibration</string>
     <string name="proximity_empty_tip">Open the case briefly, hold the phone out, and walk doorway to doorway. Watch the zone and whether you are getting warmer or colder. Relative only - not left/right and not exact meters.</string>
+    <string name="gym_long_press_same_as_controls">Same as Controls: %1$s</string>
+    <string name="gym_long_press_overrides_controls_hint">Gym Mode overrides long press for this bud</string>
+    <string name="gym_long_press_open_gym_press_actions">Edit in Gym Press Actions ›</string>
 </resources>

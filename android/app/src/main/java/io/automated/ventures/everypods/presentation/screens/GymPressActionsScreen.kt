@@ -48,6 +48,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -93,6 +94,15 @@ fun GymPressActionsScreen(viewModel: AirPodsViewModel) {
         StemAction.GYM_TIMER_START_STOP    to "Timer Start / Stop",
         StemAction.GYM_TIMER_LAP           to "Timer Lap",
         StemAction.GYM_TIMER_RESET         to "Timer Reset",
+    )
+    // Display names for the Controls long-press shown in "Same as Controls: …".
+    val controlsActionNames = mapOf(
+        StemAction.PLAY_PAUSE                to "Play / Pause",
+        StemAction.NEXT_TRACK                to "Next Track",
+        StemAction.PREVIOUS_TRACK            to "Prev. Track",
+        StemAction.DIGITAL_ASSISTANT         to "Voice Assistant",
+        StemAction.CYCLE_NOISE_CONTROL_MODES to "Listening Mode",
+        StemAction.TOGGLE_GYM_MODE           to "Gym Mode On / Off",
     )
 
     StyledScaffold(title = "Gym Press Actions") { topPadding, hazeState, bottomPadding ->
@@ -151,20 +161,26 @@ fun GymPressActionsScreen(viewModel: AirPodsViewModel) {
                 }.getOrDefault(controlsLongDefault)
                 val longPressLockedByControls =
                     GymModeStemPressArbitration.isGymLongPressLockedByControls(controlsLongPress)
+                // Unset gym long-press (key absent) behaves as the Controls long-press.
+                val sameAsControlsLabel = stringResource(
+                    R.string.gym_long_press_same_as_controls,
+                    controlsActionNames[controlsLongPress] ?: controlsLongPress.name,
+                )
 
                 pressTypes.forEach { (label, pressType, defaultAction) ->
                     val prefKey = "gym_${selectedBud}_${pressType.name.lowercase()}_action"
                     val isLong = pressType == AACPManager.Companion.StemPressType.LONG_PRESS
                     val locked = isLong && longPressLockedByControls
-                    val seedAction = if (locked) {
-                        StemAction.TOGGLE_GYM_MODE
-                    } else {
-                        readGymAction(prefKey, defaultAction)
+                    val seedAction: StemAction? = when {
+                        locked -> StemAction.TOGGLE_GYM_MODE
+                        // null = "Same as Controls"; never seeded into prefs implicitly.
+                        isLong && !sharedPrefs.contains(prefKey) -> null
+                        else -> readGymAction(prefKey, defaultAction)
                     }
-                    val options = if (locked) {
-                        listOf(StemAction.TOGGLE_GYM_MODE to "Gym Mode On / Off")
-                    } else {
-                        actionOptions
+                    val options: List<Pair<StemAction?, String>> = when {
+                        locked -> listOf(StemAction.TOGGLE_GYM_MODE to "Gym Mode On / Off")
+                        isLong -> listOf<Pair<StemAction?, String>>(null to sameAsControlsLabel) + actionOptions
+                        else -> actionOptions
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Column(Modifier.weight(1f)) {
@@ -179,8 +195,14 @@ fun GymPressActionsScreen(viewModel: AirPodsViewModel) {
                                     "Set in AirPods Controls for this bud"
                                 } else null,
                                 onSelect = { action ->
-                                    sharedPrefs.edit().putString(prefKey, action.name).apply()
-                                    viewModel.setGymPressAction(selectedBud, pressType, action)
+                                    if (action == null) {
+                                        // "Same as Controls": remove the key so the bud
+                                        // follows its Controls long-press again.
+                                        sharedPrefs.edit().remove(prefKey).apply()
+                                    } else {
+                                        sharedPrefs.edit().putString(prefKey, action.name).apply()
+                                        viewModel.setGymPressAction(selectedBud, pressType, action)
+                                    }
                                 }
                             )
                         }
@@ -200,8 +222,9 @@ fun GymPressActionsScreen(viewModel: AirPodsViewModel) {
                     .putString("gym_right_double_press_action", StemAction.GYM_TIMER_START_STOP.name)
                     .putString("gym_left_triple_press_action", StemAction.GYM_TIMER_LAP.name)
                     .putString("gym_right_triple_press_action", StemAction.GYM_TIMER_LAP.name)
-                    .putString("gym_left_long_press_action", StemAction.GYM_TIMER_RESET.name)
-                    .putString("gym_right_long_press_action", StemAction.GYM_TIMER_RESET.name)
+                    // Long press defaults to "Same as Controls" (key absent), not timer reset.
+                    .remove("gym_left_long_press_action")
+                    .remove("gym_right_long_press_action")
                     .apply()
                 prefsEpoch++
             }.padding(horizontal = 16.dp, vertical = 14.dp),
@@ -223,13 +246,13 @@ fun GymPressActionsScreen(viewModel: AirPodsViewModel) {
 @Composable
 private fun StatefulGymPressDropdown(
     seedKey: String,
-    seedAction: StemAction,
+    seedAction: StemAction?,
     label: String,
-    options: List<Pair<StemAction, String>>,
+    options: List<Pair<StemAction?, String>>,
     dark: Boolean,
     enabled: Boolean,
     lockedHint: String?,
-    onSelect: (StemAction) -> Unit,
+    onSelect: (StemAction?) -> Unit,
 ) {
     var currentAction by remember(seedKey) { mutableStateOf(seedAction) }
     GymPressDropdown(
@@ -249,12 +272,12 @@ private fun StatefulGymPressDropdown(
 @Composable
 private fun GymPressDropdown(
     label: String,
-    currentAction: StemAction,
-    options: List<Pair<StemAction, String>>,
+    currentAction: StemAction?,
+    options: List<Pair<StemAction?, String>>,
     dark: Boolean,
     enabled: Boolean = true,
     lockedHint: String? = null,
-    onSelect: (StemAction) -> Unit,
+    onSelect: (StemAction?) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
     val actionName = options.find { it.first == currentAction }?.second ?: ""
