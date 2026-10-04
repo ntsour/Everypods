@@ -20,6 +20,7 @@
 
 package io.automated.ventures.everypods.services
 
+import io.automated.ventures.everypods.startup.StartupGate
 import io.automated.ventures.everypods.utils.CrossDevice
 import io.automated.ventures.everypods.utils.CrossDeviceClient
 import io.automated.ventures.everypods.utils.CrossDevicePackets
@@ -686,6 +687,12 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     @SuppressLint("MissingPermission", "UnspecifiedRegisterReceiverFlag", "HardwareIds")
     override fun onCreate() {
         super.onCreate()
+        Log.i(
+            StartupGate.TAG,
+            "service onCreate pid=${android.os.Process.myPid()} btConnect=${
+                checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+            }"
+        )
         Log.i(TAG, "lib exempt worked: ${isBluetoothSocketExempted()}")
         // W5: log battery-optimization state only. Do NOT startActivity here —
         // ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS with NEW_TASK during onCreate
@@ -695,6 +702,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             val pm = getSystemService(POWER_SERVICE) as android.os.PowerManager
             val isExempt = pm.isIgnoringBatteryOptimizations(packageName)
             Log.i(TAG, "W5 startup power state: battExempt=$isExempt doze=${pm.isDeviceIdleMode}")
+            Log.i(StartupGate.TAG, "service power state battExempt=$isExempt (prompt is activity-owned)")
         } catch (e: Exception) { Log.w(TAG, "W5 battery state check failed: ${e.message}") }
 
         // Call startForeground BEFORE heavy init. startForegroundService requires
@@ -2662,6 +2670,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }
 
     override fun onBind(intent: Intent?): IBinder {
+        Log.i(StartupGate.TAG, "service onBind")
         return LocalBinder()
     }
 
@@ -2862,8 +2871,16 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
             )
             Log.i(TAG, "startForeground connectedDevice ok")
+            Log.i(StartupGate.TAG, "startForeground connectedDevice ok")
         } catch (e: Exception) {
             Log.e(TAG, "startForeground failed: $e")
+            Log.e(
+                StartupGate.TAG,
+                "startForeground FAILED btConnect=${
+                    checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+                }: $e",
+                e
+            )
             e.printStackTrace()
         }
     }
@@ -4096,6 +4113,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     @SuppressLint("InlinedApi", "MissingPermission", "UnspecifiedRegisterReceiverFlag")
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d(TAG, "Service started with intent action: ${intent?.action}")
+        Log.i(StartupGate.TAG, "service onStartCommand action=${intent?.action} flags=$flags startId=$startId")
 
         // Re-assert FGS on sticky restart / activity retry after a denied first start.
         try {
@@ -5369,6 +5387,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }
 
     override fun onDestroy() {
+        Log.i(StartupGate.TAG, "service onDestroy")
         clearPacketLogs()
         Log.w(TAG, "W5 Service onDestroy — process going away; RFCOMM links will drop until restart")
 
