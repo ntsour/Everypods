@@ -1250,9 +1250,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         ) || isCustomAction(
             config.rightLongPressAction, firmwareLongPress
         )
+        val longPressNote = if (longPressCustomized) "" else
+            " (Long=false → firmware handles long press, app gets no LONG_PRESS/resolveLongPress)"
         Log.i(
             "StemAction",
-            "Setting up stem actions (Long=false → firmware handles long press, app gets no LONG_PRESS/resolveLongPress): inCall=$inCall, gymMode=$gymMode, Single=$singlePressCustomized, Double=$doublePressCustomized, Triple=$triplePressCustomized, Long=$longPressCustomized"
+            "Setting up stem actions$longPressNote: inCall=$inCall, gymMode=$gymMode, Single=$singlePressCustomized, Double=$doublePressCustomized, Triple=$triplePressCustomized, Long=$longPressCustomized"
         )
         aacpManager.sendStemConfigPacket(
             singlePressCustomized,
