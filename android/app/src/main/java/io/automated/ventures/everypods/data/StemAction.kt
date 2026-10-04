@@ -18,8 +18,6 @@
 
 package io.automated.ventures.everypods.data
 
-import io.automated.ventures.everypods.bluetooth.AACPManager
-
 enum class StemAction {
     PLAY_PAUSE,
     PREVIOUS_TRACK,
@@ -44,12 +42,5 @@ enum class StemAction {
             fromString(action ?: defaultName)?.let { return it }
             return fromString(defaultName) ?: PLAY_PAUSE
         }
-
-        val defaultActions: Map<AACPManager.Companion.StemPressType, StemAction> = mapOf(
-            AACPManager.Companion.StemPressType.SINGLE_PRESS to PLAY_PAUSE,
-            AACPManager.Companion.StemPressType.DOUBLE_PRESS to NEXT_TRACK,
-            AACPManager.Companion.StemPressType.TRIPLE_PRESS to PREVIOUS_TRACK,
-            AACPManager.Companion.StemPressType.LONG_PRESS to CYCLE_NOISE_CONTROL_MODES,
-        )
     }
 }

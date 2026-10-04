@@ -97,8 +97,8 @@ data class AirPodsUiState(
     val crossDevicePeers: List<PeerUiInfo> = emptyList(),
     val lidOpenLastHolderAutoconnect: Boolean = io.automated.ventures.everypods.utils.AudioLeasePrefs.DEFAULT_ENABLED,
 
-    val leftAction: StemAction = StemAction.CYCLE_NOISE_CONTROL_MODES,
-    val rightAction: StemAction = StemAction.CYCLE_NOISE_CONTROL_MODES,
+    val leftAction: StemAction = io.automated.ventures.everypods.data.StemPressDefaults.LEFT_LONG,
+    val rightAction: StemAction = io.automated.ventures.everypods.data.StemPressDefaults.RIGHT_LONG,
 
     val isPremium: Boolean = true,
 
@@ -446,11 +446,11 @@ class AirPodsViewModel(
         val headGesturesMuteCall = sharedPreferences.getBoolean("head_gestures_mute_call", true)
         val leftAction = StemAction.fromStringOrDefault(
             sharedPreferences.getString("left_long_press_action", null),
-            "CYCLE_NOISE_CONTROL_MODES"
+            io.automated.ventures.everypods.data.StemPressDefaults.LEFT_LONG.name
         )
         val rightAction = StemAction.fromStringOrDefault(
             sharedPreferences.getString("right_long_press_action", null),
-            "CYCLE_NOISE_CONTROL_MODES"
+            io.automated.ventures.everypods.data.StemPressDefaults.RIGHT_LONG.name
         )
         val dynamicEndOfCharge = sharedPreferences.getBoolean("dynamic_end_of_charge", true)
 
@@ -786,16 +786,7 @@ class AirPodsViewModel(
     /** Set any press type action for a given bud. Writes to the same prefs the service reads. */
     fun setPressAction(side: String, pressType: io.automated.ventures.everypods.bluetooth.AACPManager.Companion.StemPressType, action: StemAction) {
         val sideLower = side.lowercase()
-        val prefKey = when (pressType) {
-            io.automated.ventures.everypods.bluetooth.AACPManager.Companion.StemPressType.SINGLE_PRESS ->
-                if (sideLower == "left") "left_single_press_action" else "right_single_press_action"
-            io.automated.ventures.everypods.bluetooth.AACPManager.Companion.StemPressType.DOUBLE_PRESS ->
-                if (sideLower == "left") "left_double_press_action" else "right_double_press_action"
-            io.automated.ventures.everypods.bluetooth.AACPManager.Companion.StemPressType.TRIPLE_PRESS ->
-                if (sideLower == "left") "left_triple_press_action" else "right_triple_press_action"
-            io.automated.ventures.everypods.bluetooth.AACPManager.Companion.StemPressType.LONG_PRESS ->
-                if (sideLower == "left") "left_long_press_action" else "right_long_press_action"
-        }
+        val prefKey = io.automated.ventures.everypods.data.StemPressDefaults.prefKey(sideLower, pressType)
         sharedPreferences.edit { putString(prefKey, action.name) }
         // Also update UiState for long press (only field we currently expose there)
         if (pressType == io.automated.ventures.everypods.bluetooth.AACPManager.Companion.StemPressType.LONG_PRESS) {

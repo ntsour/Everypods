@@ -109,6 +109,7 @@ import io.automated.ventures.everypods.data.Battery
 import io.automated.ventures.everypods.data.BatteryComponent
 import io.automated.ventures.everypods.data.BatteryStatus
 import io.automated.ventures.everypods.data.StemAction
+import io.automated.ventures.everypods.data.StemPressDefaults
 import io.automated.ventures.everypods.data.isHeadTrackingData
 import io.automated.ventures.everypods.presentation.overlays.IslandType
 import io.automated.ventures.everypods.presentation.overlays.IslandWindow
@@ -210,17 +211,17 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         var takeoverWhenRingingCall: Boolean = true,
         var takeoverWhenMediaStart: Boolean = true,
 
-        var leftSinglePressAction: StemAction = StemAction.defaultActions[StemPressType.SINGLE_PRESS]!!,
-        var rightSinglePressAction: StemAction = StemAction.defaultActions[StemPressType.SINGLE_PRESS]!!,
+        var leftSinglePressAction: StemAction = StemPressDefaults.LEFT_SINGLE,
+        var rightSinglePressAction: StemAction = StemPressDefaults.RIGHT_SINGLE,
 
-        var leftDoublePressAction: StemAction = StemAction.defaultActions[StemPressType.DOUBLE_PRESS]!!,
-        var rightDoublePressAction: StemAction = StemAction.defaultActions[StemPressType.DOUBLE_PRESS]!!,
+        var leftDoublePressAction: StemAction = StemPressDefaults.LEFT_DOUBLE,
+        var rightDoublePressAction: StemAction = StemPressDefaults.RIGHT_DOUBLE,
 
-        var leftTriplePressAction: StemAction = StemAction.defaultActions[StemPressType.TRIPLE_PRESS]!!,
-        var rightTriplePressAction: StemAction = StemAction.defaultActions[StemPressType.TRIPLE_PRESS]!!,
+        var leftTriplePressAction: StemAction = StemPressDefaults.LEFT_TRIPLE,
+        var rightTriplePressAction: StemAction = StemPressDefaults.RIGHT_TRIPLE,
 
-        var leftLongPressAction: StemAction = StemAction.defaultActions[StemPressType.LONG_PRESS]!!,
-        var rightLongPressAction: StemAction = StemAction.defaultActions[StemPressType.LONG_PRESS]!!,
+        var leftLongPressAction: StemAction = StemPressDefaults.LEFT_LONG,
+        var rightLongPressAction: StemAction = StemPressDefaults.RIGHT_LONG,
 
         // Gym mode
         var gymModeEnabled: Boolean = false,
@@ -860,38 +861,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 if (!contains("qs_click_behavior")) putString("qs_click_behavior", "cycle")
                 if (!contains("name")) putString("name", "AirPods")
 
-                if (!contains("left_single_press_action")) putString(
-                    "left_single_press_action",
-                    StemAction.defaultActions[StemPressType.SINGLE_PRESS]!!.name
-                )
-                if (!contains("right_single_press_action")) putString(
-                    "right_single_press_action",
-                    StemAction.defaultActions[StemPressType.SINGLE_PRESS]!!.name
-                )
-                if (!contains("left_double_press_action")) putString(
-                    "left_double_press_action",
-                    StemAction.defaultActions[StemPressType.DOUBLE_PRESS]!!.name
-                )
-                if (!contains("right_double_press_action")) putString(
-                    "right_double_press_action",
-                    StemAction.defaultActions[StemPressType.DOUBLE_PRESS]!!.name
-                )
-                if (!contains("left_triple_press_action")) putString(
-                    "left_triple_press_action",
-                    StemAction.defaultActions[StemPressType.TRIPLE_PRESS]!!.name
-                )
-                if (!contains("right_triple_press_action")) putString(
-                    "right_triple_press_action",
-                    StemAction.defaultActions[StemPressType.TRIPLE_PRESS]!!.name
-                )
-                if (!contains("left_long_press_action")) putString(
-                    "left_long_press_action",
-                    StemAction.defaultActions[StemPressType.LONG_PRESS]!!.name
-                )
-                if (!contains("right_long_press_action")) putString(
-                    "right_long_press_action",
-                    StemAction.defaultActions[StemPressType.LONG_PRESS]!!.name
-                )
+                // Controls stem-press defaults: missing keys only, from the single
+                // source of truth (StemPressDefaults).
+                StemPressDefaults.allDefaults.forEach { (key, action) ->
+                    if (!contains(key)) putString(key, action.name)
+                }
 
             }
         }
@@ -1260,10 +1234,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }
 
     fun setupStemActions() {
-        val singlePressDefault = StemAction.defaultActions[StemPressType.SINGLE_PRESS]
-        val doublePressDefault = StemAction.defaultActions[StemPressType.DOUBLE_PRESS]
-        val triplePressDefault = StemAction.defaultActions[StemPressType.TRIPLE_PRESS]
-        val longPressDefault = StemAction.defaultActions[StemPressType.LONG_PRESS]
+        // Long press is left to the firmware (not reported to the app) only when
+        // both buds use the firmware-native action (listening-mode cycle).
+        val firmwareLongPress = StemPressDefaults.FIRMWARE_HANDLED_LONG_PRESS
 
         // During an active call, force both single and double press to be reported
         // so we can intercept them: the mute press for setMicrophoneMute() and the
@@ -1281,13 +1254,15 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         val doublePressCustomized = true
         val triplePressCustomized = true
         val longPressCustomized = gymMode || isCustomAction(
-            config.leftLongPressAction, longPressDefault
+            config.leftLongPressAction, firmwareLongPress
         ) || isCustomAction(
-            config.rightLongPressAction, longPressDefault
+            config.rightLongPressAction, firmwareLongPress
         )
-        Log.d(
-            TAG,
-            "Setting up stem actions: inCall=$inCall, gymMode=$gymMode, Single=$singlePressCustomized, Double=$doublePressCustomized, Triple=$triplePressCustomized, Long=$longPressCustomized"
+        val longPressNote = if (longPressCustomized) "" else
+            " (Long=false → firmware handles long press, app gets no LONG_PRESS/resolveLongPress)"
+        Log.i(
+            "StemAction",
+            "Setting up stem actions$longPressNote: inCall=$inCall, gymMode=$gymMode, Single=$singlePressCustomized, Double=$doublePressCustomized, Triple=$triplePressCustomized, Long=$longPressCustomized"
         )
         aacpManager.sendStemConfigPacket(
             singlePressCustomized,
@@ -1773,8 +1748,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     "AirPodsParser",
                     "LONG_PRESS bud=$bud gymOn=${config.gymModeEnabled} controls=$normal gymMap=$gym → $resolved"
                 )
-                Log.d(
-                    TAG,
+                Log.i(
+                    "StemAction",
                     "<LogCollector:StemAction> resolveLongPress bud=$bud gymOn=${config.gymModeEnabled} normal=$normal gym=${gym?.name ?: "unset"} result=$resolved"
                 )
                 resolved
@@ -2282,17 +2257,17 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             ),
 
             // Stem actions
-            leftSinglePressAction = stemActionFromPrefs("left_single_press_action", "PLAY_PAUSE"),
-            rightSinglePressAction = stemActionFromPrefs("right_single_press_action", "PLAY_PAUSE"),
+            leftSinglePressAction = stemActionFromPrefs("left_single_press_action", StemPressDefaults.LEFT_SINGLE.name),
+            rightSinglePressAction = stemActionFromPrefs("right_single_press_action", StemPressDefaults.RIGHT_SINGLE.name),
 
-            leftDoublePressAction = stemActionFromPrefs("left_double_press_action", "PREVIOUS_TRACK"),
-            rightDoublePressAction = stemActionFromPrefs("right_double_press_action", "NEXT_TRACK"),
+            leftDoublePressAction = stemActionFromPrefs("left_double_press_action", StemPressDefaults.LEFT_DOUBLE.name),
+            rightDoublePressAction = stemActionFromPrefs("right_double_press_action", StemPressDefaults.RIGHT_DOUBLE.name),
 
-            leftTriplePressAction = stemActionFromPrefs("left_triple_press_action", "PREVIOUS_TRACK"),
-            rightTriplePressAction = stemActionFromPrefs("right_triple_press_action", "PREVIOUS_TRACK"),
+            leftTriplePressAction = stemActionFromPrefs("left_triple_press_action", StemPressDefaults.LEFT_TRIPLE.name),
+            rightTriplePressAction = stemActionFromPrefs("right_triple_press_action", StemPressDefaults.RIGHT_TRIPLE.name),
 
-            leftLongPressAction = stemActionFromPrefs("left_long_press_action", "CYCLE_NOISE_CONTROL_MODES"),
-            rightLongPressAction = stemActionFromPrefs("right_long_press_action", "DIGITAL_ASSISTANT"),
+            leftLongPressAction = stemActionFromPrefs("left_long_press_action", StemPressDefaults.LEFT_LONG.name),
+            rightLongPressAction = stemActionFromPrefs("right_long_press_action", StemPressDefaults.RIGHT_LONG.name),
 
             // Gym mode
             gymModeEnabled = sharedPreferences.getBoolean("gym_mode_enabled", false),
@@ -2525,42 +2500,42 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 preferences.getBoolean(key, true)
 
             "left_single_press_action" -> {
-                config.leftSinglePressAction = stemActionFromPrefs(key, "PLAY_PAUSE")
+                config.leftSinglePressAction = stemActionFromPrefs(key, StemPressDefaults.LEFT_SINGLE.name)
                 setupStemActions()
             }
 
             "right_single_press_action" -> {
-                config.rightSinglePressAction = stemActionFromPrefs(key, "PLAY_PAUSE")
+                config.rightSinglePressAction = stemActionFromPrefs(key, StemPressDefaults.RIGHT_SINGLE.name)
                 setupStemActions()
             }
 
             "left_double_press_action" -> {
-                config.leftDoublePressAction = stemActionFromPrefs(key, "PREVIOUS_TRACK")
+                config.leftDoublePressAction = stemActionFromPrefs(key, StemPressDefaults.LEFT_DOUBLE.name)
                 setupStemActions()
             }
 
             "right_double_press_action" -> {
-                config.rightDoublePressAction = stemActionFromPrefs(key, "NEXT_TRACK")
+                config.rightDoublePressAction = stemActionFromPrefs(key, StemPressDefaults.RIGHT_DOUBLE.name)
                 setupStemActions()
             }
 
             "left_triple_press_action" -> {
-                config.leftTriplePressAction = stemActionFromPrefs(key, "PREVIOUS_TRACK")
+                config.leftTriplePressAction = stemActionFromPrefs(key, StemPressDefaults.LEFT_TRIPLE.name)
                 setupStemActions()
             }
 
             "right_triple_press_action" -> {
-                config.rightTriplePressAction = stemActionFromPrefs(key, "PREVIOUS_TRACK")
+                config.rightTriplePressAction = stemActionFromPrefs(key, StemPressDefaults.RIGHT_TRIPLE.name)
                 setupStemActions()
             }
 
             "left_long_press_action" -> {
-                config.leftLongPressAction = stemActionFromPrefs(key, "CYCLE_NOISE_CONTROL_MODES")
+                config.leftLongPressAction = stemActionFromPrefs(key, StemPressDefaults.LEFT_LONG.name)
                 setupStemActions()
             }
 
             "right_long_press_action" -> {
-                config.rightLongPressAction = stemActionFromPrefs(key, "DIGITAL_ASSISTANT")
+                config.rightLongPressAction = stemActionFromPrefs(key, StemPressDefaults.RIGHT_LONG.name)
                 setupStemActions()
             }
 

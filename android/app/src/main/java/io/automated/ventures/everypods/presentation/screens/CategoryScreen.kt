@@ -281,10 +281,10 @@ private fun ControlsContent(
         runCatching { StemAction.valueOf(sharedPrefs.getString(key, default.name) ?: default.name) }.getOrDefault(default)
 
     val pressTypes = listOf(
-        Triple("Single Press", AACPManager.Companion.StemPressType.SINGLE_PRESS,  StemAction.PLAY_PAUSE),
-        Triple("Double Press", AACPManager.Companion.StemPressType.DOUBLE_PRESS,  StemAction.NEXT_TRACK),
-        Triple("Triple Press", AACPManager.Companion.StemPressType.TRIPLE_PRESS,  StemAction.PREVIOUS_TRACK),
-        Triple("Long Press",   AACPManager.Companion.StemPressType.LONG_PRESS,    StemAction.CYCLE_NOISE_CONTROL_MODES),
+        Pair("Single Press", AACPManager.Companion.StemPressType.SINGLE_PRESS),
+        Pair("Double Press", AACPManager.Companion.StemPressType.DOUBLE_PRESS),
+        Pair("Triple Press", AACPManager.Companion.StemPressType.TRIPLE_PRESS),
+        Pair("Long Press", AACPManager.Companion.StemPressType.LONG_PRESS),
     )
 
     val actionOptions = listOf(
@@ -326,12 +326,12 @@ private fun ControlsContent(
                     )
                 }
 
-                pressTypes.forEach { (label, pressType, defaultAction) ->
+                pressTypes.forEach { (label, pressType) ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         // Left cell
                         StatefulPressDropdown(
                             side = "left", label = label, pressType = pressType,
-                            defaultAction = defaultAction, state = state, viewModel = viewModel,
+                            state = state, viewModel = viewModel,
                             actionOptions = actionOptions,
                             enabled = selectedBud == "left" && state.aacpAvailable,
                             dark = dark, modifier = Modifier.weight(1f),
@@ -340,7 +340,7 @@ private fun ControlsContent(
                         // Right cell
                         StatefulPressDropdown(
                             side = "right", label = label, pressType = pressType,
-                            defaultAction = defaultAction, state = state, viewModel = viewModel,
+                            state = state, viewModel = viewModel,
                             actionOptions = actionOptions,
                             enabled = selectedBud == "right" && state.aacpAvailable,
                             dark = dark, modifier = Modifier.weight(1f),
@@ -1358,7 +1358,6 @@ internal fun StatefulPressDropdown(
     side: String,
     label: String,
     pressType: AACPManager.Companion.StemPressType,
-    defaultAction: StemAction,
     state: AirPodsUiState,
     viewModel: AirPodsViewModel,
     actionOptions: List<Pair<StemAction, String>>,
@@ -1367,7 +1366,8 @@ internal fun StatefulPressDropdown(
     modifier: Modifier,
     readAction: (String, StemAction) -> StemAction,
 ) {
-    val prefKey = "${side}_${pressType.name.lowercase()}_action"
+    val prefKey = io.automated.ventures.everypods.data.StemPressDefaults.prefKey(side, pressType)
+    val defaultAction = io.automated.ventures.everypods.data.StemPressDefaults.defaultFor(side, pressType)
     val seed = if (pressType == AACPManager.Companion.StemPressType.LONG_PRESS) {
         if (side == "left") state.leftAction else state.rightAction
     } else {
