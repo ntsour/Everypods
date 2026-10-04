@@ -181,6 +181,7 @@ import io.automated.ventures.everypods.presentation.viewmodel.AppSettingsViewMod
 import io.automated.ventures.everypods.presentation.viewmodel.PurchaseViewModel
 import io.automated.ventures.everypods.services.AirPodsService
 import io.automated.ventures.everypods.services.CallNotifListener
+import io.automated.ventures.everypods.startup.StartupGate
 import io.automated.ventures.everypods.utils.isAacpCapable
 import kotlin.io.encoding.ExperimentalEncodingApi
 
@@ -195,6 +196,12 @@ class MainActivity : ComponentActivity() {
     @ExperimentalHazeMaterialsApi
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Log.i(
+            StartupGate.TAG,
+            "activity onCreate restored=${savedInstanceState != null} pid=${android.os.Process.myPid()} " +
+                "version=${BuildConfig.VERSION_NAME}(${BuildConfig.VERSION_CODE}) play=${BuildConfig.PLAY_BUILD} " +
+                "debug=${BuildConfig.DEBUG}"
+        )
         enableEdgeToEdge()
         if (intent?.getBooleanExtra(EXTRA_OPEN_GYM_TIMER, false) == true) {
             gymTimerNavigationRequest++
@@ -215,7 +222,18 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        Log.i(StartupGate.TAG, "activity onResume")
+    }
+
+    override fun onPause() {
+        Log.i(StartupGate.TAG, "activity onPause")
+        super.onPause()
+    }
+
     override fun onDestroy() {
+        Log.i(StartupGate.TAG, "activity onDestroy finishing=$isFinishing")
         // Service bind/unbind is owned by Main()'s DisposableEffect so onStop no longer
         // drops the connection (that left the UI stuck on "Starting…" after any stop).
         sendBroadcast(Intent(AirPodsNotifications.DISCONNECT_RECEIVERS))
@@ -235,21 +253,34 @@ fun Main(gymTimerNavigationRequest: Int = 0) {
     val isConnected = remember { mutableStateOf(false) }
 
     val prefs = context.getSharedPreferences("settings", MODE_PRIVATE)
-    // The critical runtime permission for the foreground service to bind: without
-    // BLUETOOTH_CONNECT, startForegroundService is denied, the service never binds,
-    // airPodsViewModel stays null, and the "settings" route renders nothing (black
-    // screen). The persisted `permissions_completed` flag is NOT sufficient on its
-    // own — Android Auto Backup restores that flag on reinstall (and the OS can
-    // auto-revoke permissions for unused apps), while runtime grants are not restored.
-    // So gate onboarding on the ACTUAL permission state, not just the flag.
-    val criticalPermissionsGranted = remember {
+
+    fun hasCriticalBtPerms(): Boolean =
         context.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED &&
             context.checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED
+
+    // The critical runtime permission for the foreground service to bind: without
+    // BLUETOOTH_CONNECT the platform silently refuses start/bind of AirPodsService
+    // (android:permission=BLUETOOTH_CONNECT → app-op denial, no exception), the
+    // service never binds, airPodsViewModel stays null and home shows "Starting…".
+    // The persisted `permissions_completed` flag is NOT sufficient on its own (Auto
+    // Backup restore / auto-revoke), so gate onboarding on the ACTUAL grant state.
+    val initialBtPerms = remember { hasCriticalBtPerms() }
+    val initialFlag = remember { prefs.getBoolean("permissions_completed", false) }
+    // Start destination is fixed for this composition, but onboarding *state* must be
+    // able to flip when the user taps Continue — previously it was remember{}'d, which
+    // kept the battery prompt (and anything else gated on it) off for the whole first
+    // session; it only appeared after the activity was recreated.
+    val startNeedsPermissions = remember { StartupGate.needsOnboarding(initialFlag, initialBtPerms) }
+    var onboardingPending by remember { mutableStateOf(startNeedsPermissions) }
+    val needsPermissions = startNeedsPermissions
+    LaunchedEffect(Unit) {
+        Log.i(
+            StartupGate.TAG,
+            "compose Main: permissions_completed=$initialFlag btPerms=$initialBtPerms " +
+                "onboarding=${if (startNeedsPermissions) "required" else "done"} " +
+                "start=${if (startNeedsPermissions) "permissions" else "settings"}"
+        )
     }
-    val isFirstLaunch = remember { !prefs.getBoolean("permissions_completed", false) }
-    // Route to onboarding if either we've never completed it OR the critical
-    // permissions are missing right now (restored flag / revoked grant).
-    val needsPermissions = isFirstLaunch || !criticalPermissionsGranted
 
     val airPodsService = remember { mutableStateOf<AirPodsService?>(null) }
 
@@ -264,11 +295,11 @@ fun Main(gymTimerNavigationRequest: Int = 0) {
         }
     }
 
-    // Service bind state — cold install can start/bind before BT FGS is allowed
-    // (or before runtime grants), leaving airPodsViewModel null forever because the
-    // old DisposableEffect(Unit) never retried. Retry on resume, after perms, and
-    // on a timeout; never leave home on infinite "Starting…".
+    // Service bind state — cold install can start/bind before BT grants (silently
+    // refused, see above). Retry on resume, after perms, and on a timer that only
+    // spends attempts once perms exist; never leave home on infinite "Starting…".
     var lastBindError by remember { mutableStateOf<String?>(null) }
+    var btPermsNow by remember { mutableStateOf(initialBtPerms) }
     val bindRegistered = remember { AtomicBoolean(false) }
     val serviceConnectionImpl = remember {
         object : ServiceConnection {
@@ -279,6 +310,7 @@ fun Main(gymTimerNavigationRequest: Int = 0) {
                 if (airPodsService.value?.isConnected() == true) {
                     isConnected.value = true
                 }
+                Log.i(StartupGate.TAG, "bind connected name=$name airpodsConnected=${airPodsService.value?.isConnected()}")
                 Log.i(
                     "MainActivity",
                     "<LogCollector:LidLease> service_bound name=$name connected=${airPodsService.value?.isConnected()}"
@@ -286,41 +318,59 @@ fun Main(gymTimerNavigationRequest: Int = 0) {
             }
 
             override fun onServiceDisconnected(name: ComponentName?) {
+                Log.w(StartupGate.TAG, "bind disconnected name=$name")
                 Log.w("MainActivity", "<LogCollector:LidLease> service_disconnected name=$name")
                 airPodsService.value = null
+            }
+
+            override fun onBindingDied(name: ComponentName?) {
+                Log.w(StartupGate.TAG, "bind died name=$name")
+            }
+
+            override fun onNullBinding(name: ComponentName?) {
+                Log.w(StartupGate.TAG, "bind null binding name=$name")
             }
         }
     }
 
-    fun hasCriticalBtPerms(): Boolean =
-        context.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED &&
-            context.checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED
-
     fun ensureAirPodsBound(reason: String) {
-        if (airPodsService.value != null) {
-            Log.d("MainActivity", "ensureAirPodsBound skip already bound reason=$reason")
-            return
+        val perms = hasCriticalBtPerms()
+        btPermsNow = perms
+        when (StartupGate.decideBind(airPodsService.value != null, perms)) {
+            StartupGate.BindDecision.SKIP_ALREADY_BOUND -> {
+                Log.d(StartupGate.TAG, "bind skip already bound reason=$reason")
+                return
+            }
+            StartupGate.BindDecision.SKIP_MISSING_BT_PERMS -> {
+                Log.i(StartupGate.TAG, "bind skip missing BT perms reason=$reason")
+                return
+            }
+            StartupGate.BindDecision.START_AND_BIND -> Unit
         }
-        if (!hasCriticalBtPerms()) {
-            Log.w("MainActivity", "ensureAirPodsBound skip missing BT perms reason=$reason")
-            return
-        }
+        Log.i(StartupGate.TAG, "bind requested reason=$reason")
         Log.i("MainActivity", "<LogCollector:LidLease> ensure_bind reason=$reason")
+        var startErr: String?
         try {
-            context.startForegroundService(Intent(context, AirPodsService::class.java))
-            Log.i("MainActivity", "startForegroundService ok reason=$reason")
+            val cn = context.startForegroundService(Intent(context, AirPodsService::class.java))
+            startErr = StartupGate.startServiceError(cn != null, null)
+            if (startErr == null) {
+                Log.i(StartupGate.TAG, "startForegroundService ok cn=$cn reason=$reason")
+            } else {
+                Log.w(StartupGate.TAG, "startForegroundService refused reason=$reason: $startErr")
+            }
         } catch (e: Exception) {
-            Log.e("MainActivity", "startForegroundService failed reason=$reason: $e")
-            lastBindError = e.message ?: e.javaClass.simpleName
+            startErr = StartupGate.startServiceError(false, e)
+            Log.e(StartupGate.TAG, "startForegroundService threw reason=$reason: $e")
         }
         if (bindRegistered.get()) {
             try {
                 context.unbindService(serviceConnectionImpl)
             } catch (e: Exception) {
-                Log.w("MainActivity", "unbind before rebind: ${e.message}")
+                Log.w(StartupGate.TAG, "unbind before rebind: ${e.message}")
             }
             bindRegistered.set(false)
         }
+        var bindErr: String?
         try {
             val bound = context.bindService(
                 Intent(context, AirPodsService::class.java),
@@ -329,14 +379,19 @@ fun Main(gymTimerNavigationRequest: Int = 0) {
             )
             bindRegistered.set(bound)
             serviceConnection = serviceConnectionImpl
-            Log.d("MainActivity", "bindService bound=$bound reason=$reason")
-            if (!bound) {
-                lastBindError = "bindService returned false"
-            }
+            bindErr = StartupGate.bindServiceError(bound, null)
+            Log.i(StartupGate.TAG, "bindService bound=$bound reason=$reason")
         } catch (e: Exception) {
-            Log.e("MainActivity", "bindService failed reason=$reason: $e")
-            lastBindError = e.message ?: e.javaClass.simpleName
+            bindErr = StartupGate.bindServiceError(false, e)
+            Log.e(StartupGate.TAG, "bindService threw reason=$reason: $e")
             bindRegistered.set(false)
+        }
+        // Only surface an error when the bind itself failed; a refused start with a live
+        // bind still gets onServiceConnected (and onStartCommand re-asserts FGS on retry).
+        if (bindErr != null) {
+            lastBindError = bindErr
+        } else if (startErr != null) {
+            Log.w(StartupGate.TAG, "bind ok but start refused reason=$reason; will retry start on next gate")
         }
     }
 
@@ -350,6 +405,13 @@ fun Main(gymTimerNavigationRequest: Int = 0) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
                 airPodsViewModel?.refreshAacpAvailable()
+                val perms = hasCriticalBtPerms()
+                btPermsNow = perms
+                Log.i(
+                    StartupGate.TAG,
+                    "compose ON_RESUME bound=${airPodsService.value != null} btPerms=$perms " +
+                        "onboarding=${if (onboardingPending) "pending" else "done"}"
+                )
                 if (airPodsService.value == null) {
                     ensureAirPodsBound("on_resume")
                 }
@@ -359,17 +421,34 @@ fun Main(gymTimerNavigationRequest: Int = 0) {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // While home is stuck on Starting…, periodically retry start+bind (covers
-    // FGS-denied-then-allowed races without requiring process kill).
+    // While home is stuck on Starting…, periodically retry start+bind. Attempts are
+    // only consumed once BT perms are granted, so granting late (after a long stay on
+    // the permission screen) still gets retries, and a bind that never connects ends
+    // in the error + Retry UI instead of an endless "Starting…".
     LaunchedEffect(Unit) {
-        for (attempt in 1..8) {
-            delay(1_500)
-            if (airPodsService.value != null) return@LaunchedEffect
-            if (!hasCriticalBtPerms()) continue
-            ensureAirPodsBound("timeout_retry_$attempt")
-        }
-        if (airPodsService.value == null && hasCriticalBtPerms() && lastBindError == null) {
-            lastBindError = "Service did not connect"
+        var attemptsUsed = 0
+        var lastLoggedPerms: Boolean? = null
+        while (true) {
+            delay(StartupGate.BIND_RETRY_INTERVAL_MS)
+            if (airPodsService.value != null) {
+                Log.i(StartupGate.TAG, "retry loop done: bound after attempts=$attemptsUsed")
+                return@LaunchedEffect
+            }
+            val perms = hasCriticalBtPerms()
+            btPermsNow = perms
+            if (perms != lastLoggedPerms) {
+                Log.i(StartupGate.TAG, "permission state BLUETOOTH_CONNECT+SCAN granted=$perms")
+                lastLoggedPerms = perms
+            }
+            if (StartupGate.shouldAttemptRetry(false, perms, attemptsUsed)) {
+                attemptsUsed++
+                Log.i(StartupGate.TAG, "bind retry attempt=$attemptsUsed/${StartupGate.MAX_BIND_ATTEMPTS}")
+                ensureAirPodsBound("timeout_retry_$attemptsUsed")
+            } else if (StartupGate.retriesExhausted(false, perms, attemptsUsed)) {
+                if (lastBindError == null) lastBindError = "Service did not connect"
+                Log.w(StartupGate.TAG, "bind timeout: not connected after $attemptsUsed attempts; showing Retry")
+                return@LaunchedEffect
+            }
         }
     }
 
@@ -382,28 +461,43 @@ fun Main(gymTimerNavigationRequest: Int = 0) {
         }
     }
 
-    // W5 battery exemption: activity-owned, after bind clears "Starting…".
+    // W5 battery exemption: activity-owned, after bind clears "Starting…" and after
+    // onboarding completes (in the SAME session — keyed on onboardingPending state).
     // Never launch from AirPodsService.onCreate — that NEW_TASK Settings dialog
     // raced first bind and left home stuck until force-stop. Do not gate
     // connection / Waiting UI on the exemption result; Settings tip in App
     // Settings remains available if the user dismisses this prompt.
-    LaunchedEffect(airPodsViewModel, needsPermissions) {
-        if (airPodsViewModel == null || needsPermissions) return@LaunchedEffect
+    LaunchedEffect(airPodsViewModel, onboardingPending) {
+        if (airPodsViewModel == null || onboardingPending) {
+            Log.i(
+                StartupGate.TAG,
+                "battery prompt skipped: " + StartupGate.batteryPrompt(airPodsViewModel != null, onboardingPending, false, false)
+            )
+            return@LaunchedEffect
+        }
         // Let home (Waiting / disconnected) paint before any Settings intent.
         delay(1_500)
         try {
             val pm = context.getSystemService(android.os.PowerManager::class.java) ?: return@LaunchedEffect
-            if (pm.isIgnoringBatteryOptimizations(context.packageName)) return@LaunchedEffect
             val promptedKey = "battery_exemption_auto_prompted"
-            if (prefs.getBoolean(promptedKey, false)) return@LaunchedEffect
+            val decision = StartupGate.batteryPrompt(
+                serviceReady = true,
+                onboardingPending = false,
+                alreadyExempt = pm.isIgnoringBatteryOptimizations(context.packageName),
+                alreadyPrompted = prefs.getBoolean(promptedKey, false),
+            )
+            if (decision != StartupGate.BatteryPrompt.SHOW) {
+                Log.i(StartupGate.TAG, "battery prompt skipped: $decision")
+                return@LaunchedEffect
+            }
             prefs.edit().putBoolean(promptedKey, true).apply()
-            Log.i("MainActivity", "W5: requesting battery optimization exemption (post-bind, activity-owned)")
+            Log.i(StartupGate.TAG, "battery prompt shown (post-bind, activity-owned)")
             val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
                 data = "package:${context.packageName}".toUri()
             }
             context.startActivity(intent)
         } catch (e: Exception) {
-            Log.w("MainActivity", "W5 battery exemption request failed: ${e.message}")
+            Log.w(StartupGate.TAG, "battery prompt failed: $e")
         }
     }
 
@@ -449,13 +543,29 @@ fun Main(gymTimerNavigationRequest: Int = 0) {
                             // user never sees a pure-black screen while we wait/recover.
                             // After retries fail, surface the error + Retry (never infinite
                             // Starting… with no way out short of force-stop).
+                            val placeholder = StartupGate.placeholder(btPermsNow, lastBindError)
+                            LaunchedEffect(placeholder) {
+                                Log.i(StartupGate.TAG, "home placeholder=$placeholder error=$lastBindError")
+                            }
                             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text(
-                                        text = if (lastBindError != null) "Couldn't start service" else "Starting…",
+                                        text = when (placeholder) {
+                                            StartupGate.Placeholder.NEEDS_BT_PERMISSION -> "Bluetooth permission needed"
+                                            StartupGate.Placeholder.ERROR_WITH_RETRY -> "Couldn't start service"
+                                            StartupGate.Placeholder.STARTING -> "Starting…"
+                                        },
                                         color = if (isSystemInDarkTheme()) Color.White else Color.Black
                                     )
-                                    if (lastBindError != null) {
+                                    if (placeholder == StartupGate.Placeholder.NEEDS_BT_PERMISSION) {
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        Button(onClick = {
+                                            Log.i(StartupGate.TAG, "user opened permissions from home placeholder")
+                                            navController.navigate("permissions") { launchSingleTop = true }
+                                        }) {
+                                            Text("Grant permissions")
+                                        }
+                                    } else if (placeholder == StartupGate.Placeholder.ERROR_WITH_RETRY) {
                                         Spacer(modifier = Modifier.height(8.dp))
                                         Text(
                                             text = lastBindError ?: "",
@@ -464,6 +574,7 @@ fun Main(gymTimerNavigationRequest: Int = 0) {
                                         Spacer(modifier = Modifier.height(16.dp))
                                         Button(onClick = {
                                             lastBindError = null
+                                            Log.i(StartupGate.TAG, "bind retry requested by user")
                                             ensureAirPodsBound("user_retry")
                                         }) {
                                             Text("Retry")
@@ -524,7 +635,11 @@ fun Main(gymTimerNavigationRequest: Int = 0) {
                         // because permissions were needed — covers both true first launch
                         // and the "restored flag but missing grant" re-onboarding case.
                         val onGranted: (() -> Unit)? = if (needsPermissions) ({
+                            val perms = hasCriticalBtPerms()
+                            btPermsNow = perms
+                            Log.i(StartupGate.TAG, "onboarding continue tapped btPerms=$perms -> onboarding done")
                             prefs.edit().putBoolean("permissions_completed", true).apply()
+                            onboardingPending = false
                             // BT grants just landed — start+bind now (composition bind
                             // may have run earlier and been denied / skipped).
                             ensureAirPodsBound("perms_granted")
@@ -671,10 +786,10 @@ fun Main(gymTimerNavigationRequest: Int = 0) {
                 try {
                     if (bindRegistered.get()) {
                         context.unbindService(serviceConnectionImpl)
-                        Log.d("MainActivity", "Unbound service (DisposableEffect)")
+                        Log.i(StartupGate.TAG, "unbound service (composition disposed)")
                     }
                 } catch (e: Exception) {
-                    Log.e("MainActivity", "Error while unbinding service: $e")
+                    Log.e(StartupGate.TAG, "Error while unbinding service: $e")
                 }
                 bindRegistered.set(false)
                 if (serviceConnection === serviceConnectionImpl) {
