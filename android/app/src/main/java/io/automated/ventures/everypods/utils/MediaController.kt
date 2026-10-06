@@ -528,8 +528,7 @@ object MediaController {
             // race look like a user starting a podcast.
             val onlyAssistantSpeech = configs?.isNotEmpty() == true && configs.all { config ->
                 config.audioAttributes?.let { attrs ->
-                    attrs.usage == AudioAttributes.USAGE_ASSISTANT &&
-                        attrs.contentType == AudioAttributes.CONTENT_TYPE_SPEECH
+                    AnnouncementAudioAttributes.isAnnouncementSpeech(attrs.usage, attrs.contentType)
                 } == true
             }
             if (onlyAssistantSpeech) {

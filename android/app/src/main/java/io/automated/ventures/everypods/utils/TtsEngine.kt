@@ -56,6 +56,8 @@ object TtsEngine {
     @Volatile private var configuredLanguage: String? = null
     @Volatile private var configuredVoiceName: String? = null
     @Volatile private var wakeLock: PowerManager.WakeLock? = null
+    @Volatile private var appContext: Context? = null
+    @Volatile private var speechAttributes: AudioAttributes? = null
     private val initialised = AtomicBoolean(false)
     private val initialising = AtomicBoolean(false)
     private data class PendingUtterance(val text: String, val onDone: () -> Unit)
@@ -86,6 +88,7 @@ object TtsEngine {
         onDone: () -> Unit = {},
     ) {
         val ctx = context.applicationContext
+        appContext = ctx
         ensureAudioManager(ctx)
         if (!AnnouncementAudioRoute.canAnnounceToAirPods(ctx)) {
             Log.d(TAG, "Skipping announcement — AirPods are not the selected media route")
@@ -192,14 +195,12 @@ object TtsEngine {
     private fun configureEngine(ctx: Context) {
         val engine = tts ?: return
         applyLanguage(ctx, AnnouncementPrefs.resolvedLanguage(ctx))
-        engine.setAudioAttributes(
-            AudioAttributes.Builder()
-                // Keep spoken feedback out of the app's music/podcast detector.
-                // This matches the ElevenLabs player and still routes to A2DP.
-                .setUsage(AudioAttributes.USAGE_ASSISTANT)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                .build()
-        )
+        // Keep spoken feedback out of the app's music/podcast detector.
+        // This matches the ElevenLabs player and still routes to A2DP.
+        // Re-evaluated per utterance in enqueue() (assistant stream may be muted).
+        val attrs = AnnouncementAudioAttributes.speech(ctx)
+        speechAttributes = attrs
+        engine.setAudioAttributes(attrs)
         engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(utteranceId: String?) {
                 utteranceId?.let { id -> synchronized(audibleUtteranceIds) { audibleUtteranceIds.add(id) } }
@@ -258,6 +259,15 @@ object TtsEngine {
 
     private fun enqueue(text: String, onDone: () -> Unit) {
         val engine = tts ?: return
+        // Android 16+/17 Pixels keep a separate, possibly muted, assistant
+        // stream. Pick audible attributes for every utterance.
+        appContext?.let { ctx ->
+            val attrs = AnnouncementAudioAttributes.speech(ctx)
+            if (attrs.usage != speechAttributes?.usage) {
+                engine.setAudioAttributes(attrs)
+                speechAttributes = attrs
+            }
+        }
         val id = UUID.randomUUID().toString()
         synchronized(completionCallbacks) { completionCallbacks[id] = onDone }
         activeUtteranceCount.incrementAndGet()
@@ -338,7 +348,7 @@ object TtsEngine {
         if (focusRequest != null) return  // already holding
         val req = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
             .setAudioAttributes(
-                AudioAttributes.Builder()
+                speechAttributes ?: AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_ASSISTANT)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                     .build()

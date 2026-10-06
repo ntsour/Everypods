@@ -303,15 +303,12 @@ object ElevenLabsEngine {
         onError: (String) -> Unit,
     ) {
         val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        requestFocus(am)
+        // USAGE_ASSISTANT unless the (Android 16+) assistant stream is muted.
+        val attrs = AnnouncementAudioAttributes.speech(context)
+        requestFocus(am, attrs)
 
         val mp = MediaPlayer().apply {
-            setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_ASSISTANT)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                    .build()
-            )
+            setAudioAttributes(attrs)
             setDataSource(file.absolutePath)
             prepare()
             setOnCompletionListener {
@@ -336,15 +333,10 @@ object ElevenLabsEngine {
         Log.d(TAG, "Playing ${file.length()} bytes from ${file.name}")
     }
 
-    private fun requestFocus(am: AudioManager) {
+    private fun requestFocus(am: AudioManager, attrs: AudioAttributes) {
         if (focusRequest != null) return
         val req = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
-            .setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_ASSISTANT)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                    .build()
-            )
+            .setAudioAttributes(attrs)
             .setOnAudioFocusChangeListener {}
             .build()
         focusRequest = req
