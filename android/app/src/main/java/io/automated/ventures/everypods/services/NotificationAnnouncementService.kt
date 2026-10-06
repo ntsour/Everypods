@@ -208,9 +208,18 @@ class NotificationAnnouncementService : NotificationListenerService() {
             am.mode == AudioManager.MODE_IN_COMMUNICATION ||
             am.mode == AudioManager.MODE_RINGTONE
         ) return true
-        val telephony = applicationContext.getSystemService(TELEPHONY_SERVICE) as TelephonyManager
-        if (telephony.callState != TelephonyManager.CALL_STATE_IDLE) return true
-        return false
+        // TelephonyManager.callState needs READ_PHONE_STATE on API 31+. If the
+        // user hasn't granted it, a SecurityException here crashed the whole
+        // app on every posted notification. AudioManager.mode above already
+        // covers ringing/in-call, so treat "can't tell" as "not in a call".
+        val callState = try {
+            val telephony = applicationContext.getSystemService(TELEPHONY_SERVICE) as TelephonyManager
+            telephony.callState
+        } catch (e: SecurityException) {
+            Log.d(TAG, "callState unavailable (READ_PHONE_STATE not granted): ${e.message}")
+            TelephonyManager.CALL_STATE_IDLE
+        }
+        return callState != TelephonyManager.CALL_STATE_IDLE
     }
 
     /**
