@@ -1,6 +1,6 @@
 import java.util.Properties
 
-val appVersionName = "1.0.2"
+val appVersionName = "1.0.3"
 
 plugins {
     alias(libs.plugins.android.application)
@@ -44,7 +44,7 @@ android {
         applicationId = "io.automated.ventures.everypods"
         minSdk = 33
         targetSdk = 37
-        versionCode = 110
+        versionCode = 111
         versionName = appVersionName
     }
     buildTypes {
