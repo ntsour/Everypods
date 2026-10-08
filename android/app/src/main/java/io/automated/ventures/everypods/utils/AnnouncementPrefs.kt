@@ -36,6 +36,8 @@ object AnnouncementPrefs {
 
     const val KEY_ENABLED = "announce_enabled"
     const val KEY_ONLY_IN_EAR = "announce_only_in_ear"
+    /** 1.0.4: also announce on non-AirPods Bluetooth outputs (car, speakers). Default off. */
+    const val KEY_ANNOUNCE_ON_OTHER_BT = "announce_on_other_bluetooth"
     const val KEY_SKIP_DURING_CALL = "announce_skip_during_call"
     const val KEY_SKIP_DURING_MEDIA = "announce_skip_during_media"
     /** Legacy combined key, kept for migration of existing installs. */
@@ -88,6 +90,9 @@ object AnnouncementPrefs {
 
     fun onlyInEar(ctx: Context): Boolean =
         prefs(ctx).getBoolean(KEY_ONLY_IN_EAR, false)
+
+    fun alsoAnnounceOnOtherBluetooth(ctx: Context): Boolean =
+        prefs(ctx).getBoolean(KEY_ANNOUNCE_ON_OTHER_BT, false)
 
     fun skipDuringCall(ctx: Context): Boolean =
         prefs(ctx).getBoolean(KEY_SKIP_DURING_CALL, true)   // default: skip during calls

@@ -91,6 +91,7 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
     var skipDuringCall by remember { mutableStateOf(AnnouncementPrefs.skipDuringCall(context)) }
     var skipDuringMedia by remember { mutableStateOf(AnnouncementPrefs.skipDuringMedia(context)) }
     var onlyInEar by remember { mutableStateOf(prefs.getBoolean(AnnouncementPrefs.KEY_ONLY_IN_EAR, false)) }
+    var alsoOtherBt by remember { mutableStateOf(AnnouncementPrefs.alsoAnnounceOnOtherBluetooth(context)) }
     var quietEnabled by remember { mutableStateOf(AnnouncementPrefs.quietHoursEnabled(context)) }
     var quietMode by remember { mutableStateOf(AnnouncementPrefs.quietMode(context)) }
     var quietStart by remember { mutableStateOf(AnnouncementPrefs.quietStart(context)) }
@@ -243,6 +244,18 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
                     onCheckedChange = {
                         onlyInEar = it
                         prefs.edit().putBoolean(AnnouncementPrefs.KEY_ONLY_IN_EAR, it).apply()
+                    }
+                )
+                HorizontalDivider(thickness = 1.dp, color = Color(0x40888888), modifier = Modifier.padding(horizontal = 12.dp))
+                StyledToggle(
+                    label = "Also announce on other Bluetooth devices",
+                    description = "Read notifications aloud through car stereos, speakers and other headphones",
+                    checked = alsoOtherBt,
+                    independent = false,
+                    enabled = enabled,
+                    onCheckedChange = {
+                        alsoOtherBt = it
+                        prefs.edit().putBoolean(AnnouncementPrefs.KEY_ANNOUNCE_ON_OTHER_BT, it).apply()
                     }
                 )
             }
@@ -688,7 +701,8 @@ private fun SystemVoicePicker(
     }
     TextButton(onClick = {
         val sample = if (languageTag == "es") "Esta es la voz en español." else "This is the English voice."
-        TtsEngine.speak(context, sample, languageTag)
+        // The preview always plays, regardless of the AirPods-only route gate.
+        TtsEngine.speak(context, sample, languageTag, bypassRouteGate = true)
     }, enabled = voices.isNotEmpty()) {
         Text("Preview", color = Color(0xFF0A84FF), style = TextStyle(fontFamily = FontFamily(Font(R.font.sf_pro))))
     }

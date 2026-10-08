@@ -76,22 +76,23 @@ object TtsEngine {
      * Speak [text] through the AirPods. Lazy-inits the engine on first call.
      * Thread-safe.
      *
-     * Skips silently if no Bluetooth A2DP device is among the active audio
-     * outputs — i.e. AirPods aren't connected (in case, out of range, or the
-     * user has switched to phone speaker). This avoids announcing through
-     * the phone speaker, which would defeat the purpose.
+     * Skips silently unless [AnnouncementAudioRoute] allows the current
+     * output route: by default only the managed AirPods (matched by address),
+     * optionally any Bluetooth output, never the phone speaker. Pass
+     * [bypassRouteGate] = true only for the settings voice preview.
      */
     fun speak(
         context: Context,
         text: String,
         languageTag: String? = null,
         onDone: () -> Unit = {},
+        bypassRouteGate: Boolean = false,
     ) {
         val ctx = context.applicationContext
         appContext = ctx
         ensureAudioManager(ctx)
-        if (!AnnouncementAudioRoute.canAnnounceToAirPods(ctx)) {
-            Log.d(TAG, "Skipping announcement — AirPods are not the selected media route")
+        if (!AnnouncementAudioRoute.canAnnounceToAirPods(ctx, isPreview = bypassRouteGate)) {
+            Log.d(TAG, "Skipping announcement — route gate refused (see AnnounceGate)")
             // The coordinator already considers this request active. Releasing it
             // here is essential: otherwise one transient route loss suppresses
             // every later timer announcement in the same process.
