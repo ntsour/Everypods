@@ -160,4 +160,5 @@
     <string name="show_bottom_sheet_popup_description">Afficher la fenêtre contextuelle de style iOS en bas de l\'écran lors de la connexion des AirPods.</string>
     <string name="show_island_popup">Fenêtre Dynamic Island</string>
     <string name="show_island_popup_description">Afficher la fenêtre de style Dynamic Island en haut de l\'écran pour les événements de connexion et de transfert.</string>
+    <string name="eq_reset">Réinitialiser</string>
 </resources>

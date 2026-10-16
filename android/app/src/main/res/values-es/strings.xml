@@ -160,4 +160,5 @@
     <string name="show_bottom_sheet_popup_description">Muestra la ventana emergente estilo iOS en la parte inferior cuando los AirPods se conectan.</string>
     <string name="show_island_popup">Ventana emergente Dynamic Island</string>
     <string name="show_island_popup_description">Muestra la ventana emergente estilo Dynamic Island en la parte superior para eventos de conexión y traspaso.</string>
+    <string name="eq_reset">Restablecer</string>
 </resources>

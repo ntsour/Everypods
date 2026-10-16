@@ -160,4 +160,5 @@
     <string name="show_bottom_sheet_popup_description">Exibe o pop-up estilo iOS na parte inferior quando os AirPods se conectam.</string>
     <string name="show_island_popup">Pop-up Dynamic Island</string>
     <string name="show_island_popup_description">Exibe o pop-up estilo Dynamic Island no topo da tela em eventos de conexão e transferência.</string>
+    <string name="eq_reset">Repor</string>
 </resources>

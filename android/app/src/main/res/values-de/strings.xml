@@ -9,4 +9,5 @@
     <string name="eq_bass">Bass</string>
     <string name="eq_mid">Mitten</string>
     <string name="eq_treble">Höhen</string>
+    <string name="eq_reset">Zurücksetzen</string>
 </resources>

@@ -155,4 +155,5 @@
         <string name="listening_mode_transparency_description">Lascia entrare i suoni esterni</string>
         <string name="listening_mode_adaptive_description">Regola dinamicamente il rumore esterno</string>
         <string name="listening_mode_noise_cancellation_description">Blocca i suoni esterni</string>
+        <string name="eq_reset">Ripristina</string>
     </resources>

@@ -297,4 +297,5 @@
     <string name="gym_long_press_same_as_controls">Same as Controls: %1$s</string>
     <string name="gym_long_press_overrides_controls_hint">Gym Mode overrides long press for this bud</string>
     <string name="gym_long_press_open_gym_press_actions">Edit in Gym Press Actions ›</string>
+    <string name="eq_reset">Reset</string>
 </resources>
