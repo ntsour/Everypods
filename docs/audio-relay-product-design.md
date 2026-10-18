@@ -148,7 +148,7 @@ Stopping Wi-Fi relay stops capture and playback, restores any volume change, and
 
 ## Handoff branch and current starting point
 
-The work-to-date branch is **`codex/audio-capture-probe`**, based on main commit `75c3a078985392d002055edd673447641753e516`. It contains the separate audio-capture/relay feasibility module and this design handoff. It does not contain production Opus, encrypted transport, automatic pairing/discovery, or product UI.
+The work-to-date branch is **`codex/audio-capture-probe`**. It now includes the latest fetched main commit `f5a78b56` (Android settings/search UI updates, PR #47), merged on top of the original base `75c3a078985392d002055edd673447641753e516`. It contains the separate audio-capture/relay feasibility module and this design handoff. It does not contain production Opus, encrypted transport, automatic pairing/discovery, or product UI.
 
 The branch did not exist on `origin` when this handoff was prepared. Publish it as:
 
