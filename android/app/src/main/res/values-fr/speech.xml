@@ -1,0 +1,39 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="speech_battery_left">La batterie de l’AirPod gauche est à %1$d pour cent</string>
+    <string name="speech_battery_right">La batterie de l’AirPod droit est à %1$d pour cent</string>
+    <string name="speech_battery_case">La batterie du boîtier des AirPods est à %1$d pour cent</string>
+    <string name="speech_battery_generic">Batterie à %1$d pour cent</string>
+    <string name="speech_call_named">Appel entrant de %1$s</string>
+    <string name="speech_call_generic">Appel entrant</string>
+    <string name="speech_timer_countdown_started">Compte à rebours démarré. %1$s.</string>
+    <string name="speech_timer_stopwatch_started">Chronomètre démarré.</string>
+    <string name="speech_timer_hiit_started">HIIT démarré. %1$d tours. Effort %2$s. Repos %3$s.</string>
+    <string name="speech_timer_countdown_resumed">Compte à rebours repris. %1$s restantes.</string>
+    <string name="speech_timer_stopwatch_resumed">Chronomètre repris. %1$s écoulées.</string>
+    <string name="speech_timer_hiit_resumed">HIIT repris. %1$s restantes.</string>
+    <string name="speech_timer_countdown_paused">Compte à rebours en pause. %1$s restantes.</string>
+    <string name="speech_timer_stopwatch_paused">Chronomètre en pause. %1$s écoulées.</string>
+    <string name="speech_timer_hiit_paused">HIIT en pause. %1$s restantes.</string>
+    <string name="speech_timer_countdown_reset">Compte à rebours réinitialisé.</string>
+    <string name="speech_timer_stopwatch_reset">Chronomètre réinitialisé.</string>
+    <string name="speech_timer_hiit_reset">HIIT réinitialisé.</string>
+    <string name="speech_timer_quarter_complete">Un quart terminé</string>
+    <string name="speech_timer_halfway">À mi-parcours</string>
+    <string name="speech_timer_three_quarters_complete">Trois quarts terminés</string>
+    <string name="speech_timer_elapsed">%1$s écoulées.</string>
+    <string name="speech_timer_round_phase">Tour %1$d. %2$s.</string>
+    <string name="speech_timer_work">Effort</string>
+    <string name="speech_timer_rest">Repos</string>
+    <string name="speech_timer_lap">Tour %1$d. %2$s. Total %3$s.</string>
+    <string name="speech_timer_countdown_complete">Compte à rebours terminé.</string>
+    <string name="speech_timer_hiit_complete">HIIT terminé.</string>
+    <plurals name="speech_minutes">
+        <item quantity="one">%1$d minutes</item>
+        <item quantity="other">%1$d minutes</item>
+    </plurals>
+    <plurals name="speech_seconds">
+        <item quantity="one">%1$d seconde</item>
+        <item quantity="other">%1$d secondes</item>
+    </plurals>
+</resources>

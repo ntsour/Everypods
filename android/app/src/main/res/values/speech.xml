@@ -1,0 +1,39 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="speech_battery_left">Left AirPod battery is %1$d percent</string>
+    <string name="speech_battery_right">Right AirPod battery is %1$d percent</string>
+    <string name="speech_battery_case">AirPods case battery is %1$d percent</string>
+    <string name="speech_battery_generic">Battery at %1$d percent</string>
+    <string name="speech_call_named">Incoming call from %1$s</string>
+    <string name="speech_call_generic">Incoming call</string>
+    <string name="speech_timer_countdown_started">Countdown started. %1$s.</string>
+    <string name="speech_timer_stopwatch_started">Stopwatch started.</string>
+    <string name="speech_timer_hiit_started">HIIT started. %1$d rounds. Work %2$s. Rest %3$s.</string>
+    <string name="speech_timer_countdown_resumed">Countdown resumed. %1$s remaining.</string>
+    <string name="speech_timer_stopwatch_resumed">Stopwatch resumed. %1$s elapsed.</string>
+    <string name="speech_timer_hiit_resumed">HIIT resumed. %1$s remaining.</string>
+    <string name="speech_timer_countdown_paused">Countdown paused. %1$s remaining.</string>
+    <string name="speech_timer_stopwatch_paused">Stopwatch paused. %1$s elapsed.</string>
+    <string name="speech_timer_hiit_paused">HIIT paused. %1$s remaining.</string>
+    <string name="speech_timer_countdown_reset">Countdown reset.</string>
+    <string name="speech_timer_stopwatch_reset">Stopwatch reset.</string>
+    <string name="speech_timer_hiit_reset">HIIT reset.</string>
+    <string name="speech_timer_quarter_complete">One quarter complete</string>
+    <string name="speech_timer_halfway">Halfway</string>
+    <string name="speech_timer_three_quarters_complete">Three quarters complete</string>
+    <string name="speech_timer_elapsed">%1$s elapsed.</string>
+    <string name="speech_timer_round_phase">Round %1$d. %2$s.</string>
+    <string name="speech_timer_work">Work</string>
+    <string name="speech_timer_rest">Rest</string>
+    <string name="speech_timer_lap">Lap %1$d. %2$s. Total %3$s.</string>
+    <string name="speech_timer_countdown_complete">Countdown complete.</string>
+    <string name="speech_timer_hiit_complete">HIIT complete.</string>
+    <plurals name="speech_minutes">
+        <item quantity="one">%1$d minute</item>
+        <item quantity="other">%1$d minutes</item>
+    </plurals>
+    <plurals name="speech_seconds">
+        <item quantity="one">%1$d second</item>
+        <item quantity="other">%1$d seconds</item>
+    </plurals>
+</resources>

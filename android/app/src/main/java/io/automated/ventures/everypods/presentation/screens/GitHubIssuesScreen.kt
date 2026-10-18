@@ -1,5 +1,9 @@
 package io.automated.ventures.everypods.presentation.screens
 
+import io.automated.ventures.everypods.R
+
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Column
@@ -35,7 +39,7 @@ fun GitHubIssuesScreen() {
     val dark = isSystemInDarkTheme()
     val cardColor = if (dark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
     
-    StyledScaffold(title = "GitHub Issues") { topPadding, hazeState, bottomPadding ->
+    StyledScaffold(title = stringResource(R.string.ui_github_issues)) { topPadding, hazeState, bottomPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -47,12 +51,12 @@ fun GitHubIssuesScreen() {
             Spacer(Modifier.height(topPadding))
             
             Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp)).padding(16.dp)) {
-                Text("Report bugs or request features on GitHub.", style = TextStyle(fontSize = 16.sp, fontFamily = SfPro, color = if (dark) Color.White else Color.Black))
+                Text(stringResource(R.string.ui_report_bugs_or_request_feature), style = TextStyle(fontSize = 16.sp, fontFamily = SfPro, color = if (dark) Color.White else Color.Black))
                 Spacer(Modifier.height(16.dp))
                 StyledButton(onClick = {
                     context.openEveryPodsIssues()
                 }, backdrop = rememberLayerBackdrop(), modifier = Modifier.fillMaxWidth()) {
-                    Text("Open GitHub Issues", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro, color = Color.White))
+                    Text(stringResource(R.string.ui_open_github_issues), style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro, color = Color.White))
                 }
             }
             

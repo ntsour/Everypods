@@ -1,8 +1,37 @@
 import java.util.Properties
+import org.gradle.api.DefaultTask
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.provider.ListProperty
+import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.OutputDirectory
+import org.gradle.api.tasks.TaskAction
 
-val appVersionName = "1.0.3"
+abstract class GenerateLocaleCatalogTask : DefaultTask() {
+    @get:Input
+    abstract val localeTags: ListProperty<String>
+
+    @get:OutputDirectory
+    abstract val outputDirectory: DirectoryProperty
+
+    @TaskAction
+    fun generate() {
+        val target = outputDirectory.file("values/locale_catalog.xml").get().asFile
+        target.parentFile.mkdirs()
+        target.writeText(buildString {
+            appendLine("<?xml version=\"1.0\" encoding=\"utf-8\"?>")
+            appendLine("<resources>")
+            appendLine("    <string-array name=\"supported_locale_tags\">")
+            localeTags.get().forEach { appendLine("        <item>$it</item>") }
+            appendLine("    </string-array>")
+            appendLine("</resources>")
+        })
+    }
+}
+
+val appVersionName = "1.0.4-rc19"
 
 plugins {
+    alias(libs.plugins.protobuf)
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.aboutLibraries)
@@ -22,6 +51,14 @@ val hasReleaseSigning = listOf(
     "RELEASE_KEY_ALIAS",
     "RELEASE_KEY_PASSWORD"
 ).all { props.getProperty(it)?.isNotBlank() == true }
+
+val appLocaleFolders = file("src/main/res").listFiles().orEmpty()
+    .filter { folder ->
+        folder.isDirectory && folder.name.startsWith("values-") &&
+            folder.resolve("strings.xml").isFile
+    }
+    .map { it.name.removePrefix("values-") }
+    .distinct()
 
 android {
     lint {
@@ -44,7 +81,7 @@ android {
         applicationId = "io.automated.ventures.everypods"
         minSdk = 33
         targetSdk = 37
-        versionCode = 111
+        versionCode = 130
         versionName = appVersionName
     }
     buildTypes {
@@ -96,6 +133,7 @@ android {
     }
     androidResources {
         generateLocaleConfig = true
+        localeFilters.addAll(listOf("en") + appLocaleFolders)
     }
     testOptions {
         unitTests {
@@ -116,9 +154,47 @@ android {
     }
 
     ndkVersion = "30.0.14904198"
+    bundle {
+        language {
+            enableSplit = false
+        }
+    }
+}
+
+// Keep picker choices and packaged resources derived from app translation folders.
+val localeCatalogOutput = layout.buildDirectory.dir("generated/res/localeCatalog")
+val generatedLocaleTags = (listOf("en") + appLocaleFolders).map { qualifier ->
+    when (qualifier) {
+        "zh-rCN" -> "zh-CN"
+        "zh-rTW" -> "zh-TW"
+        else -> qualifier.replace("-r", "-")
+    }
+}.sorted()
+val generateLocaleCatalog = tasks.register<GenerateLocaleCatalogTask>("generateLocaleCatalog") {
+    localeTags.set(generatedLocaleTags)
+    outputDirectory.set(localeCatalogOutput)
+}
+
+tasks.register<Exec>("validateLocalizationResources") {
+    group = "verification"
+    description = "Validates complete translated display and speech resources."
+    workingDir = rootProject.projectDir
+    commandLine("python3", "scripts/validate_localization.py")
+}
+android.sourceSets.getByName("main").res.directories.add(localeCatalogOutput.get().asFile.absolutePath)
+tasks.named("preBuild").configure { dependsOn(generateLocaleCatalog) }
+
+protobuf {
+    protoc { artifact = libs.protobuf.protoc.get().toString() }
+    generateProtoTasks {
+        all().configureEach {
+            builtins { create("java") { option("lite") } }
+        }
+    }
 }
 
 dependencies {
+    implementation(libs.protobuf.java.lite)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.accompanist.permissions)
     implementation(libs.androidx.core.ktx)

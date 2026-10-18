@@ -1,5 +1,9 @@
 package io.automated.ventures.everypods.presentation.screens
 
+import io.automated.ventures.everypods.R
+
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -36,7 +40,7 @@ fun BluetoothControlScreen(viewModel: AirPodsViewModel) {
     val dark = isSystemInDarkTheme()
     val cardColor = if (dark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
 
-    StyledScaffold(title = "Bluetooth Control") { topPadding, hazeState, bottomPadding ->
+    StyledScaffold(title = stringResource(R.string.ui_bluetooth_control)) { topPadding, hazeState, bottomPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -53,7 +57,7 @@ fun BluetoothControlScreen(viewModel: AirPodsViewModel) {
                     StyledButton(onClick = { viewModel.disconnect() },
                         backdrop = rememberLayerBackdrop(), isInteractive = true,
                         modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp)) {
-                        Text("Disconnect", style = TextStyle(fontSize = 16.sp,
+                        Text(stringResource(R.string.ui_disconnect), style = TextStyle(fontSize = 16.sp,
                             fontWeight = FontWeight.Normal, fontFamily = SfPro, textAlign = TextAlign.Start,
                             color = if (dark) Color(0xFF0091FF) else Color(0xFF0088FF)),
                             modifier = Modifier.fillMaxWidth())

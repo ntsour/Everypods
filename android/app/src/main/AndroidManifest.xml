@@ -7,6 +7,7 @@
         android:required="false" />
 
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"
         tools:ignore="ForegroundServicesPolicy" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
@@ -25,6 +26,11 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
+
+    <queries>
+        <package android:name="com.wahoofitness.fitness" />
+    </queries>
 
     <application
         android:name=".EveryPodsApplication"
@@ -37,6 +43,14 @@
         android:theme="@style/Theme.EveryPods"
         android:description="@string/app_description"
         tools:ignore="UnusedAttribute" >
+        <activity
+            android:name=".AssistantLaunchActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.EveryPods.AssistantLaunch" />
         <receiver
             android:name=".presentation.widgets.NoiseControlWidget"
             android:exported="false">

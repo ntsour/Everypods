@@ -66,6 +66,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -201,33 +202,32 @@ fun HeadTrackingScreen(
                 }
 
                 StyledToggle(
-                    label = "Head gestures",
+                    label = stringResource(R.string.ui_head_gestures),
                     checked = state.headGesturesEnabled,
                     onCheckedChange = { viewModel.setHeadGesturesEnabled(it) },
                     enabled = (state.isPremium || state.headGesturesEnabled) && state.aacpAvailable,
-                    description = "Master switch for all head gesture features."
+                    description = stringResource(R.string.ui_master_switch_for_all_head_ges)
                 )
 
                 StyledToggle(
-                    label = "Answer/decline incoming calls",
+                    label = stringResource(R.string.ui_answer_decline_incoming_calls),
                     checked = state.headGesturesAnswerCall,
                     onCheckedChange = { viewModel.setHeadGesturesAnswerCall(it) },
                     enabled = state.headGesturesEnabled && (state.isPremium || state.headGesturesAnswerCall) && state.aacpAvailable,
-                    description = "Nod to answer an incoming call, shake your head to decline."
+                    description = stringResource(R.string.ui_nod_to_answer_an_incoming_call)
                 )
 
                 StyledToggle(
-                    label = "Mute/unmute during a call",
+                    label = stringResource(R.string.ui_mute_unmute_during_a_call),
                     checked = state.headGesturesMuteCall,
                     onCheckedChange = { viewModel.setHeadGesturesMuteCall(it) },
                     enabled = state.headGesturesEnabled && (state.isPremium || state.headGesturesMuteCall) && state.aacpAvailable,
-                    description = "Shake your head during an active call to mute the mic, nod to unmute."
+                    description = stringResource(R.string.ui_shake_your_head_during_an_acti)
                 )
 
 
                 Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    "Head Orientation",
+                Text(stringResource(R.string.ui_head_orientation),
                     style = TextStyle(
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
@@ -239,8 +239,7 @@ fun HeadTrackingScreen(
                 HeadVisualization()
 
                 Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    "Velocity",
+                Text(stringResource(R.string.ui_velocity),
                     style = TextStyle(
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
@@ -255,8 +254,8 @@ fun HeadTrackingScreen(
                 val appState by appSettingsViewModel.uiState.collectAsState()
                 Spacer(modifier = Modifier.height(8.dp))
                 StyledToggle(
-                    label           = "Enable Head Tracking",
-                    description     = "Send head-tracking data to the AirPods on connect. Off by default — enable only if you use head-gesture controls.",
+                    label = stringResource(R.string.ui_enable_head_tracking),
+                    description = stringResource(R.string.ui_send_head_tracking_data_to_the),
                     checked         = appState.headTrackingEnabled,
                     onCheckedChange = appSettingsViewModel::setHeadTrackingEnabled,
                     independent     = true,
@@ -308,8 +307,7 @@ fun HeadTrackingScreen(
                 modifier = Modifier.fillMaxWidth(0.75f),
                 maxScale = 0.05f
             ) {
-                Text(
-                    "Test Head Gestures",
+                Text(stringResource(R.string.ui_test_head_gestures),
                     style = TextStyle(
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium,
@@ -444,6 +442,7 @@ private fun ParticleText(
 
 @Composable
 private fun HeadVisualization() {
+    val context = LocalContext.current
     val orientation by HeadTracking.orientation.collectAsState()
     val darkTheme = isSystemInDarkTheme()
     val backgroundColor = if (darkTheme) Color(0xFF1C1C1E) else Color.White
@@ -686,6 +685,8 @@ private fun HeadVisualization() {
 @Composable
 private fun AccelerationPlot() {
     val acceleration by HeadTracking.acceleration.collectAsState()
+    val horizontalLabel = stringResource(R.string.ui_horizontal)
+    val verticalLabel = stringResource(R.string.ui_vertical)
     val maxPoints = 100
     val points = remember { mutableStateListOf<Pair<Float, Float>>() }
     val darkTheme = isSystemInDarkTheme()
@@ -798,7 +799,7 @@ private fun AccelerationPlot() {
                         textSize = 12.sp.toPx()
                         textAlign = Paint.Align.LEFT
                     }
-                    drawText("Horizontal", width - 140.dp.toPx(), textOffsetY, paint)
+                    drawText(horizontalLabel, width - 140.dp.toPx(), textOffsetY, paint)
                 }
 
                 drawCircle(Color(0xFFFF3B30), 5.dp.toPx(), Offset(width - 70.dp.toPx(), legendY))
@@ -808,7 +809,7 @@ private fun AccelerationPlot() {
                         textSize = 12.sp.toPx()
                         textAlign = Paint.Align.LEFT
                     }
-                    drawText("Vertical", width - 60.dp.toPx(), textOffsetY, paint)
+                    drawText(verticalLabel, width - 60.dp.toPx(), textOffsetY, paint)
                 }
             }
         }

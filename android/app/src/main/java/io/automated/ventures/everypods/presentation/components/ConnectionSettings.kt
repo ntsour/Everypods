@@ -38,6 +38,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -92,7 +93,7 @@ fun PeerConnectionPanel(
     if (showPeerPicker) {
         AlertDialog(
             onDismissRequest = { showPeerPicker = false },
-            title = { Text("Select peer Android device") },
+            title = { Text(stringResource(R.string.ui_select_peer_android_device)) },
             text = {
                 LazyColumn {
                     items(bondedDevices) { device ->
@@ -110,7 +111,7 @@ fun PeerConnectionPanel(
             },
             confirmButton = {},
             dismissButton = {
-                TextButton(onClick = { showPeerPicker = false }) { Text("Cancel") }
+                TextButton(onClick = { showPeerPicker = false }) { Text(stringResource(R.string.ui_cancel)) }
             }
         )
     }
@@ -124,13 +125,13 @@ fun PeerConnectionPanel(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(58.dp)
+                .heightIn(min = 58.dp)
                 .clickable { showPeerPicker = true }
                 .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Peer Android device",
+                text = stringResource(R.string.ui_peer_android_device),
                 style = TextStyle(
                     fontSize = 16.sp,
                     fontFamily = FontFamily(Font(R.font.sf_pro)),
@@ -177,7 +178,7 @@ fun PeerConnectionPanel(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(46.dp)
+                    .heightIn(min = 46.dp)
                     .clickable {
                         onReconnectCrossDevice()
                     }
@@ -185,7 +186,7 @@ fun PeerConnectionPanel(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Reconnect to peer",
+                    text = stringResource(R.string.ui_reconnect_to_peer),
                     style = TextStyle(
                         fontSize = 15.sp,
                         fontFamily = FontFamily(Font(R.font.sf_pro)),
@@ -258,13 +259,13 @@ fun ConnectionSettings(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(58.dp)
+                        .heightIn(min = 58.dp)
                         .clickable { navController?.navigate("paired_devices") }
                         .padding(horizontal = 16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Connected devices",
+                        text = stringResource(R.string.ui_connected_devices),
                         style = TextStyle(
                             fontSize = 16.sp,
                             fontFamily = FontFamily(Font(R.font.sf_pro)),
@@ -391,7 +392,7 @@ fun CrossDevicePeersInline(
             },
             confirmButton = {},
             dismissButton = {
-                TextButton(onClick = { showPicker = false }) { Text("Cancel") }
+                TextButton(onClick = { showPicker = false }) { Text(stringResource(R.string.ui_cancel)) }
             }
         )
     }
@@ -419,7 +420,7 @@ fun CrossDevicePeersInline(
             },
             dismissButton = {
                 TextButton(onClick = { confirmRemoveMac = null }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.ui_cancel))
                 }
             }
         )
@@ -439,7 +440,7 @@ fun CrossDevicePeersInline(
             )
             TextButton(onClick = { showPicker = true }) {
                 Text(
-                    text = "+ $addLabel",
+                    text = stringResource(R.string.ui_add_label, addLabel),
                     style = TextStyle(
                         fontSize = 16.sp,
                         fontFamily = FontFamily(Font(R.font.sf_pro)),
@@ -464,7 +465,7 @@ fun CrossDevicePeersInline(
             }
             TextButton(onClick = { showPicker = true }) {
                 Text(
-                    text = "+ $addLabel",
+                    text = stringResource(R.string.ui_add_label, addLabel),
                     style = TextStyle(
                         fontSize = 16.sp,
                         fontFamily = FontFamily(Font(R.font.sf_pro)),

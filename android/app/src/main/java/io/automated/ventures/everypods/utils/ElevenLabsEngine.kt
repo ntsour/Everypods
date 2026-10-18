@@ -108,7 +108,7 @@ object ElevenLabsEngine {
                 return@submit
             }
             if (!AnnouncementAudioRoute.canAnnounceToAirPods(ctx)) {
-                Log.d(TAG, "Skipping ElevenLabs announcement — AirPods are not the selected media route")
+                Log.d(TAG, "Skipping ElevenLabs announcement — route gate refused (see AnnounceGate)")
                 speaking.set(false)
                 onDone()
                 return@submit

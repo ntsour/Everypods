@@ -19,3 +19,9 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# RTBuddy protobuf-lite schemas resolve generated instance fields by name.
+# Keep generated messages intact, including primitive fields used by the schema.
+-keep class io.automated.ventures.everypods.bluetooth.rtbuddy.proto.** extends com.google.protobuf.GeneratedMessageLite {
+    *;
+}

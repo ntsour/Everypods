@@ -20,6 +20,8 @@
 
 package io.automated.ventures.everypods
 
+import androidx.compose.ui.res.stringResource
+
 // import io.automated.ventures.everypods.screens.Onboarding
 // import io.automated.ventures.everypods.utils.RadareOffsetFinder
 //import dagger.hilt.android.AndroidEntryPoint
@@ -192,6 +194,7 @@ var serviceConnection: ServiceConnection? = null
 @ExperimentalMaterial3Api
 class MainActivity : ComponentActivity() {
     private var gymTimerNavigationRequest by mutableIntStateOf(0)
+    private var heartRateNavigationRequest by mutableIntStateOf(0)
 
     @ExperimentalHazeMaterialsApi
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -207,9 +210,10 @@ class MainActivity : ComponentActivity() {
             gymTimerNavigationRequest++
         }
 
+        if (intent?.getBooleanExtra(EXTRA_OPEN_HEART_RATE, false) == true) heartRateNavigationRequest++
         setContent {
             EveryPodsTheme {
-                Main(gymTimerNavigationRequest)
+                Main(gymTimerNavigationRequest, heartRateNavigationRequest)
             }
         }
     }
@@ -217,6 +221,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        if (intent.getBooleanExtra(EXTRA_OPEN_HEART_RATE, false)) heartRateNavigationRequest++
         if (intent.getBooleanExtra(EXTRA_OPEN_GYM_TIMER, false)) {
             gymTimerNavigationRequest++
         }
@@ -241,13 +246,15 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+const val EXTRA_OPEN_HEART_RATE = "io.automated.ventures.everypods.OPEN_HEART_RATE"
+
 const val EXTRA_OPEN_GYM_TIMER = "io.automated.ventures.everypods.OPEN_GYM_TIMER"
 
 @ExperimentalHazeMaterialsApi
 @SuppressLint("MissingPermission", "InlinedApi", "UnspecifiedRegisterReceiverFlag")
 @OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun Main(gymTimerNavigationRequest: Int = 0) {
+fun Main(gymTimerNavigationRequest: Int = 0, heartRateNavigationRequest: Int = 0) {
     val context = LocalContext.current
 
     val isConnected = remember { mutableStateOf(false) }
@@ -461,6 +468,12 @@ fun Main(gymTimerNavigationRequest: Int = 0) {
         }
     }
 
+    LaunchedEffect(heartRateNavigationRequest, needsPermissions, airPodsViewModel) {
+        if (heartRateNavigationRequest > 0 && !needsPermissions && airPodsViewModel != null) {
+            navController.navigate("heart_rate_screen") { launchSingleTop = true }
+        }
+    }
+
     // W5 battery exemption: activity-owned, after bind clears "Starting…" and after
     // onboarding completes (in the SAME session — keyed on onboardingPending state).
     // Never launch from AirPodsService.onCreate — that NEW_TASK Settings dialog
@@ -563,7 +576,7 @@ fun Main(gymTimerNavigationRequest: Int = 0) {
                                             Log.i(StartupGate.TAG, "user opened permissions from home placeholder")
                                             navController.navigate("permissions") { launchSingleTop = true }
                                         }) {
-                                            Text("Grant permissions")
+                                            Text(stringResource(R.string.ui_grant_required_permissions))
                                         }
                                     } else if (placeholder == StartupGate.Placeholder.ERROR_WITH_RETRY) {
                                         Spacer(modifier = Modifier.height(8.dp))
@@ -577,7 +590,7 @@ fun Main(gymTimerNavigationRequest: Int = 0) {
                                             Log.i(StartupGate.TAG, "bind retry requested by user")
                                             ensureAirPodsBound("user_retry")
                                         }) {
-                                            Text("Retry")
+                                            Text(stringResource(R.string.ui_retry))
                                         }
                                     }
                                 }
@@ -617,6 +630,11 @@ fun Main(gymTimerNavigationRequest: Int = 0) {
                      composable("equalizer_screen") {
                          if (airPodsViewModel != null) EqualizerScreen(airPodsViewModel)
                      }
+                    composable("heart_rate_screen") {
+                        airPodsViewModel?.let {
+                            io.automated.ventures.everypods.presentation.screens.HeartRateScreen(it)
+                        }
+                    }
                     composable("open_source_licenses") {
                         OpenSourceLicensesScreen(navController)
                     }

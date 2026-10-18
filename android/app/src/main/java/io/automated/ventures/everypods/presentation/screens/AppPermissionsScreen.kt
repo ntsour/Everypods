@@ -38,6 +38,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -167,7 +168,7 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
     }
 
     // ── UI ───────────────────────────────────────────────────────────────
-    StyledScaffold(title = "Permissions") { topPadding, _, bottomPadding ->
+    StyledScaffold(title = stringResource(R.string.ui_permissions_d06d5)) { topPadding, _, bottomPadding ->
         Column(
             Modifier.fillMaxSize()
 .testTag("dest_permissions").verticalScroll(scrollState).padding(horizontal = 16.dp),
@@ -175,8 +176,7 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
         ) {
             Spacer(Modifier.height(topPadding))
 
-            Text(
-                "Grant the permissions EveryPods needs to function correctly.",
+            Text(stringResource(R.string.ui_grant_the_permissions_everypod),
                 style = TextStyle(fontSize = 14.sp, fontFamily = PermSfPro, color = textColor.copy(0.6f))
             )
 
@@ -210,11 +210,11 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
             }
 
             // ── STANDARD PERMISSIONS ─────────────────────────────────────
-            SectionTitle("Standard", textColor)
+            SectionTitle(stringResource(R.string.general_settings_header), textColor)
             Column(Modifier.fillMaxWidth().background(cardBg, RoundedCornerShape(18.dp))) {
                 PermissionRow(
-                    title = "Bluetooth",
-                    description = "Communicate with your AirPods",
+                    title = stringResource(R.string.ui_bluetooth),
+                    description = stringResource(R.string.ui_communicate_with_your_airpods),
                     granted = btGranted, dark = dark, accent = accent, green = green
                 ) {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
@@ -225,15 +225,15 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
                 if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
                     RowDivider()
                     PermissionRow(
-                        title = "Location",
-                        description = "Required for Bluetooth scanning on Android 11 and below",
+                        title = stringResource(R.string.ui_location),
+                        description = stringResource(R.string.ui_required_for_bluetooth_scannin),
                         granted = locationGranted, dark = dark, accent = accent, green = green
                     ) { grantRuntime(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)) }
                 }
                 RowDivider()
                 PermissionRow(
-                    title = "Notifications",
-                    description = "Show battery status and alerts",
+                    title = stringResource(R.string.ui_notifications),
+                    description = stringResource(R.string.ui_show_battery_status_and_alerts),
                     granted = notifGranted, dark = dark, accent = accent, green = green
                 ) {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
@@ -241,8 +241,8 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
                 }
                 RowDivider()
                 PermissionRow(
-                    title = "Phone",
-                    description = "Answer calls with head gestures and stem press",
+                    title = stringResource(R.string.ui_phone),
+                    description = stringResource(R.string.ui_answer_calls_with_head_gesture),
                     granted = phoneGranted, dark = dark, accent = accent, green = green
                 ) { grantRuntime(arrayOf(Manifest.permission.READ_PHONE_STATE, Manifest.permission.ANSWER_PHONE_CALLS)) }
             }
@@ -273,18 +273,18 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
                         }
                         if (toRequest.isNotEmpty()) multiLauncher.launch(toRequest.toTypedArray())
                     },
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = accent),
                     shape = RoundedCornerShape(14.dp)
                 ) {
-                    Text("Grant Required Permissions",
+                    Text(stringResource(R.string.ui_grant_required_permissions),
                         style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium,
                             fontFamily = PermSfPro, color = Color.White))
                 }
             }
 
             // ── SPECIAL PERMISSIONS ──────────────────────────────────────
-            SectionTitle("Special Access", textColor)
+            SectionTitle(stringResource(R.string.advanced_options), textColor)
 
             // Privacy notice
             Row(
@@ -295,17 +295,15 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
                 verticalAlignment = Alignment.Top
             ) {
                 Text("⚠", style = TextStyle(fontSize = 14.sp, color = orange))
-                Text(
-                    "Special permissions give EveryPods deeper system access. They are used " +
-                    "only for the features described below. You can revoke them at any time in system settings.",
+                Text(stringResource(R.string.special_permissions_explanation),
                     style = TextStyle(fontSize = 12.sp, fontFamily = PermSfPro, color = orange)
                 )
             }
 
             Column(Modifier.fillMaxWidth().background(cardBg, RoundedCornerShape(18.dp))) {
                 PermissionRow(
-                    title = "Display Over Other Apps",
-                    description = "Show Dynamic Island popup when AirPods connect",
+                    title = stringResource(R.string.ui_display_over_other_apps),
+                    description = stringResource(R.string.ui_show_dynamic_island_popup_when),
                     granted = overlayGranted, dark = dark, accent = accent, green = green
                 ) {
                     context.startActivity(
@@ -316,8 +314,8 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
                 }
                 RowDivider()
                 PermissionRow(
-                    title = "Notification Access",
-                    description = "Sync mute state with Teams/Viber; announce notifications aloud",
+                    title = stringResource(R.string.ui_notification_access_4dca8),
+                    description = stringResource(R.string.ui_sync_mute_state_with_teams_vib),
                     granted = notifAccessGranted, dark = dark, accent = accent, green = green
                 ) { CallNotifListener.openAccessSettings(context) }
             }
@@ -326,11 +324,11 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
             if (onPermissionsGranted != null) {
                 Button(
                     onClick = { onPermissionsGranted() },
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = accent),
                     shape = RoundedCornerShape(14.dp)
                 ) {
-                    Text("Continue",
+                    Text(stringResource(R.string.ui_continue),
                         style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium,
                             fontFamily = PermSfPro, color = Color.White))
                 }
@@ -389,7 +387,7 @@ private fun PermissionRow(
                 shape = RoundedCornerShape(8.dp),
                 contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp)
             ) {
-                Text("Grant", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium,
+                Text(stringResource(R.string.ui_grant), style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium,
                     fontFamily = PermSfPro, color = Color.White))
             }
         }

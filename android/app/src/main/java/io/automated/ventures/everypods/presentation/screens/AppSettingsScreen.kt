@@ -20,6 +20,8 @@ package io.automated.ventures.everypods.presentation.screens
 
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.app.LocaleManager
+import android.os.LocaleList
 import android.os.Build
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -48,11 +50,14 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -60,6 +65,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import java.util.Locale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -126,6 +132,8 @@ fun AppSettingsScreen(
             val isDarkTheme = isSystemInDarkTheme()
             val backgroundColor = if (isDarkTheme) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
             val textColor = if (isDarkTheme) Color.White else Color.Black
+
+            io.automated.ventures.everypods.presentation.components.AppLanguagePicker()
 
             if (!state.isPremium && state.connectionSuccessful) {
                 StyledButton(
@@ -281,10 +289,10 @@ fun AppSettingsScreen(
 
             NavigationButton(
                 to = "permissions",
-                name = "Manage Permissions",
+                name = stringResource(R.string.ui_manage_permissions),
                 navController = navController,
                 independent = true,
-                description = "Grant or revoke app permissions"
+                description = stringResource(R.string.ui_grant_or_revoke_app_permission)
             )
 
             Box(
@@ -385,8 +393,6 @@ fun AppSettingsScreen(
                        modifier = Modifier
                            .weight(1f)
                            .padding(horizontal = 8.dp),
-                       maxLines = 1,
-                       overflow = TextOverflow.Ellipsis,
                        style = TextStyle(
                            fontSize = 18.sp,
                            fontFamily = FontFamily(Font(R.font.sf_pro)),

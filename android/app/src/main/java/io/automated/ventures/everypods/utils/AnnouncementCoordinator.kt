@@ -25,6 +25,7 @@ object AnnouncementCoordinator {
         val token: Long,
         val text: String,
         val priority: Priority,
+        val languageTag: String? = null,
     )
 
     private var nextToken = 0L
@@ -33,8 +34,12 @@ object AnnouncementCoordinator {
     private val sequencePending = ArrayDeque<Request>()
 
     fun announce(context: Context, text: String, priority: Priority) {
+        announceSpeech(context, LocalizedSpeech(text), priority)
+    }
+
+    fun announceSpeech(context: Context, speech: LocalizedSpeech, priority: Priority) {
         val request = synchronized(this) {
-            Request(++nextToken, text, priority).also { incoming ->
+            Request(++nextToken, speech.text, priority, speech.languageTag).also { incoming ->
                 val current = active
                 when {
                     current == null -> {
@@ -85,7 +90,8 @@ object AnnouncementCoordinator {
 
     private fun speak(context: Context, request: Request) {
         val onDone = { complete(context, request.token) }
-        val languageForSystemTts = AnnouncementPrefs.languageForText(context, request.text)
+        val languageForSystemTts = request.languageTag
+            ?: AnnouncementPrefs.languageForText(context, request.text)
         if (AnnouncementPrefs.ttsEngine(context) == AnnouncementPrefs.TTS_ENGINE_ELEVENLABS) {
             val apiKey = AnnouncementPrefs.elevenLabsApiKey(context)
             if (apiKey.isNotBlank()) {
@@ -94,7 +100,8 @@ object AnnouncementCoordinator {
                     text = request.text,
                     apiKey = apiKey,
                     voiceId = AnnouncementPrefs.elevenLabsVoiceId(context),
-                    languageCode = AnnouncementPrefs.elevenLabsLanguageCode(context),
+                    languageCode = request.languageTag
+                        ?: AnnouncementPrefs.elevenLabsLanguageCode(context),
                     onDone = onDone,
                     onFallback = { reason ->
                         Log.w(TAG, "ElevenLabs failed ($reason), using system TTS")
@@ -141,3 +148,6 @@ object AnnouncementCoordinator {
         MediaController.cancelRouteRecoveryForAnnouncement()
     }
 }
+
+/** Keeps the locale used to format generated speech attached to queued utterances. */
+data class LocalizedSpeech(val text: String, val languageTag: String? = null)

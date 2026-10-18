@@ -28,6 +28,7 @@ import android.widget.Toast
 import androidx.core.content.edit
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import io.automated.ventures.everypods.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -67,6 +68,7 @@ data class AirPodsUiState(
     val isLocallyConnected: Boolean = false,
 
     val instance: AirPodsInstance? = null,
+    val modelIdentified: Boolean = false,
     val capabilities: Set<Capability> = emptySet(),
 
     val controlStates: Map<ControlCommandIdentifiers, ByteArray> = emptyMap(),
@@ -141,6 +143,13 @@ class AirPodsViewModel(
         )
     )
     val uiState: StateFlow<AirPodsUiState> = _uiState
+    val heartRateSharingState = service.heartRateSharingState
+    fun startHeartRateSharing(method: io.automated.ventures.everypods.bluetooth.hrm.HeartRateSharingMethod) = service.startHeartRateSharing(method)
+    fun stopHeartRatePreview() = service.stopHeartRatePreview()
+    val heartRateState = service.heartRateState
+    fun startHeartRate() = service.startHeartRate()
+    fun stopHeartRate() = service.stopHeartRate()
+
 
     private fun computeAacpAvailable(): Boolean =
         io.automated.ventures.everypods.utils.isAacpCapable()
@@ -299,6 +308,7 @@ class AirPodsViewModel(
         }
 
         val filter = IntentFilter().apply {
+            addAction(AirPodsNotifications.AIRPODS_L2CAP_CONNECTED)
             addAction(AirPodsNotifications.AIRPODS_CONNECTED)
             addAction(AirPodsNotifications.AIRPODS_DISCONNECTED)
             addAction(AirPodsNotifications.BATTERY_DATA)
@@ -402,6 +412,7 @@ class AirPodsViewModel(
 
     fun refreshInitialData() {
         if (isDemoMode) return
+        loadInstance()
         service.let { service ->
             val savedMac = sharedPreferences.getString("mac_address", "") ?: ""
             _uiState.update {
@@ -543,6 +554,7 @@ class AirPodsViewModel(
             it.copy(
                 capabilities = instance.model.capabilities,
                 instance = instance,
+                modelIdentified = service.airpodsInstance != null,
                 modelName = instance.model.displayName,
                 actualModel = instance.actualModelNumber,
                 serialNumbers = listOf(
@@ -704,6 +716,7 @@ class AirPodsViewModel(
             var tick = 0
             while (true) {
                 val peers = buildPeerList()
+                if (!isDemoMode && service.airpodsInstance != _uiState.value.instance) loadInstance()
                 // Also refresh the standard-Bluetooth (A2DP) connection flag here so
                 // the UI reflects it on AACP-less devices without needing a broadcast.
                 val a2dp = if (isDemoMode) _uiState.value.isA2dpConnected
@@ -832,7 +845,7 @@ class AirPodsViewModel(
                 // Can't deselect — would leave fewer than 2 modes. Inform the user.
                 Toast.makeText(
                     appContext,
-                    "At least 2 modes must be selected",
+                    appContext.getString(R.string.viewmodel_minimum_modes),
                     Toast.LENGTH_SHORT
                 ).show()
                 return   // exit without changing anything
@@ -847,7 +860,7 @@ class AirPodsViewModel(
     fun disconnect() {
         service.disconnectAirPods()
         if (appContext.checkSelfPermission("android.permission.BLUETOOTH_PRIVILEGED") != PackageManager.PERMISSION_GRANTED) {
-            Toast.makeText(appContext, "App has disconnected, disconnect from Android Settings.",
+            Toast.makeText(appContext, appContext.getString(R.string.viewmodel_disconnected_settings),
                 Toast.LENGTH_LONG).show()
         }
     }

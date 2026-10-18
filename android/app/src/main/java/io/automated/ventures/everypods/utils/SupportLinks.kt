@@ -6,6 +6,7 @@ import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.core.net.toUri
+import io.automated.ventures.everypods.R
 
 const val EVERYPODS_REPO_URL = "https://github.com/ntsour/Everypods"
 const val EVERYPODS_ISSUES_URL = "$EVERYPODS_REPO_URL/issues"
@@ -30,7 +31,7 @@ fun Context.openEveryPodsSupportEmail(
         startActivity(intent)
         true
     } catch (_: ActivityNotFoundException) {
-        Toast.makeText(this, "No email app found.", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, getString(R.string.support_no_email_app), Toast.LENGTH_SHORT).show()
         false
     }
 }

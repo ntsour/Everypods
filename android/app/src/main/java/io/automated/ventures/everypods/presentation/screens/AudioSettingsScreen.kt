@@ -1,5 +1,9 @@
 package io.automated.ventures.everypods.presentation.screens
 
+import io.automated.ventures.everypods.R
+
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -31,7 +35,7 @@ fun AudioSettingsScreen(
     val state by viewModel.uiState.collectAsState()
     val appState by appSettingsViewModel.uiState.collectAsState()
     
-    StyledScaffold(title = "Audio Settings") { topPadding, hazeState, bottomPadding ->
+    StyledScaffold(title = stringResource(R.string.ui_audio_settings)) { topPadding, hazeState, bottomPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -48,6 +52,7 @@ fun AudioSettingsScreen(
                 conversationalAwarenessCapability = appState.isPremium,
                 adaptiveAudioCapability = state.capabilities.contains(io.automated.ventures.everypods.data.Capability.ADAPTIVE_VOLUME),
                 customEqCapability = state.capabilities.contains(io.automated.ventures.everypods.data.Capability.CUSTOM_EQ),
+
                 adaptiveVolumeChecked = false,
                 onAdaptiveVolumeCheckedChange = {},
                 conversationalAwarenessChecked = appState.conversationalAwarenessPauseMusicEnabled,

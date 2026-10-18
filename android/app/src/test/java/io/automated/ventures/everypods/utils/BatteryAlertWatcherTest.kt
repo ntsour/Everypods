@@ -37,7 +37,7 @@ class BatteryAlertWatcherTest {
         every { AnnouncementAudioRoute.canAnnounceToAirPods(any()) } returns true
         every { TtsEngine.speak(any(), any(), any()) } just Runs
         every { ElevenLabsEngine.speak(any(), any(), any(), any(), any(), any(), any()) } just Runs
-        every { AnnouncementCoordinator.announce(any(), any(), any()) } just Runs
+        every { AnnouncementCoordinator.announceSpeech(any(), any(), any()) } just Runs
     }
 
     @After
@@ -76,7 +76,7 @@ class BatteryAlertWatcherTest {
 
         BatteryAlertWatcher.checkAndMaybeAlert(context, listOf(battery), anyBudInEar = true)
 
-        verify { AnnouncementCoordinator.announce(any(), any(), AnnouncementCoordinator.Priority.SAFETY) }
+        verify { AnnouncementCoordinator.announceSpeech(any(), any(), AnnouncementCoordinator.Priority.SAFETY) }
     }
 
     @Test
@@ -88,7 +88,7 @@ class BatteryAlertWatcherTest {
 
         BatteryAlertWatcher.checkAndMaybeAlert(context, listOf(battery), anyBudInEar = true)
 
-        verify { AnnouncementCoordinator.announce(any(), any(), AnnouncementCoordinator.Priority.SAFETY) }
+        verify { AnnouncementCoordinator.announceSpeech(any(), any(), AnnouncementCoordinator.Priority.SAFETY) }
     }
 
     @Test
@@ -100,7 +100,7 @@ class BatteryAlertWatcherTest {
 
         BatteryAlertWatcher.checkAndMaybeAlert(context, listOf(battery), anyBudInEar = true)
 
-        verify { AnnouncementCoordinator.announce(any(), any(), AnnouncementCoordinator.Priority.SAFETY) }
+        verify { AnnouncementCoordinator.announceSpeech(any(), any(), AnnouncementCoordinator.Priority.SAFETY) }
     }
 
     @Test
@@ -112,7 +112,7 @@ class BatteryAlertWatcherTest {
 
         BatteryAlertWatcher.checkAndMaybeAlert(context, listOf(battery), anyBudInEar = true)
 
-        verify { AnnouncementCoordinator.announce(any(), any(), AnnouncementCoordinator.Priority.SAFETY) }
+        verify { AnnouncementCoordinator.announceSpeech(any(), any(), AnnouncementCoordinator.Priority.SAFETY) }
     }
 
     @Test
@@ -124,7 +124,7 @@ class BatteryAlertWatcherTest {
 
         BatteryAlertWatcher.checkAndMaybeAlert(context, listOf(battery), anyBudInEar = true)
 
-        verify(exactly = 0) { AnnouncementCoordinator.announce(any(), any(), any()) }
+        verify(exactly = 0) { AnnouncementCoordinator.announceSpeech(any(), any(), any()) }
     }
 
     @Test
@@ -136,7 +136,7 @@ class BatteryAlertWatcherTest {
 
         BatteryAlertWatcher.checkAndMaybeAlert(context, listOf(battery), anyBudInEar = true)
 
-        verify(exactly = 0) { AnnouncementCoordinator.announce(any(), any(), any()) }
+        verify(exactly = 0) { AnnouncementCoordinator.announceSpeech(any(), any(), any()) }
     }
 
     @Test
@@ -149,7 +149,7 @@ class BatteryAlertWatcherTest {
 
         BatteryAlertWatcher.checkAndMaybeAlert(context, listOf(battery), anyBudInEar = true)
 
-        verify { AnnouncementCoordinator.announce(any(), any(), AnnouncementCoordinator.Priority.SAFETY) }
+        verify { AnnouncementCoordinator.announceSpeech(any(), any(), AnnouncementCoordinator.Priority.SAFETY) }
     }
 
     @Test
@@ -164,7 +164,7 @@ class BatteryAlertWatcherTest {
             context, listOf(Battery(BatteryComponent.LEFT, 20, BatteryStatus.NOT_CHARGING)), anyBudInEar = true
         )
 
-        verify(exactly = 1) { AnnouncementCoordinator.announce(any(), any(), any()) }
+        verify(exactly = 1) { AnnouncementCoordinator.announceSpeech(any(), any(), any()) }
     }
 
     @Test
@@ -179,6 +179,6 @@ class BatteryAlertWatcherTest {
             )
         }
 
-        verify(exactly = 1) { AnnouncementCoordinator.announce(any(), any(), any()) }
+        verify(exactly = 1) { AnnouncementCoordinator.announceSpeech(any(), any(), any()) }
     }
 }

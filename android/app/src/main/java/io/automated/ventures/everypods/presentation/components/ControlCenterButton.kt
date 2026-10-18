@@ -100,7 +100,6 @@ fun ControlCenterButton(
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
             textAlign = TextAlign.Center,
-            maxLines = 2
-        )
+)
     }
 }

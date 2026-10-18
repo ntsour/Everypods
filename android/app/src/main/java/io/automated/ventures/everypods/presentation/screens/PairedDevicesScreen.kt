@@ -18,6 +18,8 @@
 
 package io.automated.ventures.everypods.presentation.screens
 
+import androidx.compose.ui.res.stringResource
+
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothManager
 import androidx.compose.foundation.background
@@ -29,6 +31,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -86,7 +89,7 @@ fun PairedDevicesScreen(viewModel: AirPodsViewModel, navController: NavControlle
     if (showPicker) {
         AlertDialog(
             onDismissRequest = { showPicker = false },
-            title = { Text("Add peer Android device") },
+            title = { Text(stringResource(R.string.ui_add_peer_android_device)) },
             text = {
                 LazyColumn {
                     items(bondedDevices) { device ->
@@ -104,7 +107,7 @@ fun PairedDevicesScreen(viewModel: AirPodsViewModel, navController: NavControlle
             },
             confirmButton = {},
             dismissButton = {
-                TextButton(onClick = { showPicker = false }) { Text("Cancel") }
+                TextButton(onClick = { showPicker = false }) { Text(stringResource(R.string.ui_cancel)) }
             }
         )
     }
@@ -114,21 +117,21 @@ fun PairedDevicesScreen(viewModel: AirPodsViewModel, navController: NavControlle
         val peer = state.crossDevicePeers.find { it.mac == mac }
         AlertDialog(
             onDismissRequest = { confirmRemoveMac = null },
-            title = { Text("Remove device") },
-            text = { Text("Remove ${peer?.name ?: mac} from connected devices?") },
+            title = { Text(stringResource(R.string.ui_remove_device)) },
+            text = { Text(stringResource(R.string.remove_peer_confirm_message, peer?.name ?: mac)) },
             confirmButton = {
                 TextButton(onClick = {
                     viewModel.removeCrossDevicePeer(mac)
                     confirmRemoveMac = null
-                }) { Text("Remove", color = Color(0xFFFF3B30)) }
+                }) { Text(stringResource(R.string.ui_remove), color = Color(0xFFFF3B30)) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmRemoveMac = null }) { Text("Cancel") }
+                TextButton(onClick = { confirmRemoveMac = null }) { Text(stringResource(R.string.ui_cancel)) }
             }
         )
     }
 
-    StyledScaffold(title = "Connected Devices") { topPadding, hazeState, bottomPadding ->
+    StyledScaffold(title = stringResource(R.string.ui_connected_devices_3d9fd)) { topPadding, hazeState, bottomPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -173,13 +176,13 @@ fun PairedDevicesScreen(viewModel: AirPodsViewModel, navController: NavControlle
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(54.dp)
+                        .heightIn(min = 54.dp)
                         .padding(horizontal = 16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     TextButton(onClick = { showPicker = true }) {
                         Text(
-                            text = "+ Add device",
+                            text = stringResource(R.string.ui_add_device),
                             style = TextStyle(
                                 fontSize = 16.sp,
                                 fontFamily = FontFamily(Font(R.font.sf_pro)),
@@ -207,7 +210,7 @@ private fun PeerRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(58.dp)
+                .heightIn(min = 58.dp)
                 .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -232,7 +235,7 @@ private fun PeerRow(
                 )
                 if (peer.hasPods) {
                     Text(
-                        text = "Has AirPods",
+                        text = stringResource(R.string.ui_has_airpods),
                         style = TextStyle(
                             fontSize = 12.sp,
                             fontFamily = FontFamily(Font(R.font.sf_pro)),
@@ -250,8 +253,7 @@ private fun PeerRow(
         ) {
             if (!peer.connected) {
                 TextButton(onClick = onReconnect) {
-                    Text(
-                        "Reconnect",
+                    Text(stringResource(R.string.ui_reconnect),
                         style = TextStyle(
                             fontSize = 14.sp,
                             fontFamily = FontFamily(Font(R.font.sf_pro)),
@@ -262,8 +264,7 @@ private fun PeerRow(
             }
             Spacer(Modifier.weight(1f))
             TextButton(onClick = onRemove) {
-                Text(
-                    "Remove",
+                Text(stringResource(R.string.ui_remove),
                     style = TextStyle(
                         fontSize = 14.sp,
                         fontFamily = FontFamily(Font(R.font.sf_pro)),

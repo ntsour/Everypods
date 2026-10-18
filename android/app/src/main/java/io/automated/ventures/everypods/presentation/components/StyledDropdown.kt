@@ -35,6 +35,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -180,7 +181,7 @@ fun StyledDropdown(
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(itemHeight)
+                                    .heightIn(min = itemHeight)
                                     .background(
                                         Color.Transparent
                                     )
@@ -218,6 +219,7 @@ fun StyledDropdown(
                                 ) {
                                     Text(
                                         text,
+                                        modifier = Modifier.weight(1f).padding(end = 8.dp),
                                         style = TextStyle(
                                             fontSize = 16.sp,
                                             color = if (isSystemInDarkTheme()) Color.White else Color.Black.copy(alpha = 0.75f),

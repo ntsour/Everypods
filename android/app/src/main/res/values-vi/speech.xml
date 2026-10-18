@@ -1,0 +1,39 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="speech_battery_left">Pin AirPod bên trái còn %1$d phần trăm</string>
+    <string name="speech_battery_right">Pin AirPod bên phải còn %1$d phần trăm</string>
+    <string name="speech_battery_case">Pin hộp sạc AirPods còn %1$d phần trăm</string>
+    <string name="speech_battery_generic">Pin còn %1$d phần trăm</string>
+    <string name="speech_call_named">Cuộc gọi đến từ %1$s</string>
+    <string name="speech_call_generic">Cuộc gọi đến</string>
+    <string name="speech_timer_countdown_started">Đếm ngược bắt đầu. %1$s.</string>
+    <string name="speech_timer_stopwatch_started">Đồng hồ bấm giờ đã bắt đầu.</string>
+    <string name="speech_timer_hiit_started">HIIT bắt đầu. Vòng %1$d. Làm việc %2$s. Phần còn lại %3$s.</string>
+    <string name="speech_timer_countdown_resumed">Đếm ngược lại tiếp tục. %1$s còn lại.</string>
+    <string name="speech_timer_stopwatch_resumed">Đồng hồ bấm giờ đã tiếp tục. %1$s đã trôi qua.</string>
+    <string name="speech_timer_hiit_resumed">HIIT lại tiếp tục. %1$s còn lại.</string>
+    <string name="speech_timer_countdown_paused">Đếm ngược tạm dừng. %1$s còn lại.</string>
+    <string name="speech_timer_stopwatch_paused">Đồng hồ bấm giờ đã tạm dừng. %1$s đã trôi qua.</string>
+    <string name="speech_timer_hiit_paused">HIIT đã tạm dừng. %1$s còn lại.</string>
+    <string name="speech_timer_countdown_reset">Thiết lập lại đếm ngược.</string>
+    <string name="speech_timer_stopwatch_reset">Đặt lại đồng hồ bấm giờ.</string>
+    <string name="speech_timer_hiit_reset">Thiết lập lại HIIT.</string>
+    <string name="speech_timer_quarter_complete">Một phần tư hoàn thành</string>
+    <string name="speech_timer_halfway">Nửa đường</string>
+    <string name="speech_timer_three_quarters_complete">Hoàn thành ba phần tư</string>
+    <string name="speech_timer_elapsed">%1$s đã trôi qua.</string>
+    <string name="speech_timer_round_phase">Vòng %1$d. %2$s.</string>
+    <string name="speech_timer_work">công việc</string>
+    <string name="speech_timer_rest">Nghỉ ngơi</string>
+    <string name="speech_timer_lap">Lập %1$d. %2$s. Tổng số %3$s.</string>
+    <string name="speech_timer_countdown_complete">Đếm ngược hoàn tất.</string>
+    <string name="speech_timer_hiit_complete">HIIT hoàn thành.</string>
+    <plurals name="speech_minutes">
+        <item quantity="one">%1$d phút</item>
+        <item quantity="other">%1$d phút</item>
+    </plurals>
+    <plurals name="speech_seconds">
+        <item quantity="one">%1$d giây</item>
+        <item quantity="other">%1$d giây</item>
+    </plurals>
+</resources>

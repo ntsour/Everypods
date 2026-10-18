@@ -252,21 +252,17 @@ private fun WarmthCard(
                 color = textColor.copy(alpha = 0.68f),
                 fontFamily = sfPro
             ),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
         )
 
         if (device != null && error == null) {
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = device.displayName,
+                text = proximityDisplayName(device),
                 style = TextStyle(
                     fontSize = 13.sp,
                     color = textColor.copy(alpha = 0.48f),
                     fontFamily = sfPro
                 ),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
             )
             Spacer(modifier = Modifier.height(6.dp))
             Text(
@@ -276,8 +272,6 @@ private fun WarmthCard(
                     color = textColor.copy(alpha = 0.42f),
                     fontFamily = sfPro
                 ),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
             )
         }
 
@@ -553,18 +547,21 @@ private fun CandidateCard(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = device.displayName,
+                    text = proximityDisplayName(device),
                     style = TextStyle(
                         fontSize = 17.sp,
                         fontWeight = FontWeight.Medium,
                         color = textColor,
                         fontFamily = sfPro
                     ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = "${device.ownerLabel} · ${device.kind.label} · ${roomBandLabel(device.band)}",
+                    text = stringResource(
+                        R.string.ui_proximity_summary,
+                        ownerLabel(device.ownerScore),
+                        proximityKindLabel(device.kind),
+                        roomBandLabel(device.band)
+                    ),
                     style = TextStyle(
                         fontSize = 13.sp,
                         color = textColor.copy(alpha = 0.62f),
@@ -574,7 +571,7 @@ private fun CandidateCard(
             }
 
             Text(
-                text = "${device.score}%",
+                text = stringResource(R.string.ui_percentage_value, device.score),
                 style = TextStyle(
                     fontSize = 20.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -626,8 +623,6 @@ private fun CandidateCard(
                     color = textColor.copy(alpha = 0.58f),
                     fontFamily = sfPro
                 ),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
             )
         }
 
@@ -648,8 +643,6 @@ private fun CandidateCard(
                         color = textColor.copy(alpha = 0.54f),
                         fontFamily = sfPro
                     ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
                 )
                 device.appleManufacturerHex?.let {
                     Text(
@@ -659,8 +652,6 @@ private fun CandidateCard(
                             color = textColor.copy(alpha = 0.38f),
                             fontFamily = sfPro
                         ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -732,7 +723,7 @@ private fun CalibrationCard(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = if (hasOwnerFingerprint) "Your AirPods learned" else "Learn your AirPods",
+                    text = stringResource(if (hasOwnerFingerprint) R.string.calibration_saved_title else R.string.calibration_learn_title),
                     style = TextStyle(
                         fontSize = 17.sp,
                         fontWeight = FontWeight.Medium,
@@ -741,7 +732,7 @@ private fun CalibrationCard(
                     )
                 )
                 Text(
-                    text = calibrationMessage ?: "Open the case beside the phone, then calibrate once.",
+                    text = calibrationMessage ?: stringResource(R.string.calibration_hint),
                     style = TextStyle(
                         fontSize = 13.sp,
                         color = textColor.copy(alpha = 0.62f),
@@ -772,7 +763,7 @@ private fun CalibrationCard(
                 maxScale = 0.05f
             ) {
                 Text(
-                    text = if (isCalibrating) "Cancel" else "Calibrate",
+                    text = stringResource(if (isCalibrating) R.string.ui_cancel else R.string.calibration_start),
                     style = buttonTextStyle()
                 )
             }
@@ -787,7 +778,7 @@ private fun CalibrationCard(
                 maxScale = 0.05f
             ) {
                 Text(
-                    text = "Forget",
+                    text = stringResource(R.string.ui_forget),
                     style = buttonTextStyle(enabled = hasOwnerFingerprint && !isCalibrating)
                 )
             }
@@ -915,6 +906,25 @@ private fun roomBandLabel(band: RoomBand): String = when (band) {
 }
 
 @Composable
+private fun proximityDisplayName(device: ProximityScanner.ProximityDevice): String =
+    device.name ?: device.model ?: proximityKindLabel(device.kind)
+
+@Composable
+private fun proximityKindLabel(kind: ProximityScanner.DeviceKind): String = stringResource(when (kind) {
+    ProximityScanner.DeviceKind.AIRPODS -> R.string.airpods_brand
+    ProximityScanner.DeviceKind.APPLE_FIND_MY -> R.string.ui_kind_find_my
+    ProximityScanner.DeviceKind.APPLE_NEARBY -> R.string.ui_kind_apple_ble
+    ProximityScanner.DeviceKind.NAMED_AIRPODS -> R.string.ui_kind_named_airpods
+})
+
+@Composable
+private fun ownerLabel(score: Int): String = stringResource(when {
+    score >= 75 -> R.string.ui_owner_likely
+    score >= 45 -> R.string.ui_owner_maybe
+    else -> R.string.ui_owner_other
+})
+
+@Composable
 private fun shortRoomBandLabel(band: RoomBand): String = when (band) {
     RoomBand.RIGHT_HERE -> stringResource(R.string.proximity_band_right_here_short)
     RoomBand.SAME_ROOM -> stringResource(R.string.proximity_band_same_room_short)
@@ -941,5 +951,4 @@ private fun ageText(lastSeen: Long): String {
     val seconds = ((System.currentTimeMillis() - lastSeen) / 1000L).coerceAtLeast(0L)
     return if (seconds == 0L) "now" else "${seconds}s"
 }
-
 

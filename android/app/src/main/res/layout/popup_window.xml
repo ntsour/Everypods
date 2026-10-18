@@ -24,7 +24,7 @@
             android:layout_marginTop="16dp"
             android:fontFamily="@font/sf_pro"
             android:gravity="center"
-            android:text="AirPods Pro"
+            android:text="@string/airpods_pro_name"
             android:textColor="@color/popup_text"
 
             android:textSize="28sp"
@@ -38,7 +38,7 @@
             android:layout_marginTop="12dp"
             android:layout_marginEnd="24dp"
             android:background="@drawable/popup_button_shape"
-            android:contentDescription="Close Button"
+            android:contentDescription="@string/ui_close"
             android:src="@drawable/close"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent"
@@ -48,7 +48,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:id="@+id/video"
-        android:contentDescription="AirPods"
+        android:contentDescription="@string/airpods_brand"
         android:src="@raw/connected"
         tools:ignore="HardcodedText" />
 

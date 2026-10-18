@@ -132,7 +132,7 @@ fun StyledSelectList(
                 if (hasIcon) {
                     Icon(
                         painter = painterResource(item.iconRes),
-                        contentDescription = "Icon",
+                        contentDescription = null,
                         tint = Color(0xFF007AFF),
                         modifier = Modifier
                             .height(48.dp)

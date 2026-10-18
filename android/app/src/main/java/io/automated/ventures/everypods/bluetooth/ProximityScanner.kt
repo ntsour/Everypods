@@ -24,6 +24,7 @@ import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
+import io.automated.ventures.everypods.R
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioDeviceInfo
@@ -282,18 +283,18 @@ class ProximityScanner(private val context: Context) {
             val adapter = bluetoothManager?.adapter
 
             if (adapter == null) {
-                publish(error = "Bluetooth is not available on this device.")
+                publish(error = context.getString(R.string.bluetooth_unavailable))
                 return
             }
 
             if (!adapter.isEnabled) {
-                publish(error = "Bluetooth is turned off.")
+                publish(error = context.getString(R.string.bluetooth_disabled))
                 return
             }
 
             scanner = adapter.bluetoothLeScanner
             if (scanner == null) {
-                publish(error = "Bluetooth LE scanning is not available.")
+                publish(error = context.getString(R.string.bluetooth_scan_unavailable))
                 return
             }
 
@@ -315,7 +316,7 @@ class ProximityScanner(private val context: Context) {
                 }
 
                 override fun onScanFailed(errorCode: Int) {
-                    publish(error = "BLE scan failed: $errorCode", isScanning = false)
+                    publish(error = context.getString(R.string.bluetooth_scan_failed, errorCode), isScanning = false)
                 }
             }
 
@@ -325,10 +326,10 @@ class ProximityScanner(private val context: Context) {
             publish(isScanning = true, error = null)
         } catch (securityException: SecurityException) {
             Log.e(TAG, "Missing Bluetooth scan permission", securityException)
-            publish(error = "Bluetooth scan permission is missing.", isScanning = false)
+            publish(error = context.getString(R.string.bluetooth_scan_permission), isScanning = false)
         } catch (throwable: Throwable) {
             Log.e(TAG, "Unable to start proximity scanner", throwable)
-            publish(error = "Unable to start BLE scan.", isScanning = false)
+            publish(error = context.getString(R.string.bluetooth_scan_start_failed), isScanning = false)
         }
     }
 
@@ -668,11 +669,11 @@ class ProximityScanner(private val context: Context) {
     private fun calibrationMessage(isCalibrating: Boolean): String? {
         if (isCalibrating) {
             val secondsLeft = ((calibrationEndsAt - System.currentTimeMillis()) / 1000L).coerceAtLeast(1L)
-            return "Keep the open case beside the phone for ${secondsLeft}s."
+            return context.getString(R.string.calibration_wait, secondsLeft)
         }
 
         return if (ownerFingerprint != null) {
-            "Your AirPods fingerprint is saved. Matching devices are sorted first."
+            context.getString(R.string.calibration_saved)
         } else {
             null
         }

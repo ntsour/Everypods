@@ -1,6 +1,7 @@
 /*
-    EveryPods - AirPods liberated from Apple's ecosystem
-    Copyright (C) 2025 EveryPods contributors
+    LibrePods - AirPods liberated from Apple’s ecosystem
+    Copyright (C) 2025 LibrePods contributors
+    Copyright (C) 2026 EveryPods contributors
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -25,7 +26,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,9 +43,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -63,339 +65,508 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.Font
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.lerp
-import io.automated.ventures.everypods.R
-import io.automated.ventures.everypods.presentation.components.SelectItem
-import io.automated.ventures.everypods.presentation.components.StyledScaffold
-import io.automated.ventures.everypods.presentation.components.StyledSelectList
-import io.automated.ventures.everypods.presentation.viewmodel.AirPodsViewModel
-import kotlinx.coroutines.FlowPreview
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.highlight.Highlight
 import kotlinx.coroutines.flow.debounce
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.milliseconds
+import androidx.compose.foundation.isSystemInDarkTheme
+import io.automated.ventures.everypods.R
+import io.automated.ventures.everypods.presentation.components.SelectItem
+import io.automated.ventures.everypods.presentation.components.StyledButton
+import io.automated.ventures.everypods.presentation.components.StyledScaffold
+import io.automated.ventures.everypods.presentation.components.StyledSelectList
+import io.automated.ventures.everypods.presentation.viewmodel.AirPodsViewModel
+import kotlinx.coroutines.FlowPreview
 
+
+/** Adapted from LibrePods rewrite-v2.0.0-alpha.1, including its EQ card and drag effects. */
 @OptIn(FlowPreview::class)
 @Composable
 fun EqualizerScreen(viewModel: AirPodsViewModel) {
     val state by viewModel.uiState.collectAsState()
     val customEq = state.customEq
     val enabled = customEq.isEnabled()
-
-    val recommendedString = stringResource(R.string.eq_recommended)
-    val customString      = stringResource(R.string.eq_custom)
-
-    val eqStateOptions = remember(state.customEq) {
+    val isDark = isSystemInDarkTheme()
+    val height = 200.dp
+    val maxOffset = with(LocalDensity.current) { height.toPx() } / 2
+    val offsets = remember(customEq, maxOffset) {
         listOf(
-            SelectItem(
-                name = recommendedString,
-                selected = !enabled,
-                onClick = { viewModel.setCustomEqEnabled(false) }
-            ),
-            SelectItem(
-                name = customString,
-                selected = enabled,
-                onClick = { viewModel.setCustomEqEnabled(true) }
-            ),
+            mutableFloatStateOf(lerp(maxOffset, -maxOffset, customEq.low / 100f)),
+            mutableFloatStateOf(lerp(maxOffset, -maxOffset, customEq.mid / 100f)),
+            mutableFloatStateOf(lerp(maxOffset, -maxOffset, customEq.high / 100f))
         )
     }
 
-    StyledScaffold(
-        title = stringResource(R.string.equalizer)
-    ) { spacerHeight ->
-        val scrollState = rememberScrollState()
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp)
-                .verticalScroll(scrollState),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            val height   = 200.dp
-            val maxOffset = with(LocalDensity.current) { height.toPx() } / 2
-
-            val offsets = remember(state.customEq) {
-                listOf(
-                    mutableFloatStateOf(lerp(maxOffset, -maxOffset, customEq.low.toFloat()  / 100)),
-                    mutableFloatStateOf(lerp(maxOffset, -maxOffset, customEq.mid.toFloat()  / 100)),
-                    mutableFloatStateOf(lerp(maxOffset, -maxOffset, customEq.high.toFloat() / 100))
-                )
+    LaunchedEffect(offsets, enabled) {
+        if (!enabled) return@LaunchedEffect
+        snapshotFlow {
+            Triple(offsets[0].floatValue, offsets[1].floatValue, offsets[2].floatValue)
+        }
+            .debounce(100.milliseconds)
+            .collect { (lowOffset, midOffset, highOffset) ->
+                fun toBand(offset: Float) =
+                    (100 - ((offset / (2 * maxOffset) + 0.5f) * 100).roundToInt()).coerceIn(0, 100)
+                val low = toBand(lowOffset)
+                val mid = toBand(midOffset)
+                val high = toBand(highOffset)
+                val current = viewModel.uiState.value.customEq
+                // State updates recreate the offsets; only send actual user changes.
+                if (current.isEnabled() && (low != current.low || mid != current.mid || high != current.high)) {
+                    viewModel.setCustomEq(low, mid, high)
+                }
             }
+    }
 
-            Spacer(modifier = Modifier.height(spacerHeight))
-
-            StyledSelectList(items = eqStateOptions)
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            val backgroundColor = if (isSystemInDarkTheme()) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
-
-            Crossfade(enabled) { isCustom ->
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    if (isCustom) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(backgroundColor, RoundedCornerShape(28.dp))
-                        ) {
-                            val dashColor =
-                                if (isSystemInDarkTheme()) Color(0x80AAAAAA) else Color(0x809D9D9D)
-
-                            // Debounce slider moves to avoid flooding AirPods with AACP packets
-                            LaunchedEffect(offsets) {
-                                snapshotFlow {
-                                    Triple(
-                                        offsets[0].floatValue,
-                                        offsets[1].floatValue,
-                                        offsets[2].floatValue
-                                    )
-                                }
-                                    .debounce(300.milliseconds)
-                                    .collect { (lo, mi, hi) ->
-                                        val low  = (((-lo / (2 * maxOffset)) + 0.5f) * 100).roundToInt().coerceIn(0, 100)
-                                        val mid  = (((-mi / (2 * maxOffset)) + 0.5f) * 100).roundToInt().coerceIn(0, 100)
-                                        val high = (((-hi / (2 * maxOffset)) + 0.5f) * 100).roundToInt().coerceIn(0, 100)
-                                        viewModel.setCustomEq(low, mid, high)
-                                    }
+    // Match the Apple-style card to EveryPods' existing light/dark scaffold.
+    MaterialTheme(
+        colorScheme = MaterialTheme.colorScheme.copy(
+            surfaceContainer = if (isDark) Color.Black else Color(0xFFF2F2F7),
+            surfaceContainerHigh = if (isDark) Color(0xFF1C1C1E) else Color.White,
+            onSurface = if (isDark) Color.White else Color.Black
+        )
+    ) {
+        StyledScaffold(title = stringResource(R.string.equalizer)) { topPadding, _, bottomPadding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Spacer(Modifier.height(topPadding))
+                StyledSelectList(
+                    items = listOf(
+                        SelectItem(
+                            name = stringResource(R.string.eq_recommended),
+                            selected = !enabled,
+                            onClick = { viewModel.setCustomEqEnabled(false) }
+                        ),
+                        SelectItem(
+                            name = stringResource(R.string.eq_custom),
+                            selected = enabled,
+                            onClick = { viewModel.setCustomEqEnabled(true) }
+                        )
+                    )
+                )
+                Spacer(Modifier.height(12.dp))
+                Crossfade(targetState = enabled, label = "custom_eq") { visible ->
+                    if (visible) {
+                        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            EqualizerCard(offsets[0], offsets[1], offsets[2])
+                            val resetEnabled by remember(offsets) {
+                                derivedStateOf { offsets.any { it.floatValue != 0f } }
                             }
-
-                            // Canvas EQ curve
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(height)
-                                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                            StyledButton(
+                                onClick = { offsets.forEach { it.floatValue = 0f } },
+                                backdrop = rememberLayerBackdrop(),
+                                modifier = Modifier.fillMaxWidth(),
+                                isInteractive = false,
+                                enabled = resetEnabled
                             ) {
-                                // Dashed center line
-                                Canvas(modifier = Modifier.fillMaxSize()) {
-                                    val dashLength = 8.dp.toPx()
-                                    val gapLength  = 6.dp.toPx()
-                                    val midY = size.height / 2f
-                                    var x = 0f
-                                    while (x < size.width) {
-                                        drawLine(
-                                            color = dashColor,
-                                            start = Offset(x, midY),
-                                            end   = Offset((x + dashLength).coerceAtMost(size.width), midY),
-                                            strokeWidth = 1.dp.toPx()
-                                        )
-                                        x += dashLength + gapLength
-                                    }
-                                }
-
-                                // EQ curve
-                                val accentColor = Color(0xFF007AFF)
-                                Canvas(modifier = Modifier.fillMaxSize()) {
-                                    val w = size.width
-                                    val h = size.height
-                                    val midY = h / 2f
-
-                                    val x0 = 0f
-                                    val x1 = w / 6f
-                                    val x2 = w / 2f
-                                    val x3 = w * 5f / 6f
-                                    val x4 = w
-
-                                    val y1 = midY + offsets[0].floatValue
-                                    val y2 = midY + offsets[1].floatValue
-                                    val y3 = midY + offsets[2].floatValue
-
-                                    val path = Path().apply {
-                                        moveTo(x0, midY)
-                                        // cubic bezier through each band point
-                                        cubicTo(
-                                            x0 + (x1 - x0) * 0.5f, midY,
-                                            x1 - (x1 - x0) * 0.5f, y1,
-                                            x1, y1
-                                        )
-                                        cubicTo(
-                                            x1 + (x2 - x1) * 0.5f, y1,
-                                            x2 - (x2 - x1) * 0.5f, y2,
-                                            x2, y2
-                                        )
-                                        cubicTo(
-                                            x2 + (x3 - x2) * 0.5f, y2,
-                                            x3 - (x3 - x2) * 0.5f, y3,
-                                            x3, y3
-                                        )
-                                        cubicTo(
-                                            x3 + (x4 - x3) * 0.5f, y3,
-                                            x4 - (x4 - x3) * 0.5f, midY,
-                                            x4, midY
-                                        )
-                                    }
-
-                                    // Filled gradient area
-                                    val fillPath = Path().apply {
-                                        addPath(path)
-                                        lineTo(x4, h)
-                                        lineTo(x0, h)
-                                        close()
-                                    }
-                                    drawPath(
-                                        fillPath,
-                                        brush = Brush.verticalGradient(
-                                            colors = listOf(
-                                                accentColor.copy(alpha = 0.25f),
-                                                accentColor.copy(alpha = 0f)
-                                            ),
-                                            startY = 0f,
-                                            endY = h
-                                        )
-                                    )
-
-                                    // Line
-                                    drawPath(
-                                        path,
-                                        color = accentColor,
-                                        style = Stroke(width = 2.dp.toPx())
-                                    )
-
-                                    // Band dots
-                                    listOf(x1 to y1, x2 to y2, x3 to y3).forEach { (x, y) ->
-                                        drawCircle(color = accentColor, radius = 5.dp.toPx(), center = Offset(x, y))
-                                        drawCircle(color = Color.White, radius = 3.dp.toPx(), center = Offset(x, y))
-                                    }
-                                }
-                            }
-
-                            // Sliders row
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(height)
-                                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                                horizontalArrangement = Arrangement.SpaceEvenly
-                            ) {
-                                val bandLabels = listOf(
-                                    stringResource(R.string.eq_bass),
-                                    stringResource(R.string.eq_mid),
-                                    stringResource(R.string.eq_treble)
+                                Text(
+                                    text = stringResource(R.string.eq_reset),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (resetEnabled) 1f else 0.4f)
                                 )
-
-                                offsets.forEachIndexed { index, offsetState ->
-                                    EqBandSlider(
-                                        label    = bandLabels[index],
-                                        offset   = offsetState.floatValue,
-                                        maxOffset = maxOffset,
-                                        onOffsetChange = { offsetState.floatValue = it }
-                                    )
-                                }
                             }
-
-                            Spacer(modifier = Modifier.height(8.dp))
                         }
                     }
                 }
+                Spacer(Modifier.height(bottomPadding))
             }
-
-            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
 
 @Composable
-private fun EqBandSlider(
-    label: String,
-    offset: Float,
-    maxOffset: Float,
-    onOffsetChange: (Float) -> Unit
+private fun EqualizerCard(
+    lowOffset: MutableState<Float>,
+    midOffset: MutableState<Float>,
+    highOffset: MutableState<Float>
 ) {
-    val isDarkTheme = isSystemInDarkTheme()
-    val textColor   = if (isDarkTheme) Color.White else Color.Black
-    val trackColor  = if (isDarkTheme) Color(0xFF3A3A3C) else Color(0xFFE5E5EA)
-    val accentColor = Color(0xFF007AFF)
+    val height = 200.dp
+    val maxOffset = with(LocalDensity.current) { height.toPx() } / 2
 
-    // Map offset to a 0..1 percentage for label display
-    val pct by remember(offset, maxOffset) {
-        derivedStateOf {
-            ((-offset / (2 * maxOffset) + 0.5f) * 100).roundToInt().coerceIn(0, 100)
-        }
-    }
+    val dashColor = MaterialTheme.colorScheme.onSurface.copy(0.2f)
 
-    // Gradient color: blue at extremes, neutral in middle
-    val distFromCenter = abs(offset) / maxOffset
-    val thumbColor     = lerp(trackColor, accentColor, distFromCenter)
-
+    val backdrop = rememberLayerBackdrop()
     Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-        modifier = Modifier.fillMaxHeight()
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh, RoundedCornerShape(28.dp))
     ) {
-        Text(
-            text  = "$pct",
-            style = TextStyle(
-                fontSize   = 12.sp,
-                color      = textColor.copy(alpha = 0.6f),
-                fontFamily = FontFamily(Font(R.font.sf_pro)),
-                textAlign  = TextAlign.Center
-            )
-        )
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(42.dp))
 
-        // Vertical draggable track
         Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .width(32.dp)
-                .weight(1f)
+            modifier = Modifier.fillMaxWidth()
         ) {
-            // Track
-            Box(
-                modifier = Modifier
-                    .width(4.dp)
-                    .fillMaxHeight()
-                    .background(trackColor, RoundedCornerShape(2.dp))
-            )
+            fun colorFromY(y: Float): Color {
+                val f = ((y + maxOffset) / (2f * maxOffset)).coerceIn(0f, 1f)
+                val stops = listOf(
+                    0.0f to Color(0xFFFFA300),
+                    0.25f to Color(0xFFFCE600),
+                    0.5f to Color(0xFF00FAAF),
+                    0.75f to Color(0xFF00FAFF),
+                    1.0f to Color(0xFF00B5FF)
+                )
+                val (start, end) = stops.zipWithNext()
+                    .first { f <= it.second.first }
+                val c = (f - start.first) / (end.first - start.first)
+                return lerp(start.second, end.second, c)
+            }
 
-            // Filled portion (from center to thumb)
-            val fillFraction by remember(offset) { derivedStateOf { -offset / (2 * maxOffset) } }
-            Box(
-                modifier = Modifier
-                    .width(4.dp)
-                    .fillMaxHeight(fraction = abs(fillFraction))
-                    .align(if (fillFraction >= 0) Alignment.Center else Alignment.BottomCenter)
-                    .background(accentColor.copy(alpha = 0.5f), RoundedCornerShape(2.dp))
-            )
+            fun pathBrush(
+                startY: Float,
+                endY: Float,
+            ): Brush {
+                val stops = (0..20).map { i ->
+                    val t = i / 20f
+                    val y = lerp(startY, endY, t)
+                    t to colorFromY(y)
+                }
 
-            // Thumb
-            Box(
+                return Brush.linearGradient(
+                    colorStops = stops.toTypedArray()
+                )
+            }
+
+            Column(
                 modifier = Modifier
-                    .offset { IntOffset(0, offset.roundToInt()) }
-                    .size(28.dp)
-                    .background(thumbColor, CircleShape)
-                    .border(2.dp, Color.White.copy(alpha = 0.5f), CircleShape)
-                    .draggable(
-                        orientation = Orientation.Vertical,
-                        state = rememberDraggableState { delta ->
-                            val newOffset = (offset + delta).coerceIn(-maxOffset, maxOffset)
-                            onOffsetChange(newOffset)
+                    .fillMaxWidth()
+                    .layerBackdrop(backdrop)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(height)
+                        .padding(horizontal = 20.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxSize()
+                    ) {
+                        val dashCount = (height / 10.dp).toInt()
+                        repeat(3) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .weight(1f),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxHeight(),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                                ) {
+                                    for (i in 1..(dashCount)) {
+                                        val t = i.toFloat() / dashCount
+                                        val centerDistance = abs(0.5f - t)
+                                        val alpha = 1f - (centerDistance * 2f)
+                                        Box(
+                                            modifier = Modifier
+                                                .height(9.dp)
+                                                .width(0.75.dp)
+                                                .background(
+                                                    dashColor.copy(alpha),
+                                                    RoundedCornerShape(28.dp)
+                                                )
+                                        )
+                                    }
+                                }
+                            }
                         }
-                    )
-            )
-        }
+                    }
 
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text  = label,
-            style = TextStyle(
-                fontSize   = 12.sp,
-                color      = textColor.copy(alpha = 0.6f),
-                fontFamily = FontFamily(Font(R.font.sf_pro)),
-                textAlign  = TextAlign.Center
-            )
-        )
+                    val backgroundColor = MaterialTheme.colorScheme.surfaceContainer
+
+                    Canvas(
+                        modifier = Modifier
+                            .fillMaxSize()
+                    ) {
+                        val canvasWidth = size.width
+
+                        drawLine(
+                            color = backgroundColor,
+                            start = Offset(
+                                x = 0f,
+                                y = lowOffset.value + maxOffset
+                            ),
+                            end = Offset(
+                                x = 1 / 6f * canvasWidth,
+                                y = lowOffset.value + maxOffset
+                            ),
+                            strokeWidth = 10f
+                        )
+                        drawLine(
+                            color = colorFromY(lowOffset.value),
+                            start = Offset(
+                                x = 0f,
+                                y = lowOffset.value + maxOffset
+                            ),
+                            end = Offset(
+                                x = 1 / 6f * canvasWidth,
+                                y = lowOffset.value + maxOffset
+                            ),
+                            strokeWidth = 8f
+                        )
+
+                        val lowToMidPath = Path()
+                        lowToMidPath.moveTo(
+                            x = 1 / 6f * canvasWidth,
+                            y = lowOffset.value + maxOffset
+                        )
+                        lowToMidPath.cubicTo(
+                            x1 = canvasWidth * 1 / 6f + 108.dp.value,
+                            y1 = lowOffset.value + maxOffset,
+                            x2 = canvasWidth * 0.5f - 108.dp.value,
+                            y2 = midOffset.value + maxOffset,
+                            x3 = canvasWidth * 0.5f,
+                            y3 = midOffset.value + maxOffset
+                        )
+                        drawPath(
+                            color = backgroundColor,
+                            path = lowToMidPath,
+                            style = Stroke(width = 10f)
+                        )
+                        drawPath(
+                            brush = pathBrush(
+                                lowOffset.value,
+                                midOffset.value
+                            ),
+                            path = lowToMidPath,
+                            style = Stroke(width = 8f)
+                        )
+
+                        val midToHighPath = Path()
+                        midToHighPath.moveTo(
+                            x = 0.5f * canvasWidth,
+                            y = midOffset.value + maxOffset
+                        )
+                        midToHighPath.cubicTo(
+                            x1 = canvasWidth * 0.5f + 108.dp.value,
+                            y1 = midOffset.value + maxOffset,
+                            x2 = canvasWidth * 5 / 6f - 108.dp.value,
+                            y2 = highOffset.value + maxOffset,
+                            x3 = canvasWidth * 5 / 6f,
+                            y3 = highOffset.value + maxOffset
+                        )
+                        drawPath(
+                            color = backgroundColor,
+                            path = midToHighPath,
+                            style = Stroke(width = 10f)
+                        )
+                        drawPath(
+                            brush = pathBrush(
+                                midOffset.value,
+                                highOffset.value
+                            ),
+                            path = midToHighPath,
+                            style = Stroke(width = 8f)
+                        )
+                        drawLine(
+                            color = backgroundColor,
+                            start = Offset(
+                                x = 5 / 6f * canvasWidth,
+                                y = highOffset.value + maxOffset
+                            ),
+                            end = Offset(
+                                x = 1f * canvasWidth,
+                                y = highOffset.value + maxOffset
+                            ),
+                            strokeWidth = 10f
+                        )
+                        drawLine(
+                            color = colorFromY(highOffset.value),
+                            start = Offset(
+                                x = 5 / 6f * canvasWidth,
+                                y = highOffset.value + maxOffset
+                            ),
+                            end = Offset(
+                                x = 1f * canvasWidth,
+                                y = highOffset.value + maxOffset
+                            ),
+                            strokeWidth = 8f
+                        )
+                    }
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 16.dp, horizontal = 20.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.eq_bass).uppercase(),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(0.2f),
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    Box(
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.eq_mid).uppercase(),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(0.2f),
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    Box(
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.eq_treble).uppercase(),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(0.2f),
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(height)
+                    .padding(horizontal = 20.dp),
+
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                for (i in 0..2) {
+                    Row(
+                        modifier = Modifier
+                            .weight(1f),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        val pressed = remember { mutableStateOf(false) }
+                        Box(
+                            modifier = Modifier
+                                .offset {
+                                    IntOffset(
+                                        x = 0,
+                                        y = when (i) { 0 -> lowOffset.value; 1 -> midOffset.value; 2-> highOffset.value else -> 0f}.roundToInt()
+                                    )
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Crossfade(
+                                pressed.value
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(96.dp)
+                                        .then(
+                                            if (it) {
+                                                Modifier.drawBackdrop(
+                                                    backdrop = backdrop,
+                                                    shape = { CircleShape },
+                                                    highlight = {
+                                                        Highlight.Ambient
+                                                    },
+                                                    onDrawSurface = {
+                                                        drawCircle(
+                                                            color = Color.White.copy(
+                                                                0.2f
+                                                            ),
+                                                            radius = size.height
+                                                        )
+                                                        drawCircle(
+                                                            color = colorFromY(
+                                                                when (i) {
+                                                                    0 -> lowOffset.value; 1 -> midOffset.value; 2 -> highOffset.value
+                                                                    else -> 0f
+                                                                }
+                                                            ),
+                                                            style = Stroke(2.dp.value),
+                                                            radius = size.height / 2
+                                                        )
+                                                    },
+                                                    effects = {
+                                                        lens(
+                                                            refractionHeight = 32f.dp.value,
+                                                            refractionAmount = size.height
+                                                        )
+                                                    }
+                                                )
+                                            } else Modifier
+                                        )
+                                )
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .size(18.dp)
+                                    .background(
+                                        colorFromY(
+                                            when (i) {
+                                                0 -> lowOffset.value; 1 -> midOffset.value; 2 -> highOffset.value
+                                                else -> 0f
+                                            }
+                                        ),
+                                        CircleShape
+                                    )
+                                    .border(
+                                        2.5.dp,
+                                        MaterialTheme.colorScheme.surfaceContainer,
+                                        CircleShape
+                                    )
+                                    .draggable(
+                                        orientation = Orientation.Vertical,
+                                        state = rememberDraggableState { delta ->
+                                            when (i) {
+                                                0 -> {
+                                                    lowOffset.value =
+                                                        (lowOffset.value + delta).coerceIn(
+                                                            -maxOffset,
+                                                            maxOffset
+                                                        )
+                                                }
+
+                                                1 -> {
+                                                    midOffset.value =
+                                                        (midOffset.value + delta).coerceIn(
+                                                            -maxOffset,
+                                                            maxOffset
+                                                        )
+                                                }
+
+                                                2 -> {
+                                                    highOffset.value =
+                                                        (highOffset.value + delta).coerceIn(
+                                                            -maxOffset,
+                                                            maxOffset
+                                                        )
+                                                }
+                                            }
+                                        },
+                                        onDragStarted = {
+                                            pressed.value = true
+                                        },
+                                        onDragStopped = {
+                                            pressed.value = false
+                                        }
+                                    )
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
