@@ -22,6 +22,7 @@ package io.automated.ventures.everypods.presentation.components
 
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothClass
 import android.bluetooth.BluetoothManager
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -69,6 +70,15 @@ import io.automated.ventures.everypods.R
 import io.automated.ventures.everypods.presentation.viewmodel.PeerUiInfo
 import kotlin.io.encoding.ExperimentalEncodingApi
 
+private fun BluetoothDevice.isAndroidPeerCandidate(): Boolean {
+    return try {
+        val major = bluetoothClass?.majorDeviceClass ?: return false
+        major == BluetoothClass.Device.Major.PHONE || major == BluetoothClass.Device.Major.COMPUTER
+    } catch (_: SecurityException) {
+        false
+    }
+}
+
 @SuppressLint("MissingPermission")
 @Composable
 fun PeerConnectionPanel(
@@ -84,7 +94,7 @@ fun PeerConnectionPanel(
 
     val bondedDevices: List<BluetoothDevice> = remember {
         val bt = context.getSystemService(BluetoothManager::class.java)
-        bt?.adapter?.bondedDevices?.toList() ?: emptyList()
+        bt?.adapter?.bondedDevices?.filter(BluetoothDevice::isAndroidPeerCandidate) ?: emptyList()
     }
     val peerName: String? = remember(crossDevicePeerMac, bondedDevices) {
         bondedDevices.find { it.address == crossDevicePeerMac }?.name
@@ -301,20 +311,6 @@ fun ConnectionSettings(
                 .padding(horizontal = 12.dp)
         )
 
-        StyledToggle(
-            label = stringResource(R.string.lid_open_last_holder_autoconnect),
-            description = stringResource(R.string.lid_open_last_holder_autoconnect_description),
-            independent = false,
-            checked = lidOpenLastHolderAutoconnect,
-            onCheckedChange = onLidOpenLastHolderAutoconnectChanged
-        )
-        HorizontalDivider(
-            thickness = 1.dp,
-            color = Color(0x40888888),
-            modifier = Modifier
-                .padding(horizontal = 12.dp)
-        )
-
         if (earDetectionAvailable) {
             StyledToggle(
                 label = stringResource(R.string.ear_detection),
@@ -341,6 +337,18 @@ fun ConnectionSettings(
                 Spacer(Modifier.width(12.dp))
             }
         }
+        HorizontalDivider(
+            thickness = 1.dp,
+            color = Color(0x40888888),
+            modifier = Modifier.padding(horizontal = 12.dp)
+        )
+        StyledToggle(
+            label = stringResource(R.string.lid_open_last_holder_autoconnect),
+            description = stringResource(R.string.lid_open_last_holder_autoconnect_description),
+            independent = false,
+            checked = lidOpenLastHolderAutoconnect,
+            onCheckedChange = onLidOpenLastHolderAutoconnectChanged
+        )
         // Experiment (Option 1 / CrossDevice): Automatic Connection toggle hidden.
         // Params automaticConnectionEnabled / onAutomaticConnectionChanged kept for easy revert.
     }
@@ -368,7 +376,7 @@ fun CrossDevicePeersInline(
 
     val bondedDevices = remember {
         val bt = context.getSystemService(BluetoothManager::class.java)
-        bt?.adapter?.bondedDevices?.toList() ?: emptyList()
+        bt?.adapter?.bondedDevices?.filter(BluetoothDevice::isAndroidPeerCandidate) ?: emptyList()
     }
 
     if (showPicker) {

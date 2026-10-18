@@ -93,6 +93,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
@@ -118,6 +119,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -515,6 +517,12 @@ fun Main(gymTimerNavigationRequest: Int = 0, heartRateNavigationRequest: Int = 0
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
+            val currentEntry by navController.currentBackStackEntryAsState()
+            val currentDestination = currentEntry?.destination?.route?.let { route ->
+                if (route.startsWith("category/")) {
+                    "category/${currentEntry?.arguments?.getString("key") ?: route.substringAfter("category/").substringBefore('?')}"
+                } else route.substringBefore('?')
+            } ?: "loading"
             val backButtonBackdrop = rememberLayerBackdrop()
             Box(
                 modifier = Modifier
@@ -525,6 +533,7 @@ fun Main(gymTimerNavigationRequest: Int = 0, heartRateNavigationRequest: Int = 0
                 NavHost(
                     navController = navController,
                     startDestination = startDestination,
+                    modifier = Modifier.testTag("destination_$currentDestination"),
                     enterTransition = {
                         slideInHorizontally(
                             initialOffsetX = { it }, animationSpec = tween(durationMillis = 300)
@@ -615,34 +624,29 @@ fun Main(gymTimerNavigationRequest: Int = 0, heartRateNavigationRequest: Int = 0
                         if (airPodsViewModel != null) RenameScreen(airPodsViewModel)
                     }
                     composable("app_settings") {
-                        // AppSettingsScreen content has been moved into the main screen menu.
-                        // Route kept for backward-compatibility (deep links, etc.) but renders nothing.
+                        androidx.compose.runtime.LaunchedEffect(Unit) {
+                            navController.navigate("category/appsettings") {
+                                popUpTo("app_settings") { inclusive = true }
+                            }
+                        }
                     }
                     composable("head_tracking") {
                         if (airPodsViewModel != null) HeadTrackingScreen(airPodsViewModel, navController)
                     }
+                    composable("heart_rate_screen") {
+                        if (airPodsViewModel != null) io.automated.ventures.everypods.presentation.screens.HeartRateScreen(airPodsViewModel)
+                    }
                     composable("accessibility") {
-                        if (airPodsViewModel != null) AccessibilitySettingsScreen(airPodsViewModel, navController)
+                        if (airPodsViewModel != null) CategoryScreen(airPodsViewModel, viewModel(), navController, "controls", "controls_configuration")
                     }
                      composable("adaptive_strength") {
-                         if (airPodsViewModel != null) AdaptiveStrengthScreen(airPodsViewModel, navController)
-                     }
-                     composable("equalizer_screen") {
-                         if (airPodsViewModel != null) EqualizerScreen(airPodsViewModel)
-                     }
-                    composable("heart_rate_screen") {
-                        airPodsViewModel?.let {
-                            io.automated.ventures.everypods.presentation.screens.HeartRateScreen(it)
-                        }
-                    }
-                    composable("open_source_licenses") {
-                        OpenSourceLicensesScreen(navController)
+                        if (airPodsViewModel != null) CategoryScreen(airPodsViewModel, viewModel(), navController, "audio", "adaptive_audio")
                     }
                     composable("version_info") {
                         if (airPodsViewModel != null) VersionScreen(airPodsViewModel)
                     }
                     composable("hearing_protection") {
-                        if (airPodsViewModel != null) HearingProtectionScreen(airPodsViewModel, navController)
+                        if (airPodsViewModel != null) CategoryScreen(airPodsViewModel, viewModel(), navController, "audio", "hearing_protection")
                     }
                     composable("purchase_screen") {
                         val purchaseViewModel: PurchaseViewModel = viewModel()
@@ -667,8 +671,11 @@ fun Main(gymTimerNavigationRequest: Int = 0, heartRateNavigationRequest: Int = 0
                         }) else null
                         AppPermissionsScreen(onPermissionsGranted = onGranted)
                     }
-                    composable("notification_announcements") {
-                        NotificationAnnouncementsScreen(navController)
+                    composable(
+                        route = "notification_announcements?target={target}",
+                        arguments = listOf(navArgument("target") { type = NavType.StringType; nullable = true; defaultValue = null }),
+                    ) { entry ->
+                        NotificationAnnouncementsScreen(navController, entry.arguments?.getString("target"))
                     }
                     composable("announcement_app_picker") {
                         AnnouncementAppPickerScreen(navController)
@@ -677,13 +684,17 @@ fun Main(gymTimerNavigationRequest: Int = 0, heartRateNavigationRequest: Int = 0
                         ProximityFinderScreen(navController = navController)
                     }
                     composable("smart_features") {
-                        // Smart features are now inlined in the main menu.
-                        // Route kept so any existing deep-link or back-stack reference doesn't crash.
+                        androidx.compose.runtime.LaunchedEffect(Unit) {
+                            navController.navigate("category/smart") {
+                                popUpTo("smart_features") { inclusive = true }
+                            }
+                        }
                     }
                     composable(
-                        route = "category/{key}?anchor={anchor}",
+                        route = "category/{key}?anchor={anchor}&bud={bud}",
                         arguments = listOf(
                             navArgument("key") { type = NavType.StringType },
+                            navArgument("bud") { type = NavType.StringType; defaultValue = "left" },
                             navArgument("anchor") {
                                 type = NavType.StringType
                                 nullable = true
@@ -699,52 +710,71 @@ fun Main(gymTimerNavigationRequest: Int = 0, heartRateNavigationRequest: Int = 0
                             navController = navController,
                             categoryKey = key,
                             anchor = anchor,
+                            initialBud = entry.arguments?.getString("bud") ?: "left",
                         )
                     }
-                    composable("press_actions") {
-                        if (airPodsViewModel != null) PressActionsScreen(airPodsViewModel)
+                    composable(
+                        route = "press_actions?bud={bud}&gesture={gesture}",
+                        arguments = listOf(
+                            navArgument("bud") { type = NavType.StringType; defaultValue = "left" },
+                            navArgument("gesture") { type = NavType.StringType; nullable = true; defaultValue = null },
+                        ),
+                    ) { entry ->
+                        if (airPodsViewModel != null) CategoryScreen(
+                            airPodsViewModel, viewModel(), navController, "controls",
+                            "stem_${entry.arguments?.getString("gesture") ?: "actions"}",
+                            initialBud = entry.arguments?.getString("bud") ?: "left",
+                        )
                     }
                     composable("call_controls") {
-                        if (airPodsViewModel != null) CallControlsScreen(airPodsViewModel)
+                        if (airPodsViewModel != null) CategoryScreen(airPodsViewModel, viewModel(), navController, "controls", "call_controls")
                     }
                     composable("controls_configuration") {
-                        if (airPodsViewModel != null) VolumeControlScreen(airPodsViewModel)
+                        if (airPodsViewModel != null) CategoryScreen(
+                            airPodsViewModel, viewModel(), navController, "controls", "controls_configuration"
+                        )
                     }
                     composable("conversation_awareness") {
-                        if (airPodsViewModel != null) ConversationAwarenessScreen(airPodsViewModel, viewModel())
+                        if (airPodsViewModel != null) CategoryScreen(airPodsViewModel, viewModel(), navController, "audio", "conversation_awareness")
                     }
                     composable("bluetooth_control") {
-                        if (airPodsViewModel != null) BluetoothControlScreen(airPodsViewModel)
+                        if (airPodsViewModel != null) CategoryScreen(airPodsViewModel, viewModel(), navController, "connection", "device")
                     }
                     composable("listening_mode_config") {
-                        if (airPodsViewModel != null) ListeningModeConfigScreen(airPodsViewModel)
+                        if (airPodsViewModel != null) CategoryScreen(airPodsViewModel, viewModel(), navController, "controls", "listening_modes")
                     }
                     composable("adaptive_audio") {
-                        if (airPodsViewModel != null) AdaptiveStrengthScreen(airPodsViewModel, navController)
+                        if (airPodsViewModel != null) CategoryScreen(airPodsViewModel, viewModel(), navController, "audio", "adaptive_audio")
                     }
                     composable("smart_automation") {
-                        if (airPodsViewModel != null) SmartAutomationScreen(airPodsViewModel)
+                        if (airPodsViewModel != null) CategoryScreen(airPodsViewModel, viewModel(), navController, "smart", "automation")
                     }
                     composable("sleep_timer") {
-                        SleepTimerScreen()
+                        if (airPodsViewModel != null) CategoryScreen(airPodsViewModel, viewModel(), navController, "smart", "sleep_timer")
                     }
                     composable("phone_battery") {
-                        PhoneBatteryScreen(viewModel())
+                        if (airPodsViewModel != null) CategoryScreen(airPodsViewModel, viewModel(), navController, "appsettings", "phone_battery")
                     }
                     composable("popup_animations") {
-                        PopupAnimationsScreen(viewModel())
+                        if (airPodsViewModel != null) CategoryScreen(airPodsViewModel, viewModel(), navController, "appsettings", "popup_animations")
                     }
                     composable("audio_settings") {
-                        if (airPodsViewModel != null) AudioSettingsScreen(airPodsViewModel, viewModel(), navController)
+                        if (airPodsViewModel != null) CategoryScreen(airPodsViewModel, viewModel(), navController, "audio", "audio_controls")
+                    }
+                    composable("equalizer_screen") {
+                        if (airPodsViewModel != null) EqualizerScreen(airPodsViewModel)
                     }
                     composable("connection_settings") {
-                        if (airPodsViewModel != null) ConnectionSettingsScreen(airPodsViewModel, navController)
+                        if (airPodsViewModel != null) CategoryScreen(airPodsViewModel, viewModel(), navController, "connection", null)
                     }
                     composable("paired_devices") {
                         if (airPodsViewModel != null) PairedDevicesScreen(airPodsViewModel, navController)
                     }
                     composable("microphone_settings") {
-                        if (airPodsViewModel != null) MicrophoneSettingsScreen(airPodsViewModel)
+                        if (airPodsViewModel != null) CategoryScreen(airPodsViewModel, viewModel(), navController, "audio", "microphone")
+                    }
+                    composable("open_source_licenses") {
+                        OpenSourceLicensesScreen(navController)
                     }
                     composable("email_support") {
                         EmailSupportScreen()

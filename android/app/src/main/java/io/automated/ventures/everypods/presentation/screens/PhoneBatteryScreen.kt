@@ -49,7 +49,7 @@ fun PhoneBatteryScreen(appSettingsViewModel: AppSettingsViewModel) {
                     description = stringResource(R.string.show_phone_battery_in_widget_description),
                     checked = appState.showPhoneBatteryInWidget,
                     onCheckedChange = appSettingsViewModel::setShowPhoneBatteryInWidget,
-                    independent = true, enabled = appState.isPremium)
+                    independent = false, enabled = appState.isPremium)
             }
             
             Spacer(Modifier.height(bottomPadding))

@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -31,6 +33,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.testTag
 import dev.chrisbanes.haze.hazeSource
@@ -40,7 +43,7 @@ import io.automated.ventures.everypods.presentation.components.StyledScaffold
 import io.automated.ventures.everypods.utils.SleepTimer
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 
-@OptIn(ExperimentalHazeMaterialsApi::class)
+@OptIn(ExperimentalHazeMaterialsApi::class, ExperimentalLayoutApi::class)
 @Composable
 fun SleepTimerScreen() {
     val context = LocalContext.current
@@ -66,10 +69,14 @@ fun SleepTimerScreen() {
             Spacer(Modifier.height(topPadding))
             
             Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp)).padding(16.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
                     listOf(15, 30, 45, 60, 90).forEach { mins ->
                         StyledButton(onClick = { SleepTimer.start(context, mins * 60_000L); sleepRemainingMs.value = SleepTimer.remainingMs(context) },
-                            backdrop = rememberLayerBackdrop(), modifier = Modifier.weight(1f).heightIn(min = 40.dp)) {
+                            backdrop = rememberLayerBackdrop(), modifier = Modifier.widthIn(min = 60.dp).heightIn(min = 40.dp)) {
                             Text(stringResource(R.string.ui_sleep_preset_minutes, mins), style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro, color = textColor))
                         }
                     }

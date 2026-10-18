@@ -39,23 +39,27 @@ import io.automated.ventures.everypods.presentation.viewmodel.AirPodsViewModel
 
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
-fun PressActionsScreen(viewModel: AirPodsViewModel) {
+fun PressActionsScreen(
+    viewModel: AirPodsViewModel,
+    initialBud: String = "left",
+    initialGesture: String? = null,
+) {
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     val sharedPrefs = context.getSharedPreferences("settings", android.content.Context.MODE_PRIVATE)
     val dark = isSystemInDarkTheme()
     val cardColor = if (dark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
     
-    var selectedBud by rememberSaveable { mutableStateOf("left") }
+    var selectedBud by rememberSaveable(initialBud) { mutableStateOf(initialBud) }
     
     fun readAction(key: String, default: StemAction): StemAction =
         runCatching { StemAction.valueOf(sharedPrefs.getString(key, default.name) ?: default.name) }.getOrDefault(default)
     
     val pressTypes = listOf(
-        Pair(stringResource(R.string.ui_single_press), AACPManager.Companion.StemPressType.SINGLE_PRESS),
-        Pair(stringResource(R.string.press_twice), AACPManager.Companion.StemPressType.DOUBLE_PRESS),
-        Pair(stringResource(R.string.press_three_times), AACPManager.Companion.StemPressType.TRIPLE_PRESS),
-        Pair(stringResource(R.string.press_and_hold_airpods), AACPManager.Companion.StemPressType.LONG_PRESS),
+        Triple("Single Press", AACPManager.Companion.StemPressType.SINGLE_PRESS,  StemAction.PLAY_PAUSE),
+        Triple("Double Press", AACPManager.Companion.StemPressType.DOUBLE_PRESS,  StemAction.NEXT_TRACK),
+        Triple("Triple Press", AACPManager.Companion.StemPressType.TRIPLE_PRESS,  StemAction.PREVIOUS_TRACK),
+        Triple("Long Press",   AACPManager.Companion.StemPressType.LONG_PRESS,    StemAction.CYCLE_NOISE_CONTROL_MODES),
     )
     
     val actionOptions = listOf(
@@ -100,18 +104,25 @@ fun PressActionsScreen(viewModel: AirPodsViewModel) {
                         )
                     }
                     
-                    pressTypes.forEach { (label, pressType) ->
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    pressTypes.forEach { (label, pressType, defaultAction) ->
+                        val gestureName = when (pressType) {
+                            AACPManager.Companion.StemPressType.SINGLE_PRESS -> "SINGLE_PRESS"
+                            AACPManager.Companion.StemPressType.DOUBLE_PRESS -> "DOUBLE_PRESS"
+                            AACPManager.Companion.StemPressType.TRIPLE_PRESS -> "TRIPLE_PRESS"
+                            else -> "LONG_PRESS"
+                        }
+                        val gestureTarget = initialGesture == gestureName
+                        Row(Modifier.fillMaxWidth().then(if (gestureTarget) Modifier.background(Color(0x220A84FF), RoundedCornerShape(12.dp)) else Modifier), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             StatefulPressDropdown(
                                 side = "left", label = label, pressType = pressType,
-                                state = state, viewModel = viewModel,
+                                defaultAction = defaultAction, state = state, viewModel = viewModel,
                                 actionOptions = actionOptions, enabled = selectedBud == "left",
                                 dark = dark, modifier = Modifier.weight(1f),
                                 readAction = { k, d -> readAction(k, d) }
                             )
                             StatefulPressDropdown(
                                 side = "right", label = label, pressType = pressType,
-                                state = state, viewModel = viewModel,
+                                defaultAction = defaultAction, state = state, viewModel = viewModel,
                                 actionOptions = actionOptions, enabled = selectedBud == "right",
                                 dark = dark, modifier = Modifier.weight(1f),
                                 readAction = { k, d -> readAction(k, d) }

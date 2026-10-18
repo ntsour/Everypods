@@ -95,7 +95,7 @@ fun ProximityFinderScreen(navController: NavController) {
     }
 
     StyledScaffold(
-        title = stringResource(R.string.find_nearby),
+        title = stringResource(R.string.ui_find_my_case),
         actionButtons = listOf(
             { backdrop ->
                 StyledIconButton(

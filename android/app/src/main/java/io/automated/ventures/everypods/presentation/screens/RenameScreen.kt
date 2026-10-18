@@ -71,7 +71,7 @@ fun RenameScreen(viewModel: AirPodsViewModel) {
     }
 
     StyledScaffold(
-        title = stringResource(R.string.name),
+        title = stringResource(R.string.ui_device_name),
     ) { spacerHeight ->
         Column(
             modifier = Modifier

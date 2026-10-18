@@ -77,16 +77,19 @@ fun MicrophoneSettings(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(backgroundColor, RoundedCornerShape(28.dp))
+            .background(if (LocalSettingsGroup.current) Color.Transparent else backgroundColor, RoundedCornerShape(18.dp))
             .padding(top = 2.dp)
     ) {
-        var selectedMode by remember {
+        val microphoneAutomaticText = stringResource(R.string.microphone_automatic)
+        val microphoneAlwaysRightText = stringResource(R.string.microphone_always_right)
+        val microphoneAlwaysLeftText = stringResource(R.string.microphone_always_left)
+        var selectedMode by remember(micModeValue, microphoneAutomaticText, microphoneAlwaysRightText, microphoneAlwaysLeftText) {
             mutableStateOf(
                 when (micModeValue) {
-                    0x00.toByte() -> "Automatic"
-                    0x01.toByte() -> "Always Right"
-                    0x02.toByte() -> "Always Left"
-                    else -> "Automatic"
+                    0x00.toByte() -> microphoneAutomaticText
+                    0x01.toByte() -> microphoneAlwaysRightText
+                    0x02.toByte() -> microphoneAlwaysLeftText
+                    else -> microphoneAutomaticText
                 }
             )
         }
@@ -103,9 +106,6 @@ fun MicrophoneSettings(
         var previousIdx by remember { mutableStateOf<Int?>(null) }
         val haptics = LocalHapticFeedback.current
         val scope = rememberCoroutineScope()
-        val microphoneAutomaticText = stringResource(R.string.microphone_automatic)
-        val microphoneAlwaysRightText = stringResource(R.string.microphone_always_right)
-        val microphoneAlwaysLeftText = stringResource(R.string.microphone_always_left)
         Row(
             modifier = Modifier
                 .fillMaxWidth()

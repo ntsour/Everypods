@@ -201,7 +201,7 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
                 Text(
                     text = stringResource(R.string.cross_device_setup_description),
                     style = TextStyle(
-                        fontSize = 12.sp,
+                        fontSize = 13.sp,
                         fontFamily = PermSfPro,
                         color = if (dark) Color(0xFFD6E9FF) else Color(0xFF28506F)
                     ),
@@ -210,7 +210,7 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
             }
 
             // ── STANDARD PERMISSIONS ─────────────────────────────────────
-            SectionTitle(stringResource(R.string.general_settings_header), textColor)
+            SectionTitle(stringResource(R.string.ui_standard), textColor)
             Column(Modifier.fillMaxWidth().background(cardBg, RoundedCornerShape(18.dp))) {
                 PermissionRow(
                     title = stringResource(R.string.ui_bluetooth),
@@ -284,7 +284,7 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
             }
 
             // ── SPECIAL PERMISSIONS ──────────────────────────────────────
-            SectionTitle(stringResource(R.string.advanced_options), textColor)
+            SectionTitle(stringResource(R.string.ui_special_access), textColor)
 
             // Privacy notice
             Row(
@@ -295,8 +295,8 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
                 verticalAlignment = Alignment.Top
             ) {
                 Text("⚠", style = TextStyle(fontSize = 14.sp, color = orange))
-                Text(stringResource(R.string.special_permissions_explanation),
-                    style = TextStyle(fontSize = 12.sp, fontFamily = PermSfPro, color = orange)
+                Text(stringResource(R.string.ui_special_permissions_give_every),
+                    style = TextStyle(fontSize = 13.sp, fontFamily = PermSfPro, color = orange)
                 )
             }
 
@@ -343,15 +343,7 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
 
 @Composable
 private fun SectionTitle(text: String, textColor: Color) {
-    Text(
-        text.uppercase(),
-        style = TextStyle(
-            fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-            fontFamily = PermSfPro, color = textColor.copy(alpha = 0.5f),
-            letterSpacing = 0.8.sp
-        ),
-        modifier = Modifier.padding(start = 4.dp)
-    )
+    io.automated.ventures.everypods.presentation.components.SettingsHeading(text)
 }
 
 @Composable
@@ -371,9 +363,9 @@ private fun PermissionRow(
         horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f).padding(end = 12.dp)) {
-            Text(title, style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Medium,
+            Text(title, style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Normal,
                 fontFamily = PermSfPro, color = textColor))
-            Text(description, style = TextStyle(fontSize = 12.sp, fontFamily = PermSfPro,
+            Text(description, style = TextStyle(fontSize = 13.sp, fontFamily = PermSfPro,
                 color = textColor.copy(0.55f)))
         }
         if (granted) {
@@ -382,7 +374,7 @@ private fun PermissionRow(
         } else {
             Button(
                 onClick = onGrant,
-                modifier = Modifier.height(34.dp),
+                modifier = Modifier.heightIn(min = 48.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = accent),
                 shape = RoundedCornerShape(8.dp),
                 contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp)

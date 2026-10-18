@@ -84,8 +84,8 @@ fun NavigationButton(
                 Text(
                     text = title,
                     style = TextStyle(
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
                         color = if (isDarkTheme) Color.White.copy(alpha = 0.6f) else Color.Black.copy(alpha = 0.6f),
                         fontFamily = FontFamily(Font(R.font.sf_pro))
                     )
@@ -96,7 +96,7 @@ fun NavigationButton(
             modifier = Modifier
                 .background(
                     animatedBackgroundColor,
-                    RoundedCornerShape(if (independent) 28.dp else 0.dp)
+                    RoundedCornerShape(if (independent && !LocalSettingsGroup.current) 18.dp else 0.dp)
                 )
                 .heightIn(min = height)
                 .pointerInput(Unit) {
@@ -160,8 +160,8 @@ fun NavigationButton(
                 Text(
                     text = description,
                     style = TextStyle(
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Light,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Normal,
                         color = if (isDarkTheme) Color.White.copy(alpha = 0.6f) else Color.Black.copy(alpha = 0.6f),
                         fontFamily = FontFamily(Font(R.font.sf_pro))
                     ),

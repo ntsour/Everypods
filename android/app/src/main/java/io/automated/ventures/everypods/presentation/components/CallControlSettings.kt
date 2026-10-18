@@ -59,6 +59,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.chrisbanes.haze.HazeState
@@ -78,15 +79,13 @@ fun CallControlSettings(
     val textColor = if (isDarkTheme) Color.White else Color.Black
     val backgroundColor = if (isDarkTheme) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
     Box(
-        modifier = Modifier
-            .background(if (isDarkTheme) Color(0xFF000000) else Color(0xFFF2F2F7))
-            .padding(horizontal = 16.dp, vertical = 4.dp)
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
     ){
         Text(
             text = stringResource(R.string.call_controls),
             style = TextStyle(
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
                 color = textColor.copy(alpha = 0.6f),
                 fontFamily = FontFamily(Font(R.font.sf_pro))
             )
@@ -96,7 +95,7 @@ fun CallControlSettings(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(backgroundColor, RoundedCornerShape(28.dp))
+            .background(backgroundColor, RoundedCornerShape(18.dp))
             .padding(top = 2.dp)
     ) {
 
@@ -238,10 +237,12 @@ fun CallControlSettings(
                     text = stringResource(R.string.mute_unmute),
                     fontSize = 16.sp,
                     color = textColor,
-                    modifier = Modifier.padding(bottom = 4.dp)
+                    modifier = Modifier.weight(1f).padding(end = 8.dp, bottom = 4.dp),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 Box(
-                    modifier = Modifier.onGloballyPositioned { coordinates ->
+                    modifier = Modifier.weight(1f).onGloballyPositioned { coordinates ->
                         boxPositionSingle = coordinates.positionInParent()
                     }
                 ) {
@@ -254,7 +255,10 @@ fun CallControlSettings(
                                 fontSize = 16.sp,
                                 color = textColor.copy(alpha = 0.8f),
                                 fontFamily = FontFamily(Font(R.font.sf_pro))
-                            )
+                            ),
+                            modifier = Modifier.weight(1f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                         Text(
                             text = "􀆏",
@@ -374,10 +378,12 @@ fun CallControlSettings(
                     text = stringResource(R.string.hang_up),
                     fontSize = 16.sp,
                     color = textColor,
-                    modifier = Modifier.padding(bottom = 4.dp)
+                    modifier = Modifier.weight(1f).padding(end = 8.dp, bottom = 4.dp),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 Box(
-                    modifier = Modifier.onGloballyPositioned { coordinates ->
+                    modifier = Modifier.weight(1f).onGloballyPositioned { coordinates ->
                         boxPositionDouble = coordinates.positionInParent()
                     }
                 ) {
@@ -390,7 +396,10 @@ fun CallControlSettings(
                                 fontSize = 16.sp,
                                 color = textColor.copy(alpha = 0.8f),
                                 fontFamily = FontFamily(Font(R.font.sf_pro))
-                            )
+                            ),
+                            modifier = Modifier.weight(1f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                         Text(
                             text = "􀆏",

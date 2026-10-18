@@ -79,7 +79,7 @@ fun StyledToggle(
     val haptics = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
 
-    var backgroundColor by remember {
+    var backgroundColor by remember(isDarkTheme) {
         mutableStateOf(
             if (isDarkTheme) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
         )
@@ -90,14 +90,14 @@ fun StyledToggle(
         animationSpec = tween(durationMillis = 500)
     )
 
-    if (independent) {
+    if (independent && !LocalSettingsGroup.current) {
         Column(modifier = Modifier.padding(vertical = 8.dp)) {
             if (title != null) {
                 Text(
                     text = title,
                     style = TextStyle(
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
                         color = textColor.copy(alpha = 0.6f),
                         fontFamily = FontFamily(Font(R.font.sf_pro))
                     ),
@@ -112,7 +112,7 @@ fun StyledToggle(
 
             Box(
                 modifier = Modifier
-                    .background(animatedBackgroundColor, RoundedCornerShape(28.dp))
+                    .background(animatedBackgroundColor, RoundedCornerShape(18.dp))
                     .padding(4.dp)
                     .pointerInput(Unit) {
                         detectTapGestures(
@@ -137,13 +137,13 @@ fun StyledToggle(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(min = 55.dp)
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                        .heightIn(min = 56.dp)
+                        .padding(horizontal = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = label,
-                        modifier = Modifier.weight(1f).padding(end = 8.dp),
+                        modifier = Modifier.weight(1f),
                         style = TextStyle(
                             fontSize = 16.sp,
                             fontFamily = FontFamily(Font(R.font.sf_pro)),
@@ -175,8 +175,8 @@ fun StyledToggle(
                     Text(
                         text = description,
                         style = TextStyle(
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Light,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Normal,
                             color = textColor.copy(alpha = 0.6f),
                             fontFamily = FontFamily(Font(R.font.sf_pro))
                         )
@@ -191,7 +191,7 @@ fun StyledToggle(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(
-                    shape = RoundedCornerShape(28.dp),
+                    shape = RoundedCornerShape(18.dp),
                     color = if (isPressed.value) Color(0xFFE0E0E0) else Color.Transparent
                 )
                 .padding(16.dp)
@@ -236,7 +236,7 @@ fun StyledToggle(
                     Text(
                         text = description,
                         style = TextStyle(
-                            fontSize = 12.sp,
+                            fontSize = 13.sp,
                             color = textColor.copy(0.6f),
                             fontFamily = FontFamily(Font(R.font.sf_pro)),
                         )
