@@ -28,7 +28,7 @@ abstract class GenerateLocaleCatalogTask : DefaultTask() {
     }
 }
 
-val appVersionName = "1.0.4-rc14"
+val appVersionName = "1.0.4-rc19"
 
 plugins {
     alias(libs.plugins.protobuf)
@@ -81,7 +81,7 @@ android {
         applicationId = "io.automated.ventures.everypods"
         minSdk = 33
         targetSdk = 37
-        versionCode = 125
+        versionCode = 130
         versionName = appVersionName
     }
     buildTypes {

@@ -292,6 +292,7 @@ private fun ControlsContent(
         StemAction.NEXT_TRACK              to stringResource(R.string.action_next_track),
         StemAction.PREVIOUS_TRACK          to stringResource(R.string.action_previous_track),
         StemAction.DIGITAL_ASSISTANT       to stringResource(R.string.digital_assistant),
+        StemAction.GOOGLE_VOICE_COMMAND    to stringResource(R.string.action_google_voice_command),
         StemAction.CYCLE_NOISE_CONTROL_MODES to stringResource(R.string.noise_control),
         StemAction.TOGGLE_GYM_MODE         to stringResource(R.string.action_toggle_gym),
     )
@@ -1228,6 +1229,7 @@ internal fun BudColumnHeader(
         contentAlignment = Alignment.Center
     ) {
         Column(
+            modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -1235,7 +1237,7 @@ internal fun BudColumnHeader(
                 painter = painterResource(imageRes),
                 contentDescription = label,
                 contentScale = ContentScale.Fit,
-                modifier = Modifier.heightIn(min = 46.dp).fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(0.5f).heightIn(min = 23.dp)
             )
             Text(label, style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium,
                 fontFamily = SfPro, color = if (selected) Color(0xFF0A84FF) else textColor))
@@ -1287,7 +1289,7 @@ private fun PressDropdown(
             modifier = Modifier.background(if (dark) Color(0xFF2C2C2E) else Color.White)
         ) {
             options.forEach { (action, name) ->
-                val optionEnabled = action != StemAction.DIGITAL_ASSISTANT || isPremium
+                val optionEnabled = isPremium || action !in setOf(StemAction.DIGITAL_ASSISTANT, StemAction.GOOGLE_VOICE_COMMAND)
                 DropdownMenuItem(
                     text = {
                         Text(name, style = TextStyle(fontSize = 15.sp, fontFamily = SfPro,

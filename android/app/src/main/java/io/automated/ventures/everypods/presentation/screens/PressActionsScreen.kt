@@ -63,6 +63,7 @@ fun PressActionsScreen(viewModel: AirPodsViewModel) {
         StemAction.NEXT_TRACK              to stringResource(R.string.action_next_track),
         StemAction.PREVIOUS_TRACK          to stringResource(R.string.action_previous_track),
         StemAction.DIGITAL_ASSISTANT       to stringResource(R.string.digital_assistant),
+        StemAction.GOOGLE_VOICE_COMMAND    to stringResource(R.string.action_google_voice_command),
         StemAction.CYCLE_NOISE_CONTROL_MODES to stringResource(R.string.noise_control),
         StemAction.TOGGLE_GYM_MODE         to stringResource(R.string.action_toggle_gym),
     )

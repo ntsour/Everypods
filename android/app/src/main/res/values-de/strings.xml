@@ -362,7 +362,7 @@
     <string name="ui_intermediate_announcements">Zwischenankündigungen</string>
     <string name="ui_lap">RUNDE</string>
     <string name="ui_laps">Runden</string>
-    <string name="ui_left_bud">Linker Bud</string>
+    <string name="ui_left_bud">Links</string>
     <string name="ui_listening_mode_configuration">Konfiguration des Hörmodus</string>
     <string name="ui_loading">Laden...</string>
     <string name="ui_location">Standort</string>
@@ -413,7 +413,7 @@
     <string name="ui_rest">Ruhe dich aus</string>
     <string name="ui_resume_media_after_call">Medien nach Anruf fortsetzen</string>
     <string name="ui_retry">Versuchen Sie es noch einmal</string>
-    <string name="ui_right_bud">Richtig, Bud</string>
+    <string name="ui_right_bud">Rechts</string>
     <string name="ui_rounds">Runden</string>
     <string name="ui_save">Speichern</string>
     <string name="ui_search_apps">Apps suchen</string>
@@ -458,7 +458,7 @@
     <string name="ui_velocity">Geschwindigkeit</string>
     <string name="ui_vertical">Vertikal</string>
     <string name="ui_voice">Stimme</string>
-    <string name="ui_voice_assistant_behavior_depen">Das Verhalten des Sprachassistenten hängt von der Assistenten-App ab: Einige (z. B. ChatGPT) reagieren möglicherweise nicht auf diese Geste und einige erfordern, dass das Gerät zuerst entsperrt wird – dies ist eine Einschränkung der Android-Plattform und kein Fehler.</string>
+    <string name="ui_voice_assistant_behavior_depen">Öffnet den in den Android-Einstellungen gewählten Systemassistenten, wie die Wischgeste aus der unteren Ecke. Entsperre bei Bedarf dein Telefon.</string>
     <string name="ui_voice_engine">Sprachmotor</string>
     <string name="ui_volume_control">Lautstärkeregelung</string>
     <string name="ui_volume_swipe_speed">Lautstärke-Wischgeschwindigkeit</string>
@@ -518,7 +518,7 @@
     <string name="ui_timer_phase_rest">Pause</string>
     <string name="ui_device_name">Gerätename</string>
     <string name="ui_version_info">Versionsinfo</string>
-    <string name="ui_troubleshooting">Fehlerbehebung</string>
+    <string name="ui_troubleshooting">Hilfe</string>
     <string name="phone">Telefon</string>
     <string name="ui_close">Schließen</string>
     <string name="support_no_email_app">Keine E-Mail-App gefunden.</string>
@@ -658,7 +658,7 @@
     <string name="category_settings">AirPods-Einstellungen</string>
     <string name="category_smart">Intelligente Funktionen</string>
     <string name="category_audio">Audio und Verbindung</string>
-    <string name="category_help">Hilfe und Fehlerbehebung</string>
+    <string name="category_help">Hilfe</string>
     <string name="controls_configuration">Steuerungseinstellungen</string>
     <string name="background_activity">Hintergrundaktivität</string>
     <string name="press_three_times">Dreimal drücken</string>
@@ -704,4 +704,7 @@
     <string name="bluetooth_scan_permission">Berechtigung für Bluetooth-Suche fehlt.</string>
     <string name="bluetooth_scan_start_failed">Bluetooth-Suche konnte nicht gestartet werden.</string>
     <string name="timer_countdown_label">Countdown</string>
+    <string name="assistant_unavailable">Der Systemassistent konnte nicht geöffnet werden. Entsperre dein Telefon und überprüfe den Standardassistenten in den Android-Einstellungen.</string>
+    <string name="action_google_voice_command">Google-Sprachbefehl</string>
+    <string name="google_voice_command_unavailable">Die Google-Sprachsteuerung konnte nicht gestartet werden. Prüfe, ob die Google-App installiert und aktiviert ist.</string>
 </resources>

@@ -377,7 +377,7 @@
     <string name="ui_intermediate_announcements">中間公告</string>
     <string name="ui_lap">膝關節置換術</string>
     <string name="ui_laps">圈數</string>
-    <string name="ui_left_bud">左芽</string>
+    <string name="ui_left_bud">左</string>
     <string name="ui_listening_mode_configuration">監聽模式配置</string>
     <string name="ui_loading">正在加載...</string>
     <string name="ui_location">地點</string>
@@ -428,7 +428,7 @@
     <string name="ui_rest">休息</string>
     <string name="ui_resume_media_after_call">通話後恢復媒體播放</string>
     <string name="ui_retry">重試</string>
-    <string name="ui_right_bud">右芽</string>
+    <string name="ui_right_bud">右</string>
     <string name="ui_rounds">回合</string>
     <string name="ui_save">儲存</string>
     <string name="ui_search_apps">搜尋應用程式</string>
@@ -473,7 +473,7 @@
     <string name="ui_velocity">速度</string>
     <string name="ui_vertical">垂直</string>
     <string name="ui_voice">語音</string>
-    <string name="ui_voice_assistant_behavior_depen">語音助理的行為取決於助理應用程式：有些（例如 ChatGPT）可能不會回應此手勢，有些需要先解鎖裝置 - 這是 Android 平台限制，而不是錯誤。</string>
+    <string name="ui_voice_assistant_behavior_depen">開啟 Android 設定中選擇的系統助理，與從螢幕底角向上滑動的手勢相同。如有需要，請先解鎖手機。</string>
     <string name="ui_voice_engine">語音引擎</string>
     <string name="ui_volume_control">音量控制</string>
     <string name="ui_volume_swipe_speed">音量滑動速度</string>
@@ -519,7 +519,7 @@
     <string name="ui_timer_phase_rest">休息</string>
     <string name="ui_device_name">裝置名稱</string>
     <string name="ui_version_info">版本資訊</string>
-    <string name="ui_troubleshooting">疑難排解</string>
+    <string name="ui_troubleshooting">說明</string>
     <string name="phone">手機</string>
     <string name="ui_close">關閉</string>
     <string name="support_no_email_app">找不到電子郵件應用程式。</string>
@@ -659,7 +659,7 @@
     <string name="category_settings">AirPods 設定</string>
     <string name="category_smart">智慧功能</string>
     <string name="category_audio">音訊與連線</string>
-    <string name="category_help">說明與疑難排解</string>
+    <string name="category_help">說明</string>
     <string name="controls_configuration">控制設定</string>
     <string name="background_activity">背景活動</string>
     <string name="press_three_times">按三下</string>
@@ -705,4 +705,7 @@
     <string name="bluetooth_scan_permission">缺少藍牙掃描權限。</string>
     <string name="bluetooth_scan_start_failed">無法啟動藍牙掃描。</string>
     <string name="timer_countdown_label">倒數計時</string>
+    <string name="assistant_unavailable">無法開啟系統助理。請解鎖手機，並在 Android 設定中檢查預設助理。</string>
+    <string name="action_google_voice_command">Google 語音指令</string>
+    <string name="google_voice_command_unavailable">無法啟動 Google 語音控制。請檢查是否已安裝並啟用 Google 應用程式。</string>
 </resources>

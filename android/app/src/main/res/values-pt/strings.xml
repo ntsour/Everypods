@@ -374,7 +374,7 @@
     <string name="ui_intermediate_announcements">Anúncios intermediários</string>
     <string name="ui_lap">VOLTA</string>
     <string name="ui_laps">Voltas</string>
-    <string name="ui_left_bud">botão esquerdo</string>
+    <string name="ui_left_bud">Esquerdo</string>
     <string name="ui_listening_mode_configuration">Configuração do modo de escuta</string>
     <string name="ui_loading">Carregando...</string>
     <string name="ui_location">Localização</string>
@@ -425,7 +425,7 @@
     <string name="ui_rest">Descanse</string>
     <string name="ui_resume_media_after_call">Retomar mídia após chamada</string>
     <string name="ui_retry">Tentar novamente</string>
-    <string name="ui_right_bud">Botão direito</string>
+    <string name="ui_right_bud">Direito</string>
     <string name="ui_rounds">Rodadas</string>
     <string name="ui_save">Salvar</string>
     <string name="ui_search_apps">Pesquisar aplicativos</string>
@@ -470,7 +470,7 @@
     <string name="ui_velocity">Velocidade</string>
     <string name="ui_vertical">Verticais</string>
     <string name="ui_voice">Voz</string>
-    <string name="ui_voice_assistant_behavior_depen">O comportamento do Voice Assistant depende do aplicativo assistente: alguns (por exemplo, ChatGPT) podem não responder a esse gesto e alguns exigem que o dispositivo seja desbloqueado primeiro – esta é uma limitação da plataforma Android, não um bug.</string>
+    <string name="ui_voice_assistant_behavior_depen">Abre o assistente do sistema escolhido nas definições do Android, como o gesto a partir do canto inferior. Desbloqueie o telemóvel se necessário.</string>
     <string name="ui_voice_engine">Motor de voz</string>
     <string name="ui_volume_control">Controle de volume</string>
     <string name="ui_volume_swipe_speed">Velocidade de deslizamento de volume</string>
@@ -519,7 +519,7 @@
     <string name="ui_timer_phase_rest">Descanso</string>
     <string name="ui_device_name">Nome do dispositivo</string>
     <string name="ui_version_info">Informações da versão</string>
-    <string name="ui_troubleshooting">Resolução de problemas</string>
+    <string name="ui_troubleshooting">Ajuda</string>
     <string name="phone">Telemóvel</string>
     <string name="ui_close">Fechar</string>
     <string name="support_no_email_app">Nenhuma aplicação de e-mail encontrada.</string>
@@ -659,7 +659,7 @@
     <string name="category_settings">Definições dos AirPods</string>
     <string name="category_smart">Funções inteligentes</string>
     <string name="category_audio">Áudio e ligação</string>
-    <string name="category_help">Ajuda e resolução de problemas</string>
+    <string name="category_help">Ajuda</string>
     <string name="controls_configuration">Configuração dos controlos</string>
     <string name="background_activity">Atividade em segundo plano</string>
     <string name="press_three_times">Premir três vezes</string>
@@ -705,4 +705,7 @@
     <string name="bluetooth_scan_permission">Falta a permissão de pesquisa Bluetooth.</string>
     <string name="bluetooth_scan_start_failed">Não foi possível iniciar a pesquisa Bluetooth.</string>
     <string name="timer_countdown_label">Contagem decrescente</string>
+    <string name="assistant_unavailable">Não foi possível abrir o assistente do sistema. Desbloqueie o telemóvel e verifique o assistente predefinido nas definições do Android.</string>
+    <string name="action_google_voice_command">Comando de voz Google</string>
+    <string name="google_voice_command_unavailable">Não foi possível iniciar o controlo por voz Google. Verifique se a aplicação Google está instalada e ativada.</string>
 </resources>

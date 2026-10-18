@@ -2142,57 +2142,25 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             StemAction.PREVIOUS_TRACK -> MediaController.sendPreviousTrack()
             StemAction.NEXT_TRACK -> MediaController.sendNextTrack()
             StemAction.DIGITAL_ASSISTANT -> {
-                // RoleManager#getRoleHolders and SearchManager#getAssistIntent are @SystemApi and
-                // unavailable to third-party apps, so resolve the configured assistant the same
-                // way launcher apps do: read the raw "assistant" Secure setting directly. That
-                // setting often names a VoiceInteractionService rather than an assist Activity
-                // (e.g. ChatGPT), so target its package only and let the framework pick the
-                // package's actual activity instead of the exact component.
-                val assistantPackage = runCatching {
-                    Settings.Secure.getString(contentResolver, "assistant")
-                        ?.let(ComponentName::unflattenFromString)
-                        ?.packageName
-                }.getOrNull()
+                runCatching {
+                    startActivity(Intent(this, io.automated.ventures.everypods.AssistantLaunchActivity::class.java).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION)
+                    })
+                }.onFailure { error ->
+                    Log.w("AirPodsParser", "System assistant request could not start", error)
+                    sendToast(getString(R.string.assistant_unavailable))
+                }
+            }
 
-                // ACTION_VOICE_COMMAND is tried first: it's each app's real hands-free/hardware-
-                // button entry point (e.g. Google's HandsFreeActivity, which opens Gemini Live),
-                // distinct from and more capable than their generic ACTION_ASSIST fallback (e.g.
-                // Google's ACTION_ASSIST handler only opens plain Search, not Live).
-                val launchedExplicitly = assistantPackage != null && (
-                    runCatching {
-                        Log.d("AirPodsParser", "Launching configured assistant via VOICE_COMMAND: $assistantPackage")
-                        startActivity(Intent(Intent.ACTION_VOICE_COMMAND).apply {
-                            setPackage(assistantPackage)
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        })
-                    }.isSuccess || runCatching {
-                        Log.d("AirPodsParser", "Launching configured assistant via ASSIST: $assistantPackage")
-                        startActivity(Intent(Intent.ACTION_ASSIST).apply {
-                            setPackage(assistantPackage)
-                            putExtra("android.intent.extra.ASSIST_INPUT_HINT_SPEECH", true)
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        })
-                    }.onFailure { assistError ->
-                        Log.w("AirPodsParser", "Explicit assistant launch failed ($assistError), falling back")
-                    }.isSuccess
-                )
-
-                if (!launchedExplicitly) {
-                    runCatching {
-                        startActivity(Intent(Intent.ACTION_VOICE_COMMAND).apply {
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        })
-                    }.onFailure { voiceCommandError ->
-                        Log.w("AirPodsParser", "VOICE_COMMAND failed ($voiceCommandError), trying ACTION_ASSIST")
-                        runCatching {
-                            startActivity(Intent(Intent.ACTION_ASSIST).apply {
-                                putExtra("android.intent.extra.ASSIST_INPUT_HINT_SPEECH", true)
-                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            })
-                        }.onFailure { assistError ->
-                            Log.w("AirPodsParser", "Assistant launch failed: $assistError")
-                        }
-                    }
+            StemAction.GOOGLE_VOICE_COMMAND -> {
+                runCatching {
+                    val headset = device ?: error("No connected AirPods device")
+                    val locked = getSystemService(android.app.KeyguardManager::class.java).isKeyguardLocked
+                    Log.i("EveryPodsAssistant", "Google headset voice command requested: keyguardLocked=$locked profile=HEADSET")
+                    io.automated.ventures.everypods.utils.GoogleVoiceCommand.launch(this, headset)
+                }.onFailure { error ->
+                    Log.w("EveryPodsAssistant", "Google headset voice command launch failed", error)
+                    sendToast(getString(R.string.google_voice_command_unavailable))
                 }
             }
 

@@ -374,7 +374,7 @@
     <string name="ui_intermediate_announcements">Проміжні оголошення</string>
     <string name="ui_lap">LAP</string>
     <string name="ui_laps">Кола</string>
-    <string name="ui_left_bud">Ліворуч Bud</string>
+    <string name="ui_left_bud">Лівий</string>
     <string name="ui_listening_mode_configuration">Конфігурація режиму прослуховування</string>
     <string name="ui_loading">Завантаження...</string>
     <string name="ui_location">Розташування</string>
@@ -425,7 +425,7 @@
     <string name="ui_rest">Відпочинок</string>
     <string name="ui_resume_media_after_call">Відновити медіа після виклику</string>
     <string name="ui_retry">Повторіть спробу</string>
-    <string name="ui_right_bud">Правий Буд</string>
+    <string name="ui_right_bud">Правий</string>
     <string name="ui_rounds">раунди</string>
     <string name="ui_save">зберегти</string>
     <string name="ui_search_apps">Пошук програм</string>
@@ -470,7 +470,7 @@
     <string name="ui_velocity">швидкість</string>
     <string name="ui_vertical">Вертикальний</string>
     <string name="ui_voice">Голос</string>
-    <string name="ui_voice_assistant_behavior_depen">Поведінка голосового помічника залежить від додатка-помічника: деякі (наприклад, ChatGPT) можуть не реагувати на цей жест, а деякі вимагають спочатку розблокувати пристрій — це обмеження платформи Android, а не помилка.</string>
+    <string name="ui_voice_assistant_behavior_depen">Відкриває системного помічника, вибраного в налаштуваннях Android, як і жест із нижнього кута. За потреби розблокуйте телефон.</string>
     <string name="ui_voice_engine">Голосовий механізм</string>
     <string name="ui_volume_control">Регулювання гучності</string>
     <string name="ui_volume_swipe_speed">Швидкість свайпа гучності</string>
@@ -519,7 +519,7 @@
     <string name="ui_timer_phase_rest">Відпочинок</string>
     <string name="ui_device_name">Назва пристрою</string>
     <string name="ui_version_info">Інформація про версію</string>
-    <string name="ui_troubleshooting">Усунення несправностей</string>
+    <string name="ui_troubleshooting">Допомога</string>
     <string name="phone">Телефон</string>
     <string name="ui_close">Закрити</string>
     <string name="support_no_email_app">Не знайдено поштового застосунку.</string>
@@ -659,7 +659,7 @@
     <string name="category_settings">Налаштування AirPods</string>
     <string name="category_smart">Розумні функції</string>
     <string name="category_audio">Аудіо та з’єднання</string>
-    <string name="category_help">Допомога та усунення несправностей</string>
+    <string name="category_help">Допомога</string>
     <string name="controls_configuration">Налаштування керування</string>
     <string name="background_activity">Фонова активність</string>
     <string name="press_three_times">Три натискання</string>
@@ -705,4 +705,7 @@
     <string name="bluetooth_scan_permission">Немає дозволу на сканування Bluetooth.</string>
     <string name="bluetooth_scan_start_failed">Не вдалося почати сканування Bluetooth.</string>
     <string name="timer_countdown_label">Зворотний відлік</string>
+    <string name="assistant_unavailable">Не вдалося відкрити системного помічника. Розблокуйте телефон і перевірте помічника за замовчуванням у налаштуваннях Android.</string>
+    <string name="action_google_voice_command">Голосова команда Google</string>
+    <string name="google_voice_command_unavailable">Не вдалося запустити голосове керування Google. Перевірте, чи встановлено й увімкнено додаток Google.</string>
 </resources>

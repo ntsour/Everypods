@@ -373,7 +373,7 @@
     <string name="ui_velocity">Ταχύτητα</string>
     <string name="ui_vertical">Κατακόρυφα</string>
     <string name="ui_voice">Φωνή</string>
-    <string name="ui_voice_assistant_behavior_depen">Η συμπεριφορά εξαρτάται από την εφαρμογή του φωνητικού βοηθού. Ορισμένες, όπως το ChatGPT, μπορεί να μην ανταποκρίνονται σε αυτή τη χειρονομία ή να απαιτούν ξεκλείδωμα της συσκευής. Πρόκειται για περιορισμό του Android.</string>
+    <string name="ui_voice_assistant_behavior_depen">Ανοίγει τον βοηθό συστήματος που έχεις επιλέξει στις ρυθμίσεις Android, όπως η κίνηση από την κάτω γωνία. Ξεκλείδωσε το τηλέφωνο αν χρειάζεται.</string>
     <string name="ui_voice_engine">Μηχανή ομιλίας</string>
     <string name="ui_volume_swipe_speed">Ταχύτητα ολίσθησης έντασης</string>
     <string name="ui_work">Άσκηση</string>
@@ -430,7 +430,7 @@
     <string name="ui_head_gestures">Χειρονομίες κεφαλής</string>
     <string name="ui_hear_timer_progress_controls_a">Ακούστε την πρόοδο, τις ενέργειες και την ολοκλήρωση του χρονομέτρου</string>
     <string name="ui_intermediate_announcements">Ενδιάμεσες εκφωνήσεις</string>
-    <string name="ui_left_bud">Αριστερό ακουστικό</string>
+    <string name="ui_left_bud">Αριστερό</string>
     <string name="ui_listening_mode_configuration">Ρυθμίσεις λειτουργιών ακρόασης</string>
     <string name="ui_location">Τοποθεσία</string>
     <string name="ui_manage_permissions">Διαχείριση αδειών</string>
@@ -453,7 +453,7 @@
     <string name="ui_read_incoming_notifications_an">Εκφωνεί εισερχόμενες ειδοποιήσεις και καλούντες μέσω των AirPods.</string>
     <string name="ui_required_for_bluetooth_scannin">Απαιτείται για σάρωση Bluetooth σε Android 11 και παλαιότερα</string>
     <string name="ui_resume_media_after_call">Συνέχιση πολυμέσων μετά την κλήση</string>
-    <string name="ui_right_bud">Δεξί ακουστικό</string>
+    <string name="ui_right_bud">Δεξί</string>
     <string name="ui_send_head_tracking_data_to_the">Στέλνει την εντολή παρακολούθησης κεφαλής στα AirPods κατά τη σύνδεση. Ανενεργό από προεπιλογή. Ενεργοποιήστε το μόνο αν χρησιμοποιείτε χειρονομίες κεφαλής.</string>
     <string name="ui_shake_your_head_during_an_acti">Σε ενεργή κλήση, γνέψτε αρνητικά για σίγαση του μικροφώνου ή καταφατικά για ενεργοποίησή του.</string>
     <string name="ui_show_battery_status_and_alerts">Εμφάνιση στάθμης και ειδοποιήσεων μπαταρίας</string>
@@ -518,7 +518,7 @@
     <string name="ui_timer_phase_rest">Ανάπαυση</string>
     <string name="ui_device_name">Όνομα συσκευής</string>
     <string name="ui_version_info">Πληροφορίες έκδοσης</string>
-    <string name="ui_troubleshooting">Επίλυση προβλημάτων</string>
+    <string name="ui_troubleshooting">Βοήθεια</string>
     <string name="phone">Τηλέφωνο</string>
     <string name="ui_close">Κλείσιμο</string>
     <string name="support_no_email_app">Δεν βρέθηκε εφαρμογή email.</string>
@@ -622,7 +622,7 @@
     <string name="category_settings">Ρυθμίσεις AirPods</string>
     <string name="category_smart">Έξυπνες λειτουργίες</string>
     <string name="category_audio">Ήχος και σύνδεση</string>
-    <string name="category_help">Βοήθεια και επίλυση προβλημάτων</string>
+    <string name="category_help">Βοήθεια</string>
     <string name="controls_configuration">Ρυθμίσεις χειριστηρίων</string>
     <string name="background_activity">Δραστηριότητα παρασκηνίου</string>
     <string name="press_three_times">Τρία πατήματα</string>
@@ -668,4 +668,7 @@
     <string name="bluetooth_scan_permission">Δεν έχει παραχωρηθεί άδεια σάρωσης Bluetooth.</string>
     <string name="bluetooth_scan_start_failed">Δεν ήταν δυνατή η έναρξη σάρωσης Bluetooth.</string>
     <string name="timer_countdown_label">Αντίστροφα</string>
+    <string name="assistant_unavailable">Δεν ήταν δυνατό το άνοιγμα του βοηθού συστήματος. Ξεκλείδωσε το τηλέφωνο και έλεγξε τον προεπιλεγμένο βοηθό στις ρυθμίσεις Android.</string>
+    <string name="action_google_voice_command">Φωνητική εντολή Google</string>
+    <string name="google_voice_command_unavailable">Δεν ήταν δυνατή η έναρξη του φωνητικού ελέγχου Google. Έλεγξε ότι η εφαρμογή Google είναι εγκατεστημένη και ενεργοποιημένη.</string>
 </resources>

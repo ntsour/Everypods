@@ -374,7 +374,7 @@
     <string name="ui_intermediate_announcements">Thông báo trung gian</string>
     <string name="ui_lap">VÒNG</string>
     <string name="ui_laps">Vòng</string>
-    <string name="ui_left_bud">nụ trái</string>
+    <string name="ui_left_bud">Trái</string>
     <string name="ui_listening_mode_configuration">Cấu hình chế độ nghe</string>
     <string name="ui_loading">Đang tải...</string>
     <string name="ui_location">Vị trí</string>
@@ -425,7 +425,7 @@
     <string name="ui_rest">Nghỉ ngơi</string>
     <string name="ui_resume_media_after_call">Tiếp tục phương tiện sau cuộc gọi</string>
     <string name="ui_retry">Thử lại</string>
-    <string name="ui_right_bud">nụ phải</string>
+    <string name="ui_right_bud">Phải</string>
     <string name="ui_rounds">Vòng đấu</string>
     <string name="ui_save">Lưu</string>
     <string name="ui_search_apps">Tìm kiếm ứng dụng</string>
@@ -470,7 +470,7 @@
     <string name="ui_velocity">vận tốc</string>
     <string name="ui_vertical">Dọc</string>
     <string name="ui_voice">Giọng nói</string>
-    <string name="ui_voice_assistant_behavior_depen">Hành vi của Trợ lý giọng nói tùy thuộc vào ứng dụng trợ lý: một số (ví dụ: ChatGPT) có thể không phản hồi cử chỉ này và một số yêu cầu thiết bị phải được mở khóa trước - đây là giới hạn của nền tảng Android, không phải lỗi.</string>
+    <string name="ui_voice_assistant_behavior_depen">Mở trợ lý hệ thống đã chọn trong cài đặt Android, giống như thao tác vuốt từ góc dưới màn hình. Mở khóa điện thoại nếu cần.</string>
     <string name="ui_voice_engine">Công cụ giọng nói</string>
     <string name="ui_volume_control">Kiểm soát âm lượng</string>
     <string name="ui_volume_swipe_speed">Tốc độ vuốt âm lượng</string>
@@ -519,7 +519,7 @@
     <string name="ui_timer_phase_rest">Nghỉ ngơi</string>
     <string name="ui_device_name">Tên thiết bị</string>
     <string name="ui_version_info">Thông tin phiên bản</string>
-    <string name="ui_troubleshooting">Khắc phục sự cố</string>
+    <string name="ui_troubleshooting">Trợ giúp</string>
     <string name="phone">Điện thoại</string>
     <string name="ui_close">Đóng</string>
     <string name="support_no_email_app">Không tìm thấy ứng dụng email.</string>
@@ -659,7 +659,7 @@
     <string name="category_settings">Cài đặt AirPods</string>
     <string name="category_smart">Tính năng thông minh</string>
     <string name="category_audio">Âm thanh và kết nối</string>
-    <string name="category_help">Trợ giúp và khắc phục sự cố</string>
+    <string name="category_help">Trợ giúp</string>
     <string name="controls_configuration">Cài đặt điều khiển</string>
     <string name="background_activity">Hoạt động nền</string>
     <string name="press_three_times">Nhấn ba lần</string>
@@ -705,4 +705,7 @@
     <string name="bluetooth_scan_permission">Thiếu quyền quét Bluetooth.</string>
     <string name="bluetooth_scan_start_failed">Không thể bắt đầu quét Bluetooth.</string>
     <string name="timer_countdown_label">Đếm ngược</string>
+    <string name="assistant_unavailable">Không thể mở trợ lý hệ thống. Hãy mở khóa điện thoại và kiểm tra trợ lý mặc định trong cài đặt Android.</string>
+    <string name="action_google_voice_command">Lệnh thoại Google</string>
+    <string name="google_voice_command_unavailable">Không thể khởi động điều khiển bằng giọng nói của Google. Hãy kiểm tra xem ứng dụng Google đã được cài đặt và bật chưa.</string>
 </resources>

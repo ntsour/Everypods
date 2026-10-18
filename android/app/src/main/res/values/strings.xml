@@ -374,7 +374,7 @@
     <string name="ui_velocity">Velocity</string>
     <string name="ui_vertical">Vertical</string>
     <string name="ui_voice">Voice</string>
-    <string name="ui_voice_assistant_behavior_depen">Voice Assistant behavior depends on the assistant app: some (e.g. ChatGPT) may not respond to this gesture, and some require the device to be unlocked first — this is an Android platform limitation, not a bug.</string>
+    <string name="ui_voice_assistant_behavior_depen">Opens the system assistant selected in Android settings, like the bottom-corner gesture. Unlock your phone if required.</string>
     <string name="ui_voice_engine">Voice engine</string>
     <string name="ui_volume_swipe_speed">Volume Swipe Speed</string>
     <string name="ui_work">Work</string>
@@ -431,7 +431,7 @@
     <string name="ui_head_gestures">Head gestures</string>
     <string name="ui_hear_timer_progress_controls_a">Hear timer progress, controls, and completion</string>
     <string name="ui_intermediate_announcements">Intermediate announcements</string>
-    <string name="ui_left_bud">Left earbud</string>
+    <string name="ui_left_bud">Left</string>
     <string name="ui_listening_mode_configuration">Listening Mode Configuration</string>
     <string name="ui_location">Location</string>
     <string name="ui_manage_permissions">Manage Permissions</string>
@@ -454,7 +454,7 @@
     <string name="ui_read_incoming_notifications_an">Read incoming notifications and callers aloud through the AirPods.</string>
     <string name="ui_required_for_bluetooth_scannin">Required for Bluetooth scanning on Android 11 and below</string>
     <string name="ui_resume_media_after_call">Resume media after call</string>
-    <string name="ui_right_bud">Right earbud</string>
+    <string name="ui_right_bud">Right</string>
     <string name="ui_send_head_tracking_data_to_the">Send head-tracking data to the AirPods on connect. Off by default — enable only if you use head-gesture controls.</string>
     <string name="ui_shake_your_head_during_an_acti">Shake your head during an active call to mute the mic, nod to unmute.</string>
     <string name="ui_show_battery_status_and_alerts">Show battery status and alerts</string>
@@ -520,7 +520,7 @@
     <string name="ui_timer_phase_rest">Rest</string>
     <string name="ui_device_name">Device Name</string>
     <string name="ui_version_info">Version Info</string>
-    <string name="ui_troubleshooting">Troubleshooting</string>
+    <string name="ui_troubleshooting">Help</string>
     <string name="phone">Phone</string>
     <string name="ui_close">Close</string>
     <string name="airpods_pro_name" translatable="false">AirPods Pro</string>
@@ -669,7 +669,7 @@
     <string name="category_settings">AirPods Settings</string>
     <string name="category_smart">Smart Features</string>
     <string name="category_audio">Audio &amp; Connection</string>
-    <string name="category_help">Help &amp; Troubleshooting</string>
+    <string name="category_help">Help</string>
     <string name="controls_configuration">Controls configuration</string>
     <string name="background_activity">Background activity</string>
     <string name="press_three_times">Triple press</string>
@@ -715,4 +715,7 @@
     <string name="bluetooth_scan_permission">Bluetooth scan permission is missing.</string>
     <string name="bluetooth_scan_start_failed">Could not start Bluetooth scanning.</string>
     <string name="timer_countdown_label">Countdown</string>
+    <string name="assistant_unavailable">Couldn\'t open the system assistant. Unlock your phone and check your default assistant in Android settings.</string>
+    <string name="action_google_voice_command">Google voice command</string>
+    <string name="google_voice_command_unavailable">Couldn\'t start Google voice control. Check that the Google app is installed and enabled.</string>
 </resources>

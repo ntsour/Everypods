@@ -89,7 +89,7 @@
     <string name="microphone_always_right">Siempre derecho</string>
     <string name="microphone_always_left">Siempre izquierdo</string>
     <string name="answer_call">Responder</string>
-    <string name="mute_unmute">Silenciar/reactivar micrófono</string>
+    <string name="mute_unmute">Silenciar/Reactivar</string>
     <string name="hang_up">Colgar</string>
     <string name="press_once">Pulsar una vez</string>
     <string name="press_twice">Pulsar dos veces</string>
@@ -374,7 +374,7 @@
     <string name="ui_intermediate_announcements">Avisos intermedios</string>
     <string name="ui_lap">PARCIAL</string>
     <string name="ui_laps">Parciales</string>
-    <string name="ui_left_bud">Auricular izquierdo</string>
+    <string name="ui_left_bud">Izquierdo</string>
     <string name="ui_listening_mode_configuration">Configuración del modo de escucha</string>
     <string name="ui_loading">Cargando...</string>
     <string name="ui_location">Ubicación</string>
@@ -425,7 +425,7 @@
     <string name="ui_rest">Descanso</string>
     <string name="ui_resume_media_after_call">Reanudar audio después de la llamada</string>
     <string name="ui_retry">Reintentar</string>
-    <string name="ui_right_bud">Auricular derecho</string>
+    <string name="ui_right_bud">Derecho</string>
     <string name="ui_rounds">Rondas</string>
     <string name="ui_save">Guardar</string>
     <string name="ui_search_apps">Buscar aplicaciones</string>
@@ -470,7 +470,7 @@
     <string name="ui_velocity">Velocidad</string>
     <string name="ui_vertical">Vertical</string>
     <string name="ui_voice">Voz</string>
-    <string name="ui_voice_assistant_behavior_depen">El comportamiento del Asistente de voz depende de la aplicación del asistente: es posible que algunos (por ejemplo, ChatGPT) no respondan a este gesto y otros requieren que el dispositivo se desbloquee primero; esta es una limitación de la plataforma Android, no un error.</string>
+    <string name="ui_voice_assistant_behavior_depen">Abre el asistente del sistema elegido en los ajustes de Android, como el gesto desde la esquina inferior. Desbloquea el teléfono si es necesario.</string>
     <string name="ui_voice_engine">Motor de voz</string>
     <string name="ui_volume_control">Control de volumen</string>
     <string name="ui_volume_swipe_speed">Velocidad de deslizamiento de volumen</string>
@@ -519,7 +519,7 @@
     <string name="ui_timer_phase_rest">Descanso</string>
     <string name="ui_device_name">Nombre del dispositivo</string>
     <string name="ui_version_info">Información de versión</string>
-    <string name="ui_troubleshooting">Solución de problemas</string>
+    <string name="ui_troubleshooting">Ayuda</string>
     <string name="phone">Teléfono</string>
     <string name="ui_close">Cerrar</string>
     <string name="support_no_email_app">No se encontró ninguna aplicación de correo.</string>
@@ -659,7 +659,7 @@
     <string name="category_settings">Ajustes de AirPods</string>
     <string name="category_smart">Funciones inteligentes</string>
     <string name="category_audio">Audio y conexión</string>
-    <string name="category_help">Ayuda y solución de problemas</string>
+    <string name="category_help">Ayuda</string>
     <string name="controls_configuration">Configuración de controles</string>
     <string name="background_activity">Actividad en segundo plano</string>
     <string name="press_three_times">Tres pulsaciones</string>
@@ -705,4 +705,7 @@
     <string name="bluetooth_scan_permission">Falta el permiso de búsqueda Bluetooth.</string>
     <string name="bluetooth_scan_start_failed">No se pudo iniciar la búsqueda Bluetooth.</string>
     <string name="timer_countdown_label">Cuenta atrás</string>
+    <string name="assistant_unavailable">No se ha podido abrir el asistente del sistema. Desbloquea el teléfono y comprueba el asistente predeterminado en los ajustes de Android.</string>
+    <string name="action_google_voice_command">Comando de voz de Google</string>
+    <string name="google_voice_command_unavailable">No se ha podido iniciar el control por voz de Google. Comprueba que la aplicación de Google esté instalada y habilitada.</string>
 </resources>

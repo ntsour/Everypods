@@ -43,6 +43,14 @@
         android:theme="@style/Theme.EveryPods"
         android:description="@string/app_description"
         tools:ignore="UnusedAttribute" >
+        <activity
+            android:name=".AssistantLaunchActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.EveryPods.AssistantLaunch" />
         <receiver
             android:name=".presentation.widgets.NoiseControlWidget"
             android:exported="false">

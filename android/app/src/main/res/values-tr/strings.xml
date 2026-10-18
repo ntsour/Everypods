@@ -374,7 +374,7 @@
     <string name="ui_intermediate_announcements">Ara duyurular</string>
     <string name="ui_lap">TUR</string>
     <string name="ui_laps">Turlar</string>
-    <string name="ui_left_bud">Sol Tomurcuk</string>
+    <string name="ui_left_bud">Sol</string>
     <string name="ui_listening_mode_configuration">Dinleme Modu Yapılandırması</string>
     <string name="ui_loading">Yükleniyor...</string>
     <string name="ui_location">Konum</string>
@@ -425,7 +425,7 @@
     <string name="ui_rest">Dinlenme</string>
     <string name="ui_resume_media_after_call">Aramadan sonra medyayı devam ettir</string>
     <string name="ui_retry">Yeniden dene</string>
-    <string name="ui_right_bud">Sağ Tomurcuk</string>
+    <string name="ui_right_bud">Sağ</string>
     <string name="ui_rounds">Turlar</string>
     <string name="ui_save">Kaydet</string>
     <string name="ui_search_apps">Uygulamaları arayın</string>
@@ -470,7 +470,7 @@
     <string name="ui_velocity">Hız</string>
     <string name="ui_vertical">Dikey</string>
     <string name="ui_voice">Ses</string>
-    <string name="ui_voice_assistant_behavior_depen">Sesli Asistan davranışı asistan uygulamasına bağlıdır: Bazıları (örneğin ChatGPT) bu harekete yanıt vermeyebilir ve bazıları önce cihazın kilidinin açılmasını gerektirir; bu bir Android platformu sınırlamasıdır, bir hata değil.</string>
+    <string name="ui_voice_assistant_behavior_depen">Alt köşeden kaydırma hareketi gibi, Android ayarlarında seçilen sistem asistanını açar. Gerekirse telefonunuzun kilidini açın.</string>
     <string name="ui_voice_engine">Ses motoru</string>
     <string name="ui_volume_control">Ses Kontrolü</string>
     <string name="ui_volume_swipe_speed">Ses Kaydırma Hızı</string>
@@ -519,7 +519,7 @@
     <string name="ui_timer_phase_rest">Dinlenme</string>
     <string name="ui_device_name">Cihaz adı</string>
     <string name="ui_version_info">Sürüm bilgisi</string>
-    <string name="ui_troubleshooting">Sorun giderme</string>
+    <string name="ui_troubleshooting">Yardım</string>
     <string name="phone">Telefon</string>
     <string name="ui_close">Kapat</string>
     <string name="support_no_email_app">E-posta uygulaması bulunamadı.</string>
@@ -659,7 +659,7 @@
     <string name="category_settings">AirPods ayarları</string>
     <string name="category_smart">Akıllı özellikler</string>
     <string name="category_audio">Ses ve bağlantı</string>
-    <string name="category_help">Yardım ve sorun giderme</string>
+    <string name="category_help">Yardım</string>
     <string name="controls_configuration">Kontrol ayarları</string>
     <string name="background_activity">Arka plan etkinliği</string>
     <string name="press_three_times">Üç kez bas</string>
@@ -705,4 +705,7 @@
     <string name="bluetooth_scan_permission">Bluetooth tarama izni eksik.</string>
     <string name="bluetooth_scan_start_failed">Bluetooth taraması başlatılamadı.</string>
     <string name="timer_countdown_label">Geri sayım</string>
+    <string name="assistant_unavailable">Sistem asistanı açılamadı. Telefonunuzun kilidini açın ve Android ayarlarında varsayılan asistanı kontrol edin.</string>
+    <string name="action_google_voice_command">Google sesli komutu</string>
+    <string name="google_voice_command_unavailable">Google sesli kontrolü başlatılamadı. Google uygulamasının yüklü ve etkin olduğunu kontrol edin.</string>
 </resources>

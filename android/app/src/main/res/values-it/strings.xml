@@ -374,7 +374,7 @@
     <string name="ui_intermediate_announcements">Annunci intermedi</string>
     <string name="ui_lap">GIRO</string>
     <string name="ui_laps">Giri</string>
-    <string name="ui_left_bud">Bud sinistro</string>
+    <string name="ui_left_bud">Sinistro</string>
     <string name="ui_listening_mode_configuration">Configurazione della modalità di ascolto</string>
     <string name="ui_loading">Caricamento...</string>
     <string name="ui_location">Posizione</string>
@@ -425,7 +425,7 @@
     <string name="ui_rest">Riposo</string>
     <string name="ui_resume_media_after_call">Riprendi i contenuti multimediali dopo la chiamata</string>
     <string name="ui_retry">Riprova</string>
-    <string name="ui_right_bud">Esatto, Bud</string>
+    <string name="ui_right_bud">Destro</string>
     <string name="ui_rounds">Turni</string>
     <string name="ui_save">Salva</string>
     <string name="ui_search_apps">Cerca app</string>
@@ -470,7 +470,7 @@
     <string name="ui_velocity">Velocità</string>
     <string name="ui_vertical">Verticale</string>
     <string name="ui_voice">Voce</string>
-    <string name="ui_voice_assistant_behavior_depen">Il comportamento dell\'assistente vocale dipende dall\'app dell\'assistente: alcuni (ad esempio ChatGPT) potrebbero non rispondere a questo gesto e alcuni richiedono che il dispositivo venga prima sbloccato: si tratta di una limitazione della piattaforma Android, non di un bug.</string>
+    <string name="ui_voice_assistant_behavior_depen">Apre l’assistente di sistema scelto nelle impostazioni Android, come il gesto dall’angolo inferiore. Sblocca il telefono se necessario.</string>
     <string name="ui_voice_engine">Motore vocale</string>
     <string name="ui_volume_control">Controllo del volume</string>
     <string name="ui_volume_swipe_speed">Velocità di scorrimento del volume</string>
@@ -519,7 +519,7 @@
     <string name="ui_timer_phase_rest">Riposo</string>
     <string name="ui_device_name">Nome dispositivo</string>
     <string name="ui_version_info">Informazioni sulla versione</string>
-    <string name="ui_troubleshooting">Risoluzione dei problemi</string>
+    <string name="ui_troubleshooting">Aiuto</string>
     <string name="phone">Telefono</string>
     <string name="ui_close">Chiudi</string>
     <string name="support_no_email_app">Nessuna app email trovata.</string>
@@ -659,7 +659,7 @@
     <string name="category_settings">Impostazioni AirPods</string>
     <string name="category_smart">Funzioni intelligenti</string>
     <string name="category_audio">Audio e connessione</string>
-    <string name="category_help">Aiuto e risoluzione dei problemi</string>
+    <string name="category_help">Aiuto</string>
     <string name="controls_configuration">Configurazione dei controlli</string>
     <string name="background_activity">Attività in background</string>
     <string name="press_three_times">Premi tre volte</string>
@@ -705,4 +705,7 @@
     <string name="bluetooth_scan_permission">Manca il permesso di scansione Bluetooth.</string>
     <string name="bluetooth_scan_start_failed">Impossibile avviare la scansione Bluetooth.</string>
     <string name="timer_countdown_label">Conto alla rovescia</string>
+    <string name="assistant_unavailable">Impossibile aprire l’assistente di sistema. Sblocca il telefono e controlla l’assistente predefinito nelle impostazioni Android.</string>
+    <string name="action_google_voice_command">Comando vocale Google</string>
+    <string name="google_voice_command_unavailable">Impossibile avviare il controllo vocale Google. Verifica che l’app Google sia installata e attiva.</string>
 </resources>
