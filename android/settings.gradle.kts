@@ -22,3 +22,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "EveryPods"
 include(":app")
+include(":audio-probe")
