@@ -71,6 +71,42 @@ The dev build must install next to the production Play app on both phones.
 5. **Playback-capture refusal / projection revocation on lock** (probe evidence): handled as
    distinct states in P2/P4.
 
+## PM notes folded in (2026-10-18, plan approved incl. Q1/Q2)
+
+1. **Relay-only testing vs production EveryPods on the Xiaomi.** Production EveryPods on the
+   Xiaomi can see media start and `takeOver`, pulling the AirPods to the Xiaomi; our `relayActive`
+   gate cannot reach another app.
+   - Test step (Nikos): for every relay-only session, turn production **Handover OFF** on the
+     Xiaomi, or force-stop production EveryPods there (Settings → Apps → EveryPods → Force stop).
+   - The receiver logs `RelayReceiver: matched AirPods output removed mid-session` (A2DP left the
+     Pixel, e.g. moved to the Xiaomi), pauses and flushes playback, and resumes only when the same
+     AirPods come back; it never falls back to the speaker.
+   - "relayActive blocks takeover + lid autoconnect on both devices" remains the acceptance
+     criterion for the integrated (AACP-enabled) build.
+2. **Receiver device matching in relay-only mode** (no managed AirPods address available):
+   choose among connected Bluetooth A2DP/LE-audio outputs: the managed address if known, else the
+   address picked in the dev picker (pref `relaydev_output_address`), else the single Apple-named
+   output (AirPods/Beats). Ambiguous or none → refuse. Speaker, wired or other-device fallback is
+   always refused (`OutputMatcher`, unit-tested).
+3. **Dev CrossDevice RFCOMM channel** (dev UUID) is allowed even when `relaydev_enable_aacp` is
+   off, scoped to relay pairing/control only: `CrossDevice.relayControlOnly` drops every lease,
+   takeover, holder and handover packet. Gate wired in P2; pairing itself is P3.
+4. **P2 acceptance additionally records** one end-to-end latency figure (`RelayMetrics latencyMs`)
+   and Xiaomi battery drain over 10 minutes (`RelayBattery` log line) as the P5 baseline.
+
+## P2 implementation notes
+
+- Code: pure logic in `:relay-core` (`JitterBuffer`, `DriftCorrector`/`LinearResampler`,
+  `OutputMatcher`, `PcmFramer`, `ClockSync`, `DevPsk`); Android services in `app/src/debug`
+  (`RelaySourceService` mediaProjection FGS, `RelayReceiverService` mediaPlayback FGS,
+  `RelayDevActivity`). Permissions/services live in the **debug manifest only**, so release and
+  playRelease (and Play declarations) are untouched. `:app` uses `debugImplementation(:relay-core)`.
+- **Temporary dev-only peer setup (remove in P3):** typed receiver IP + pre-shared test key. The
+  control handshake is still ephemeral X25519; the PSK is mixed into HKDF as the authenticator.
+- Ports: TCP control 47480, UDP media 47481 (dev build only).
+- `RelaySessionState.active` blocks music takeover and lid-open autoconnect in our own app on
+  whichever device runs a relay role.
+
 ## Phases and acceptance criteria
 
 ### P0 Setup
@@ -103,7 +139,8 @@ The dev build must install next to the production Play app on both phones.
 - `relayActive` flag blocks music takeover and lid-open autoconnect on both devices.
 - Stop: flush, restore volume, no leftover audio. Metrics: underruns, late/lost, latency.
 - **Accept:** 10-minute VLC session Xiaomi→Pixel AirPods with < 1 audible glitch/min, takeover
-  and lid autoconnect logged as blocked, announcement ducks relay, Stop leaves no audio.
+  and lid autoconnect logged as blocked (integrated build), announcement ducks relay, Stop leaves
+  no audio and restores Xiaomi volume; record end-to-end latency and 10-minute Xiaomi battery drain.
 
 ### P3 Pairing, discovery and network
 - Reuse the paired-peer list; authenticated key exchange (see decision Q2); NSD `_everypods-relay._udp`
