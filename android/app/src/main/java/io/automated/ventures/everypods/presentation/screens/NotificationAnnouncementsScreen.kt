@@ -19,11 +19,16 @@
 package io.automated.ventures.everypods.presentation.screens
 
 import androidx.compose.ui.res.stringResource
+import io.automated.ventures.everypods.presentation.components.SettingsSection
+import io.automated.ventures.everypods.presentation.components.SettingsHeading
+import io.automated.ventures.everypods.presentation.components.LocalSettingsGroup
 
 import android.Manifest
 import android.app.TimePickerDialog
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -55,7 +60,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -84,27 +88,36 @@ import io.automated.ventures.everypods.utils.ElevenLabsEngine
 import io.automated.ventures.everypods.utils.TtsEngine
 
 @Composable
-fun NotificationAnnouncementsScreen(navController: NavController) {
+fun NotificationAnnouncementsScreen(navController: NavController, target: String? = null) {
     val context = LocalContext.current
-    val resources = LocalResources.current
     val prefs = remember { AnnouncementPrefs.prefs(context) }
     val isDark = isSystemInDarkTheme()
     val cardColor = if (isDark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
     val textColor = if (isDark) Color.White else Color.Black
+    val scrollState = rememberScrollState()
+    val targetRequester = remember(target) { BringIntoViewRequester() }
+    val targetViewport = with(androidx.compose.ui.platform.LocalDensity.current) {
+        (androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp - 112.dp).toPx()
+    }
+    LaunchedEffect(target) {
+        if (target != null) {
+            kotlinx.coroutines.delay(250)
+            targetRequester.bringIntoView(androidx.compose.ui.geometry.Rect(0f, 0f, 1f, targetViewport))
+        }
+    }
 
     var enabled by remember { mutableStateOf(prefs.getBoolean(AnnouncementPrefs.KEY_ENABLED, true)) }
     var skipDuringCall by remember { mutableStateOf(AnnouncementPrefs.skipDuringCall(context)) }
     var skipDuringMedia by remember { mutableStateOf(AnnouncementPrefs.skipDuringMedia(context)) }
     var onlyInEar by remember { mutableStateOf(prefs.getBoolean(AnnouncementPrefs.KEY_ONLY_IN_EAR, false)) }
-    var alsoOtherBt by remember { mutableStateOf(AnnouncementPrefs.alsoAnnounceOnOtherBluetooth(context)) }
     var quietEnabled by remember { mutableStateOf(AnnouncementPrefs.quietHoursEnabled(context)) }
     var quietMode by remember { mutableStateOf(AnnouncementPrefs.quietMode(context)) }
     var quietStart by remember { mutableStateOf(AnnouncementPrefs.quietStart(context)) }
     var quietEnd by remember { mutableStateOf(AnnouncementPrefs.quietEnd(context)) }
     var contentMode by remember { mutableStateOf(prefs.getString(AnnouncementPrefs.KEY_CONTENT_MODE, AnnouncementPrefs.CONTENT_TITLE_BODY) ?: AnnouncementPrefs.CONTENT_TITLE_BODY) }
     var language by remember { mutableStateOf(prefs.getString(AnnouncementPrefs.KEY_LANGUAGE, AnnouncementPrefs.LANG_AUTO) ?: AnnouncementPrefs.LANG_AUTO) }
-    val localeTags = remember(resources) {
-        resources.getStringArray(R.array.supported_locale_tags).toList()
+    val localeTags = remember(context) {
+        context.resources.getStringArray(R.array.supported_locale_tags).toList()
     }
 
     // ElevenLabs engine
@@ -169,49 +182,30 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
             modifier = Modifier
                 .fillMaxSize()
                 .testTag("dest_notification_announcements")
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Spacer(modifier = Modifier.height(topPadding))
 
             // Permission status / request block.
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(cardColor, RoundedCornerShape(20.dp))
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = stringResource(R.string.ui_permissions),
-                    style = TextStyle(
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = textColor.copy(alpha = 0.6f),
-                        fontFamily = FontFamily(Font(R.font.sf_pro))
-                    )
-                )
+            SettingsSection(stringResource(R.string.ui_permissions)) {
+
                 PermStatusRow(
                     label = stringResource(R.string.ui_notification_access),
                     granted = notifAccess,
                     hint = if (!notifAccess)
-                        stringResource(R.string.notification_access_hint)
+                        "Enable \"EveryPods Notification Announcements\" in the list (EveryPods has two entries — pick this one, not Teams Mute Sync)."
                     else null,
                     onClick = { NotificationAnnouncementService.openAccessSettings(context) }
                 )
-                PermStatusRow(stringResource(R.string.permission_call_detection), phoneStateGranted) {
+                PermStatusRow("Phone state (call detection)", phoneStateGranted) {
                     openAppSettings()
                 }
             }
 
             // Master + behavior toggles
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(cardColor, RoundedCornerShape(20.dp))
-                    .padding(vertical = 4.dp)
-            ) {
+            SettingsSection(stringResource(R.string.design_announcement_behavior)) {
                 StyledToggle(
                     label = stringResource(R.string.ui_announce_notifications),
                     description = stringResource(R.string.ui_read_incoming_notifications_an),
@@ -258,29 +252,12 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
                         prefs.edit().putBoolean(AnnouncementPrefs.KEY_ONLY_IN_EAR, it).apply()
                     }
                 )
-                HorizontalDivider(thickness = 1.dp, color = Color(0x40888888), modifier = Modifier.padding(horizontal = 12.dp))
-                StyledToggle(
-                    label = stringResource(R.string.announce_other_bluetooth),
-                    description = stringResource(R.string.announce_other_bluetooth_description),
-                    checked = alsoOtherBt,
-                    independent = false,
-                    enabled = enabled,
-                    onCheckedChange = {
-                        alsoOtherBt = it
-                        prefs.edit().putBoolean(AnnouncementPrefs.KEY_ANNOUNCE_ON_OTHER_BT, it).apply()
-                    }
-                )
             }
 
             // TTS Engine picker
-            Text(stringResource(R.string.ui_voice_engine),
-                style = TextStyle(
-                    fontSize = 14.sp, fontWeight = FontWeight.Bold,
-                    color = textColor.copy(alpha = 0.6f),
-                    fontFamily = FontFamily(Font(R.font.sf_pro))
-                ),
-                modifier = Modifier.padding(start = 16.dp, top = 4.dp)
-            )
+            SettingsHeading(stringResource(R.string.ui_voice_engine))
+            io.automated.ventures.everypods.presentation.components.SettingsGroup {
+
             StyledSelectList(items = listOf(
                 SelectItem(
                     name = stringResource(R.string.ui_system_tts),
@@ -302,10 +279,10 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
 
             if (ttsEngine == AnnouncementPrefs.TTS_ENGINE_SYSTEM) {
                 Column(
-                    modifier = Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(20.dp)).padding(horizontal = 16.dp, vertical = 12.dp),
+                    modifier = Modifier.fillMaxWidth().background(if (LocalSettingsGroup.current) Color.Transparent else cardColor, RoundedCornerShape(18.dp)).padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Text(stringResource(R.string.ui_system_voices), style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Bold, color = textColor.copy(alpha = 0.6f), fontFamily = FontFamily(Font(R.font.sf_pro))))
+                    Text(stringResource(R.string.ui_system_voices), style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = textColor.copy(alpha = 0.6f), fontFamily = FontFamily(Font(R.font.sf_pro))))
                     Text(stringResource(R.string.ui_automatic_detection_stays_on_c), style = TextStyle(fontSize = 13.sp, color = textColor.copy(alpha = 0.6f), fontFamily = FontFamily(Font(R.font.sf_pro))))
                     if (systemVoicesLoading) CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
                     else {
@@ -324,7 +301,7 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(cardColor, RoundedCornerShape(20.dp))
+                        .background(if (LocalSettingsGroup.current) Color.Transparent else cardColor, RoundedCornerShape(18.dp))
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
@@ -350,8 +327,8 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         trailingIcon = {
                             TextButton(onClick = { elKeyVisible = !elKeyVisible }) {
-                                Text(stringResource(if (elKeyVisible) R.string.hide_secret else R.string.show_secret),
-                                    style = TextStyle(fontSize = 12.sp, color = Color(0xFF0A84FF)))
+                                Text(if (elKeyVisible) "Hide" else "Show",
+                                    style = TextStyle(fontSize = 13.sp, color = Color(0xFF0A84FF)))
                             }
                         }
                     )
@@ -363,15 +340,15 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
                         TextButton(
                             onClick = {
                                 if (elApiKey.isBlank()) {
-                                    elTestStatus = resources.getString(R.string.enter_api_key)
+                                    elTestStatus = "Enter an API key first"
                                     return@TextButton
                                 }
-                                elTestStatus = resources.getString(R.string.connection_testing)
+                                elTestStatus = "Testing…"
                                 scope.launch {
                                     val err = withContext(Dispatchers.IO) {
                                         ElevenLabsEngine.testKey(elApiKey)
                                     }
-                                    elTestStatus = if (err == null) resources.getString(R.string.island_connected_text) else resources.getString(R.string.connection_test_error, err)
+                                    elTestStatus = if (err == null) "Connected ✓" else "Error: $err"
                                     if (err == null && elVoices.isEmpty()) {
                                         elVoicesLoading = true
                                         elVoices = withContext(Dispatchers.IO) {
@@ -401,7 +378,7 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
                     // Voice picker
                     Text(stringResource(R.string.ui_voice),
                         style = TextStyle(
-                            fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
                             color = textColor.copy(alpha = 0.6f),
                             fontFamily = FontFamily(Font(R.font.sf_pro))
                         )
@@ -411,7 +388,7 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
                     } else if (elVoices.isNotEmpty()) {
                         Box {
                             val currentName = elVoices.find { it.first == elVoiceId }?.second
-                                ?: "Rachel (" + stringResource(R.string.default_option) + ")"
+                                ?: "Rachel (default)"
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -455,16 +432,9 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
                 }
             }
 
+            }
             // Content mode
-            Text(stringResource(R.string.ui_notification_content),
-                style = TextStyle(
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = textColor.copy(alpha = 0.6f),
-                    fontFamily = FontFamily(Font(R.font.sf_pro))
-                ),
-                modifier = Modifier.padding(start = 16.dp, top = 4.dp)
-            )
+            SettingsHeading(stringResource(R.string.ui_notification_content))
             StyledSelectList(items = listOf(
                 SelectItem(
                     name = stringResource(R.string.ui_title_only),
@@ -485,15 +455,7 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
             ))
 
             // Language
-            Text(stringResource(R.string.ui_speech_language),
-                style = TextStyle(
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = textColor.copy(alpha = 0.6f),
-                    fontFamily = FontFamily(Font(R.font.sf_pro))
-                ),
-                modifier = Modifier.padding(start = 16.dp, top = 4.dp)
-            )
+            SettingsHeading(stringResource(R.string.ui_speech_language), modifier = if (target == "speech_language") Modifier.bringIntoViewRequester(targetRequester) else Modifier)
             val automaticDetectionLabel = stringResource(R.string.automatic_detection)
             val systemDefaultLabel = stringResource(R.string.system_default)
             val languageOptions = buildList {
@@ -524,19 +486,13 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
             )
 
             // Quiet hours
-            Text(stringResource(R.string.ui_quiet_hours),
-                style = TextStyle(
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = textColor.copy(alpha = 0.6f),
-                    fontFamily = FontFamily(Font(R.font.sf_pro))
-                ),
-                modifier = Modifier.padding(start = 16.dp, top = 4.dp)
-            )
+            SettingsHeading(stringResource(R.string.ui_quiet_hours), modifier = if (target == "quiet_hours") Modifier.bringIntoViewRequester(targetRequester) else Modifier)
+            io.automated.ventures.everypods.presentation.components.SettingsGroup {
+
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(cardColor, RoundedCornerShape(20.dp))
+                    .background(if (LocalSettingsGroup.current) Color.Transparent else cardColor, RoundedCornerShape(18.dp))
                     .padding(vertical = 4.dp)
             ) {
                 StyledToggle(
@@ -591,7 +547,7 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(cardColor, RoundedCornerShape(20.dp))
+                        .background(if (LocalSettingsGroup.current) Color.Transparent else cardColor, RoundedCornerShape(18.dp))
                         .padding(vertical = 4.dp)
                 ) {
                     TimeRow(
@@ -632,7 +588,8 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
                 }
             }
 
-            Spacer(modifier = Modifier.height(bottomPadding))
+            }
+            Spacer(modifier = Modifier.height(if (target != null) androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp else bottomPadding))
         }
     }
 }
@@ -691,9 +648,9 @@ private fun SystemVoicePicker(
         mutableStateOf(AnnouncementPrefs.systemTtsVoiceName(context, languageTag))
     }
     val selectedLabel = voices.firstOrNull { it.name == selectedVoiceName }?.label
-        ?: stringResource(R.string.android_default)
+        ?: context.getString(R.string.android_default)
 
-    Text(label, style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Bold, color = textColor.copy(alpha = 0.6f), fontFamily = FontFamily(Font(R.font.sf_pro))))
+    Text(label, style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = textColor.copy(alpha = 0.6f), fontFamily = FontFamily(Font(R.font.sf_pro))))
     Box {
         Row(
             modifier = Modifier.fillMaxWidth()
@@ -706,7 +663,7 @@ private fun SystemVoicePicker(
             Text("▾", style = TextStyle(fontSize = 13.sp, color = textColor.copy(alpha = 0.5f)))
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            DropdownMenuItem(text = { Text(stringResource(R.string.android_default)) }, onClick = {
+            DropdownMenuItem(text = { Text(context.getString(R.string.android_default)) }, onClick = {
                 selectedVoiceName = null
                 AnnouncementPrefs.setSystemTtsVoiceName(context, languageTag, null)
                 expanded = false
@@ -721,11 +678,11 @@ private fun SystemVoicePicker(
         }
     }
     if (voices.isEmpty()) {
-        Text(stringResource(R.string.speech_voice_unavailable))
+        Text(context.getString(R.string.speech_voice_unavailable))
     }
     TextButton(onClick = {
         val speechContext = AnnouncementPrefs.contextForLanguage(context, languageTag)
-        TtsEngine.speak(context, speechContext.getString(R.string.speech_preview_sample), languageTag, bypassRouteGate = true)
+        TtsEngine.speak(context, speechContext.getString(R.string.speech_preview_sample), languageTag)
     }, enabled = voices.isNotEmpty()) {
         Text(stringResource(R.string.ui_preview), color = Color(0xFF0A84FF), style = TextStyle(fontFamily = FontFamily(Font(R.font.sf_pro))))
     }
@@ -750,7 +707,7 @@ private fun PermStatusRow(
             style = TextStyle(fontSize = 15.sp, color = textColor, fontFamily = FontFamily(Font(R.font.sf_pro)))
         )
         Text(
-            text = stringResource(if (granted) R.string.permission_granted else R.string.permission_tap_to_grant),
+            text = if (granted) "Granted" else "Tap to grant",
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 2.dp),
@@ -767,7 +724,7 @@ private fun PermStatusRow(
                     .fillMaxWidth()
                     .padding(top = 4.dp),
                 style = TextStyle(
-                    fontSize = 12.sp,
+                    fontSize = 13.sp,
                     color = textColor.copy(alpha = 0.55f),
                     fontFamily = FontFamily(Font(R.font.sf_pro))
                 )

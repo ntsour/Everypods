@@ -48,12 +48,12 @@ fun PopupAnimationsScreen(appSettingsViewModel: AppSettingsViewModel) {
                 StyledToggle(label = stringResource(R.string.show_bottom_sheet_popup),
                     description = stringResource(R.string.show_bottom_sheet_popup_description),
                     checked = appState.showBottomSheetPopup,
-                    onCheckedChange = appSettingsViewModel::setShowBottomSheetPopup, independent = true)
+                    onCheckedChange = appSettingsViewModel::setShowBottomSheetPopup, independent = false)
                 Spacer(Modifier.height(12.dp))
                 StyledToggle(label = stringResource(R.string.show_island_popup),
                     description = stringResource(R.string.show_island_popup_description),
                     checked = appState.showIslandPopup,
-                    onCheckedChange = appSettingsViewModel::setShowIslandPopup, independent = true)
+                    onCheckedChange = appSettingsViewModel::setShowIslandPopup, independent = false)
             }
             
             Spacer(Modifier.height(bottomPadding))

@@ -95,6 +95,7 @@ import io.automated.ventures.everypods.presentation.components.StyledInputField
 import io.automated.ventures.everypods.utils.openEveryPodsIssues
 import io.automated.ventures.everypods.utils.openEveryPodsSupportEmail
 import io.automated.ventures.everypods.presentation.components.StyledScaffold
+import io.automated.ventures.everypods.presentation.components.SettingsSection
 import io.automated.ventures.everypods.presentation.components.StyledSlider
 import io.automated.ventures.everypods.presentation.components.StyledToggle
 import io.automated.ventures.everypods.presentation.viewmodel.AppSettingsViewModel
@@ -133,7 +134,7 @@ fun AppSettingsScreen(
             val backgroundColor = if (isDarkTheme) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
             val textColor = if (isDarkTheme) Color.White else Color.Black
 
-            io.automated.ventures.everypods.presentation.components.AppLanguagePicker()
+            AppLanguageSetting()
 
             if (!state.isPremium && state.connectionSuccessful) {
                 StyledButton(
@@ -393,6 +394,8 @@ fun AppSettingsScreen(
                        modifier = Modifier
                            .weight(1f)
                            .padding(horizontal = 8.dp),
+                       maxLines = 1,
+                       overflow = TextOverflow.Ellipsis,
                        style = TextStyle(
                            fontSize = 18.sp,
                            fontFamily = FontFamily(Font(R.font.sf_pro)),
@@ -450,4 +453,51 @@ fun AppSettingsScreen(
             }
         }
     }
+}
+
+
+/** Shared by the current category screen and the legacy settings screen. */
+@Composable
+internal fun AppLanguageSetting() {
+    val context = LocalContext.current
+    val textColor = if (isSystemInDarkTheme()) Color.White else Color.Black
+    var languageMenuOpen by remember { mutableStateOf(false) }
+    val supportedLocaleTags = remember(context) {
+        context.resources.getStringArray(R.array.supported_locale_tags).toList()
+    }
+    val selectedLocale = context.getSystemService(LocaleManager::class.java).applicationLocales
+    val activeLocaleTag = selectedLocale.get(0)?.toLanguageTag().orEmpty()
+    val activeLanguageName = if (selectedLocale.isEmpty) {
+        stringResource(R.string.system_default)
+    } else {
+        Locale.forLanguageTag(activeLocaleTag).getDisplayName(Locale.forLanguageTag(activeLocaleTag))
+    }
+    SettingsSection(stringResource(R.string.app_language)) {
+    Box {
+        TextButton(onClick = { languageMenuOpen = true }) {
+            Text(activeLanguageName, modifier = Modifier.fillMaxWidth(), color = textColor, style = TextStyle(fontSize = 16.sp, fontFamily = FontFamily(Font(R.font.sf_pro))))
+        }
+        DropdownMenu(expanded = languageMenuOpen, onDismissRequest = { languageMenuOpen = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.system_default)) },
+                onClick = {
+                    context.getSystemService(LocaleManager::class.java)
+                        .applicationLocales = LocaleList.getEmptyLocaleList()
+                    languageMenuOpen = false
+                }
+            )
+            supportedLocaleTags.forEach { tag ->
+                val locale = Locale.forLanguageTag(tag)
+                DropdownMenuItem(
+                    text = { Text(locale.getDisplayName(locale)) },
+                    onClick = {
+                        context.getSystemService(LocaleManager::class.java)
+                            .applicationLocales = LocaleList.forLanguageTags(tag)
+                        languageMenuOpen = false
+                    }
+                )
+            }
+        }
+    }
+}
 }

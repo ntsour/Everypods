@@ -64,23 +64,23 @@ fun SmartAutomationScreen(viewModel: AirPodsViewModel) {
                     StyledToggle(label = stringResource(R.string.ui_sleep_detection),
                         checked = state.controlStates[id]?.getOrNull(0) == 0x01.toByte(),
                         onCheckedChange = { viewModel.setControlCommandBoolean(id, it) },
-                        independent = true, enabled = state.isPremium && state.aacpAvailable)
+                        independent = false, enabled = state.isPremium && state.aacpAvailable)
                     Spacer(Modifier.height(12.dp))
                 }
                 
                 StyledToggle(label = stringResource(R.string.ui_optimized_charging),
                     description = stringResource(R.string.ui_slows_charging_past_80_to_pres),
-                    checked = state.dynamicEndOfCharge, onCheckedChange = viewModel::setDynamicEndOfCharge, independent = true)
+                    checked = state.dynamicEndOfCharge, onCheckedChange = viewModel::setDynamicEndOfCharge, independent = false)
                 Spacer(Modifier.height(12.dp))
                 
                 var autoResume by remember { mutableStateOf(SmartFeaturesPrefs.autoResumeAfterCall(context)) }
-                StyledToggle(label = stringResource(R.string.ui_resume_media_after_call), checked = autoResume, independent = true,
+                StyledToggle(label = stringResource(R.string.ui_resume_media_after_call), checked = autoResume, independent = false,
                     onCheckedChange = { autoResume = it; SmartFeaturesPrefs.prefs(context).edit().putBoolean(SmartFeaturesPrefs.KEY_AUTO_RESUME_AFTER_CALL, it).apply() })
                 Spacer(Modifier.height(12.dp))
                 
                 var batteryAlerts by remember { mutableStateOf(SmartFeaturesPrefs.batteryAlertsEnabled(context)) }
                 var batteryThreshold by remember { mutableStateOf(SmartFeaturesPrefs.batteryAlertThreshold(context)) }
-                StyledToggle(label = stringResource(R.string.ui_speak_when_battery_is_low), checked = batteryAlerts, independent = true,
+                StyledToggle(label = stringResource(R.string.ui_speak_when_battery_is_low), checked = batteryAlerts, independent = false,
                     description = stringResource(R.string.ui_announces_at_threshold_then_ev),
                     onCheckedChange = { batteryAlerts = it; SmartFeaturesPrefs.prefs(context).edit().putBoolean(SmartFeaturesPrefs.KEY_BATTERY_ALERTS_ENABLED, it).apply() })
                 if (batteryAlerts) {

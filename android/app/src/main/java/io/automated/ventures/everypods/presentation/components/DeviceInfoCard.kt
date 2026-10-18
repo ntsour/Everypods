@@ -42,25 +42,12 @@ fun DeviceInfoCard() {
     Column (
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .background(if (isDarkTheme) Color.Black else Color(0xFFF2F2F7))
-                .padding(start = 16.dp, top = 24.dp, end = 4.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.device_info), style = TextStyle(
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = textColor.copy(alpha = 0.6f),
-                    fontFamily = FontFamily(Font(R.font.sf_pro))
-                )
-            )
-        }
+        SettingsHeading(stringResource(R.string.device_info))
         Column(
             modifier = Modifier
-                .clip(RoundedCornerShape(28.dp))
+                .clip(RoundedCornerShape(18.dp))
                 .fillMaxWidth()
-                .background(backgroundColor, RoundedCornerShape(28.dp))
+                .background(backgroundColor, RoundedCornerShape(18.dp))
         ) {
             Row(
                 modifier = Modifier

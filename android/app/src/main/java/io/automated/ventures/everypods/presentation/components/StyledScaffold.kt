@@ -35,13 +35,10 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
@@ -51,6 +48,7 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -72,21 +70,15 @@ fun StyledScaffold(
     navigationIcon: (@Composable (backdrop: LayerBackdrop) -> Unit)? = null,
     actionButtons: List<@Composable (backdrop: LayerBackdrop) -> Unit> = emptyList(),
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
-    headerHeight: Dp = 64.dp,
-    titleEndPadding: Dp = 0.dp,
-    titleMaxLines: Int = Int.MAX_VALUE,
     content: @Composable (spacerValue: Dp, hazeState: HazeState, bottomPadding: Dp) -> Unit
 ) {
     val isDarkTheme = isSystemInDarkTheme()
     val hazeState = rememberHazeState(blurEnabled = true)
-    val density = LocalDensity.current
-    var measuredHeaderHeightPx by remember { mutableIntStateOf(0) }
-    val actualHeaderHeight = with(density) { measuredHeaderHeightPx.toDp() }.coerceAtLeast(headerHeight)
 
     Scaffold(
         containerColor = if (isDarkTheme) Color(0xFF000000) else Color(0xFFF2F2F7),
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        modifier = Modifier
+        modifier = Modifier.semantics { testTagsAsResourceId = true }
             .then(if (!isDarkTheme) Modifier.shadow(elevation = 36.dp, shape = RoundedCornerShape(52.dp), ambientColor = Color.Black, spotColor = Color.Black) else Modifier)
             .clip(RoundedCornerShape(52.dp))
     ) { paddingValues ->
@@ -104,16 +96,15 @@ fun StyledScaffold(
             Box(
                 modifier = Modifier
                     .zIndex(2f)
-                    .heightIn(min = headerHeight + topPadding)
+                    .height(64.dp + topPadding)
                     .fillMaxWidth()
-                    .onSizeChanged { measuredHeaderHeightPx = it.height }
                     .layerBackdrop(backdrop)
                     .hazeEffect(state = hazeState) {
                         tints = listOf(HazeTint(color = if (isDarkTheme) Color.Black else Color.White))
                         progressive = HazeProgressive.verticalGradient(startIntensity = 1f, endIntensity = 0f)
                     }
             ) {
-                Column(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.fillMaxSize()) {
                     Spacer(modifier = Modifier.height(topPadding + 12.dp))
                     Text(
                             text = title,
@@ -123,9 +114,18 @@ fun StyledScaffold(
                                 color = if (isDarkTheme) Color.White else Color.Black,
                                 fontFamily = FontFamily(Font(R.font.sf_pro))
                             ),
-                            modifier = Modifier.fillMaxWidth().padding(end = titleEndPadding)
-                                .then(if (titleAlign == TextAlign.Start) Modifier.padding(start = 16.dp) else Modifier),
-                            textAlign = titleAlign
+                            modifier = Modifier.fillMaxWidth()
+                                .heightIn(min = 48.dp)
+                                .padding(
+                                    // MainActivity overlays its Back button on every non-home
+                                    // destination, so reserve that slot even when this scaffold
+                                    // does not receive a local navigationIcon.
+                                    start = 72.dp,
+                                    end = maxOf(72.dp, (16 + actionButtons.size * 52).dp),
+                                ),
+                            textAlign = titleAlign,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                 }
             }
@@ -151,7 +151,7 @@ fun StyledScaffold(
                 }
             }
 
-            content(actualHeaderHeight, hazeState, bottomPadding + 12.dp)
+            content(topPadding + 64.dp, hazeState, bottomPadding + 12.dp)
         }
     }
 }

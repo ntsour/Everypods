@@ -67,7 +67,7 @@ fun ConversationAwarenessScreen(
                             AACPManager.Companion.ControlCommandIdentifiers.CONVERSATION_DETECT_CONFIG, it
                         )
                     },
-                    independent = true,
+                    independent = false,
                     enabled = masterEnabled,
                 )
                 Spacer(Modifier.height(12.dp))
@@ -75,20 +75,20 @@ fun ConversationAwarenessScreen(
                     description = stringResource(R.string.conversational_awareness_pause_music_description),
                     checked = appState.conversationalAwarenessPauseMusicEnabled,
                     onCheckedChange = appSettingsViewModel::setConversationalAwarenessPauseMusicEnabled,
-                    independent = true, enabled = subEnabled)
+                    independent = false, enabled = subEnabled)
                 Spacer(Modifier.height(12.dp))
                 StyledToggle(label = stringResource(R.string.relative_conversational_awareness_volume),
                     description = stringResource(R.string.relative_conversational_awareness_volume_description),
                     checked = appState.relativeConversationalAwarenessVolumeEnabled,
                     onCheckedChange = appSettingsViewModel::setRelativeConversationalAwarenessVolumeEnabled,
-                    independent = true, enabled = subEnabled)
+                    independent = false, enabled = subEnabled)
                 Spacer(Modifier.height(12.dp))
                 StyledSlider(label = stringResource(R.string.conversational_awareness_volume),
                     description = stringResource(R.string.conversational_awareness_volume_description),
                     value = appState.conversationalAwarenessVolume, valueRange = 10f..85f,
                     snapPoints = listOf(44f), startLabel = "10%", endLabel = "85%",
                     onValueChange = { appSettingsViewModel.setConversationalAwarenessVolume(it) },
-                    independent = true, enabled = subEnabled)
+                    independent = false, enabled = subEnabled)
             }
 
             Spacer(Modifier.height(bottomPadding))

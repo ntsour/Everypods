@@ -40,11 +40,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ScrollState
@@ -52,8 +55,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.SnapshotMutationPolicy
-import androidx.compose.ui.layout.boundsInRoot
-import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -75,6 +77,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -97,6 +100,8 @@ import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import io.automated.ventures.everypods.BuildConfig
 import io.automated.ventures.everypods.R
@@ -123,7 +128,6 @@ import io.automated.ventures.everypods.presentation.viewmodel.AirPodsViewModel
 import io.automated.ventures.everypods.presentation.viewmodel.AppSettingsUiState
 import io.automated.ventures.everypods.presentation.viewmodel.AppSettingsViewModel
 import io.automated.ventures.everypods.utils.GymModePrefs
-import io.automated.ventures.everypods.utils.GymModeStemPressArbitration
 import io.automated.ventures.everypods.utils.GymTimer
 import io.automated.ventures.everypods.utils.SleepTimer
 import io.automated.ventures.everypods.utils.SmartFeaturesPrefs
@@ -131,21 +135,24 @@ import io.automated.ventures.everypods.utils.openEveryPodsIssues
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.VolunteerActivism
 import androidx.compose.material3.Icon
+import io.automated.ventures.everypods.presentation.components.SettingsSection
+import io.automated.ventures.everypods.presentation.components.SettingsGroup
+import io.automated.ventures.everypods.presentation.components.SettingsHeading
 import io.automated.ventures.everypods.utils.openEveryPodsSupportEmail
 
 // ─── Category metadata ────────────────────────────────────────────────────────
 internal val categoryTitles = mapOf(
-    "controls"    to R.string.category_controls,
-    "settings"    to R.string.category_settings,
-    "smart"       to R.string.category_smart,
-    "appsettings" to R.string.app_settings,
-    "audio"       to R.string.category_audio,
-    "help"        to R.string.category_help,
+    "controls"    to "Controls",
+    "connection"  to "Connection",
+    "smart"       to "Smart features",
+    "appsettings" to "App settings",
+    "audio"       to "Audio",
+    "help"        to "Help",
 )
 
 internal val categoryEmojis = mapOf(
     "controls"    to "🎧",
-    "settings"    to "⚙️",
+    "connection"  to "🔗",
     "smart"       to "✨",
     "appsettings" to "📱",
     "audio"       to "🔊",
@@ -175,23 +182,38 @@ fun CategoryScreen(
     navController: NavController,
     categoryKey: String,
     anchor: String? = null,
+    initialBud: String = "left",
 ) {
     val state    by viewModel.uiState.collectAsState()
     val appState by appSettingsViewModel.uiState.collectAsState()
     val dark     = isSystemInDarkTheme()
     val context  = LocalContext.current
     val sharedPrefs = context.getSharedPreferences("settings", MODE_PRIVATE)
-    val title = categoryTitles[categoryKey]?.let { stringResource(it) } ?: categoryKey
+    val title = when (categoryKey) {
+        "controls" -> stringResource(R.string.search_category_controls)
+        "settings", "connection" -> stringResource(R.string.design_connection)
+        "smart" -> stringResource(R.string.search_category_smart)
+        "appsettings" -> stringResource(R.string.search_category_app)
+        "audio" -> stringResource(R.string.search_category_audio)
+        "help" -> stringResource(R.string.search_category_help)
+        else -> categoryKey
+    }
 
-    val anchorRegistry = remember { AnchorRegistry() }
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val targetTop = with(density) { 112.dp.roundToPx() }
+    val anchorRegistry = remember(categoryKey) { AnchorRegistry() }
     val scrollState = rememberScrollState()
-    var didScroll by remember(anchor) { mutableStateOf(false) }
+    var didScroll by remember(categoryKey, anchor) { mutableStateOf(false) }
 
-    LaunchedEffect(anchor, anchorRegistry.positions[anchor]) {
+    LaunchedEffect(anchor) {
         if (anchor == null || didScroll) return@LaunchedEffect
-        val y = anchorRegistry.positions[anchor] ?: return@LaunchedEffect
-        // Wait one frame so layout settles, then scroll.
-        scrollState.animateScrollTo((scrollState.value + y - 200).coerceAtLeast(0))
+        // Wait for layout to report this anchor once. Do not key this effect to the
+        // measured position: that position changes during scrolling and would
+        // cancel/restart animateScrollTo on every frame.
+        val y = snapshotFlow { anchorRegistry.positions[anchor] }
+            .filterNotNull()
+            .first()
+        scrollState.animateScrollTo((scrollState.value + y - targetTop).coerceAtLeast(0))
         didScroll = true
     }
 
@@ -211,14 +233,14 @@ fun CategoryScreen(
             ) {
                 Spacer(Modifier.height(topPadding))
                 when (categoryKey) {
-                    "controls"    -> ControlsContent(state, viewModel, navController, sharedPrefs, dark)
-                    "settings"    -> SettingsContent(state, appState, viewModel, appSettingsViewModel, navController, dark)
+                    "controls"    -> ControlsContent(state, viewModel, navController, sharedPrefs, dark, initialBud)
+                    "settings", "connection" -> ConnectionContent(state, appState, viewModel, appSettingsViewModel, navController, dark)
                     "smart"       -> SmartContent(state, viewModel, navController, sharedPrefs, dark)
                     "appsettings" -> AppSettingsContent(appState, appSettingsViewModel, navController, dark)
                     "audio"       -> AudioContent(state, appState, viewModel, appSettingsViewModel, navController, dark)
                     "help"        -> HelpContent(state, navController, dark)
                 }
-                Spacer(Modifier.height(bottomPadding))
+                Spacer(Modifier.height(if (anchor != null) androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp else bottomPadding))
             }
         }
     }
@@ -254,7 +276,9 @@ internal fun AnchorWrapper(
 
     val mod = Modifier
         .onGloballyPositioned { coords ->
-            registry?.positions?.set(id, coords.boundsInWindow().top.toInt())
+            // boundsInWindow clips off-screen sections to an empty rectangle at
+            // zero. The unclipped origin keeps below-the-fold anchors reachable.
+            registry?.positions?.set(id, coords.positionInWindow().y.toInt())
         }
         .testTag("anchor_$id")
         .background(animated, RoundedCornerShape(18.dp))
@@ -271,20 +295,21 @@ private fun ControlsContent(
     navController: NavController,
     sharedPrefs: SharedPreferences,
     dark: Boolean,
+    initialBud: String = "left",
 ) {
     val capabilities = state.capabilities
     val cardColor = if (dark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
 
-    var selectedBud by rememberSaveable { mutableStateOf("left") }
+    var selectedBud by rememberSaveable(initialBud) { mutableStateOf(initialBud) }
 
     fun readAction(key: String, default: StemAction): StemAction =
         runCatching { StemAction.valueOf(sharedPrefs.getString(key, default.name) ?: default.name) }.getOrDefault(default)
 
     val pressTypes = listOf(
-        Pair(stringResource(R.string.ui_single_press), AACPManager.Companion.StemPressType.SINGLE_PRESS),
-        Pair(stringResource(R.string.press_twice), AACPManager.Companion.StemPressType.DOUBLE_PRESS),
-        Pair(stringResource(R.string.press_three_times), AACPManager.Companion.StemPressType.TRIPLE_PRESS),
-        Pair(stringResource(R.string.press_and_hold_airpods), AACPManager.Companion.StemPressType.LONG_PRESS),
+        Triple("Single Press", AACPManager.Companion.StemPressType.SINGLE_PRESS,  StemAction.PLAY_PAUSE),
+        Triple("Double Press", AACPManager.Companion.StemPressType.DOUBLE_PRESS,  StemAction.NEXT_TRACK),
+        Triple("Triple Press", AACPManager.Companion.StemPressType.TRIPLE_PRESS,  StemAction.PREVIOUS_TRACK),
+        Triple("Long Press",   AACPManager.Companion.StemPressType.LONG_PRESS,    StemAction.CYCLE_NOISE_CONTROL_MODES),
     )
 
     val actionOptions = listOf(
@@ -301,7 +326,7 @@ private fun ControlsContent(
         if (capabilities.contains(Capability.STEM_CONFIG)) {
 
             // ── Stem Actions Grid ────────────────────────────────────────────
-            ExternalSectionHeader(stringResource(R.string.ui_press_actions), dark, requiresAacp = !state.aacpAvailable)
+            ExternalSectionHeader(stringResource(R.string.design_stem_actions), dark, requiresAacp = !state.aacpAvailable)
             Column(
                 Modifier.fillMaxWidth()
                     .background(cardColor, RoundedCornerShape(18.dp))
@@ -327,12 +352,13 @@ private fun ControlsContent(
                     )
                 }
 
-                pressTypes.forEach { (label, pressType) ->
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                pressTypes.forEach { (label, pressType, defaultAction) ->
+                    AnchorWrapper("stem_${pressType.name}") { gestureModifier ->
+                    Row(gestureModifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         // Left cell
                         StatefulPressDropdown(
                             side = "left", label = label, pressType = pressType,
-                            state = state, viewModel = viewModel,
+                            defaultAction = defaultAction, state = state, viewModel = viewModel,
                             actionOptions = actionOptions,
                             enabled = selectedBud == "left" && state.aacpAvailable,
                             dark = dark, modifier = Modifier.weight(1f),
@@ -341,20 +367,13 @@ private fun ControlsContent(
                         // Right cell
                         StatefulPressDropdown(
                             side = "right", label = label, pressType = pressType,
-                            state = state, viewModel = viewModel,
+                            defaultAction = defaultAction, state = state, viewModel = viewModel,
                             actionOptions = actionOptions,
                             enabled = selectedBud == "right" && state.aacpAvailable,
                             dark = dark, modifier = Modifier.weight(1f),
                             readAction = { k, d -> readAction(k, d) }
                         )
                     }
-                    if (pressType == AACPManager.Companion.StemPressType.LONG_PRESS) {
-                        GymLongPressOverrideHints(
-                            state = state,
-                            sharedPrefs = sharedPrefs,
-                            navController = navController,
-                            dark = dark,
-                        )
                     }
                 }
             }
@@ -366,7 +385,7 @@ private fun ControlsContent(
 
         // ── Listening Mode Configuration ──────────────────────────────────────
         val currentByte = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.LISTENING_MODE_CONFIGS]?.get(0)?.toInt() ?: 0
-        Column(Modifier.fillMaxWidth()) {
+        AnchorWrapper("listening_modes") { anchorModifier -> Column(anchorModifier.fillMaxWidth()) {
             MenuSectionHeader(stringResource(R.string.ui_listening_mode_configuration), dark, requiresAacp = !state.aacpAvailable)
             Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 8.dp)) {
                 Text(stringResource(R.string.press_and_hold_noise_control_description), style = captionStyle(dark))
@@ -391,26 +410,29 @@ private fun ControlsContent(
                         onClick = { viewModel.toggleListeningMode(0x02) }))
                 })
             }
-        }
+        } }
 
         // ── Call Controls ─────────────────────────────────────────────────────
         val bytes = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.CALL_MANAGEMENT_CONFIG]?.take(2)?.toByteArray() ?: byteArrayOf(0x00, 0x00)
         val flipped = try { bytes[1] == 0x02.toByte() } catch (_: Exception) { false }
+        AnchorWrapper("call_controls") { modifier -> Box(modifier) {
         CallControlSettings(hazeState = remember { HazeState() }, flipped = flipped,
             onCallControlValueChanged = {
                 viewModel.setControlCommandValue(AACPManager.Companion.ControlCommandIdentifiers.CALL_MANAGEMENT_CONFIG,
                     if (it) byteArrayOf(0x00, 0x02) else byteArrayOf(0x00, 0x03))
             })
 
+        } }
         // ── Controls Configuration ────────────────────────────────────────────
-        ExternalSectionHeader(stringResource(R.string.controls_configuration), dark)
-        Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp))) {
-            ControlsConfigurationContent(
-                state = state,
-                viewModel = viewModel,
-                navController = navController,
-                dark = dark,
-            )
+        AnchorWrapper("controls_configuration") { anchorModifier ->
+            Column(anchorModifier.fillMaxWidth()) {
+                ControlsConfigurationContent(
+                    state = state,
+                    viewModel = viewModel,
+                    navController = navController,
+                    dark = dark,
+                )
+            }
         }
     }
 }
@@ -441,8 +463,8 @@ internal fun ControlsConfigurationContent(
     fun selectedByte(identifier: AACPManager.Companion.ControlCommandIdentifiers): Byte? =
         state.controlStates[identifier]?.getOrNull(0)
 
-    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-        ConfigSubheader(stringResource(R.string.press_speed), dark)
+    Column(Modifier.fillMaxWidth()) {
+        TargetSection("press_speed", stringResource(R.string.press_speed)) {
         Text(stringResource(R.string.press_speed_description), style = captionStyle(dark))
         Spacer(Modifier.height(4.dp))
         StyledSelectList(items = pressSpeedOptions.map { (value, label) ->
@@ -460,8 +482,8 @@ internal fun ControlsConfigurationContent(
             )
         })
 
-        MenuDivider()
-        ConfigSubheader(stringResource(R.string.press_and_hold_duration), dark)
+        }
+        TargetSection("hold_duration", stringResource(R.string.press_and_hold_duration)) {
         Text(stringResource(R.string.press_and_hold_duration_description), style = captionStyle(dark))
         Spacer(Modifier.height(4.dp))
         StyledSelectList(items = pressAndHoldDurationOptions.map { (value, label) ->
@@ -479,7 +501,8 @@ internal fun ControlsConfigurationContent(
             )
         })
 
-        MenuDivider()
+        }
+        TargetSection("listening_controls", stringResource(R.string.design_listening_controls)) {
         StyledToggle(
             label = stringResource(R.string.noise_cancellation_single_airpod),
             description = stringResource(R.string.noise_cancellation_single_airpod_description),
@@ -515,7 +538,9 @@ internal fun ControlsConfigurationContent(
             enabled = state.isPremium && state.aacpAvailable
         )
 
+        }
         if (state.capabilities.contains(Capability.SWIPE_FOR_VOLUME)) {
+            TargetSection("volume_control", stringResource(R.string.volume_control)) {
             val volumeSwipeEnabled =
                 state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.VOLUME_SWIPE_MODE]?.getOrNull(0)?.toInt() == 0x01
             MenuDivider()
@@ -532,8 +557,8 @@ internal fun ControlsConfigurationContent(
                 enabled = state.isPremium && state.aacpAvailable
             )
 
-            MenuDivider()
-            ConfigSubheader(stringResource(R.string.volume_swipe_speed), dark)
+            }
+            TargetSection("volume_swipe_speed", stringResource(R.string.volume_swipe_speed)) {
             Text(stringResource(R.string.volume_swipe_speed_description), style = captionStyle(dark))
             Spacer(Modifier.height(4.dp))
             StyledSelectList(items = volumeSwipeSpeedOptions.map { (value, label) ->
@@ -551,6 +576,7 @@ internal fun ControlsConfigurationContent(
                 )
             })
         }
+        }
     }
 }
 
@@ -565,22 +591,14 @@ private fun SettingsContent(
     navController: NavController,
     dark: Boolean,
 ) {
-    val capabilities = state.capabilities
-    val cardColor = if (dark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
-
-    Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp))) {
+    Column(Modifier.fillMaxWidth()) {
         val hasPPE = state.instance?.model?.capabilities?.contains(Capability.PPE) == true
-
-        // ── Ungated ───────────────────────────────────────────────────────────
-        MenuNavRow(stringResource(R.string.ui_device_name), dark, subtitle = state.deviceName) { navController.navigate("rename") }
-
         // Conversation Awareness
         val caEnabled = state.controlStates[
             AACPManager.Companion.ControlCommandIdentifiers.CONVERSATION_DETECT_CONFIG
         ]?.getOrNull(0) == 0x01.toByte()
-        MenuDivider()
-        MenuSectionHeader(stringResource(R.string.conversational_awareness), dark, requiresAacp = !state.aacpAvailable)
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+        AnchorWrapper("conversation_awareness") { anchorModifier ->
+        SettingsSection(stringResource(R.string.conversational_awareness), anchorModifier) {
             val masterEnabled = state.isPremium && state.aacpAvailable
             StyledToggle(label = stringResource(R.string.conversational_awareness),
                 description = stringResource(R.string.conversational_awareness_master_description),
@@ -608,11 +626,11 @@ private fun SettingsContent(
                 independent = true, enabled = subEnabled)
         }
 
+        }
         // Hearing Protection (PPE)
         if (hasPPE) {
-            MenuDivider()
-            MenuSectionHeader(stringResource(R.string.hearing_protection), dark, requiresAacp = !state.aacpAvailable)
-            Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+            AnchorWrapper("hearing_protection") { anchorModifier ->
+            SettingsSection(stringResource(R.string.hearing_protection), anchorModifier) {
                 StyledToggle(label = stringResource(R.string.ppe),
                     description = stringResource(R.string.workspace_use_description),
                     checked = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.PPE_TOGGLE_CONFIG]?.getOrNull(0)?.toInt() == 1,
@@ -620,20 +638,6 @@ private fun SettingsContent(
                     independent = true, enabled = state.isPremium && state.aacpAvailable)
             }
         }
-
-        // ── Bluetooth Control ────────────────────────────────────────────────
-        MenuDivider()
-        MenuSectionHeader(stringResource(R.string.ui_bluetooth_control), dark)
-        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            StyledButton(onClick = { viewModel.disconnect() },
-                backdrop = rememberLayerBackdrop(), isInteractive = true,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp)) {
-                Text(stringResource(R.string.disconnect), style = TextStyle(fontSize = 16.sp,
-                    fontWeight = FontWeight.Normal, fontFamily = SfPro, textAlign = TextAlign.Start,
-                    color = if (dark) Color(0xFF0091FF) else Color(0xFF0088FF)),
-                    modifier = Modifier.fillMaxWidth())
-            }
         }
     }
 }
@@ -641,149 +645,80 @@ private fun SettingsContent(
 // ─── 3. Smart Features ───────────────────────────────────────────────────────
 
 @Composable
-private fun SmartContent(
-    state: AirPodsUiState,
-    viewModel: AirPodsViewModel,
-    navController: NavController,
-    sharedPrefs: SharedPreferences,
-    dark: Boolean,
-) {
-    val context      = LocalContext.current
-    val capabilities = state.capabilities
-    val cardColor    = if (dark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
-    val scope        = rememberCoroutineScope()
-
-    // Gym Mode Card (separate card)
-    AnchorWrapper(id = "gym_mode") { highlightMod ->
-        Column(Modifier.fillMaxWidth().then(highlightMod).background(cardColor, RoundedCornerShape(18.dp))) {
-        var gymModeEnabled by remember { mutableStateOf(GymModePrefs.isEnabled(context)) }
-        
-        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
-            // Toggle
-            StyledToggle(
-                label = stringResource(R.string.ui_gym_mode),
-                description = stringResource(R.string.ui_alternate_stem_actions_for_wor),
-                checked = gymModeEnabled,
-                onCheckedChange = {
-                    gymModeEnabled = it
-                    GymModePrefs.setEnabled(context, it)
-                },
-                independent = true
-            )
-            
-            // Gym Timer row (always visible, but disabled when off)
-            if (gymModeEnabled) {
-                Spacer(Modifier.height(8.dp))
-                MenuDivider()
-                Spacer(Modifier.height(8.dp))
-                
-                val gymTimerMode = GymTimer.mode()
-                val gymTimerState = when (GymTimer.state()) {
-                    GymTimer.State.IDLE -> {
-                        val modeLabel = when (gymTimerMode) {
-                            GymTimer.Mode.COUNTDOWN -> stringResource(R.string.ui_countdown_ready)
-                            GymTimer.Mode.STOPWATCH -> stringResource(R.string.ui_stopwatch_ready)
-                            GymTimer.Mode.HIIT -> stringResource(R.string.ui_hiit_ready)
-                        }
-                        modeLabel
-                    }
-                    GymTimer.State.PREPARING ->
-                        stringResource(R.string.ui_timer_starting_in, GymTimer.preparationSecondsRemaining())
-                    GymTimer.State.RUNNING -> {
-                        when (gymTimerMode) {
-                            GymTimer.Mode.COUNTDOWN -> {
-                                val r = GymTimer.countdownRemainingMs() / 1000
-                                stringResource(R.string.ui_timer_running, r / 60, r % 60)
-                            }
-                            GymTimer.Mode.STOPWATCH -> {
-                                val e = GymTimer.elapsedMs() / 1000
-                                stringResource(R.string.ui_timer_running, e / 60, e % 60)
-                            }
-                            GymTimer.Mode.HIIT -> {
-                                val (phase, round, remaining) = GymTimer.hiitPhaseInfo()
-                                val phaseLabel = stringResource(if (phase == GymTimer.Phase.WORK) R.string.ui_timer_phase_work else R.string.ui_timer_phase_rest)
-                                stringResource(R.string.ui_timer_running_hiit, phaseLabel, round, remaining / 60000, (remaining % 60000) / 1000)
-                            }
-                        }
-                    }
-                    GymTimer.State.PAUSED -> {
-                        when (gymTimerMode) {
-                            GymTimer.Mode.COUNTDOWN -> {
-                                val r = GymTimer.countdownRemainingMs() / 1000
-                                stringResource(R.string.ui_timer_paused, r / 60, r % 60)
-                            }
-                            GymTimer.Mode.STOPWATCH -> {
-                                val e = GymTimer.elapsedMs() / 1000
-                                stringResource(R.string.ui_timer_paused, e / 60, e % 60)
-                            }
-                            GymTimer.Mode.HIIT -> {
-                                val (phase, round, _) = GymTimer.hiitPhaseInfo()
-                                val phaseLabel = stringResource(if (phase == GymTimer.Phase.WORK) R.string.ui_timer_phase_work else R.string.ui_timer_phase_rest)
-                                stringResource(R.string.ui_timer_paused_hiit, phaseLabel, round)
-                            }
-                        }
-                    }
-                }
-                MenuNavRow(stringResource(R.string.ui_gym_timer), dark, subtitle = gymTimerState) { navController.navigate("gym_timer") }
-                
-                Spacer(Modifier.height(8.dp))
-                MenuDivider()
-                Spacer(Modifier.height(8.dp))
-                
-                // Configure Gym Press Actions row
-        MenuNavRow(stringResource(R.string.ui_configure_gym_press_actions), dark) { navController.navigate("gym_press_actions") }
-            }
-        }
-        } // end AnchorWrapper Column
-    } // end AnchorWrapper
-
-    run {
-        val hrSharing by viewModel.heartRateSharingState.collectAsState()
-        val hrSession by viewModel.heartRateState.collectAsState()
-        Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp))) {
-            MenuNavRow(stringResource(R.string.hrs_title), dark,
-                enabled = state.aacpAvailable,
-                subtitle = stringResource(when {
-                    hrSharing.recovering -> R.string.hrs_reconnecting
-                    hrSharing.error != null || hrSession.failure != null -> R.string.hrs_needs_attention
-                    hrSharing.active && hrSharing.wahooDiagnostic -> R.string.hrs_tickr_sending
-                    hrSharing.active -> R.string.hrs_ble_ready
-                    hrSession.running -> R.string.hrs_monitoring
-                    else -> R.string.hrm_stopped
-                })) { navController.navigate("heart_rate_screen") }
+private fun SmartContent(state: AirPodsUiState, viewModel: AirPodsViewModel, navController: NavController,
+    sharedPrefs: SharedPreferences, dark: Boolean) {
+    val context = LocalContext.current
+    AnchorWrapper("gym_mode") { modifier ->
+        SettingsSection(stringResource(R.string.ui_gym_mode), modifier) {
+            var enabled by remember { mutableStateOf(GymModePrefs.isEnabled(context)) }
+            StyledToggle(label = stringResource(R.string.ui_gym_mode),
+                description = stringResource(R.string.ui_alternate_stem_actions_for_wor), checked = enabled,
+                onCheckedChange = { enabled = it; GymModePrefs.setEnabled(context, it) })
+            MenuNavRow(stringResource(R.string.ui_gym_timer), dark) { navController.navigate("gym_timer") }
+            MenuNavRow(stringResource(R.string.ui_configure_gym_press_actions), dark) { navController.navigate("gym_press_actions") }
         }
     }
-
-    // Rest of Smart Features in another outer Column
-    Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp))) {
-        // Notification Announcements
+    AnchorWrapper("heart_rate") { modifier -> SettingsSection(stringResource(R.string.design_smart_tools), modifier) {
+        MenuNavRow(stringResource(R.string.hrs_title), dark) { navController.navigate("heart_rate_screen") }
+        MenuDivider()
         MenuNavRow(stringResource(R.string.ui_notification_announcements), dark) { navController.navigate("notification_announcements") }
         MenuDivider()
-
-        // Find my Case (proximity finder — works even when buds are out of case)
         MenuNavRow(stringResource(R.string.ui_find_my_case), dark, subtitle = stringResource(R.string.ui_find_my_case_description)) { navController.navigate("proximity_finder") }
-    }
-
-    Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp))) {
-        // Head Gestures
-        if (capabilities.contains(Capability.HEAD_GESTURES)) {
+        if (state.capabilities.contains(Capability.HEAD_GESTURES)) {
             MenuDivider()
-            val headOn = sharedPrefs.getBoolean("head_gestures_enabled", false) &&
-                (sharedPrefs.getBoolean("head_gestures_answer_call", true) || sharedPrefs.getBoolean("head_gestures_mute_call", true))
-            MenuNavRow(stringResource(R.string.ui_head_gestures_status, stringResource(if (headOn) R.string.on else R.string.off)), dark,
-                enabled = state.aacpAvailable) { navController.navigate("head_tracking") }
+            MenuNavRow(stringResource(R.string.ui_head_gestures), dark, enabled = state.aacpAvailable) { navController.navigate("head_tracking") }
         }
+    } }
+    AnchorWrapper("automation") { modifier -> SettingsSection(stringResource(R.string.ui_automation), modifier) {
+        if (state.capabilities.contains(Capability.SLEEP_DETECTION)) {
+            val id = AACPManager.Companion.ControlCommandIdentifiers.SLEEP_DETECTION_CONFIG
+            StyledToggle(label = stringResource(R.string.sleep_detection),
+                checked = state.controlStates[id]?.getOrNull(0) == 0x01.toByte(),
+                onCheckedChange = { viewModel.setControlCommandBoolean(id, it) }, enabled = state.isPremium && state.aacpAvailable)
+        }
+        AnchorWrapper("sleep_timer") { timerModifier ->
+            Column(timerModifier.fillMaxWidth()) {
+                Text(
+                    stringResource(R.string.ui_sleep_timer),
+                    style = bodyStyle(dark),
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp)
+                )
+                SleepTimerSettings()
+            }
+        }
+        StyledToggle(label = stringResource(R.string.optimized_charging), description = stringResource(R.string.optimized_charging_description),
+            checked = state.dynamicEndOfCharge, onCheckedChange = viewModel::setDynamicEndOfCharge, enabled = state.aacpAvailable)
+        var resume by remember { mutableStateOf(SmartFeaturesPrefs.autoResumeAfterCall(context)) }
+        StyledToggle(label = stringResource(R.string.ui_resume_media_after_call), checked = resume,
+            onCheckedChange = { resume = it; SmartFeaturesPrefs.prefs(context).edit().putBoolean(SmartFeaturesPrefs.KEY_AUTO_RESUME_AFTER_CALL, it).apply() })
+    } }
+    AnchorWrapper("battery_alert_threshold") { modifier -> SettingsSection(stringResource(R.string.design_battery_alerts), modifier) {
+        var enabled by remember { mutableStateOf(SmartFeaturesPrefs.batteryAlertsEnabled(context)) }
+        var threshold by remember { mutableStateOf(SmartFeaturesPrefs.batteryAlertThreshold(context)) }
+        StyledToggle(label = stringResource(R.string.ui_speak_when_battery_is_low), checked = enabled,
+            description = stringResource(R.string.ui_announces_at_threshold_then_ev_10f37),
+            onCheckedChange = { enabled = it; SmartFeaturesPrefs.prefs(context).edit().putBoolean(SmartFeaturesPrefs.KEY_BATTERY_ALERTS_ENABLED, it).apply() })
+        if (enabled) StyledSelectList(items = listOf(10,20,30,40).map { percent ->
+            SelectItem("$percent%", selected = threshold == percent, onClick = {
+                threshold = percent; SmartFeaturesPrefs.prefs(context).edit().putInt(SmartFeaturesPrefs.KEY_BATTERY_ALERT_THRESHOLD, percent).apply()
+            })
+        })
+    } }
+}
 
+
+
+@Composable
+private fun AdaptiveAudioContent(state: AirPodsUiState, viewModel: AirPodsViewModel, dark: Boolean) {
+    val scope = rememberCoroutineScope()
         // Adaptive Audio
         val model = state.instance?.model ?: AirPodsPro3()
         if (model.capabilities.contains(Capability.ADAPTIVE_VOLUME)) {
-            MenuDivider()
-            MenuSectionHeader(stringResource(R.string.adaptive_audio), dark, requiresAacp = !state.aacpAvailable)
             val adaptiveVal = remember {
                 mutableFloatStateOf(100f - (state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.AUTO_ANC_STRENGTH]?.getOrNull(0)?.toFloat() ?: 50f))
             }
             var adaptiveJob by remember { mutableStateOf<Job?>(null) }
-            Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+            AnchorWrapper("adaptive_audio") { anchorModifier -> SettingsSection(stringResource(R.string.customize_adaptive_audio), anchorModifier) {
                 StyledSlider(label = stringResource(R.string.customize_adaptive_audio),
                     value = adaptiveVal.floatValue,
                     onValueChange = {
@@ -800,285 +735,125 @@ private fun SmartContent(
                     description = stringResource(R.string.adaptive_audio_description),
                     enabled = state.isPremium && state.aacpAvailable)
             }
-        }
+        } }
 
-        // Automation
-        MenuDivider()
-        MenuSectionHeader(stringResource(R.string.ui_automation), dark)
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-            if (capabilities.contains(Capability.SLEEP_DETECTION)) {
-                val id = AACPManager.Companion.ControlCommandIdentifiers.SLEEP_DETECTION_CONFIG
-                StyledToggle(label = stringResource(R.string.sleep_detection),
-                    checked = state.controlStates[id]?.getOrNull(0) == 0x01.toByte(),
-                    onCheckedChange = { viewModel.setControlCommandBoolean(id, it) },
-                    independent = true, enabled = state.isPremium && state.aacpAvailable)
-                Spacer(Modifier.height(4.dp))
-            }
-            StyledToggle(label = stringResource(R.string.optimized_charging),
-                description = stringResource(R.string.optimized_charging_description),
-                checked = state.dynamicEndOfCharge, onCheckedChange = viewModel::setDynamicEndOfCharge,
-                independent = true, enabled = state.aacpAvailable)
-        }
-
-        // Resume media + battery alerts (merged into Automation section)
-        MenuDivider()
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-            var autoResume by remember { mutableStateOf(SmartFeaturesPrefs.autoResumeAfterCall(context)) }
-            StyledToggle(label = stringResource(R.string.ui_resume_media_after_call), checked = autoResume, independent = true,
-                onCheckedChange = { autoResume = it; SmartFeaturesPrefs.prefs(context).edit().putBoolean(SmartFeaturesPrefs.KEY_AUTO_RESUME_AFTER_CALL, it).apply() })
-            Spacer(Modifier.height(4.dp))
-            var batteryAlerts by remember { mutableStateOf(SmartFeaturesPrefs.batteryAlertsEnabled(context)) }
-            var batteryThreshold by remember { mutableStateOf(SmartFeaturesPrefs.batteryAlertThreshold(context)) }
-            StyledToggle(label = stringResource(R.string.ui_speak_when_battery_is_low), checked = batteryAlerts, independent = true,
-                description = stringResource(R.string.ui_announces_at_threshold_then_ev_10f37),
-                onCheckedChange = { batteryAlerts = it; SmartFeaturesPrefs.prefs(context).edit().putBoolean(SmartFeaturesPrefs.KEY_BATTERY_ALERTS_ENABLED, it).apply() })
-            if (batteryAlerts) {
-                Spacer(Modifier.height(6.dp))
-                // 4 discrete threshold options — no slider
-                StyledSelectList(items = listOf(10, 20, 30, 40).map { pct ->
-                    SelectItem(
-                        name = "$pct%",
-                        selected = batteryThreshold == pct,
-                        onClick = {
-                            batteryThreshold = pct
-                            SmartFeaturesPrefs.prefs(context).edit()
-                                .putInt(SmartFeaturesPrefs.KEY_BATTERY_ALERT_THRESHOLD, pct).apply()
-                        }
-                    )
-                })
-            }
-        }
-
-        // Sleep Timer
-        MenuDivider()
-        MenuSectionHeader(stringResource(R.string.ui_sleep_timer), dark)
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            var sleepRemainingMs by remember { mutableLongStateOf(SleepTimer.remainingMs(context)) }
-            DisposableEffect(Unit) {
-                val l: () -> Unit = { sleepRemainingMs = SleepTimer.remainingMs(context) }
-                SleepTimer.addListener(l); onDispose { SleepTimer.removeListener(l) }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(15, 30, 45, 60, 90).forEach { mins ->
-                    StyledButton(onClick = { SleepTimer.start(context, mins * 60_000L); sleepRemainingMs = SleepTimer.remainingMs(context) },
-                        backdrop = rememberLayerBackdrop(), modifier = Modifier.weight(1f).heightIn(min = 40.dp)) {
-                        Text(stringResource(R.string.ui_sleep_preset_minutes, mins), style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro, color = if (dark) Color.White else Color.Black))
-                    }
-                }
-            }
-            if (sleepRemainingMs > 0L) {
-                val mins = (sleepRemainingMs / 60_000L).toInt()
-                val secs = ((sleepRemainingMs % 60_000L) / 1000L).toInt()
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.ui_sleep_remaining, mins, secs), style = TextStyle(fontSize = 13.sp, fontFamily = SfPro, color = if (dark) Color.White.copy(0.7f) else Color.Black.copy(0.7f)))
-                    StyledButton(onClick = { SleepTimer.cancel(context); sleepRemainingMs = 0L }, backdrop = rememberLayerBackdrop(), modifier = Modifier.heightIn(min = 36.dp)) {
-                        Text(stringResource(R.string.ui_cancel), style = TextStyle(fontSize = 13.sp, fontFamily = SfPro, color = if (dark) Color.White else Color.Black))
-                    }
-                }
-            } else {
-                Text(stringResource(R.string.ui_no_timer_running), style = captionStyle(dark))
-            }
-        }
-    }
-}
+ }
 
 // ─── 4. App Settings ─────────────────────────────────────────────────────────
 
 @Composable
-private fun AppSettingsContent(
-    appState: AppSettingsUiState,
-    appSettingsViewModel: AppSettingsViewModel,
-    navController: NavController,
-    dark: Boolean,
-) {
-    val context   = LocalContext.current
-    val cardColor = if (dark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
-
-    Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp))) {
-        io.automated.ventures.everypods.presentation.components.AppLanguagePicker()
+private fun AppSettingsContent(appState: AppSettingsUiState, appSettingsViewModel: AppSettingsViewModel,
+    navController: NavController, dark: Boolean) {
+    AnchorWrapper("app_language") { modifier -> Column(modifier.fillMaxWidth()) { AppLanguageSetting() } }
+    AnchorWrapper("phone_battery") { modifier -> SettingsSection(stringResource(R.string.design_widget), modifier) {
+        StyledToggle(label = stringResource(R.string.show_phone_battery_in_widget), description = stringResource(R.string.show_phone_battery_in_widget_description),
+            checked = appState.showPhoneBatteryInWidget, onCheckedChange = appSettingsViewModel::setShowPhoneBatteryInWidget, enabled = appState.isPremium)
+    } }
+    AnchorWrapper("popup_animations") { modifier -> SettingsSection(stringResource(R.string.ui_pop_up_animations), modifier) {
+        StyledToggle(label = stringResource(R.string.show_bottom_sheet_popup), description = stringResource(R.string.show_bottom_sheet_popup_description),
+            checked = appState.showBottomSheetPopup, onCheckedChange = appSettingsViewModel::setShowBottomSheetPopup)
         MenuDivider()
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-            StyledToggle(label = stringResource(R.string.show_phone_battery_in_widget),
-                description = stringResource(R.string.show_phone_battery_in_widget_description),
-                checked = appState.showPhoneBatteryInWidget,
-                onCheckedChange = appSettingsViewModel::setShowPhoneBatteryInWidget,
-                independent = true, enabled = appState.isPremium)
-        }
-        MenuDivider()
-        MenuSectionHeader(stringResource(R.string.popup_animations), dark)
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-            StyledToggle(label = stringResource(R.string.show_bottom_sheet_popup),
-                description = stringResource(R.string.show_bottom_sheet_popup_description),
-                checked = appState.showBottomSheetPopup,
-                onCheckedChange = appSettingsViewModel::setShowBottomSheetPopup, independent = true)
-            Spacer(Modifier.height(4.dp))
-            StyledToggle(label = stringResource(R.string.show_island_popup),
-                description = stringResource(R.string.show_island_popup_description),
-                checked = appState.showIslandPopup,
-                onCheckedChange = appSettingsViewModel::setShowIslandPopup, independent = true)
-        }
-        MenuDivider()
-        // ── Background activity / battery optimization ───────────────────────
-        // When the system applies battery optimization to EveryPods, the foreground
-        // service can be delayed or killed — handover, BLE proximity, and the boot
-        // autostart all become unreliable. Surface the current state and a button
-        // to open the system dialog. Same standard API works on Pixel/AOSP and
-        // every OEM (Xiaomi, OnePlus, etc.).
-        MenuSectionHeader(stringResource(R.string.background_activity), dark)
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            val pm = remember { context.getSystemService(android.os.PowerManager::class.java) }
-            // Re-evaluate every time the screen recomposes (user may have changed it).
-            var unrestricted by remember { mutableStateOf(pm?.isIgnoringBatteryOptimizations(context.packageName) == true) }
-            // Refresh whenever the user returns from the settings dialog.
-            val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-            DisposableEffect(lifecycleOwner) {
-                val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
-                    if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
-                        unrestricted = pm?.isIgnoringBatteryOptimizations(context.packageName) == true
-                    }
-                }
-                lifecycleOwner.lifecycle.addObserver(observer)
-                onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-            }
-            Text(
-                stringResource(if (unrestricted) R.string.background_unrestricted else R.string.background_restricted),
-                style = TextStyle(
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    fontFamily = SfPro,
-                    color = if (unrestricted) Color(0xFF34C759)
-                            else Color(0xFFFF9500)
-                )
-            )
-            Text(
-                stringResource(if (unrestricted) R.string.background_unrestricted_description else R.string.background_restricted_description),
-                style = captionStyle(dark)
-            )
-            if (!unrestricted) {
-                StyledButton(
-                    onClick = {
-                        val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                            data = "package:${context.packageName}".toUri()
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        }
-                        runCatching { context.startActivity(intent) }.onFailure {
-                            // Fallback: open the general battery-optimization list
-                            runCatching {
-                                context.startActivity(
-                                    Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
-                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                )
-                            }
-                        }
-                    },
-                    backdrop = rememberLayerBackdrop(),
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp)
-                ) {
-                    Text(stringResource(R.string.ui_allow_unrestricted_background),
-                        style = TextStyle(
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Medium,
-                            fontFamily = SfPro,
-                            color = if (dark) Color.White else Color.Black
-                        )
-                    )
-                }
-            }
-        }
-        MenuDivider()
+        StyledToggle(label = stringResource(R.string.show_island_popup), description = stringResource(R.string.show_island_popup_description),
+            checked = appState.showIslandPopup, onCheckedChange = appSettingsViewModel::setShowIslandPopup)
+    } }
+    BackgroundActivitySection()
+    SettingsSection(stringResource(R.string.ui_permissions)) {
         MenuNavRow(stringResource(R.string.ui_permissions), dark) { navController.navigate("permissions") }
     }
 }
 
+
+
 // ─── 5. Audio & Connection ───────────────────────────────────────────────────
 
 @Composable
-private fun AudioContent(
+internal fun AudioSettingsSection(
     state: AirPodsUiState,
     appState: AppSettingsUiState,
     viewModel: AirPodsViewModel,
     appSettingsViewModel: AppSettingsViewModel,
     navController: NavController,
-    dark: Boolean,
 ) {
-    val context   = LocalContext.current
-    val m         = state.instance?.model ?: AirPodsPro3()
-    val cardColor = if (dark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
-
-    Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp))) {
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-            AudioSettings(navController = navController,
-                adaptiveVolumeCapability = m.capabilities.contains(Capability.ADAPTIVE_VOLUME),
-                conversationalAwarenessCapability = m.capabilities.contains(Capability.CONVERSATION_AWARENESS),
-                adaptiveAudioCapability = m.capabilities.contains(Capability.ADAPTIVE_VOLUME),
-                customEqCapability = m.capabilities.contains(Capability.CUSTOM_EQ),
-
-                adaptiveVolumeChecked = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.ADAPTIVE_VOLUME_CONFIG]?.getOrNull(0) == 0x01.toByte(),
-                onAdaptiveVolumeCheckedChange = { viewModel.setControlCommandBoolean(AACPManager.Companion.ControlCommandIdentifiers.ADAPTIVE_VOLUME_CONFIG, it) },
-                conversationalAwarenessChecked = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.CONVERSATION_DETECT_CONFIG]?.getOrNull(0) == 0x01.toByte() && state.isPremium,
-                onConversationalAwarenessCheckedChange = { viewModel.setControlCommandBoolean(AACPManager.Companion.ControlCommandIdentifiers.CONVERSATION_DETECT_CONFIG, it) },
-                isPremium = state.isPremium,
-                aacpAvailable = state.aacpAvailable)
-        }
-        // Connection Settings — shown for both AACP and limited-mode devices.
-        // Cross-device handover is the core feature; hiding it on non-AACP devices
-        // made the toggle unreachable (connectionSuccessful is false there).
-        MenuDivider()
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-            ConnectionSettings(
-                crossDeviceEnabled = state.crossDeviceEnabled,
-                onCrossDeviceChanged = { viewModel.setCrossDeviceEnabled(it) },
-                crossDevicePeers = state.crossDevicePeers,
-                navController = navController,
-                automaticEarDetectionEnabled = state.automaticEarDetectionEnabled,
-                onAutomaticEarDetectionChanged = { viewModel.setAutomaticEarDetectionEnabled(it) },
-                automaticConnectionEnabled = state.automaticConnectionEnabled,
-                onAutomaticConnectionChanged = { viewModel.setAutomaticConnectionEnabled(it) },
-                earDetectionAvailable = state.aacpAvailable,
-                lidOpenLastHolderAutoconnect = state.lidOpenLastHolderAutoconnect,
-                onLidOpenLastHolderAutoconnectChanged = { viewModel.setLidOpenLastHolderAutoconnect(it) })
-        }
-        MenuDivider()
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-            val id = AACPManager.Companion.ControlCommandIdentifiers.MIC_MODE
-            if (state.aacpAvailable) {
-                MicrophoneSettings(hazeState = remember { HazeState() },
-                    micModeValue = state.controlStates[id]?.getOrNull(0) ?: 0x00.toByte(),
-                    onMicModeValueChanged = { viewModel.setControlCommandByte(id, it) })
-            } else {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Box(modifier = Modifier.weight(1f).alpha(0.4f)) {
-                        MicrophoneSettings(hazeState = remember { HazeState() },
-                            micModeValue = state.controlStates[id]?.getOrNull(0) ?: 0x00.toByte(),
-                            onMicModeValueChanged = { /* no-op */ })
-                    }
-                    io.automated.ventures.everypods.presentation.components.RequiresAacpIcon()
-                }
-            }
-        }
-        if (context.checkSelfPermission("android.permission.BLUETOOTH_PRIVILEGED") == PackageManager.PERMISSION_GRANTED) {
-            MenuDivider()
-            Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                StyledToggle(label = stringResource(R.string.disconnect_when_not_wearing),
-                    description = stringResource(R.string.disconnect_when_not_wearing_description),
-                    checked = appState.disconnectWhenNotWearing,
-                    onCheckedChange = appSettingsViewModel::setDisconnectWhenNotWearing,
-                    independent = true, enabled = appState.isPremium)
-            }
-        }
-        MenuDivider()
-        MenuSectionHeader(stringResource(R.string.takeover_phone_state), dark)
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-            StyledToggle(label = stringResource(R.string.takeover_ringing_call), description = stringResource(R.string.takeover_ringing_call_desc), checked = appState.takeoverWhenRingingCall, onCheckedChange = appSettingsViewModel::setTakeoverWhenRingingCall, independent = true)
-            Spacer(Modifier.height(4.dp))
-            StyledToggle(label = stringResource(R.string.takeover_media_start), description = stringResource(R.string.takeover_media_start_desc), checked = appState.takeoverWhenMediaStart, onCheckedChange = appSettingsViewModel::setTakeoverWhenMediaStart, independent = true)
-        }
-    }
+    val model = state.instance?.model ?: AirPodsPro3()
+    AudioSettings(
+        navController = navController,
+        adaptiveVolumeCapability = model.capabilities.contains(Capability.ADAPTIVE_VOLUME),
+        conversationalAwarenessCapability = false,
+        adaptiveAudioCapability = false,
+        customEqCapability = model.capabilities.contains(Capability.CUSTOM_EQ),
+        adaptiveVolumeChecked = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.ADAPTIVE_VOLUME_CONFIG]?.getOrNull(0) == 0x01.toByte(),
+        onAdaptiveVolumeCheckedChange = { viewModel.setControlCommandBoolean(AACPManager.Companion.ControlCommandIdentifiers.ADAPTIVE_VOLUME_CONFIG, it) },
+        conversationalAwarenessChecked = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.CONVERSATION_DETECT_CONFIG]?.getOrNull(0) == 0x01.toByte() && state.isPremium,
+        onConversationalAwarenessCheckedChange = { viewModel.setControlCommandBoolean(AACPManager.Companion.ControlCommandIdentifiers.CONVERSATION_DETECT_CONFIG, it) },
+        isPremium = state.isPremium,
+        aacpAvailable = state.aacpAvailable,
+    )
 }
+
+@Composable
+private fun AudioContent(state: AirPodsUiState, appState: AppSettingsUiState, viewModel: AirPodsViewModel,
+    appSettingsViewModel: AppSettingsViewModel, navController: NavController, dark: Boolean) {
+    AnchorWrapper("audio_controls") { modifier -> AnchorWrapper("personalized_volume") { volumeModifier ->
+        Column(modifier.then(volumeModifier).fillMaxWidth()) {
+            AudioSettingsSection(state, appState, viewModel, appSettingsViewModel, navController)
+        }
+    } }
+    SettingsContent(state, appState, viewModel, appSettingsViewModel, navController, dark)
+    AdaptiveAudioContent(state, viewModel, dark)
+    AnchorWrapper("microphone") { modifier -> SettingsSection(stringResource(R.string.ui_microphone_settings), modifier) {
+        val id = AACPManager.Companion.ControlCommandIdentifiers.MIC_MODE
+        Box(Modifier.fillMaxWidth().alpha(if (state.aacpAvailable) 1f else DisabledAlpha)) {
+            MicrophoneSettings(hazeState = remember { HazeState() },
+                micModeValue = state.controlStates[id]?.getOrNull(0) ?: 0x00.toByte(),
+                onMicModeValueChanged = { if (state.aacpAvailable) viewModel.setControlCommandByte(id, it) })
+        }
+        if (!state.aacpAvailable) Text(stringResource(R.string.ui_connect_airpods_to_configure), style = captionStyle(dark), modifier = Modifier.padding(16.dp))
+    } }
+}
+
+
+
+@Composable
+private fun ConnectionContent(state: AirPodsUiState, appState: AppSettingsUiState, viewModel: AirPodsViewModel,
+    appSettingsViewModel: AppSettingsViewModel, navController: NavController, dark: Boolean) {
+    val context = LocalContext.current
+    AnchorWrapper("device") { deviceModifier -> SettingsSection(stringResource(R.string.design_device), deviceModifier) {
+        MenuNavRow(stringResource(R.string.ui_device_name), dark, subtitle = state.deviceName) { navController.navigate("rename") }
+        MenuDivider()
+        MenuNavRow(stringResource(R.string.disconnect), dark) { viewModel.disconnect() }
+    }
+    }
+    AnchorWrapper("handover") { modifier -> SettingsSection(stringResource(R.string.design_automatic_connection), modifier) {
+        StyledToggle(label = stringResource(R.string.cross_device_handover), description = stringResource(R.string.cross_device_handover_description),
+            checked = state.crossDeviceEnabled, onCheckedChange = viewModel::setCrossDeviceEnabled)
+        MenuNavRow(stringResource(R.string.ui_connected_devices), dark) { navController.navigate("paired_devices") }
+        MenuDivider()
+        AnchorWrapper("lid_open_autoconnect") { rowModifier -> Box(rowModifier) {
+            StyledToggle(label = stringResource(R.string.lid_open_last_holder_autoconnect), description = stringResource(R.string.lid_open_last_holder_autoconnect_description),
+                checked = state.lidOpenLastHolderAutoconnect, onCheckedChange = viewModel::setLidOpenLastHolderAutoconnect)
+        } }
+        AnchorWrapper("takeover_ringing") { rowModifier -> Box(rowModifier) {
+            StyledToggle(label = stringResource(R.string.takeover_ringing_call), description = stringResource(R.string.takeover_ringing_call_desc),
+                checked = appState.takeoverWhenRingingCall, onCheckedChange = appSettingsViewModel::setTakeoverWhenRingingCall)
+        } }
+        AnchorWrapper("takeover_media") { rowModifier -> Box(rowModifier) {
+            StyledToggle(label = stringResource(R.string.takeover_media_start), description = stringResource(R.string.takeover_media_start_desc),
+                checked = appState.takeoverWhenMediaStart, onCheckedChange = appSettingsViewModel::setTakeoverWhenMediaStart)
+        } }
+    } }
+    AnchorWrapper("ear_detection") { modifier -> SettingsSection(stringResource(R.string.ear_detection), modifier) {
+        StyledToggle(label = stringResource(R.string.ear_detection), checked = state.automaticEarDetectionEnabled,
+            onCheckedChange = viewModel::setAutomaticEarDetectionEnabled, enabled = state.aacpAvailable)
+        AnchorWrapper("disconnect_when_not_wearing") { rowModifier -> Box(rowModifier) {
+            if (context.checkSelfPermission("android.permission.BLUETOOTH_PRIVILEGED") == PackageManager.PERMISSION_GRANTED) {
+                StyledToggle(label = stringResource(R.string.disconnect_when_not_wearing), description = stringResource(R.string.disconnect_when_not_wearing_description),
+                    checked = appState.disconnectWhenNotWearing, onCheckedChange = appSettingsViewModel::setDisconnectWhenNotWearing, enabled = appState.isPremium)
+            } else Text(stringResource(R.string.ui_bluetooth_privileged_required), style = captionStyle(dark), modifier = Modifier.padding(16.dp))
+        } }
+    } }
+}
+
+
 
 // ─── 6. Help & Troubleshooting ───────────────────────────────────────────────
 
@@ -1091,7 +866,7 @@ private fun HelpContent(
     val context   = LocalContext.current
     val cardColor = if (dark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
 
-    Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp))) {
+    Column(Modifier.fillMaxWidth()) {
         // Support EveryPods — first card above Email / GitHub / issues
         Row(
             Modifier
@@ -1138,19 +913,19 @@ private fun HelpContent(
             )
         }
         MenuDivider()
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Column(Modifier.padding(vertical = 8.dp)) {
             AboutCard(navController = navController, modelName = state.modelName,
                 actualModel = state.actualModel, serialNumbers = state.serialNumbers,
                 version = state.version3)
         }
         MenuDivider()
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Column(Modifier.padding(vertical = 8.dp)) {
             DeviceInfoCard()
             Spacer(Modifier.height(8.dp))
-            AppInfoCard()
+            AnchorWrapper("app_version") { anchorModifier -> Box(anchorModifier.fillMaxWidth()) { AppInfoCard() } }
         }
         MenuDivider()
-        MenuNavRow(stringResource(R.string.ui_version_info), dark) { navController.navigate("version_info") }
+        MenuNavRow(stringResource(R.string.ui_device_protocol_versions), dark) { navController.navigate("version_info") }
         if (!BuildConfig.PLAY_BUILD) {
             MenuDivider()
             MenuNavRow(stringResource(R.string.ui_troubleshooting), dark) { navController.navigate("debug") }
@@ -1171,24 +946,7 @@ private fun HelpContent(
 
 @Composable
 private fun ExternalSectionHeader(label: String, dark: Boolean, requiresAacp: Boolean = false) {
-    Row(
-        modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 0.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Text(
-            label.uppercase(),
-            style = TextStyle(
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                fontFamily = SfPro,
-                color = if (dark) Color.White.copy(0.5f) else Color.Black.copy(0.5f)
-            )
-        )
-        if (requiresAacp) {
-            io.automated.ventures.everypods.presentation.components.RequiresAacpIcon()
-        }
-    }
+    MenuSectionHeader(label, dark, requiresAacp)
 }
 
 @Composable
@@ -1229,7 +987,6 @@ internal fun BudColumnHeader(
         contentAlignment = Alignment.Center
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -1237,7 +994,7 @@ internal fun BudColumnHeader(
                 painter = painterResource(imageRes),
                 contentDescription = label,
                 contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxWidth(0.5f).heightIn(min = 23.dp)
+                modifier = Modifier.height(46.dp).fillMaxWidth()
             )
             Text(label, style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium,
                 fontFamily = SfPro, color = if (selected) Color(0xFF0A84FF) else textColor))
@@ -1272,12 +1029,12 @@ private fun PressDropdown(
                 .padding(horizontal = 10.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-            Text(label,
+            Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 style = TextStyle(fontSize = 10.sp, fontFamily = SfPro,
                 color = textColor.copy(alpha = 0.5f)))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
-                Text(actionName,
+                Text(actionName, maxLines = 2, overflow = TextOverflow.Ellipsis,
                     style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium,
                     fontFamily = SfPro, color = textColor), modifier = Modifier.weight(1f))
                 Text("▾", style = TextStyle(fontSize = 11.sp, fontFamily = SfPro, color = textColor.copy(alpha = 0.4f)))
@@ -1289,7 +1046,10 @@ private fun PressDropdown(
             modifier = Modifier.background(if (dark) Color(0xFF2C2C2E) else Color.White)
         ) {
             options.forEach { (action, name) ->
-                val optionEnabled = isPremium || action !in setOf(StemAction.DIGITAL_ASSISTANT, StemAction.GOOGLE_VOICE_COMMAND)
+                val optionEnabled = isPremium || action !in setOf(
+                    StemAction.DIGITAL_ASSISTANT,
+                    StemAction.GOOGLE_VOICE_COMMAND,
+                )
                 DropdownMenuItem(
                     text = {
                         Text(name, style = TextStyle(fontSize = 15.sp, fontFamily = SfPro,
@@ -1309,61 +1069,6 @@ private fun PressDropdown(
 }
 
 /**
- * Per-bud hint under Long Press when Gym Mode is on and that bud has an explicit
- * Gym Press Actions long-press (which then replaces the Controls long-press).
- */
-@Composable
-private fun GymLongPressOverrideHints(
-    state: AirPodsUiState,
-    sharedPrefs: SharedPreferences,
-    navController: NavController,
-    dark: Boolean,
-) {
-    val context = LocalContext.current
-    // Re-read gym prefs whenever they change (Gym Mode toggle / Gym Press Actions edits).
-    var prefsTick by remember { mutableStateOf(0) }
-    DisposableEffect(sharedPrefs) {
-        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-            if (key == null || key.startsWith("gym_")) prefsTick++
-        }
-        sharedPrefs.registerOnSharedPreferenceChangeListener(listener)
-        onDispose { sharedPrefs.unregisterOnSharedPreferenceChangeListener(listener) }
-    }
-    val (leftOverride, rightOverride) = remember(prefsTick, state.leftAction, state.rightAction) {
-        val gymOn = GymModePrefs.isEnabled(context)
-        GymModeStemPressArbitration.gymLongPressOverridesControls(
-            gymOn, state.leftAction, GymModePrefs.getGymLongPressOverride(context, "left")
-        ) to GymModeStemPressArbitration.gymLongPressOverridesControls(
-            gymOn, state.rightAction, GymModePrefs.getGymLongPressOverride(context, "right")
-        )
-    }
-    if (!leftOverride && !rightOverride) return
-    val textColor = if (dark) Color.White else Color.Black
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        listOf(leftOverride, rightOverride).forEach { show ->
-            Column(Modifier.weight(1f)) {
-                if (show) {
-                    Text(
-                        stringResource(R.string.gym_long_press_overrides_controls_hint),
-                        style = TextStyle(fontSize = 10.sp, fontFamily = SfPro,
-                            color = textColor.copy(alpha = 0.55f)),
-                    )
-                    Text(
-                        stringResource(R.string.gym_long_press_open_gym_press_actions),
-                        style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.Medium,
-                            fontFamily = SfPro, color = Color(0xFF0A84FF)),
-                        modifier = Modifier.clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                        ) { navController.navigate("gym_press_actions") },
-                    )
-                }
-            }
-        }
-    }
-}
-
-/**
  * Wrapper that owns the [currentAction] state so it updates immediately on selection
  * without waiting for a recomposition triggered by SharedPreferences changes.
  * [remember(seed)] ensures the value resets if the external source-of-truth changes
@@ -1374,6 +1079,7 @@ internal fun StatefulPressDropdown(
     side: String,
     label: String,
     pressType: AACPManager.Companion.StemPressType,
+    defaultAction: StemAction,
     state: AirPodsUiState,
     viewModel: AirPodsViewModel,
     actionOptions: List<Pair<StemAction, String>>,
@@ -1382,8 +1088,7 @@ internal fun StatefulPressDropdown(
     modifier: Modifier,
     readAction: (String, StemAction) -> StemAction,
 ) {
-    val prefKey = io.automated.ventures.everypods.data.StemPressDefaults.prefKey(side, pressType)
-    val defaultAction = io.automated.ventures.everypods.data.StemPressDefaults.defaultFor(side, pressType)
+    val prefKey = "${side}_${pressType.name.lowercase()}_action"
     val seed = if (pressType == AACPManager.Companion.StemPressType.LONG_PRESS) {
         if (side == "left") state.leftAction else state.rightAction
     } else {
@@ -1403,4 +1108,113 @@ internal fun StatefulPressDropdown(
             currentAction = action  // immediate local update — no recompose needed
         }
     )
+}
+
+@Composable
+private fun BackgroundActivitySection() {
+    val context = LocalContext.current
+    val dark = isSystemInDarkTheme()
+    AnchorWrapper("background_activity") { modifier -> SettingsSection(stringResource(R.string.design_background_activity), modifier) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            val pm = remember { context.getSystemService(android.os.PowerManager::class.java) }
+            // Re-evaluate every time the screen recomposes (user may have changed it).
+            var unrestricted by remember { mutableStateOf(pm?.isIgnoringBatteryOptimizations(context.packageName) == true) }
+            // Refresh whenever the user returns from the settings dialog.
+            val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+            DisposableEffect(lifecycleOwner) {
+                val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+                    if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                        unrestricted = pm?.isIgnoringBatteryOptimizations(context.packageName) == true
+                    }
+                }
+                lifecycleOwner.lifecycle.addObserver(observer)
+                onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+            }
+            Text(
+                if (unrestricted) "✅ Unrestricted — service runs reliably"
+                else "⚠ Battery optimization is active",
+                style = TextStyle(
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    fontFamily = SfPro,
+                    color = if (unrestricted) Color(0xFF34C759)
+                            else Color(0xFFFF9500)
+                )
+            )
+            Text(
+                if (unrestricted)
+                    "EveryPods is allowed to run in the background. Handover, " +
+                    "BLE proximity, and boot autostart will work."
+                else
+                    "The system may kill the EveryPods service to save battery. " +
+                    "Handover may miss events, and EveryPods may not autostart on boot. " +
+                    "Tap below to set it to Unrestricted.",
+                style = captionStyle(dark)
+            )
+            if (!unrestricted) {
+                StyledButton(
+                    onClick = {
+                        val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                            data = "package:${context.packageName}".toUri()
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        runCatching { context.startActivity(intent) }.onFailure {
+                            // Fallback: open the general battery-optimization list
+                            runCatching {
+                                context.startActivity(
+                                    Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                )
+                            }
+                        }
+                    },
+                    backdrop = rememberLayerBackdrop(),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp)
+                ) {
+                    Text(stringResource(R.string.ui_allow_unrestricted_background),
+                        style = TextStyle(
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Medium,
+                            fontFamily = SfPro,
+                            color = if (dark) Color.White else Color.Black
+                        )
+                    )
+                }
+            }
+        }
+    } }
+}
+
+@Composable
+@OptIn(ExperimentalLayoutApi::class)
+internal fun SleepTimerSettings() {
+    val context = LocalContext.current
+    val dark = isSystemInDarkTheme()
+    var remaining by remember { mutableLongStateOf(SleepTimer.remainingMs(context)) }
+    DisposableEffect(context) {
+        val listener: () -> Unit = { remaining = SleepTimer.remainingMs(context) }
+        SleepTimer.addListener(listener)
+        onDispose { SleepTimer.removeListener(listener) }
+    }
+    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(15,30,45,60,90).forEach { minutes ->
+                StyledButton(onClick = { SleepTimer.start(context, minutes * 60_000L) }, backdrop = rememberLayerBackdrop(),
+                    modifier = Modifier.heightIn(min = 48.dp)) {
+                    Text(stringResource(R.string.ui_sleep_preset_minutes, minutes), style = bodyStyle(dark))
+                }
+            }
+        }
+        if (remaining > 0) {
+            Text(stringResource(R.string.ui_sleep_remaining, (remaining/60_000).toInt(), ((remaining%60_000)/1000).toInt()), style = captionStyle(dark))
+            StyledButton(onClick = { SleepTimer.cancel(context) }, backdrop = rememberLayerBackdrop(), modifier = Modifier.heightIn(min = 48.dp)) {
+                Text(stringResource(R.string.ui_cancel), style = bodyStyle(dark))
+            }
+        } else Text(stringResource(R.string.ui_no_timer_running), style = captionStyle(dark))
+    }
+}
+
+@Composable
+private fun TargetSection(id: String, title: String, content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
+    AnchorWrapper(id) { modifier -> SettingsSection(title, modifier, content) }
 }

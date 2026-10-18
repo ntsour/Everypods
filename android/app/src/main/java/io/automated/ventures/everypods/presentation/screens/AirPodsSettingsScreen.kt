@@ -60,7 +60,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -88,6 +87,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
@@ -113,6 +114,7 @@ import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import androidx.navigation.NavController
+import androidx.navigation.compose.currentBackStackEntryAsState
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.highlight.Highlight
@@ -142,9 +144,6 @@ import io.automated.ventures.everypods.presentation.components.NoiseControlSetti
 import io.automated.ventures.everypods.presentation.components.SelectItem
 import io.automated.ventures.everypods.presentation.components.StyledBottomSheet
 import io.automated.ventures.everypods.presentation.components.StyledButton
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.VolunteerActivism
 import androidx.compose.material3.Icon
@@ -166,6 +165,8 @@ import io.automated.ventures.everypods.utils.SmartFeaturesPrefs
 import io.automated.ventures.everypods.utils.openEveryPodsIssues
 import io.automated.ventures.everypods.utils.openEveryPodsSupportEmail
 import kotlin.io.encoding.ExperimentalEncodingApi
+import java.text.Normalizer
+import java.util.Locale
 
 // ─── Design tokens ───────────────────────────────────────────────────────────
 internal const val DisabledAlpha = 0.45f
@@ -181,69 +182,166 @@ data class SearchableItem(
     val keywords: List<String> = emptyList(),
 )
 
-val searchIndex: List<SearchableItem> by lazy { buildSearchIndex() }
+internal fun searchIndex(context: Context): List<SearchableItem> {
+    val categoryLabels = mapOf(
+        "controls" to context.getString(R.string.search_category_controls),
+        "connection" to context.getString(R.string.design_connection),
+        "smart" to context.getString(R.string.search_category_smart),
+        "appsettings" to context.getString(R.string.search_category_app),
+        "audio" to context.getString(R.string.search_category_audio),
+        "help" to context.getString(R.string.search_category_help),
+    )
+    val categoryAliases = mapOf(
+        "controls" to listOf("AirPods Controls", "Controles de AirPods"),
+        "settings" to listOf("AirPods Settings", "Ajustes de AirPods"),
+        "smart" to listOf("Smart Features", "Funciones inteligentes"),
+        "appsettings" to listOf("App Settings", "Ajustes de la aplicación"),
+        "audio" to listOf("Audio & Connection", "Audio y conexión"),
+        "help" to listOf("Help & Troubleshooting", "Ayuda", "Soporte"),
+    )
+    val englishConfiguration = android.content.res.Configuration(context.resources.configuration).apply { setLocale(Locale.ENGLISH) }
+    val englishItems = buildSearchIndex(context.createConfigurationContext(englishConfiguration))
+    return buildSearchIndex(context).mapIndexed { index, item ->
+        val route = canonicalSettingsRoute(item.directRoute)
+        val key = if (route.startsWith("category/")) route.substringAfter("category/").substringBefore('?')
+            else when (route.substringBefore('?')) {
+                "rename", "paired_devices" -> "connection"
+                else -> if (item.categoryKey == "settings") "audio" else item.categoryKey
+            }
+        item.copy(directRoute = route, categoryKey = key,
+            category = categoryLabels[key] ?: item.category,
+            keywords = item.keywords + categoryAliases[item.categoryKey].orEmpty() + englishItems[index].label)
+    }
 
-private fun buildSearchIndex(): List<SearchableItem> = listOf(
+}
+
+private fun buildSearchIndex(context: Context): List<SearchableItem> = listOf(
     // AirPods Controls
-    SearchableItem("Left Bud — Single Press",  "AirPods Controls", "controls", "press_actions", keywords = listOf("stem", "tap", "click")),
-    SearchableItem("Left Bud — Double Press",  "AirPods Controls", "controls", "press_actions", keywords = listOf("stem", "tap", "click")),
-    SearchableItem("Left Bud — Triple Press",  "AirPods Controls", "controls", "press_actions", keywords = listOf("stem", "tap", "click")),
-    SearchableItem("Left Bud — Long Press",    "AirPods Controls", "controls", "press_actions", keywords = listOf("stem", "hold", "press and hold")),
-    SearchableItem("Right Bud — Single Press", "AirPods Controls", "controls", "press_actions", keywords = listOf("stem", "tap", "click")),
-    SearchableItem("Right Bud — Double Press", "AirPods Controls", "controls", "press_actions", keywords = listOf("stem", "tap", "click")),
-    SearchableItem("Right Bud — Triple Press", "AirPods Controls", "controls", "press_actions", keywords = listOf("stem", "tap", "click")),
-    SearchableItem("Right Bud — Long Press",   "AirPods Controls", "controls", "press_actions", keywords = listOf("stem", "hold", "press and hold")),
-    SearchableItem("Listening Mode Configuration", "AirPods Controls", "controls", "listening_mode_config", keywords = listOf("anc", "noise cancellation", "transparency", "adaptive", "off")),
-    SearchableItem("Call Controls",            "AirPods Controls", "controls", "call_controls", keywords = listOf("answer", "end call", "mute")),
-    SearchableItem("Volume Control",           "AirPods Controls", "controls", "controls_configuration", keywords = listOf("swipe", "touch")),
-    SearchableItem("Controls Configuration",   "AirPods Controls", "controls", "controls_configuration", keywords = listOf("press speed", "hold duration", "tone")),
-    SearchableItem("Gym Mode",                 "Smart Features", "smart", "category/smart", anchor = "gym_mode", keywords = listOf("workout", "fitness", "stem", "timer")),
-    SearchableItem("Gym Press Actions",        "AirPods Controls", "controls", "gym_press_actions", keywords = listOf("workout", "fitness", "stem")),
+    SearchableItem("${context.getString(R.string.ui_left_bud)} — ${context.getString(R.string.ui_single_press)}",  "AirPods Controls", "controls", "press_actions?bud=left&gesture=SINGLE_PRESS", keywords = listOf("stem", "tap", "click", "izquierdo", "pulsación sencilla")),
+    SearchableItem("${context.getString(R.string.ui_left_bud)} — ${context.getString(R.string.ui_double_press)}",  "AirPods Controls", "controls", "press_actions?bud=left&gesture=DOUBLE_PRESS", keywords = listOf("stem", "tap", "click", "izquierdo", "doble pulsación")),
+    SearchableItem("${context.getString(R.string.ui_left_bud)} — ${context.getString(R.string.ui_triple_press)}",  "AirPods Controls", "controls", "press_actions?bud=left&gesture=TRIPLE_PRESS", keywords = listOf("stem", "tap", "click", "izquierdo", "triple pulsación")),
+    SearchableItem("${context.getString(R.string.ui_left_bud)} — ${context.getString(R.string.ui_long_press)}",    "AirPods Controls", "controls", "press_actions?bud=left&gesture=LONG_PRESS", keywords = listOf("stem", "hold", "press and hold", "izquierdo", "mantener pulsado")),
+    SearchableItem("${context.getString(R.string.ui_right_bud)} — ${context.getString(R.string.ui_single_press)}", "AirPods Controls", "controls", "press_actions?bud=right&gesture=SINGLE_PRESS", keywords = listOf("stem", "tap", "click", "derecho", "pulsación sencilla")),
+    SearchableItem("${context.getString(R.string.ui_right_bud)} — ${context.getString(R.string.ui_double_press)}", "AirPods Controls", "controls", "press_actions?bud=right&gesture=DOUBLE_PRESS", keywords = listOf("stem", "tap", "click", "derecho", "doble pulsación")),
+    SearchableItem("${context.getString(R.string.ui_right_bud)} — ${context.getString(R.string.ui_triple_press)}", "AirPods Controls", "controls", "press_actions?bud=right&gesture=TRIPLE_PRESS", keywords = listOf("stem", "tap", "click", "derecho", "triple pulsación")),
+    SearchableItem("${context.getString(R.string.ui_right_bud)} — ${context.getString(R.string.ui_long_press)}",   "AirPods Controls", "controls", "press_actions?bud=right&gesture=LONG_PRESS", keywords = listOf("stem", "hold", "press and hold", "derecho", "mantener pulsado")),
+    SearchableItem(context.getString(R.string.ui_listening_mode_configuration), "AirPods Controls", "controls", "category/controls?anchor=listening_modes", keywords = listOf("anc", "noise cancellation", "transparency", "adaptive", "off", "modo de escucha")),
+    SearchableItem(context.getString(R.string.call_controls),            "AirPods Controls", "controls", "call_controls", keywords = listOf("answer", "end call", "mute", "llamadas")),
+    SearchableItem(context.getString(R.string.ui_volume_control),           "AirPods Controls", "controls", "category/controls?anchor=controls_configuration", keywords = listOf("swipe", "touch", "control de volumen")),
+    SearchableItem("Controls Configuration",   "AirPods Controls", "controls", "category/controls?anchor=controls_configuration", keywords = listOf("press speed", "hold duration", "tone", "configuración de controles")),
+    SearchableItem(context.getString(R.string.quick_settings_gym_mode),                 "Smart Features", "smart", "category/smart", anchor = "gym_mode", keywords = listOf("workout", "fitness", "stem", "timer")),
+    SearchableItem(context.getString(R.string.ui_gym_press_actions),        "AirPods Controls", "controls", "gym_press_actions", keywords = listOf("workout", "fitness", "stem")),
     // AirPods Settings
-    SearchableItem("Device Name",              "AirPods Settings", "settings", "rename", keywords = listOf("rename", "bluetooth name")),
-    SearchableItem("Hearing Protection",       "AirPods Settings", "settings", "hearing_protection", keywords = listOf("ppe", "loud sound")),
-    SearchableItem("Conversation Awareness",   "AirPods Settings", "settings", "conversation_awareness", keywords = listOf("speak", "talk", "auto pause", "auto volume")),
-    SearchableItem("Disconnect",               "AirPods Settings", "settings", "bluetooth_control", keywords = listOf("bluetooth", "turn off")),
+    SearchableItem(context.getString(R.string.ui_device_name), "AirPods Settings", "settings", "rename", keywords = listOf("rename", "bluetooth name", "nombre del dispositivo")),
+    SearchableItem(context.getString(R.string.hearing_protection),       "AirPods Settings", "settings", "hearing_protection", keywords = listOf("ppe", "loud sound")),
+    SearchableItem(context.getString(R.string.conversational_awareness),   "AirPods Settings", "settings", "conversation_awareness", keywords = listOf("speak", "talk", "auto pause", "auto volume", "detección de conversación", "volumen de conversación")),
+    SearchableItem(context.getString(R.string.ui_disconnect),               "AirPods Settings", "settings", "bluetooth_control", keywords = listOf("bluetooth", "turn off")),
     // Smart Features
-    SearchableItem("Notification Announcements", "Smart Features", "smart", "notification_announcements", keywords = listOf("tts", "read", "speak", "siri")),
-    SearchableItem("Find my Case",             "Smart Features", "smart", "proximity_finder", keywords = listOf("locate", "nearby", "radar")),
-    SearchableItem("Head Gestures",            "Smart Features", "smart", "head_tracking", keywords = listOf("nod", "shake", "answer call")),
-    SearchableItem("Adaptive Audio",           "Smart Features", "smart", "adaptive_audio", keywords = listOf("anc strength", "noise control")),
-    SearchableItem("Sleep Detection",          "Smart Features", "smart", "smart_automation", keywords = listOf("auto sleep", "bedtime")),
-    SearchableItem("Optimized Charging",       "Smart Features", "smart", "smart_automation", keywords = listOf("battery health", "slow charge")),
-    SearchableItem("Resume Media After Call",  "Smart Features", "smart", "smart_automation", keywords = listOf("auto resume", "playback")),
-    SearchableItem("Battery Alerts",           "Smart Features", "smart", "smart_automation", keywords = listOf("low battery", "speak", "announce")),
-    SearchableItem("Sleep Timer",              "Smart Features", "smart", "sleep_timer", keywords = listOf("auto stop", "timer")),
-    SearchableItem("Gym Timer",                "Smart Features", "smart", "gym_timer", keywords = listOf("stopwatch", "workout", "fitness")),
+    SearchableItem(context.getString(R.string.ui_notification_announcements), "Smart Features", "smart", "notification_announcements", keywords = listOf("tts", "read", "speak", "siri")),
+    SearchableItem(context.getString(R.string.ui_find_my_case), "Smart Features", "smart", "proximity_finder", keywords = listOf("Find My Case", "Find my Case", "locate", "nearby", "radar", "buscar mi estuche", "encontrar")),
+    SearchableItem(context.getString(R.string.ui_head_gestures),            "Smart Features", "smart", "head_tracking", keywords = listOf("nod", "shake", "answer call", "head gestures", "head gesture actions", "gestos de cabeza", "gestos con la cabeza")),
+    SearchableItem(context.getString(R.string.hrs_title), "Smart Features", "smart", "category/smart?anchor=heart_rate", keywords = listOf("heart rate", "heart rate monitor", "bpm", "wahoo", "tickr", "sensor cardíaco", "frecuencia cardíaca", "ritmo cardíaco")),
+    SearchableItem(context.getString(R.string.adaptive_audio),           "Smart Features", "smart", "adaptive_audio", keywords = listOf("anc strength", "noise control")),
+    SearchableItem(context.getString(R.string.ui_sleep_detection),          "Smart Features", "smart", "category/smart", anchor = "automation", keywords = listOf("auto sleep", "bedtime", "detección de sueño")),
+    SearchableItem(context.getString(R.string.ui_optimized_charging),       "Smart Features", "smart", "category/smart", anchor = "automation", keywords = listOf("battery health", "slow charge", "carga optimizada")),
+    SearchableItem(context.getString(R.string.ui_resume_media_after_call),  "Smart Features", "smart", "category/smart", anchor = "automation", keywords = listOf("auto resume", "playback", "reanudar audio tras llamada")),
+    SearchableItem("Battery Alerts",           "Smart Features", "smart", "category/smart?anchor=battery_alert_threshold", keywords = listOf("low battery", "speak", "announce", "alerta de batería")),
+    SearchableItem(context.getString(R.string.ui_sleep_timer),              "Smart Features", "smart", "category/smart", anchor = "sleep_timer", keywords = listOf("auto stop", "timer")),
+    SearchableItem(context.getString(R.string.ui_gym_timer),                "Smart Features", "smart", "gym_timer", keywords = listOf("stopwatch", "workout", "fitness")),
+    SearchableItem("Battery Alert Threshold",  "Smart Features", "smart", "category/smart?anchor=battery_alert_threshold", keywords = listOf("battery threshold", "low battery percent", "umbral de batería", "umbral de batería baja")),
+    SearchableItem("Sleep Timer Duration",     "Smart Features", "smart", "category/smart", anchor = "sleep_timer", keywords = listOf("sleep timer duration", "sleep countdown", "temporizador de sueño")),
     // App Settings
-    SearchableItem("Battery in Widget",        "App Settings", "appsettings", "phone_battery", keywords = listOf("widget")),
-    SearchableItem("Pop-up Animations",        "App Settings", "appsettings", "popup_animations", keywords = listOf("animation", "connect")),
-    SearchableItem("Bottom Sheet Popup",       "App Settings", "appsettings", "popup_animations", keywords = listOf("animation", "connect")),
-    SearchableItem("Dynamic Island Popup",     "App Settings", "appsettings", "popup_animations", keywords = listOf("animation", "island", "connect")),
-    SearchableItem("Permissions",              "App Settings", "appsettings", "permissions", keywords = listOf("access", "grant")),
-    SearchableItem("Background Activity",      "App Settings", "appsettings", "category/appsettings", keywords = listOf("battery", "optimization", "unrestricted", "background")),
-    SearchableItem("Connect When Disconnected","App Settings", "appsettings", "app_settings", keywords = listOf("takeover", "auto connect", "airpods disconnected")),
-    SearchableItem("Connect When Idle",        "App Settings", "appsettings", "app_settings", keywords = listOf("takeover", "auto connect", "idle")),
-    SearchableItem("Connect When Playing Media","App Settings", "appsettings", "app_settings", keywords = listOf("takeover", "auto connect", "music", "media")),
-    SearchableItem("Connect When On Call",     "App Settings", "appsettings", "app_settings", keywords = listOf("takeover", "auto connect", "call")),
-    SearchableItem("Connect When Receiving a Call","App Settings","appsettings","app_settings", keywords = listOf("takeover", "auto connect", "ringing", "incoming call")),
-    SearchableItem("Connect When Starting Media","App Settings","appsettings","app_settings", keywords = listOf("takeover", "auto connect", "media starts", "playback")),
+    SearchableItem(context.getString(R.string.ui_battery_in_widget),        "App Settings", "appsettings", "phone_battery", keywords = listOf("widget")),
+    SearchableItem(context.getString(R.string.ui_pop_up_animations),        "App Settings", "appsettings", "popup_animations", keywords = listOf("animation", "connect")),
+    SearchableItem(context.getString(R.string.show_bottom_sheet_popup),       "App Settings", "appsettings", "popup_animations", keywords = listOf("animation", "connect")),
+    SearchableItem(context.getString(R.string.show_island_popup),     "App Settings", "appsettings", "popup_animations", keywords = listOf("animation", "island", "connect")),
+    SearchableItem(context.getString(R.string.ui_permissions_d06d5),              "App Settings", "appsettings", "permissions", keywords = listOf("access", "grant")),
+    SearchableItem(context.getString(R.string.app_language), "App Settings", "appsettings", "category/appsettings?anchor=app_language", keywords = listOf("App language", "language", "idioma", "idioma de la aplicación", "locale", "system language")),
+    SearchableItem("Background Activity",      "App Settings", "appsettings", "category/appsettings?anchor=background_activity", keywords = listOf("battery", "optimization", "unrestricted", "background", "actividad en segundo plano")),
+    SearchableItem("Connect When Receiving a Call","Audio & Connection","audio", "category/audio?anchor=takeover_ringing", keywords = listOf("takeover", "auto connect", "ringing", "incoming call", "al recibir una llamada")),
+    SearchableItem("Connect When Starting Media","Audio & Connection","audio", "category/audio?anchor=takeover_media", keywords = listOf("takeover", "auto connect", "media starts", "playback", "al iniciar multimedia")),
+    SearchableItem(context.getString(R.string.lid_open_last_holder_autoconnect), "Audio & Connection", "audio", "category/connection?anchor=lid_open_autoconnect", keywords = listOf("last device", "last phone", "last holder", "open case", "case lid", "reconnect", "último dispositivo", "último teléfono", "abrir estuche")),
     // Audio & Connection
-    SearchableItem("Audio Settings",           "Audio & Connection", "audio", "audio_settings", keywords = listOf("eq", "equalizer", "adaptive volume")),
-    SearchableItem("Personalized Volume",      "Audio & Connection", "audio", "audio_settings", keywords = listOf("adaptive volume", "volume adjust", "environment")),
-    SearchableItem("Handover to Other Devices","Audio & Connection", "audio", "connection_settings", keywords = listOf("cross device", "auto switch", "handover", "other device")),
-    SearchableItem("Peer Android Device",      "Audio & Connection", "audio", "connection_settings", keywords = listOf("peer", "other device", "android", "handover", "cross device")),
-    SearchableItem("Ear Detection",            "Audio & Connection", "audio", "connection_settings", keywords = listOf("auto pause", "in ear", "wear detection")),
-    SearchableItem("Disconnect When Not Wearing","Audio & Connection","audio", "connection_settings", keywords = listOf("auto disconnect", "wear detection")),
-    SearchableItem("Microphone Settings",      "Audio & Connection", "audio", "microphone_settings", keywords = listOf("mic", "microphone mode")),
-    SearchableItem("Connection Settings",      "Audio & Connection", "audio", "connection_settings", keywords = listOf("auto connect", "bluetooth")),
+    SearchableItem(context.getString(R.string.ui_audio_settings), "Audio & Connection", "audio", "category/audio?anchor=audio_controls", keywords = listOf("Audio Settings", "eq", "equalizer", "adaptive volume", "ajustes de audio", "configuración de audio")),
+    SearchableItem(context.getString(R.string.personalized_volume),      "Audio & Connection", "audio", "category/audio?anchor=personalized_volume", keywords = listOf("adaptive volume", "volume adjust", "environment", "volumen personalizado")),
+    SearchableItem(context.getString(R.string.equalizer), "Audio & Connection", "audio", "equalizer_screen", keywords = listOf("Equalizer", "eq", "ecualizador")),
+    SearchableItem(context.getString(R.string.cross_device_handover),"Audio & Connection", "audio", "category/audio?anchor=handover", keywords = listOf("cross device", "auto switch", "handover", "other device", "traspaso")),
+    SearchableItem(context.getString(R.string.ui_peer_android_device),      "Audio & Connection", "audio", "paired_devices", keywords = listOf("peer", "other device", "android", "handover", "cross device", "dispositivo android")),
+    SearchableItem("Ear Detection",            "Audio & Connection", "audio", "category/audio?anchor=ear_detection", keywords = listOf("auto pause", "in ear", "wear detection", "detección de oído")),
+    SearchableItem("Disconnect When Not Wearing","Audio & Connection","audio", "category/audio?anchor=disconnect_when_not_wearing", keywords = listOf("auto disconnect", "wear detection", "desconectar al quitar")),
+    SearchableItem(context.getString(R.string.ui_microphone_settings),      "Audio & Connection", "audio", "microphone_settings", keywords = listOf("mic", "microphone mode")),
+    SearchableItem(context.getString(R.string.ui_connection_settings),      "Audio & Connection", "audio", "connection_settings", keywords = listOf("auto connect", "bluetooth", "conexión")),
     // Help
-    SearchableItem("Open Source Licenses",     "Help & Troubleshooting", "help", "open_source_licenses", keywords = listOf("license", "credits")),
-    SearchableItem("Version Info",             "Help & Troubleshooting", "help", "version_info", keywords = listOf("about", "app version")),
-    SearchableItem("Support EveryPods",       "Help & Troubleshooting", "help", "purchase_screen", keywords = listOf("tip", "donate", "support", "coffee")),
-    SearchableItem("Email Support",            "Help & Troubleshooting", "help", "email_support", keywords = listOf("contact")),
-    SearchableItem("GitHub Issues",            "Help & Troubleshooting", "help", "github_issues", keywords = listOf("bug", "report")),
+    SearchableItem(context.getString(R.string.open_source_licenses),     "Help & Troubleshooting", "help", "open_source_licenses", keywords = listOf("license", "credits")),
+    SearchableItem(context.getString(R.string.ui_device_protocol_versions), "Help & Troubleshooting", "help", "version_info", keywords = listOf("protocol version", "firmware version", "about airpods")),
+    SearchableItem(context.getString(R.string.ui_app_version), "Help & Troubleshooting", "help", "category/help?anchor=app_version", keywords = listOf("about app", "versión de la aplicación")),
+    SearchableItem(context.getString(R.string.buy_price),       "Help & Troubleshooting", "help", "purchase_screen", keywords = listOf("tip", "donate", "support", "coffee")),
+    SearchableItem(context.getString(R.string.ui_email_support),            "Help & Troubleshooting", "help", "email_support", keywords = listOf("contact")),
+    SearchableItem(context.getString(R.string.ui_github_issues),            "Help & Troubleshooting", "help", "github_issues", keywords = listOf("bug", "report")),
+    SearchableItem(context.getString(R.string.ui_speech_language), "Smart Features", "smart", "notification_announcements?target=speech_language", keywords = listOf("Speech language", "voice language", "idioma de voz", "idioma hablado")),
+    SearchableItem(context.getString(R.string.ui_quiet_hours), "Smart Features", "smart", "notification_announcements?target=quiet_hours", keywords = listOf("Quiet hours", "do not disturb", "horas tranquilas", "no molestar")),
+    SearchableItem(context.getString(R.string.ui_battery_in_widget), "App Settings", "appsettings", "phone_battery", keywords = listOf("phone battery", "widget battery", "batería del teléfono")),
+    SearchableItem(context.getString(R.string.show_bottom_sheet_popup), "App Settings", "appsettings", "popup_animations", keywords = listOf("bottom sheet popup", "bottom popup", "ventana emergente inferior")),
+    SearchableItem(context.getString(R.string.show_island_popup), "App Settings", "appsettings", "popup_animations", keywords = listOf("dynamic island popup", "island popup", "animación isla dinámica")),
+    SearchableItem(context.getString(R.string.ui_permissions), "App Settings", "appsettings", "permissions", keywords = listOf("permissions", "special access", "permisos")),
+    SearchableItem(context.getString(R.string.press_speed), "AirPods Controls", "controls", "category/controls?anchor=press_speed", keywords = listOf("double click interval", "press speed", "velocidad de pulsación")),
+    SearchableItem(context.getString(R.string.press_and_hold_duration), "AirPods Controls", "controls", "category/controls?anchor=hold_duration", keywords = listOf("hold duration", "long press speed", "duración de mantener pulsado")),
+    SearchableItem(context.getString(R.string.noise_cancellation_single_airpod), "AirPods Controls", "controls", "category/controls?anchor=listening_controls", keywords = listOf("one bud anc", "noise cancellation one airpod", "cancelación con un auricular")),
+    SearchableItem(context.getString(R.string.tone_volume), "AirPods Controls", "controls", "category/controls?anchor=listening_controls", keywords = listOf("chime volume", "tone", "volume tone", "volumen de tono")),
+    SearchableItem(context.getString(R.string.ui_volume_swipe_speed), "AirPods Controls", "controls", "category/controls?anchor=volume_swipe_speed", keywords = listOf("volume swipe", "swipe speed", "velocidad de deslizamiento")),
+    SearchableItem("Answer Call Gesture", "AirPods Controls", "controls", "call_controls", keywords = listOf("answer call", "accept call", "responder llamada")),
+    SearchableItem("End Call Gesture", "AirPods Controls", "controls", "call_controls", keywords = listOf("hang up", "end call", "colgar llamada")),
+    SearchableItem("Mute Call Gesture", "AirPods Controls", "controls", "call_controls", keywords = listOf("mute", "unmute", "silence call", "silenciar llamada")),
+    SearchableItem("Conversation Pause Music", "AirPods Settings", "settings", "conversation_awareness", keywords = listOf("pause music when speaking", "conversation pause", "pausar música al hablar")),
+    SearchableItem("Conversation Target Volume", "AirPods Settings", "settings", "conversation_awareness", keywords = listOf("conversation relative volume", "volume while speaking", "volumen durante conversación")),
+    SearchableItem("Hearing Protection Options", "AirPods Settings", "settings", "hearing_protection", keywords = listOf("hearing protection", "loud sound reduction", "protección auditiva")),
+    SearchableItem("Bluetooth Disconnect", "AirPods Settings", "settings", "bluetooth_control", keywords = listOf("disconnect bluetooth", "bluetooth control", "desconectar bluetooth")),
+    SearchableItem(context.getString(R.string.ui_notification_access_4dca8), "Smart Features", "smart", "notification_announcements", keywords = listOf("notification permission", "notification access", "acceso a notificaciones")),
+    SearchableItem(context.getString(R.string.ui_announce_notifications), "Smart Features", "smart", "notification_announcements", keywords = listOf("read notifications", "announce messages", "anunciar notificaciones")),
+    SearchableItem("Skip Announcements During Calls", "Smart Features", "smart", "notification_announcements", keywords = listOf("skip during call", "phone call announcements", "omitir durante llamada")),
+    SearchableItem("Skip Announcements During Media", "Smart Features", "smart", "notification_announcements", keywords = listOf("skip during music", "active media", "omitir durante música")),
+    SearchableItem("Announce Only In Ear", "Smart Features", "smart", "notification_announcements", keywords = listOf("in ear announcements", "wearing airpods", "solo con auriculares puestos")),
+    SearchableItem("Announcement Voice Engine", "Smart Features", "smart", "notification_announcements", keywords = listOf("text to speech", "tts engine", "elevenlabs", "motor de voz")),
+    SearchableItem("Announcement Voice Selection", "Smart Features", "smart", "notification_announcements", keywords = listOf("system voices", "select voice", "voice preview", "voz de anuncios")),
+    SearchableItem("Announcement API Key", "Smart Features", "smart", "notification_announcements", keywords = listOf("elevenlabs api key", "voice api key", "clave api voz")),
+    SearchableItem("Announcement Content", "Smart Features", "smart", "notification_announcements", keywords = listOf("notification title body", "notification content", "contenido de notificación")),
+    SearchableItem("Choose Announced Apps", "Smart Features", "smart", "announcement_app_picker", keywords = listOf("per app announcements", "app whitelist", "choose apps", "elegir aplicaciones")),
+    SearchableItem("Quiet Hours Schedule", "Smart Features", "smart", "notification_announcements?target=quiet_hours", keywords = listOf("quiet schedule", "quiet start", "quiet end", "horario silencioso")),
+    SearchableItem("Finder", "Smart Features", "smart", "proximity_finder", keywords = listOf("find case", "locate airpods", "finder", "localizador")),
+    SearchableItem("Adaptive Audio Strength", "Smart Features", "smart", "adaptive_audio", keywords = listOf("adaptive noise strength", "anc strength", "intensidad de audio adaptativo")),
+    SearchableItem("Gym Timer Configuration", "Smart Features", "smart", "gym_timer", keywords = listOf("gym timer duration", "countdown timer", "hiit", "temporizador gym")),
+    SearchableItem("Gym Timer Announcements", "Smart Features", "smart", "gym_timer", keywords = listOf("timer voice", "gym speech", "anuncios del temporizador")),
+    SearchableItem("Gym Gesture Actions", "AirPods Controls", "controls", "gym_press_actions", keywords = listOf("gym stem controls", "gym double press", "acciones de gimnasio")),
+    SearchableItem("Add or Remove Paired Device", "Audio & Connection", "audio", "paired_devices", keywords = listOf("add peer", "remove peer", "connected devices", "añadir dispositivo")),
+    SearchableItem("Case Open Auto Connect", "Audio & Connection", "audio", "category/audio?anchor=lid_open_autoconnect", keywords = listOf("open case connect", "last device", "case open", "conectar al abrir estuche")),
+    SearchableItem("Selected Handover Peer", "Audio & Connection", "audio", "paired_devices", keywords = listOf("selected device", "peer device", "dispositivo seleccionado")),
 )
+
+private fun normalizeSearchText(value: String): String = Normalizer
+    .normalize(value.trim().lowercase(Locale.ROOT), Normalizer.Form.NFD)
+    .replace("\\p{Mn}+".toRegex(), "")
+    .replace("[^\\p{L}\\p{N}]+".toRegex(), " ")
+    .trim()
+
+private fun rankSearchResults(items: List<SearchableItem>, query: String): List<SearchableItem> {
+    val normalizedQuery = normalizeSearchText(query)
+    if (normalizedQuery.isBlank()) return emptyList()
+    val queryTokens = normalizedQuery.split(' ').filter(String::isNotBlank)
+    return items.mapNotNull { item ->
+        val title = normalizeSearchText(item.label)
+        val titleTokens = title.split(' ')
+        val searchableText = listOf(title, normalizeSearchText(item.category)) + item.keywords.map(::normalizeSearchText)
+        val score = when {
+            title == normalizedQuery -> 1000
+            title.startsWith(normalizedQuery) -> 800
+            queryTokens.all { token -> titleTokens.any { it.startsWith(token) } } -> 650
+            searchableText.any { it.contains(normalizedQuery) } -> 450
+            queryTokens.all { token -> searchableText.any { token in it.split(' ') } } -> 300
+            else -> return@mapNotNull null
+        }
+        item to score
+    }.sortedByDescending { it.second }.map { it.first }.distinctBy { it.label to it.directRoute }
+}
 
 @Composable internal fun bodyStyle(dark: Boolean) = TextStyle(
     fontSize = 16.sp, fontFamily = SfPro,
@@ -258,20 +356,9 @@ private fun buildSearchIndex(): List<SearchableItem> = listOf(
 
 @Composable
 internal fun MenuSectionHeader(label: String, dark: Boolean, requiresAacp: Boolean = false) {
-    Row(
-        Modifier.fillMaxWidth()
-            .background(if (dark) Color(0xFF000000) else Color(0xFFF2F2F7))
-            .padding(horizontal = 16.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Text(label.uppercase(), style = TextStyle(
-            fontSize = 12.sp, fontWeight = FontWeight.SemiBold, fontFamily = SfPro,
-            color = if (dark) Color.White.copy(0.5f) else Color.Black.copy(0.5f)
-        ))
-        if (requiresAacp) {
-            io.automated.ventures.everypods.presentation.components.RequiresAacpIcon()
-        }
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        io.automated.ventures.everypods.presentation.components.SettingsHeading(label, Modifier.weight(1f))
+        if (requiresAacp) io.automated.ventures.everypods.presentation.components.RequiresAacpIcon()
     }
 }
 
@@ -289,7 +376,7 @@ internal fun MenuNavRow(
     enabled: Boolean = true,
     onClick: () -> Unit
 ) {
-    val rowAlpha = if (enabled) 1f else 0.4f
+    val rowAlpha = if (enabled) 1f else DisabledAlpha
     val rowModifier = Modifier.fillMaxWidth()
         .then(
             if (enabled) Modifier.clickable(
@@ -397,17 +484,15 @@ fun AirPodsSettingsScreen(
     // Search state
     var searchActive by rememberSaveable { mutableStateOf(false) }
     var searchQuery  by rememberSaveable { mutableStateOf("") }
-    val resources = androidx.compose.ui.platform.LocalConfiguration.current
-    val searchIndex = remember(context, resources) { buildSearchIndex().map { localizeSearchItem(context, it) } }
-    val searchResults = remember(searchQuery, searchIndex) {
-        if (searchQuery.isEmpty()) emptyList()
-        else {
-            val q = searchQuery.trim().lowercase()
-            searchIndex.filter { item ->
-                item.label.contains(q, ignoreCase = true) ||
-                    item.category.contains(q, ignoreCase = true) ||
-                    item.keywords.any { it.contains(q, ignoreCase = true) }
-            }
+    val searchIndex = remember(context) { searchIndex(context) }
+    val searchResults = remember(searchQuery, searchIndex) { rankSearchResults(searchIndex, searchQuery) }
+    val searchListState = rememberLazyListState()
+    var restoreSearchOnReturn by rememberSaveable { mutableStateOf(false) }
+    val backStackEntry by navController.currentBackStackEntryAsState()
+    LaunchedEffect(backStackEntry?.destination?.route) {
+        if (backStackEntry?.destination?.route == "settings" && restoreSearchOnReturn) {
+            searchActive = true
+            restoreSearchOnReturn = false
         }
     }
 
@@ -422,17 +507,11 @@ fun AirPodsSettingsScreen(
         }
     }
 
-    val showSearch = state.isLocallyConnected || (!state.aacpAvailable && state.isA2dpConnected)
     StyledScaffold(
-        headerHeight = maxOf(
-            64.dp,
-            with(androidx.compose.ui.platform.LocalDensity.current) { 28.sp.toDp() } + 24.dp
-        ),
-        titleEndPadding = if (searchActive) 0.dp else 88.dp,
-        titleMaxLines = 1,
         title = if (searchActive) "" else deviceName.text,
         titleAlign = androidx.compose.ui.text.style.TextAlign.Start,
         actionButtons = buildList {
+            val showSearch = true
             if (searchActive && showSearch) {
                 add { scaffoldBackdrop ->
                     Row(
@@ -457,33 +536,28 @@ fun AirPodsSettingsScreen(
                             }
                         )
                         Spacer(Modifier.padding(start = 8.dp))
-                        StyledIconButton(onClick = { searchActive = false; searchQuery = "" }, icon = "􀆄", backdrop = scaffoldBackdrop)
+                        StyledIconButton(onClick = { searchActive = false; searchQuery = ""; restoreSearchOnReturn = false }, icon = "􀆄", backdrop = scaffoldBackdrop, modifier = Modifier.testTag("close_search").semantics { contentDescription = context.getString(R.string.ui_close) })
                     }
                 }
             } else {
+                // Tip jar immediately next to Search (tip left, search rightmost).
                 add { scaffoldBackdrop ->
-                    // Search stays beside the name. On connected screens donation
-                    // shares the status row below, so it adds no separate header row.
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        if (showSearch) {
-                            StyledIconButton(
-                                onClick = { searchActive = true },
-                                icon = "􀊫",
-                                backdrop = scaffoldBackdrop,
-                                modifier = Modifier.width(72.dp).height(48.dp)
-                                    .testTag("nav_settings_search_button")
-                            )
-                        }
-                        if (!showSearch) {
-                            StyledIconButton(
-                                imageVector = Icons.Filled.VolunteerActivism,
-                                contentDescription = stringResource(R.string.support_content_description),
-                                backdrop = scaffoldBackdrop,
-                                onClick = { navController.navigate("purchase_screen") },
-                                modifier = Modifier.width(72.dp).height(48.dp)
-                                    .testTag("nav_support_tip_button")
-                            )
-                        }
+                    StyledIconButton(
+                        imageVector = Icons.Filled.VolunteerActivism,
+                        contentDescription = stringResource(R.string.support_content_description),
+                        backdrop = scaffoldBackdrop,
+                        onClick = { navController.navigate("purchase_screen") },
+                        modifier = Modifier.testTag("nav_support_tip_button")
+                    )
+                }
+                if (showSearch) {
+                    add { scaffoldBackdrop ->
+                        StyledIconButton(
+                            onClick = { searchActive = true },
+                            icon = "􀊫",
+                            backdrop = scaffoldBackdrop,
+                            modifier = Modifier.testTag("nav_settings_search_button").semantics { contentDescription = context.getString(R.string.ui_search_settings) }
+                        )
                     }
                 }
             }
@@ -496,10 +570,11 @@ fun AirPodsSettingsScreen(
         }
 
         // Search results overlay
-        if (searchActive && searchResults.isNotEmpty()) {
+        if (searchActive && searchQuery.isNotBlank() && searchResults.isNotEmpty()) {
             val cardBg = if (dark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
             LazyColumn(
-                Modifier.fillMaxWidth().fillMaxHeight()
+                state = searchListState,
+                modifier = Modifier.fillMaxWidth().fillMaxHeight()
                     .padding(top = topPadding + 4.dp)
                     .padding(horizontal = 16.dp)
             ) {
@@ -508,8 +583,10 @@ fun AirPodsSettingsScreen(
                         searchResults.forEachIndexed { idx, item ->
                             Row(
                                 Modifier.fillMaxWidth()
+                                    .testTag("search_result_${item.label}_${item.directRoute}_${item.anchor.orEmpty()}")
                                     .clickable(remember { MutableInteractionSource() }, null) {
-                                        searchActive = false; searchQuery = ""
+                                        searchActive = false
+                                        restoreSearchOnReturn = true
                                         val target = if (item.anchor != null)
                                             "${item.directRoute}?anchor=${item.anchor}"
                                         else item.directRoute
@@ -521,6 +598,11 @@ fun AirPodsSettingsScreen(
                                 Column {
                                     Text(item.label, style = TextStyle(fontSize = 15.sp, fontFamily = SfPro, color = if (dark) Color.White else Color.Black))
                                     Text(item.category, style = TextStyle(fontSize = 12.sp, fontFamily = SfPro, color = if (dark) Color.White.copy(0.5f) else Color.Black.copy(0.45f)))
+                                    if (item.categoryKey in setOf("controls", "connection", "smart", "audio") &&
+                                        !state.isLocallyConnected && !state.isA2dpConnected
+                                    ) {
+                                        Text(stringResource(R.string.ui_connect_airpods_to_configure), style = captionStyle(dark))
+                                    }
                                 }
                                 Text("›", style = TextStyle(fontSize = 18.sp, fontFamily = SfPro, color = if (dark) Color.White.copy(0.3f) else Color.Black.copy(0.3f)))
                             }
@@ -530,9 +612,13 @@ fun AirPodsSettingsScreen(
                     }
                 }
             }
-        } else if (state.isLocallyConnected || (!state.aacpAvailable && state.isA2dpConnected)) {
-            // Limited-mode devices get ConnectedScreen only when A2DP is up.
-            // AACP-only controls inside ConnectedScreen are greyed out via state.aacpAvailable.
+        } else if (searchActive && searchQuery.isNotBlank()) {
+            Box(Modifier.fillMaxSize().padding(top = topPadding + 4.dp).padding(horizontal = 24.dp), contentAlignment = Alignment.TopCenter) {
+                Text(stringResource(R.string.ui_no_search_results), style = captionStyle(dark), modifier = Modifier.padding(top = 20.dp))
+            }
+        } else if (state.isLocallyConnected || state.isA2dpConnected) {
+            // A2DP is enough to classify the device as connected. Keep limited-mode
+            // devices on this screen too; AACP-only controls explain their own availability.
             ConnectedScreen(
                 state = state, appState = appState,
                 viewModel = viewModel, appSettingsViewModel = appSettingsViewModel,
@@ -571,6 +657,8 @@ fun AirPodsSettingsScreen(
                     modifier = Modifier
                         .weight(1f)
                         .padding(horizontal = 8.dp),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                     style = TextStyle(fontSize = 18.sp, fontFamily = SfPro, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, color = if (dark) Color.White else Color.Black)
                 )
                 StyledIconButton(
@@ -618,52 +706,64 @@ private fun PeerConnectionWarning(
     val offlinePeers = state.crossDevicePeers.filter { !it.connected }
     if (offlinePeers.isEmpty()) return
 
+    var expanded by rememberSaveable { mutableStateOf(false) }
     val warningBackground = if (dark) Color(0xFF4A3514) else Color(0xFFFFF1CD)
     val warningTitle = if (dark) Color(0xFFFFC85A) else Color(0xFF5B3B00)
+    val warningBody = if (dark) Color(0xFFFFF3D6) else Color(0xFF5B430B)
     val message = if (offlinePeers.size == 1) {
         stringResource(R.string.peer_connection_warning_one, offlinePeers.single().name)
     } else {
         stringResource(R.string.peer_connection_warning_many, offlinePeers.size)
     }
 
-    var showExplanation by remember { mutableStateOf(false) }
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .testTag("peer_connection_warning")
             .background(warningBackground, RoundedCornerShape(16.dp))
-            .padding(start = 16.dp, end = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(horizontal = 16.dp, vertical = 10.dp),
     ) {
-        Text(
-            stringResource(R.string.peer_connection_warning_title),
-            modifier = Modifier.weight(1f),
-            style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = warningTitle, fontFamily = SfPro),
-        )
-        IconButton(onClick = { showExplanation = true }) {
-            Icon(
-                imageVector = Icons.Outlined.Info,
-                contentDescription = stringResource(R.string.peer_connection_warning_title),
-                tint = warningTitle,
-                modifier = Modifier.size(20.dp),
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("peer_connection_warning_toggle")
+                .clickable { expanded = !expanded },
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                stringResource(R.string.peer_connection_warning_title),
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = warningTitle, fontFamily = SfPro),
+            )
+            Text(
+                if (expanded) "⌃" else "⌄",
+                style = TextStyle(fontSize = 18.sp, color = warningTitle, fontFamily = SfPro),
             )
         }
-    }
-    if (showExplanation) {
-        AlertDialog(
-            onDismissRequest = { showExplanation = false },
-            title = { Text(stringResource(R.string.peer_connection_warning_title)) },
-            text = { Text(message) },
-            confirmButton = {
+        AnimatedVisibility(
+            visible = expanded,
+            enter = expandVertically(tween(200)) + fadeIn(tween(150)),
+            exit = shrinkVertically(tween(200)) + fadeOut(tween(150)),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    message,
+                    style = TextStyle(fontSize = 13.sp, color = warningBody, fontFamily = SfPro),
+                )
                 TextButton(
-                    onClick = { showExplanation = false; onRetry() },
+                    onClick = onRetry,
                     modifier = Modifier.testTag("peer_connection_warning_retry"),
-                ) { Text(stringResource(R.string.peer_connection_warning_retry)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showExplanation = false }) { Text(stringResource(R.string.ui_ok)) }
-            },
-        )
+                ) {
+                    Text(
+                        stringResource(R.string.peer_connection_warning_retry),
+                        style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = warningTitle, fontFamily = SfPro),
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -713,12 +813,12 @@ private fun ConnectedScreen(
         val audioHere = state.isLocallyConnected || state.isA2dpConnected
         val airpodsNearby = state.battery.isNotEmpty()
         val (statusText, statusDot) = when {
-            audioHere -> stringResource(R.string.island_connected_text) to Color(0xFF34C759)
-            airpodsNearby -> stringResource(R.string.airpods_nearby_elsewhere) to Color(0xFFFF9500)
-            else -> stringResource(R.string.airpods_not_nearby) to Color(0xFF8E8E93)
+            audioHere -> "Connected — audio routed here" to Color(0xFF34C759)
+            airpodsNearby -> "AirPods on another device or in the case" to Color(0xFFFF9500)
+            else -> "AirPods not nearby" to Color(0xFF8E8E93)
         }
         Row(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -728,21 +828,11 @@ private fun ConnectedScreen(
             )
             Text(
                 statusText,
-                modifier = Modifier.weight(1f),
                 style = TextStyle(
                     fontSize = 13.sp,
                     fontFamily = SfPro,
                     color = if (dark) Color.White.copy(0.7f) else Color.Black.copy(0.7f)
                 )
-            )
-            StyledIconButton(
-                imageVector = Icons.Filled.VolunteerActivism,
-                contentDescription = stringResource(R.string.support_content_description),
-                backdrop = rememberLayerBackdrop(),
-                onClick = { navController.navigate("purchase_screen") },
-                // Body inset is 16dp; the search toolbar uses 8dp. Match its center.
-                modifier = Modifier.width(72.dp).height(48.dp).offset(x = 8.dp)
-                    .testTag("nav_support_tip_button")
             )
         }
 
@@ -806,7 +896,7 @@ private fun ConnectedScreen(
         // is illegal inside a vertical scroll and would also collapse, so use a
         // fixed height tall enough for the three rows.
         CategoryTileGrid(
-            modifier = if (isShortViewport) Modifier.fillMaxWidth().heightIn(min = 360.dp * androidx.compose.ui.platform.LocalDensity.current.fontScale) else Modifier.weight(1f),
+            modifier = if (isShortViewport) Modifier.fillMaxWidth().height(240.dp) else Modifier.weight(1f),
             navController = navController,
             dark = dark
         )
@@ -859,12 +949,12 @@ private fun CategoryTileGrid(
     val rowSpacing = if (screenWidthDp >= 600) 12.dp else 8.dp
 
     val tiles = listOf(
-        Triple("controls",    "🎧", stringResource(R.string.category_controls)),
-        Triple("settings",    "⚙️", stringResource(R.string.category_settings)),
-        Triple("smart",       "✨", stringResource(R.string.category_smart)),
-        Triple("appsettings", "📱", stringResource(R.string.app_settings)),
-        Triple("audio",       "🔊", stringResource(R.string.category_audio)),
-        Triple("help",        "❓", stringResource(R.string.category_help)),
+        Triple("controls", "🎧", stringResource(R.string.search_category_controls)),
+        Triple("audio", "🔊", stringResource(R.string.search_category_audio)),
+        Triple("connection", "🔗", stringResource(R.string.design_connection)),
+        Triple("smart", "✨", stringResource(R.string.search_category_smart)),
+        Triple("appsettings", "📱", stringResource(R.string.search_category_app)),
+        Triple("help", "❓", stringResource(R.string.search_category_help)),
     )
     // Each row takes an equal share of the available height via weight(1f)
     Column(
@@ -911,7 +1001,7 @@ private fun CategoryTileGrid(
                                         .fillMaxHeight(),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text(label, textAlign = TextAlign.Center,
+                                    Text(label, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
                                     style = TextStyle(fontSize = labelFontSize, fontWeight = FontWeight.Medium,
                                     fontFamily = SfPro, color = textColor))
                                 }
@@ -1023,7 +1113,7 @@ private fun DisconnectedScreen(
                 )
                 Text(
                     stringResource(guideRes),
-                    style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Normal, color = heroSecondaryColor, fontFamily = SfPro),
+                    style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Normal, color = heroSecondaryColor, fontFamily = SfPro),
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -1048,14 +1138,13 @@ private fun DisconnectedScreen(
                     StyledButton(
                         onClick = { viewModel.reconnectFromSavedMac() },
                         backdrop = backdrop,
-                        height = 64.dp,
-                        adaptHeightToContent = true,
+                        height = 56.dp,
                         surfaceColor = if (dark) Color(0xFF0091FF) else Color(0xFF0088FF),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp)
+                            modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
                                 stringResource(R.string.reconnect_to_last),
@@ -1067,6 +1156,8 @@ private fun DisconnectedScreen(
                                     lastDeviceName,
                                     style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Normal, fontFamily = SfPro, color = Color.White.copy(alpha = 0.85f)),
                                     textAlign = TextAlign.Center,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         }
@@ -1086,193 +1177,114 @@ private fun DisconnectedScreen(
             )
         }
 
-        // Battery when A2DP is up but we are still on the disconnected surface
-        if (state.isA2dpConnected && state.battery.isNotEmpty()) {
-            item(key = "battery_a2dp") {
-                BatteryView(
-                    batteryList = state.battery,
-                    budsRes = state.instance?.model?.budsRes ?: R.drawable.airpods_pro_2_case,
-                    caseRes = state.instance?.model?.caseRes ?: R.drawable.airpods_pro_2_case
-                )
-            }
-        }
-
-        // 2) Connections — peers + lid-open autoconnect (no ear detection)
+        // Keep the disconnected hub's connection, handover, finder, and support tools.
+        // Their headings and group surfaces follow the shared settings hierarchy.
         item(key = "connections") {
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .background(cardBg, RoundedCornerShape(22.dp))
-                    .padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+            io.automated.ventures.everypods.presentation.components.SettingsSection(
+                title = stringResource(R.string.connections_title)
             ) {
-                Text(
-                    stringResource(R.string.connections_title),
-                    style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = textColor.copy(0.6f), fontFamily = SfPro)
-                )
-                Text(
-                    stringResource(R.string.connections_guide),
-                    style = TextStyle(fontSize = 14.sp, fontFamily = SfPro, color = textColor.copy(0.55f))
-                )
-                CrossDevicePeersInline(
-                    peers = state.crossDevicePeers,
-                    onAddPeer = viewModel::addCrossDevicePeer,
-                    onRemovePeer = viewModel::removeCrossDevicePeer,
-                )
-                HorizontalDivider(thickness = 1.dp, color = Color(0x40888888))
-                StyledToggle(
-                    label = stringResource(R.string.lid_open_last_holder_autoconnect),
-                    description = stringResource(R.string.lid_open_last_holder_autoconnect_description),
-                    checked = state.lidOpenLastHolderAutoconnect,
-                    onCheckedChange = viewModel::setLidOpenLastHolderAutoconnect,
-                    independent = true
-                )
+                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.connections_guide), style = TextStyle(fontSize = 13.sp, fontFamily = SfPro, color = textColor.copy(0.55f)))
+                    CrossDevicePeersInline(
+                        peers = state.crossDevicePeers,
+                        onAddPeer = viewModel::addCrossDevicePeer,
+                        onRemovePeer = viewModel::removeCrossDevicePeer,
+                    )
+                    HorizontalDivider(thickness = 1.dp, color = Color(0x40888888))
+                    StyledToggle(
+                        label = stringResource(R.string.lid_open_last_holder_autoconnect),
+                        description = stringResource(R.string.lid_open_last_holder_autoconnect_description),
+                        checked = state.lidOpenLastHolderAutoconnect,
+                        onCheckedChange = viewModel::setLidOpenLastHolderAutoconnect,
+                        independent = true
+                    )
+                }
             }
         }
 
-        // 3) Handover — master + two triggers; gated on ≥1 configured peer
         item(key = "handover") {
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .background(cardBg, RoundedCornerShape(22.dp))
-                    .padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+            io.automated.ventures.everypods.presentation.components.SettingsSection(
+                title = stringResource(R.string.handover_title)
             ) {
-                Text(
-                    stringResource(R.string.handover_title),
-                    style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = textColor.copy(0.6f), fontFamily = SfPro)
-                )
-                Text(
-                    stringResource(R.string.handover_guide),
-                    style = TextStyle(fontSize = 14.sp, fontFamily = SfPro, color = textColor.copy(0.55f))
-                )
-                if (!handoverUnlocked) {
-                    Text(
-                        stringResource(R.string.handover_needs_peer_helper),
-                        style = TextStyle(fontSize = 13.sp, fontFamily = SfPro, color = textColor.copy(0.5f))
+                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.handover_guide), style = TextStyle(fontSize = 13.sp, fontFamily = SfPro, color = textColor.copy(0.55f)))
+                    if (!handoverUnlocked) {
+                        Text(stringResource(R.string.handover_needs_peer_helper), style = TextStyle(fontSize = 13.sp, fontFamily = SfPro, color = textColor.copy(0.5f)))
+                    }
+                    StyledToggle(
+                        label = stringResource(R.string.cross_device_handover),
+                        description = stringResource(R.string.cross_device_handover_description),
+                        checked = state.crossDeviceEnabled,
+                        onCheckedChange = { viewModel.setCrossDeviceEnabled(it) },
+                        independent = true,
+                        enabled = handoverUnlocked
+                    )
+                    StyledToggle(
+                        label = stringResource(R.string.takeover_media_start),
+                        description = stringResource(R.string.takeover_media_start_desc),
+                        checked = appState.takeoverWhenMediaStart,
+                        onCheckedChange = appSettingsViewModel::setTakeoverWhenMediaStart,
+                        independent = true,
+                        enabled = handoverUnlocked
+                    )
+                    StyledToggle(
+                        label = stringResource(R.string.takeover_ringing_call),
+                        description = stringResource(R.string.takeover_ringing_call_desc),
+                        checked = appState.takeoverWhenRingingCall,
+                        onCheckedChange = appSettingsViewModel::setTakeoverWhenRingingCall,
+                        independent = true,
+                        enabled = handoverUnlocked
                     )
                 }
-                StyledToggle(
-                    label = stringResource(R.string.cross_device_handover),
-                    description = stringResource(R.string.cross_device_handover_description),
-                    checked = state.crossDeviceEnabled,
-                    onCheckedChange = { viewModel.setCrossDeviceEnabled(it) },
-                    independent = true,
-                    enabled = handoverUnlocked
-                )
-                StyledToggle(
-                    label = stringResource(R.string.takeover_media_start),
-                    description = stringResource(R.string.takeover_media_start_desc),
-                    checked = appState.takeoverWhenMediaStart,
-                    onCheckedChange = appSettingsViewModel::setTakeoverWhenMediaStart,
-                    independent = true,
-                    enabled = handoverUnlocked
-                )
-                StyledToggle(
-                    label = stringResource(R.string.takeover_ringing_call),
-                    description = stringResource(R.string.takeover_ringing_call_desc),
-                    checked = appState.takeoverWhenRingingCall,
-                    onCheckedChange = appSettingsViewModel::setTakeoverWhenRingingCall,
-                    independent = true,
-                    enabled = handoverUnlocked
-                )
             }
         }
 
-        // 4) Find My AirPods
         item(key = "find_nearby") {
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .background(cardBg, RoundedCornerShape(22.dp))
-                    .padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+            io.automated.ventures.everypods.presentation.components.SettingsSection(
+                title = stringResource(R.string.find_my_airpods_title)
             ) {
-                Text(
-                    stringResource(R.string.find_my_airpods_title),
-                    style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = textColor.copy(0.6f), fontFamily = SfPro)
-                )
-                Text(
-                    stringResource(R.string.find_my_airpods_guide),
-                    style = TextStyle(fontSize = 14.sp, fontFamily = SfPro, color = textColor.copy(0.55f))
-                )
-                StyledButton(
-                    onClick = { navController.navigate("proximity_finder") },
-                    backdrop = backdrop,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        stringResource(R.string.find_nearby),
-                        style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro, color = textColor)
-                    )
+                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.find_my_airpods_guide), style = TextStyle(fontSize = 13.sp, fontFamily = SfPro, color = textColor.copy(0.55f)))
+                    StyledButton(
+                        onClick = { navController.navigate("proximity_finder") },
+                        backdrop = backdrop,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(stringResource(R.string.find_nearby), style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro, color = textColor))
+                    }
                 }
             }
         }
 
-        item(key = "app_language") {
-            Column(Modifier.fillMaxWidth().background(cardBg, RoundedCornerShape(18.dp))) {
-                io.automated.ventures.everypods.presentation.components.AppLanguagePicker()
-            }
-        }
-
-        // 5) Get Help — Support tip card first, then Email / GitHub
         item(key = "help") {
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .background(cardBg, RoundedCornerShape(22.dp))
-                    .padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+            io.automated.ventures.everypods.presentation.components.SettingsSection(
+                title = stringResource(R.string.get_help_title)
             ) {
-                Text(
-                    stringResource(R.string.get_help_title),
-                    style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = textColor.copy(0.6f), fontFamily = SfPro)
-                )
-                // Support EveryPods card (first)
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .background(
-                            if (dark) Color(0xFF2C2C2E) else Color(0xFFF2F2F7),
-                            RoundedCornerShape(16.dp)
-                        )
-                        .clickable(
-                            remember { MutableInteractionSource() },
-                            null
-                        ) { navController.navigate("purchase_screen") }
-                        .padding(horizontal = 14.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.VolunteerActivism,
-                        contentDescription = null,
-                        tint = if (dark) Color(0xFF64D2FF) else Color(0xFF0088FF),
-                        modifier = Modifier.size(28.dp)
-                    )
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(
-                            stringResource(R.string.support_everypods_title),
-                            style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold, fontFamily = SfPro, color = textColor)
-                        )
-                        Text(
-                            stringResource(R.string.support_everypods_card_subtitle),
-                            style = TextStyle(fontSize = 13.sp, fontFamily = SfPro, color = textColor.copy(0.55f))
-                        )
+                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth()
+                            .clickable(remember { MutableInteractionSource() }, null) { navController.navigate("purchase_screen") }
+                            .padding(vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(imageVector = Icons.Filled.VolunteerActivism, contentDescription = null,
+                            tint = if (dark) Color(0xFF64D2FF) else Color(0xFF0088FF), modifier = Modifier.size(28.dp))
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(stringResource(R.string.support_everypods_title), style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold, fontFamily = SfPro, color = textColor))
+                            Text(stringResource(R.string.support_everypods_card_subtitle), style = TextStyle(fontSize = 13.sp, fontFamily = SfPro, color = textColor.copy(0.55f)))
+                        }
+                        Text("›", style = TextStyle(fontSize = 20.sp, fontFamily = SfPro, color = textColor.copy(0.35f)))
                     }
-                    Text("›", style = TextStyle(fontSize = 20.sp, fontFamily = SfPro, color = textColor.copy(0.35f)))
-                }
-                Text(
-                    stringResource(R.string.get_help_guide),
-                    style = TextStyle(fontSize = 14.sp, fontFamily = SfPro, color = textColor.copy(0.55f))
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StyledButton(onClick = onOpenContact, backdrop = backdrop, modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.ui_email), style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro, color = textColor))
-                    }
-                    StyledButton(onClick = { context.openEveryPodsIssues() }, backdrop = backdrop, modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.ui_github), style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro, color = textColor))
+                    HorizontalDivider(thickness = 1.dp, color = Color(0x40888888))
+                    Text(stringResource(R.string.get_help_guide), style = TextStyle(fontSize = 13.sp, fontFamily = SfPro, color = textColor.copy(0.55f)))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        StyledButton(onClick = onOpenContact, backdrop = backdrop, modifier = Modifier.weight(1f)) {
+                            Text(stringResource(R.string.ui_email), style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro, color = textColor))
+                        }
+                        StyledButton(onClick = { context.openEveryPodsIssues() }, backdrop = backdrop, modifier = Modifier.weight(1f)) {
+                            Text(stringResource(R.string.ui_github), style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro, color = textColor))
+                        }
                     }
                 }
             }

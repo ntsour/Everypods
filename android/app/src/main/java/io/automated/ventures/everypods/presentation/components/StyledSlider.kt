@@ -335,7 +335,7 @@ fun StyledSlider(
                             ) {
                                 Box(
                                     Modifier
-                                        .clip(RoundedCornerShape(28.dp))
+                                        .clip(RoundedCornerShape(18.dp))
                                         .background(trackColor)
                                         .height(6f.dp)
                                         .fillMaxWidth()
@@ -343,7 +343,7 @@ fun StyledSlider(
 
                                 Box(
                                     Modifier
-                                        .clip(RoundedCornerShape(28.dp))
+                                        .clip(RoundedCornerShape(18.dp))
                                         .background(accentColor)
                                         .height(6f.dp)
                                         .layout { measurable, constraints ->
@@ -480,7 +480,7 @@ fun StyledSlider(
                                 .then(momentumAnimation.modifier)
                                 .drawBackdrop(
                                     rememberCombinedBackdrop(backdrop, sliderBackdrop),
-                                    { RoundedCornerShape(28.dp) },
+                                    { RoundedCornerShape(18.dp) },
                                     highlight = {
                                         val progress = momentumAnimation.progress
                                         Highlight.Ambient.copy(alpha = progress)
@@ -521,7 +521,7 @@ fun StyledSlider(
                                     }
                                 )
                         } else {
-                            Modifier.background(trackColor, RoundedCornerShape(28.dp))
+                            Modifier.background(trackColor, RoundedCornerShape(18.dp))
                         }
                     )
                     .size(40f.dp, 24f.dp)
@@ -529,7 +529,7 @@ fun StyledSlider(
         }
     }
 
-    if (independent) {
+    if (independent && !LocalSettingsGroup.current) {
 
         Column (
             modifier = Modifier
@@ -540,8 +540,8 @@ fun StyledSlider(
                 Text(
                     text = label,
                     style = TextStyle(
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
                         color = labelTextColor.copy(alpha = 0.6f),
                         fontFamily = FontFamily(Font(R.font.sf_pro))
                     ),
@@ -552,7 +552,7 @@ fun StyledSlider(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(backgroundColor, RoundedCornerShape(28.dp))
+                    .background(backgroundColor, RoundedCornerShape(18.dp))
                     .padding(horizontal = 8.dp, vertical = 0.dp)
                     .heightIn(min = 58.dp),
                 contentAlignment = Alignment.Center
@@ -564,8 +564,8 @@ fun StyledSlider(
                 Text(
                     text = description,
                     style = TextStyle(
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Light,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Normal,
                         color = (if (isSystemInDarkTheme()) Color.White else Color.Black).copy(alpha = 0.6f),
                         fontFamily = FontFamily(Font(R.font.sf_pro))
                     ),
