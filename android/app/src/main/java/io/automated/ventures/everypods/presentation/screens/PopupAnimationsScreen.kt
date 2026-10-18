@@ -33,7 +33,7 @@ fun PopupAnimationsScreen(appSettingsViewModel: AppSettingsViewModel) {
     val dark = isSystemInDarkTheme()
     val cardColor = if (dark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
     
-    StyledScaffold(title = "Pop-up Animations") { topPadding, hazeState, bottomPadding ->
+    StyledScaffold(title = stringResource(R.string.ui_pop_up_animations)) { topPadding, hazeState, bottomPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()

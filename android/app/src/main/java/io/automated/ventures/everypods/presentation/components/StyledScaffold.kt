@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Scaffold
@@ -34,6 +35,11 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -66,10 +72,16 @@ fun StyledScaffold(
     navigationIcon: (@Composable (backdrop: LayerBackdrop) -> Unit)? = null,
     actionButtons: List<@Composable (backdrop: LayerBackdrop) -> Unit> = emptyList(),
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
+    headerHeight: Dp = 64.dp,
+    titleEndPadding: Dp = 0.dp,
+    titleMaxLines: Int = Int.MAX_VALUE,
     content: @Composable (spacerValue: Dp, hazeState: HazeState, bottomPadding: Dp) -> Unit
 ) {
     val isDarkTheme = isSystemInDarkTheme()
     val hazeState = rememberHazeState(blurEnabled = true)
+    val density = LocalDensity.current
+    var measuredHeaderHeightPx by remember { mutableIntStateOf(0) }
+    val actualHeaderHeight = with(density) { measuredHeaderHeightPx.toDp() }.coerceAtLeast(headerHeight)
 
     Scaffold(
         containerColor = if (isDarkTheme) Color(0xFF000000) else Color(0xFFF2F2F7),
@@ -92,15 +104,16 @@ fun StyledScaffold(
             Box(
                 modifier = Modifier
                     .zIndex(2f)
-                    .height(64.dp + topPadding)
+                    .heightIn(min = headerHeight + topPadding)
                     .fillMaxWidth()
+                    .onSizeChanged { measuredHeaderHeightPx = it.height }
                     .layerBackdrop(backdrop)
                     .hazeEffect(state = hazeState) {
                         tints = listOf(HazeTint(color = if (isDarkTheme) Color.Black else Color.White))
                         progressive = HazeProgressive.verticalGradient(startIntensity = 1f, endIntensity = 0f)
                     }
             ) {
-                Column(modifier = Modifier.fillMaxSize()) {
+                Column(modifier = Modifier.fillMaxWidth()) {
                     Spacer(modifier = Modifier.height(topPadding + 12.dp))
                     Text(
                             text = title,
@@ -110,7 +123,7 @@ fun StyledScaffold(
                                 color = if (isDarkTheme) Color.White else Color.Black,
                                 fontFamily = FontFamily(Font(R.font.sf_pro))
                             ),
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth().padding(end = titleEndPadding)
                                 .then(if (titleAlign == TextAlign.Start) Modifier.padding(start = 16.dp) else Modifier),
                             textAlign = titleAlign
                         )
@@ -138,7 +151,7 @@ fun StyledScaffold(
                 }
             }
 
-            content(topPadding + 64.dp, hazeState, bottomPadding + 12.dp)
+            content(actualHeaderHeight, hazeState, bottomPadding + 12.dp)
         }
     }
 }

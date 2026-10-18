@@ -1,5 +1,9 @@
 package io.automated.ventures.everypods.presentation.screens
 
+import io.automated.ventures.everypods.R
+
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Column
@@ -36,7 +40,7 @@ fun EmailSupportScreen() {
     val dark = isSystemInDarkTheme()
     val cardColor = if (dark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
     
-    StyledScaffold(title = "Email Support") { topPadding, hazeState, bottomPadding ->
+    StyledScaffold(title = stringResource(R.string.ui_email_support)) { topPadding, hazeState, bottomPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -48,12 +52,12 @@ fun EmailSupportScreen() {
             Spacer(Modifier.height(topPadding))
             
             Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp)).padding(16.dp)) {
-                Text("Need help? Contact us at $EVERYPODS_SUPPORT_EMAIL.", style = TextStyle(fontSize = 16.sp, fontFamily = SfPro, color = if (dark) Color.White else Color.Black))
+                Text(stringResource(R.string.email_support_contact, EVERYPODS_SUPPORT_EMAIL), style = TextStyle(fontSize = 16.sp, fontFamily = SfPro, color = if (dark) Color.White else Color.Black))
                 Spacer(Modifier.height(16.dp))
                 StyledButton(onClick = {
                     context.openEveryPodsSupportEmail()
                 }, backdrop = rememberLayerBackdrop(), modifier = Modifier.fillMaxWidth()) {
-                    Text("Send Email", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro, color = Color.White))
+                    Text(stringResource(R.string.ui_send_email), style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro, color = Color.White))
                 }
             }
             

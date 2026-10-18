@@ -20,6 +20,8 @@
 
 package io.automated.ventures.everypods.presentation.screens
 
+import androidx.compose.ui.res.stringResource
+
 import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -301,6 +303,14 @@ fun DebugScreen(navController: NavController) {
     val listState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
     val coroutineScope = rememberCoroutineScope()
+    val packetDataLabel = stringResource(R.string.ui_packet_data)
+    val packetCopiedLabel = stringResource(R.string.ui_packet_copied_to_clipboard)
+    val reportSavedTemplate = stringResource(R.string.ui_report_saved)
+    val reportSharedEmptyLabel = stringResource(R.string.ui_report_shared_empty)
+    val reportReadyLabel = stringResource(R.string.ui_report_ready)
+    val shareLidReportLabel = stringResource(R.string.ui_share_lid_report)
+    val debugFieldTemplate = stringResource(R.string.ui_debug_field)
+    val debugRawTemplate = stringResource(R.string.ui_debug_raw)
 
     val airPodsService = remember { ServiceManager.getService() }
     val packetLogs = airPodsService?.packetLogsFlow?.collectAsState(emptySet())?.value ?: emptySet()
@@ -317,9 +327,9 @@ fun DebugScreen(navController: NavController) {
 
     fun copyToClipboard(text: String) {
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        val clip = ClipData.newPlainText("Packet Data", text)
+        val clip = ClipData.newPlainText(packetDataLabel, text)
         clipboard.setPrimaryClip(clip)
-        Toast.makeText(context, "Packet copied to clipboard", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, packetCopiedLabel, Toast.LENGTH_SHORT).show()
     }
 
     LaunchedEffect(packetLogs.size, refreshTrigger.intValue) {
@@ -331,7 +341,7 @@ fun DebugScreen(navController: NavController) {
     val isDarkTheme = isSystemInDarkTheme()
     val backdrop = rememberLayerBackdrop()
     StyledScaffold(
-        title = "Debug",
+        title = stringResource(R.string.ui_debug),
         actionButtons = listOf(
             {scaffoldBackdrop ->
                 StyledIconButton(
@@ -367,7 +377,7 @@ fun DebugScreen(navController: NavController) {
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
                     Text(
-                        text = "Report lid-open connect failure",
+                        text = stringResource(R.string.ui_report_lid_open_connect_failur),
                         style = TextStyle(
                             fontSize = 16.sp,
                             fontFamily = FontFamily(Font(R.font.sf_pro)),
@@ -377,7 +387,7 @@ fun DebugScreen(navController: NavController) {
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Use after lid open didn't auto-connect; saves recent lid/BT logs.",
+                        text = stringResource(R.string.ui_use_after_lid_open_didn_t_auto),
                         style = TextStyle(
                             fontSize = 13.sp,
                             fontFamily = FontFamily(Font(R.font.sf_pro)),
@@ -401,16 +411,16 @@ fun DebugScreen(navController: NavController) {
                                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                             }
                             try {
-                                context.startActivity(Intent.createChooser(share, "Share lid-open report"))
+                                context.startActivity(Intent.createChooser(share, shareLidReportLabel))
                                 Toast.makeText(
                                     context,
-                                    if (empty) "Buffer empty — report file shared anyway" else "Lid-open failure report ready",
+                                    if (empty) reportSharedEmptyLabel else reportReadyLabel,
                                     Toast.LENGTH_SHORT
                                 ).show()
                             } catch (e: Exception) {
                                 Toast.makeText(
                                     context,
-                                    "Report saved: ${file.name}",
+                                    reportSavedTemplate.format(file.name),
                                     Toast.LENGTH_LONG
                                 ).show()
                             }
@@ -420,7 +430,7 @@ fun DebugScreen(navController: NavController) {
                         )
                     ) {
                         Text(
-                            text = "Export & share report",
+                            text = stringResource(R.string.ui_export_share_report),
                             style = TextStyle(
                                 fontFamily = FontFamily(Font(R.font.sf_pro)),
                                 color = Color.White
@@ -496,7 +506,7 @@ fun DebugScreen(navController: NavController) {
                                             packetInfo.parsedData.forEach { (key, value) ->
                                                 Row {
                                                     Text(
-                                                        text = "$key: ",
+                                                        text = debugFieldTemplate.format(key),
                                                         style = TextStyle(
                                                             fontSize = 12.sp,
                                                             fontWeight = FontWeight.Bold,
@@ -518,7 +528,7 @@ fun DebugScreen(navController: NavController) {
                                         }
 
                                         Text(
-                                            text = "Raw: ${packetInfo.rawData}",
+                                            text = debugRawTemplate.format(packetInfo.rawData),
                                             style = TextStyle(
                                                 fontSize = 12.sp,
                                                 fontFamily = FontFamily(Font(R.font.hack))
@@ -545,7 +555,7 @@ fun DebugScreen(navController: NavController) {
                 TextField(
                     value = packet.value,
                     onValueChange = { packet.value = it },
-                    label = { Text("Packet") },
+                    label = { Text(stringResource(R.string.ui_packet)) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 8.dp)
@@ -583,7 +593,7 @@ fun DebugScreen(navController: NavController) {
                             }
                         ) {
                             @Suppress("DEPRECATION")
-                            Icon(Icons.Filled.Send, contentDescription = "Send")
+                            Icon(Icons.Filled.Send, contentDescription = stringResource(R.string.ui_send))
                         }
                     },
                     colors = TextFieldDefaults.colors(

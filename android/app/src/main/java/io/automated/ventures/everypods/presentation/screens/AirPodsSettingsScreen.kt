@@ -60,6 +60,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -141,6 +142,9 @@ import io.automated.ventures.everypods.presentation.components.NoiseControlSetti
 import io.automated.ventures.everypods.presentation.components.SelectItem
 import io.automated.ventures.everypods.presentation.components.StyledBottomSheet
 import io.automated.ventures.everypods.presentation.components.StyledButton
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.VolunteerActivism
 import androidx.compose.material3.Icon
@@ -393,8 +397,9 @@ fun AirPodsSettingsScreen(
     // Search state
     var searchActive by rememberSaveable { mutableStateOf(false) }
     var searchQuery  by rememberSaveable { mutableStateOf("") }
-    val searchIndex  = remember { buildSearchIndex() }
-    val searchResults = remember(searchQuery) {
+    val resources = androidx.compose.ui.platform.LocalConfiguration.current
+    val searchIndex = remember(context, resources) { buildSearchIndex().map { localizeSearchItem(context, it) } }
+    val searchResults = remember(searchQuery, searchIndex) {
         if (searchQuery.isEmpty()) emptyList()
         else {
             val q = searchQuery.trim().lowercase()
@@ -417,11 +422,17 @@ fun AirPodsSettingsScreen(
         }
     }
 
+    val showSearch = state.isLocallyConnected || (!state.aacpAvailable && state.isA2dpConnected)
     StyledScaffold(
+        headerHeight = maxOf(
+            64.dp,
+            with(androidx.compose.ui.platform.LocalDensity.current) { 28.sp.toDp() } + 24.dp
+        ),
+        titleEndPadding = if (searchActive) 0.dp else 88.dp,
+        titleMaxLines = 1,
         title = if (searchActive) "" else deviceName.text,
         titleAlign = androidx.compose.ui.text.style.TextAlign.Start,
         actionButtons = buildList {
-            val showSearch = state.isLocallyConnected || (!state.aacpAvailable && state.isA2dpConnected)
             if (searchActive && showSearch) {
                 add { scaffoldBackdrop ->
                     Row(
@@ -441,7 +452,7 @@ fun AirPodsSettingsScreen(
                                 .background(if (dark) Color(0xFF2C2C2E) else Color(0xFFE5E5EA), RoundedCornerShape(10.dp))
                                 .padding(horizontal = 12.dp, vertical = 8.dp),
                             decorationBox = { innerTextField ->
-                                if (searchQuery.isEmpty()) Text("Search settings...", style = TextStyle(fontSize = 16.sp, fontFamily = SfPro, color = if (dark) Color.White.copy(0.4f) else Color.Black.copy(0.35f)))
+                                if (searchQuery.isEmpty()) Text(stringResource(R.string.ui_search_settings), style = TextStyle(fontSize = 16.sp, fontFamily = SfPro, color = if (dark) Color.White.copy(0.4f) else Color.Black.copy(0.35f)))
                                 innerTextField()
                             }
                         )
@@ -450,24 +461,29 @@ fun AirPodsSettingsScreen(
                     }
                 }
             } else {
-                // Tip jar immediately next to Search (tip left, search rightmost).
                 add { scaffoldBackdrop ->
-                    StyledIconButton(
-                        imageVector = Icons.Filled.VolunteerActivism,
-                        contentDescription = stringResource(R.string.support_content_description),
-                        backdrop = scaffoldBackdrop,
-                        onClick = { navController.navigate("purchase_screen") },
-                        modifier = Modifier.testTag("nav_support_tip_button")
-                    )
-                }
-                if (showSearch) {
-                    add { scaffoldBackdrop ->
-                        StyledIconButton(
-                            onClick = { searchActive = true },
-                            icon = "􀊫",
-                            backdrop = scaffoldBackdrop,
-                            modifier = Modifier.testTag("nav_settings_search_button")
-                        )
+                    // Search stays beside the name. On connected screens donation
+                    // shares the status row below, so it adds no separate header row.
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        if (showSearch) {
+                            StyledIconButton(
+                                onClick = { searchActive = true },
+                                icon = "􀊫",
+                                backdrop = scaffoldBackdrop,
+                                modifier = Modifier.width(72.dp).height(48.dp)
+                                    .testTag("nav_settings_search_button")
+                            )
+                        }
+                        if (!showSearch) {
+                            StyledIconButton(
+                                imageVector = Icons.Filled.VolunteerActivism,
+                                contentDescription = stringResource(R.string.support_content_description),
+                                backdrop = scaffoldBackdrop,
+                                onClick = { navController.navigate("purchase_screen") },
+                                modifier = Modifier.width(72.dp).height(48.dp)
+                                    .testTag("nav_support_tip_button")
+                            )
+                        }
                     }
                 }
             }
@@ -555,8 +571,6 @@ fun AirPodsSettingsScreen(
                     modifier = Modifier
                         .weight(1f)
                         .padding(horizontal = 8.dp),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
                     style = TextStyle(fontSize = 18.sp, fontFamily = SfPro, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, color = if (dark) Color.White else Color.Black)
                 )
                 StyledIconButton(
@@ -606,38 +620,50 @@ private fun PeerConnectionWarning(
 
     val warningBackground = if (dark) Color(0xFF4A3514) else Color(0xFFFFF1CD)
     val warningTitle = if (dark) Color(0xFFFFC85A) else Color(0xFF5B3B00)
-    val warningBody = if (dark) Color(0xFFFFF3D6) else Color(0xFF5B430B)
     val message = if (offlinePeers.size == 1) {
         stringResource(R.string.peer_connection_warning_one, offlinePeers.single().name)
     } else {
         stringResource(R.string.peer_connection_warning_many, offlinePeers.size)
     }
 
-    Column(
+    var showExplanation by remember { mutableStateOf(false) }
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .testTag("peer_connection_warning")
             .background(warningBackground, RoundedCornerShape(16.dp))
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+            .padding(start = 16.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             stringResource(R.string.peer_connection_warning_title),
-            style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = warningTitle, fontFamily = SfPro),
+            modifier = Modifier.weight(1f),
+            style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = warningTitle, fontFamily = SfPro),
         )
-        Text(
-            message,
-            style = TextStyle(fontSize = 14.sp, color = warningBody, fontFamily = SfPro),
-        )
-        TextButton(
-            onClick = onRetry,
-            modifier = Modifier.testTag("peer_connection_warning_retry"),
-        ) {
-            Text(
-                stringResource(R.string.peer_connection_warning_retry),
-                style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = warningTitle, fontFamily = SfPro),
+        IconButton(onClick = { showExplanation = true }) {
+            Icon(
+                imageVector = Icons.Outlined.Info,
+                contentDescription = stringResource(R.string.peer_connection_warning_title),
+                tint = warningTitle,
+                modifier = Modifier.size(20.dp),
             )
         }
+    }
+    if (showExplanation) {
+        AlertDialog(
+            onDismissRequest = { showExplanation = false },
+            title = { Text(stringResource(R.string.peer_connection_warning_title)) },
+            text = { Text(message) },
+            confirmButton = {
+                TextButton(
+                    onClick = { showExplanation = false; onRetry() },
+                    modifier = Modifier.testTag("peer_connection_warning_retry"),
+                ) { Text(stringResource(R.string.peer_connection_warning_retry)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showExplanation = false }) { Text(stringResource(R.string.ui_ok)) }
+            },
+        )
     }
 }
 
@@ -687,12 +713,12 @@ private fun ConnectedScreen(
         val audioHere = state.isLocallyConnected || state.isA2dpConnected
         val airpodsNearby = state.battery.isNotEmpty()
         val (statusText, statusDot) = when {
-            audioHere -> "Connected — audio routed here" to Color(0xFF34C759)
-            airpodsNearby -> "AirPods on another device or in the case" to Color(0xFFFF9500)
-            else -> "AirPods not nearby" to Color(0xFF8E8E93)
+            audioHere -> stringResource(R.string.island_connected_text) to Color(0xFF34C759)
+            airpodsNearby -> stringResource(R.string.airpods_nearby_elsewhere) to Color(0xFFFF9500)
+            else -> stringResource(R.string.airpods_not_nearby) to Color(0xFF8E8E93)
         }
         Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -702,11 +728,21 @@ private fun ConnectedScreen(
             )
             Text(
                 statusText,
+                modifier = Modifier.weight(1f),
                 style = TextStyle(
                     fontSize = 13.sp,
                     fontFamily = SfPro,
                     color = if (dark) Color.White.copy(0.7f) else Color.Black.copy(0.7f)
                 )
+            )
+            StyledIconButton(
+                imageVector = Icons.Filled.VolunteerActivism,
+                contentDescription = stringResource(R.string.support_content_description),
+                backdrop = rememberLayerBackdrop(),
+                onClick = { navController.navigate("purchase_screen") },
+                // Body inset is 16dp; the search toolbar uses 8dp. Match its center.
+                modifier = Modifier.width(72.dp).height(48.dp).offset(x = 8.dp)
+                    .testTag("nav_support_tip_button")
             )
         }
 
@@ -770,7 +806,7 @@ private fun ConnectedScreen(
         // is illegal inside a vertical scroll and would also collapse, so use a
         // fixed height tall enough for the three rows.
         CategoryTileGrid(
-            modifier = if (isShortViewport) Modifier.fillMaxWidth().height(240.dp) else Modifier.weight(1f),
+            modifier = if (isShortViewport) Modifier.fillMaxWidth().heightIn(min = 360.dp * androidx.compose.ui.platform.LocalDensity.current.fontScale) else Modifier.weight(1f),
             navController = navController,
             dark = dark
         )
@@ -823,12 +859,12 @@ private fun CategoryTileGrid(
     val rowSpacing = if (screenWidthDp >= 600) 12.dp else 8.dp
 
     val tiles = listOf(
-        Triple("controls",    "🎧", "AirPods Controls"),
-        Triple("settings",    "⚙️", "AirPods Settings"),
-        Triple("smart",       "✨", "Smart Features"),
-        Triple("appsettings", "📱", "App Settings"),
-        Triple("audio",       "🔊", "Audio & Conn."),
-        Triple("help",        "❓", "Help & Support"),
+        Triple("controls",    "🎧", stringResource(R.string.category_controls)),
+        Triple("settings",    "⚙️", stringResource(R.string.category_settings)),
+        Triple("smart",       "✨", stringResource(R.string.category_smart)),
+        Triple("appsettings", "📱", stringResource(R.string.app_settings)),
+        Triple("audio",       "🔊", stringResource(R.string.category_audio)),
+        Triple("help",        "❓", stringResource(R.string.category_help)),
     )
     // Each row takes an equal share of the available height via weight(1f)
     Column(
@@ -875,7 +911,7 @@ private fun CategoryTileGrid(
                                         .fillMaxHeight(),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text(label, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
+                                    Text(label, textAlign = TextAlign.Center,
                                     style = TextStyle(fontSize = labelFontSize, fontWeight = FontWeight.Medium,
                                     fontFamily = SfPro, color = textColor))
                                 }
@@ -1012,13 +1048,14 @@ private fun DisconnectedScreen(
                     StyledButton(
                         onClick = { viewModel.reconnectFromSavedMac() },
                         backdrop = backdrop,
-                        height = 56.dp,
+                        height = 64.dp,
+                        adaptHeightToContent = true,
                         surfaceColor = if (dark) Color(0xFF0091FF) else Color(0xFF0088FF),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp)
                         ) {
                             Text(
                                 stringResource(R.string.reconnect_to_last),
@@ -1030,8 +1067,6 @@ private fun DisconnectedScreen(
                                     lastDeviceName,
                                     style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Normal, fontFamily = SfPro, color = Color.White.copy(alpha = 0.85f)),
                                     textAlign = TextAlign.Center,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         }
@@ -1175,6 +1210,12 @@ private fun DisconnectedScreen(
             }
         }
 
+        item(key = "app_language") {
+            Column(Modifier.fillMaxWidth().background(cardBg, RoundedCornerShape(18.dp))) {
+                io.automated.ventures.everypods.presentation.components.AppLanguagePicker()
+            }
+        }
+
         // 5) Get Help — Support tip card first, then Email / GitHub
         item(key = "help") {
             Column(
@@ -1228,10 +1269,10 @@ private fun DisconnectedScreen(
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     StyledButton(onClick = onOpenContact, backdrop = backdrop, modifier = Modifier.weight(1f)) {
-                        Text("Email", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro, color = textColor))
+                        Text(stringResource(R.string.ui_email), style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro, color = textColor))
                     }
                     StyledButton(onClick = { context.openEveryPodsIssues() }, backdrop = backdrop, modifier = Modifier.weight(1f)) {
-                        Text("GitHub", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro, color = textColor))
+                        Text(stringResource(R.string.ui_github), style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro, color = textColor))
                     }
                 }
             }

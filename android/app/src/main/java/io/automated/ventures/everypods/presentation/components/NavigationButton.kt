@@ -27,7 +27,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -98,7 +98,7 @@ fun NavigationButton(
                     animatedBackgroundColor,
                     RoundedCornerShape(if (independent) 28.dp else 0.dp)
                 )
-                .height(height)
+                .heightIn(min = height)
                 .pointerInput(Unit) {
                     detectTapGestures(
                         onPress = {

@@ -20,8 +20,11 @@ package io.automated.ventures.everypods.utils
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.content.res.Configuration
 import android.util.Log
 import java.util.Locale
+import android.os.LocaleList
+import io.automated.ventures.everypods.R
 import io.automated.ventures.everypods.services.ServiceManager
 
 /**
@@ -69,19 +72,6 @@ object AnnouncementPrefs {
     const val LANG_SYSTEM = "auto"
     const val LANG_AUTO = LANG_SYSTEM
 
-    // Supported announcement languages — UI shows these; matched to the
-    // hardcoded call-announcement strings below.
-    val SUPPORTED_LANGUAGES = listOf(
-        LANG_DETECT to "Automatic detection",
-        LANG_SYSTEM to "System default",
-        "es" to "Español",
-        "en" to "English",
-        "fr" to "Français",
-        "de" to "Deutsch",
-        "it" to "Italiano",
-        "pt" to "Português",
-    )
-
     fun prefs(ctx: Context): SharedPreferences =
         ctx.getSharedPreferences("settings", Context.MODE_PRIVATE)
 
@@ -112,6 +102,15 @@ object AnnouncementPrefs {
         }
     }
 
+    /** Resolve app-generated speech against the independent speech-language preference. */
+    fun generatedSpeechLanguage(ctx: Context): String = resolvedLanguage(ctx)
+
+    fun contextForLanguage(ctx: Context, languageTag: String): Context {
+        val configuration = Configuration(ctx.resources.configuration)
+        configuration.setLocales(LocaleList.forLanguageTags(languageTag))
+        return ctx.createConfigurationContext(configuration)
+    }
+
     fun rawLanguage(ctx: Context): String =
         prefs(ctx).getString(KEY_LANGUAGE, LANG_SYSTEM) ?: LANG_SYSTEM
 
@@ -128,7 +127,7 @@ object AnnouncementPrefs {
     }
 
     private fun languageKey(languageTag: String): String =
-        Locale.forLanguageTag(languageTag).language.takeIf { it.isNotBlank() } ?: languageTag
+        Locale.forLanguageTag(languageTag).toLanguageTag().takeIf { it.isNotBlank() } ?: languageTag
 
     fun languageForText(ctx: Context, text: String): String {
         val pref = rawLanguage(ctx)
@@ -276,66 +275,28 @@ object AnnouncementPrefs {
         prefs(ctx).getString(KEY_ELEVENLABS_VOICE_ID, ElevenLabsEngine.DEFAULT_VOICE_ID)
             ?: ElevenLabsEngine.DEFAULT_VOICE_ID
 
-    /**
-     * Localised low-battery alert. component is "left", "right", "case".
-     */
-    fun batteryAlert(language: String, component: String, level: Int): String {
-        val lang = language.lowercase()
-        return when (lang) {
-            "es" -> when (component) {
-                "left" -> "Batería del AirPod izquierdo al $level por ciento"
-                "right" -> "Batería del AirPod derecho al $level por ciento"
-                "case" -> "Batería del estuche de los AirPods al $level por ciento"
-                else -> "Batería al $level por ciento"
-            }
-            "fr" -> when (component) {
-                "left" -> "Batterie de l'AirPod gauche à $level pour cent"
-                "right" -> "Batterie de l'AirPod droit à $level pour cent"
-                "case" -> "Batterie du boîtier des AirPods à $level pour cent"
-                else -> "Batterie à $level pour cent"
-            }
-            "de" -> when (component) {
-                "left" -> "Batterie des linken AirPods bei $level Prozent"
-                "right" -> "Batterie des rechten AirPods bei $level Prozent"
-                "case" -> "Batterie des AirPods Ladecase bei $level Prozent"
-                else -> "Akku bei $level Prozent"
-            }
-            "it" -> when (component) {
-                "left" -> "Batteria dell'AirPod sinistro al $level percento"
-                "right" -> "Batteria dell'AirPod destro al $level percento"
-                "case" -> "Batteria della custodia degli AirPods al $level percento"
-                else -> "Batteria al $level percento"
-            }
-            "pt" -> when (component) {
-                "left" -> "Bateria do AirPod esquerdo a $level por cento"
-                "right" -> "Bateria do AirPod direito a $level por cento"
-                "case" -> "Bateria do estojo dos AirPods a $level por cento"
-                else -> "Bateria a $level por cento"
-            }
-            else -> when (component) {
-                "left" -> "Left AirPod battery is $level percent"
-                "right" -> "Right AirPod battery is $level percent"
-                "case" -> "AirPods case battery is $level percent"
-                else -> "Battery at $level percent"
-            }
+    /** Resource-backed low-battery alert. component is "left", "right", "case" or generic. */
+    fun batteryAlert(ctx: Context, languageTag: String, component: String, level: Int): String {
+        val resources = contextForLanguage(ctx, languageTag)
+        val id = when (component) {
+            "left" -> R.string.speech_battery_left
+            "right" -> R.string.speech_battery_right
+            "case" -> R.string.speech_battery_case
+            else -> R.string.speech_battery_generic
         }
+        return resources.getString(id, level)
     }
 
     /**
      * Localised call announcement strings. Returns Pair(withName, withoutNumber)
      * formatted with optional name placeholder.
      */
-    fun callAnnouncement(language: String, name: String?): String {
-        val lang = language.lowercase()
-        val (withName, generic) = when (lang) {
-            "es" -> "Llamada entrante de %s" to "Llamada entrante"
-            "en" -> "Incoming call from %s" to "Incoming call"
-            "fr" -> "Appel entrant de %s" to "Appel entrant"
-            "de" -> "Anruf von %s" to "Eingehender Anruf"
-            "it" -> "Chiamata in arrivo da %s" to "Chiamata in arrivo"
-            "pt" -> "Chamada de %s" to "Chamada recebida"
-            else -> "Incoming call from %s" to "Incoming call"
+    fun callAnnouncement(ctx: Context, languageTag: String, name: String?): String {
+        val resources = contextForLanguage(ctx, languageTag)
+        return if (name.isNullOrBlank()) {
+            resources.getString(R.string.speech_call_generic)
+        } else {
+            resources.getString(R.string.speech_call_named, name)
         }
-        return if (name.isNullOrBlank()) generic else withName.format(name)
     }
 }

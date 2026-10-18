@@ -1,5 +1,9 @@
 package io.automated.ventures.everypods.presentation.screens
 
+import io.automated.ventures.everypods.R
+
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,7 +30,7 @@ import io.automated.ventures.everypods.presentation.viewmodel.AirPodsViewModel
 fun MicrophoneSettingsScreen(viewModel: AirPodsViewModel) {
     val state by viewModel.uiState.collectAsState()
     
-    StyledScaffold(title = "Microphone Settings") { topPadding, hazeState, bottomPadding ->
+    StyledScaffold(title = stringResource(R.string.ui_microphone_settings)) { topPadding, hazeState, bottomPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()

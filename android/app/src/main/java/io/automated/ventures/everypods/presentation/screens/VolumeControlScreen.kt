@@ -67,7 +67,7 @@ fun VolumeControlScreen(viewModel: AirPodsViewModel) {
     fun selectedByte(identifier: AACPManager.Companion.ControlCommandIdentifiers): Byte? =
         state.controlStates[identifier]?.getOrNull(0)
 
-    StyledScaffold(title = "Volume Control") { topPadding, hazeState, bottomPadding ->
+    StyledScaffold(title = stringResource(R.string.ui_volume_control)) { topPadding, hazeState, bottomPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -79,7 +79,7 @@ fun VolumeControlScreen(viewModel: AirPodsViewModel) {
             Spacer(Modifier.height(topPadding))
 
             Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp)).padding(16.dp)) {
-                Text("Volume Swipe Speed", style = TextStyle(
+                Text(stringResource(R.string.ui_volume_swipe_speed), style = TextStyle(
                     fontSize = 13.sp, fontWeight = FontWeight.SemiBold, fontFamily = SfPro,
                     color = if (dark) Color.White.copy(0.5f) else Color.Black.copy(0.5f)
                 ))

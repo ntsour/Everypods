@@ -135,12 +135,12 @@ import io.automated.ventures.everypods.utils.openEveryPodsSupportEmail
 
 // ─── Category metadata ────────────────────────────────────────────────────────
 internal val categoryTitles = mapOf(
-    "controls"    to "AirPods Controls",
-    "settings"    to "AirPods Settings",
-    "smart"       to "Smart Features",
-    "appsettings" to "App Settings",
-    "audio"       to "Audio & Connection",
-    "help"        to "Help & Troubleshooting",
+    "controls"    to R.string.category_controls,
+    "settings"    to R.string.category_settings,
+    "smart"       to R.string.category_smart,
+    "appsettings" to R.string.app_settings,
+    "audio"       to R.string.category_audio,
+    "help"        to R.string.category_help,
 )
 
 internal val categoryEmojis = mapOf(
@@ -181,7 +181,7 @@ fun CategoryScreen(
     val dark     = isSystemInDarkTheme()
     val context  = LocalContext.current
     val sharedPrefs = context.getSharedPreferences("settings", MODE_PRIVATE)
-    val title = categoryTitles[categoryKey] ?: categoryKey
+    val title = categoryTitles[categoryKey]?.let { stringResource(it) } ?: categoryKey
 
     val anchorRegistry = remember { AnchorRegistry() }
     val scrollState = rememberScrollState()
@@ -281,26 +281,26 @@ private fun ControlsContent(
         runCatching { StemAction.valueOf(sharedPrefs.getString(key, default.name) ?: default.name) }.getOrDefault(default)
 
     val pressTypes = listOf(
-        Pair("Single Press", AACPManager.Companion.StemPressType.SINGLE_PRESS),
-        Pair("Double Press", AACPManager.Companion.StemPressType.DOUBLE_PRESS),
-        Pair("Triple Press", AACPManager.Companion.StemPressType.TRIPLE_PRESS),
-        Pair("Long Press", AACPManager.Companion.StemPressType.LONG_PRESS),
+        Pair(stringResource(R.string.ui_single_press), AACPManager.Companion.StemPressType.SINGLE_PRESS),
+        Pair(stringResource(R.string.press_twice), AACPManager.Companion.StemPressType.DOUBLE_PRESS),
+        Pair(stringResource(R.string.press_three_times), AACPManager.Companion.StemPressType.TRIPLE_PRESS),
+        Pair(stringResource(R.string.press_and_hold_airpods), AACPManager.Companion.StemPressType.LONG_PRESS),
     )
 
     val actionOptions = listOf(
-        StemAction.PLAY_PAUSE              to "Play / Pause",
-        StemAction.NEXT_TRACK              to "Next Track",
-        StemAction.PREVIOUS_TRACK          to "Prev. Track",
-        StemAction.DIGITAL_ASSISTANT       to "Voice Assistant",
-        StemAction.CYCLE_NOISE_CONTROL_MODES to "Listening Mode",
-        StemAction.TOGGLE_GYM_MODE         to "Gym Mode On / Off",
+        StemAction.PLAY_PAUSE              to stringResource(R.string.action_play_pause),
+        StemAction.NEXT_TRACK              to stringResource(R.string.action_next_track),
+        StemAction.PREVIOUS_TRACK          to stringResource(R.string.action_previous_track),
+        StemAction.DIGITAL_ASSISTANT       to stringResource(R.string.digital_assistant),
+        StemAction.CYCLE_NOISE_CONTROL_MODES to stringResource(R.string.noise_control),
+        StemAction.TOGGLE_GYM_MODE         to stringResource(R.string.action_toggle_gym),
     )
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (capabilities.contains(Capability.STEM_CONFIG)) {
 
             // ── Stem Actions Grid ────────────────────────────────────────────
-            ExternalSectionHeader("Stem Actions", dark, requiresAacp = !state.aacpAvailable)
+            ExternalSectionHeader(stringResource(R.string.ui_press_actions), dark, requiresAacp = !state.aacpAvailable)
             Column(
                 Modifier.fillMaxWidth()
                     .background(cardColor, RoundedCornerShape(18.dp))
@@ -310,7 +310,7 @@ private fun ControlsContent(
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     BudColumnHeader(
                         imageRes = state.instance?.model?.leftBudsRes ?: R.drawable.airpods_pro_2_left,
-                        label = "Left Bud",
+                        label = stringResource(R.string.ui_left_bud),
                         selected = selectedBud == "left",
                         dark = dark,
                         modifier = Modifier.weight(1f),
@@ -318,7 +318,7 @@ private fun ControlsContent(
                     )
                     BudColumnHeader(
                         imageRes = state.instance?.model?.rightBudsRes ?: R.drawable.airpods_pro_2_right,
-                        label = "Right Bud",
+                        label = stringResource(R.string.ui_right_bud),
                         selected = selectedBud == "right",
                         dark = dark,
                         modifier = Modifier.weight(1f),
@@ -359,14 +359,14 @@ private fun ControlsContent(
             }
         } else {
             Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp)).padding(16.dp)) {
-                Text("Stem controls not available on this model.", style = captionStyle(dark))
+                Text(stringResource(R.string.ui_stem_controls_not_available_on), style = captionStyle(dark))
             }
         }
 
         // ── Listening Mode Configuration ──────────────────────────────────────
         val currentByte = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.LISTENING_MODE_CONFIGS]?.get(0)?.toInt() ?: 0
         Column(Modifier.fillMaxWidth()) {
-            MenuSectionHeader("Listening Mode Configuration", dark, requiresAacp = !state.aacpAvailable)
+            MenuSectionHeader(stringResource(R.string.ui_listening_mode_configuration), dark, requiresAacp = !state.aacpAvailable)
             Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 8.dp)) {
                 Text(stringResource(R.string.press_and_hold_noise_control_description), style = captionStyle(dark))
                 Spacer(Modifier.height(8.dp))
@@ -402,7 +402,7 @@ private fun ControlsContent(
             })
 
         // ── Controls Configuration ────────────────────────────────────────────
-        ExternalSectionHeader("Controls Configuration", dark)
+        ExternalSectionHeader(stringResource(R.string.controls_configuration), dark)
         Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp))) {
             ControlsConfigurationContent(
                 state = state,
@@ -571,14 +571,14 @@ private fun SettingsContent(
         val hasPPE = state.instance?.model?.capabilities?.contains(Capability.PPE) == true
 
         // ── Ungated ───────────────────────────────────────────────────────────
-        MenuNavRow("Device Name", dark, subtitle = state.deviceName) { navController.navigate("rename") }
+        MenuNavRow(stringResource(R.string.ui_device_name), dark, subtitle = state.deviceName) { navController.navigate("rename") }
 
         // Conversation Awareness
         val caEnabled = state.controlStates[
             AACPManager.Companion.ControlCommandIdentifiers.CONVERSATION_DETECT_CONFIG
         ]?.getOrNull(0) == 0x01.toByte()
         MenuDivider()
-        MenuSectionHeader("Conversation Awareness", dark, requiresAacp = !state.aacpAvailable)
+        MenuSectionHeader(stringResource(R.string.conversational_awareness), dark, requiresAacp = !state.aacpAvailable)
         Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
             val masterEnabled = state.isPremium && state.aacpAvailable
             StyledToggle(label = stringResource(R.string.conversational_awareness),
@@ -610,7 +610,7 @@ private fun SettingsContent(
         // Hearing Protection (PPE)
         if (hasPPE) {
             MenuDivider()
-            MenuSectionHeader("Hearing Protection", dark, requiresAacp = !state.aacpAvailable)
+            MenuSectionHeader(stringResource(R.string.hearing_protection), dark, requiresAacp = !state.aacpAvailable)
             Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
                 StyledToggle(label = stringResource(R.string.ppe),
                     description = stringResource(R.string.workspace_use_description),
@@ -622,7 +622,7 @@ private fun SettingsContent(
 
         // ── Bluetooth Control ────────────────────────────────────────────────
         MenuDivider()
-        MenuSectionHeader("Bluetooth Control", dark)
+        MenuSectionHeader(stringResource(R.string.ui_bluetooth_control), dark)
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
             StyledButton(onClick = { viewModel.disconnect() },
@@ -660,8 +660,8 @@ private fun SmartContent(
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
             // Toggle
             StyledToggle(
-                label = "🏋️ Gym Mode",
-                description = "Alternate stem actions for workouts",
+                label = stringResource(R.string.ui_gym_mode),
+                description = stringResource(R.string.ui_alternate_stem_actions_for_wor),
                 checked = gymModeEnabled,
                 onCheckedChange = {
                     gymModeEnabled = it
@@ -680,27 +680,28 @@ private fun SmartContent(
                 val gymTimerState = when (GymTimer.state()) {
                     GymTimer.State.IDLE -> {
                         val modeLabel = when (gymTimerMode) {
-                            GymTimer.Mode.COUNTDOWN -> "Countdown ready"
-                            GymTimer.Mode.STOPWATCH -> "Stopwatch ready"
-                            GymTimer.Mode.HIIT -> "HIIT ready"
+                            GymTimer.Mode.COUNTDOWN -> stringResource(R.string.ui_countdown_ready)
+                            GymTimer.Mode.STOPWATCH -> stringResource(R.string.ui_stopwatch_ready)
+                            GymTimer.Mode.HIIT -> stringResource(R.string.ui_hiit_ready)
                         }
                         modeLabel
                     }
                     GymTimer.State.PREPARING ->
-                        "Starting in ${GymTimer.preparationSecondsRemaining()}"
+                        stringResource(R.string.ui_timer_starting_in, GymTimer.preparationSecondsRemaining())
                     GymTimer.State.RUNNING -> {
                         when (gymTimerMode) {
                             GymTimer.Mode.COUNTDOWN -> {
                                 val r = GymTimer.countdownRemainingMs() / 1000
-                                String.format("Running %02d:%02d", r / 60, r % 60)
+                                stringResource(R.string.ui_timer_running, r / 60, r % 60)
                             }
                             GymTimer.Mode.STOPWATCH -> {
                                 val e = GymTimer.elapsedMs() / 1000
-                                String.format("Running %02d:%02d", e / 60, e % 60)
+                                stringResource(R.string.ui_timer_running, e / 60, e % 60)
                             }
                             GymTimer.Mode.HIIT -> {
                                 val (phase, round, remaining) = GymTimer.hiitPhaseInfo()
-                                String.format("${phase.name} R%d %02d:%02d", round, remaining / 60000, (remaining % 60000) / 1000)
+                                val phaseLabel = stringResource(if (phase == GymTimer.Phase.WORK) R.string.ui_timer_phase_work else R.string.ui_timer_phase_rest)
+                                stringResource(R.string.ui_timer_running_hiit, phaseLabel, round, remaining / 60000, (remaining % 60000) / 1000)
                             }
                         }
                     }
@@ -708,40 +709,58 @@ private fun SmartContent(
                         when (gymTimerMode) {
                             GymTimer.Mode.COUNTDOWN -> {
                                 val r = GymTimer.countdownRemainingMs() / 1000
-                                String.format("Paused %02d:%02d", r / 60, r % 60)
+                                stringResource(R.string.ui_timer_paused, r / 60, r % 60)
                             }
                             GymTimer.Mode.STOPWATCH -> {
                                 val e = GymTimer.elapsedMs() / 1000
-                                String.format("Paused %02d:%02d", e / 60, e % 60)
+                                stringResource(R.string.ui_timer_paused, e / 60, e % 60)
                             }
                             GymTimer.Mode.HIIT -> {
-                                val (phase, round, remaining) = GymTimer.hiitPhaseInfo()
-                                String.format("Paused ${phase.name} R%d", round)
+                                val (phase, round, _) = GymTimer.hiitPhaseInfo()
+                                val phaseLabel = stringResource(if (phase == GymTimer.Phase.WORK) R.string.ui_timer_phase_work else R.string.ui_timer_phase_rest)
+                                stringResource(R.string.ui_timer_paused_hiit, phaseLabel, round)
                             }
                         }
                     }
                 }
-                MenuNavRow("Gym Timer", dark, subtitle = gymTimerState) { navController.navigate("gym_timer") }
+                MenuNavRow(stringResource(R.string.ui_gym_timer), dark, subtitle = gymTimerState) { navController.navigate("gym_timer") }
                 
                 Spacer(Modifier.height(8.dp))
                 MenuDivider()
                 Spacer(Modifier.height(8.dp))
                 
                 // Configure Gym Press Actions row
-                MenuNavRow("Configure Gym Press Actions", dark) { navController.navigate("gym_press_actions") }
+        MenuNavRow(stringResource(R.string.ui_configure_gym_press_actions), dark) { navController.navigate("gym_press_actions") }
             }
         }
         } // end AnchorWrapper Column
     } // end AnchorWrapper
 
+    run {
+        val hrSharing by viewModel.heartRateSharingState.collectAsState()
+        val hrSession by viewModel.heartRateState.collectAsState()
+        Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp))) {
+            MenuNavRow(stringResource(R.string.hrs_title), dark,
+                enabled = state.aacpAvailable,
+                subtitle = stringResource(when {
+                    hrSharing.recovering -> R.string.hrs_reconnecting
+                    hrSharing.error != null || hrSession.failure != null -> R.string.hrs_needs_attention
+                    hrSharing.active && hrSharing.wahooDiagnostic -> R.string.hrs_tickr_sending
+                    hrSharing.active -> R.string.hrs_ble_ready
+                    hrSession.running -> R.string.hrs_monitoring
+                    else -> R.string.hrm_stopped
+                })) { navController.navigate("heart_rate_screen") }
+        }
+    }
+
     // Rest of Smart Features in another outer Column
     Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp))) {
         // Notification Announcements
-        MenuNavRow("Notification Announcements", dark) { navController.navigate("notification_announcements") }
+        MenuNavRow(stringResource(R.string.ui_notification_announcements), dark) { navController.navigate("notification_announcements") }
         MenuDivider()
 
         // Find my Case (proximity finder — works even when buds are out of case)
-        MenuNavRow("Find my Case", dark, subtitle = "Locate your AirPods case via Bluetooth signal") { navController.navigate("proximity_finder") }
+        MenuNavRow(stringResource(R.string.ui_find_my_case), dark, subtitle = stringResource(R.string.ui_find_my_case_description)) { navController.navigate("proximity_finder") }
     }
 
     Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp))) {
@@ -750,7 +769,7 @@ private fun SmartContent(
             MenuDivider()
             val headOn = sharedPrefs.getBoolean("head_gestures_enabled", false) &&
                 (sharedPrefs.getBoolean("head_gestures_answer_call", true) || sharedPrefs.getBoolean("head_gestures_mute_call", true))
-            MenuNavRow("Head Gestures — ${if (headOn) "On" else "Off"}", dark,
+            MenuNavRow(stringResource(R.string.ui_head_gestures_status, stringResource(if (headOn) R.string.on else R.string.off)), dark,
                 enabled = state.aacpAvailable) { navController.navigate("head_tracking") }
         }
 
@@ -758,7 +777,7 @@ private fun SmartContent(
         val model = state.instance?.model ?: AirPodsPro3()
         if (model.capabilities.contains(Capability.ADAPTIVE_VOLUME)) {
             MenuDivider()
-            MenuSectionHeader("Adaptive Audio", dark, requiresAacp = !state.aacpAvailable)
+            MenuSectionHeader(stringResource(R.string.adaptive_audio), dark, requiresAacp = !state.aacpAvailable)
             val adaptiveVal = remember {
                 mutableFloatStateOf(100f - (state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.AUTO_ANC_STRENGTH]?.getOrNull(0)?.toFloat() ?: 50f))
             }
@@ -784,7 +803,7 @@ private fun SmartContent(
 
         // Automation
         MenuDivider()
-        MenuSectionHeader("Automation", dark)
+        MenuSectionHeader(stringResource(R.string.ui_automation), dark)
         Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
             if (capabilities.contains(Capability.SLEEP_DETECTION)) {
                 val id = AACPManager.Companion.ControlCommandIdentifiers.SLEEP_DETECTION_CONFIG
@@ -804,13 +823,13 @@ private fun SmartContent(
         MenuDivider()
         Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
             var autoResume by remember { mutableStateOf(SmartFeaturesPrefs.autoResumeAfterCall(context)) }
-            StyledToggle(label = "Resume media after call", checked = autoResume, independent = true,
+            StyledToggle(label = stringResource(R.string.ui_resume_media_after_call), checked = autoResume, independent = true,
                 onCheckedChange = { autoResume = it; SmartFeaturesPrefs.prefs(context).edit().putBoolean(SmartFeaturesPrefs.KEY_AUTO_RESUME_AFTER_CALL, it).apply() })
             Spacer(Modifier.height(4.dp))
             var batteryAlerts by remember { mutableStateOf(SmartFeaturesPrefs.batteryAlertsEnabled(context)) }
             var batteryThreshold by remember { mutableStateOf(SmartFeaturesPrefs.batteryAlertThreshold(context)) }
-            StyledToggle(label = "Speak when battery is low", checked = batteryAlerts, independent = true,
-                description = "Announces at threshold, then every 5% below it (every 2% under 10%, repeats every 10 min under 2%)",
+            StyledToggle(label = stringResource(R.string.ui_speak_when_battery_is_low), checked = batteryAlerts, independent = true,
+                description = stringResource(R.string.ui_announces_at_threshold_then_ev_10f37),
                 onCheckedChange = { batteryAlerts = it; SmartFeaturesPrefs.prefs(context).edit().putBoolean(SmartFeaturesPrefs.KEY_BATTERY_ALERTS_ENABLED, it).apply() })
             if (batteryAlerts) {
                 Spacer(Modifier.height(6.dp))
@@ -831,7 +850,7 @@ private fun SmartContent(
 
         // Sleep Timer
         MenuDivider()
-        MenuSectionHeader("Sleep Timer", dark)
+        MenuSectionHeader(stringResource(R.string.ui_sleep_timer), dark)
         Column(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             var sleepRemainingMs by remember { mutableLongStateOf(SleepTimer.remainingMs(context)) }
             DisposableEffect(Unit) {
@@ -842,7 +861,7 @@ private fun SmartContent(
                 listOf(15, 30, 45, 60, 90).forEach { mins ->
                     StyledButton(onClick = { SleepTimer.start(context, mins * 60_000L); sleepRemainingMs = SleepTimer.remainingMs(context) },
                         backdrop = rememberLayerBackdrop(), modifier = Modifier.weight(1f).heightIn(min = 40.dp)) {
-                        Text("${mins}m", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro, color = if (dark) Color.White else Color.Black))
+                        Text(stringResource(R.string.ui_sleep_preset_minutes, mins), style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro, color = if (dark) Color.White else Color.Black))
                     }
                 }
             }
@@ -850,13 +869,13 @@ private fun SmartContent(
                 val mins = (sleepRemainingMs / 60_000L).toInt()
                 val secs = ((sleepRemainingMs % 60_000L) / 1000L).toInt()
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("⏱ ${mins}m ${secs}s remaining", style = TextStyle(fontSize = 13.sp, fontFamily = SfPro, color = if (dark) Color.White.copy(0.7f) else Color.Black.copy(0.7f)))
+                    Text(stringResource(R.string.ui_sleep_remaining, mins, secs), style = TextStyle(fontSize = 13.sp, fontFamily = SfPro, color = if (dark) Color.White.copy(0.7f) else Color.Black.copy(0.7f)))
                     StyledButton(onClick = { SleepTimer.cancel(context); sleepRemainingMs = 0L }, backdrop = rememberLayerBackdrop(), modifier = Modifier.heightIn(min = 36.dp)) {
-                        Text("Cancel", style = TextStyle(fontSize = 13.sp, fontFamily = SfPro, color = if (dark) Color.White else Color.Black))
+                        Text(stringResource(R.string.ui_cancel), style = TextStyle(fontSize = 13.sp, fontFamily = SfPro, color = if (dark) Color.White else Color.Black))
                     }
                 }
             } else {
-                Text("No timer running", style = captionStyle(dark))
+                Text(stringResource(R.string.ui_no_timer_running), style = captionStyle(dark))
             }
         }
     }
@@ -875,6 +894,8 @@ private fun AppSettingsContent(
     val cardColor = if (dark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
 
     Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp))) {
+        io.automated.ventures.everypods.presentation.components.AppLanguagePicker()
+        MenuDivider()
         Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
             StyledToggle(label = stringResource(R.string.show_phone_battery_in_widget),
                 description = stringResource(R.string.show_phone_battery_in_widget_description),
@@ -883,7 +904,7 @@ private fun AppSettingsContent(
                 independent = true, enabled = appState.isPremium)
         }
         MenuDivider()
-        MenuSectionHeader("Pop-up Animations", dark)
+        MenuSectionHeader(stringResource(R.string.popup_animations), dark)
         Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
             StyledToggle(label = stringResource(R.string.show_bottom_sheet_popup),
                 description = stringResource(R.string.show_bottom_sheet_popup_description),
@@ -902,7 +923,7 @@ private fun AppSettingsContent(
         // autostart all become unreliable. Surface the current state and a button
         // to open the system dialog. Same standard API works on Pixel/AOSP and
         // every OEM (Xiaomi, OnePlus, etc.).
-        MenuSectionHeader("Background Activity", dark)
+        MenuSectionHeader(stringResource(R.string.background_activity), dark)
         Column(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             val pm = remember { context.getSystemService(android.os.PowerManager::class.java) }
             // Re-evaluate every time the screen recomposes (user may have changed it).
@@ -919,8 +940,7 @@ private fun AppSettingsContent(
                 onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
             }
             Text(
-                if (unrestricted) "✅ Unrestricted — service runs reliably"
-                else "⚠ Battery optimization is active",
+                stringResource(if (unrestricted) R.string.background_unrestricted else R.string.background_restricted),
                 style = TextStyle(
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
@@ -930,13 +950,7 @@ private fun AppSettingsContent(
                 )
             )
             Text(
-                if (unrestricted)
-                    "EveryPods is allowed to run in the background. Handover, " +
-                    "BLE proximity, and boot autostart will work."
-                else
-                    "The system may kill the EveryPods service to save battery. " +
-                    "Handover may miss events, and EveryPods may not autostart on boot. " +
-                    "Tap below to set it to Unrestricted.",
+                stringResource(if (unrestricted) R.string.background_unrestricted_description else R.string.background_restricted_description),
                 style = captionStyle(dark)
             )
             if (!unrestricted) {
@@ -959,8 +973,7 @@ private fun AppSettingsContent(
                     backdrop = rememberLayerBackdrop(),
                     modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp)
                 ) {
-                    Text(
-                        "Allow unrestricted background activity",
+                    Text(stringResource(R.string.ui_allow_unrestricted_background),
                         style = TextStyle(
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Medium,
@@ -972,7 +985,7 @@ private fun AppSettingsContent(
             }
         }
         MenuDivider()
-        MenuNavRow("Permissions", dark) { navController.navigate("permissions") }
+        MenuNavRow(stringResource(R.string.ui_permissions), dark) { navController.navigate("permissions") }
     }
 }
 
@@ -998,6 +1011,7 @@ private fun AudioContent(
                 conversationalAwarenessCapability = m.capabilities.contains(Capability.CONVERSATION_AWARENESS),
                 adaptiveAudioCapability = m.capabilities.contains(Capability.ADAPTIVE_VOLUME),
                 customEqCapability = m.capabilities.contains(Capability.CUSTOM_EQ),
+
                 adaptiveVolumeChecked = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.ADAPTIVE_VOLUME_CONFIG]?.getOrNull(0) == 0x01.toByte(),
                 onAdaptiveVolumeCheckedChange = { viewModel.setControlCommandBoolean(AACPManager.Companion.ControlCommandIdentifiers.ADAPTIVE_VOLUME_CONFIG, it) },
                 conversationalAwarenessChecked = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.CONVERSATION_DETECT_CONFIG]?.getOrNull(0) == 0x01.toByte() && state.isPremium,
@@ -1135,20 +1149,20 @@ private fun HelpContent(
             AppInfoCard()
         }
         MenuDivider()
-        MenuNavRow("Version Info", dark) { navController.navigate("version_info") }
+        MenuNavRow(stringResource(R.string.ui_version_info), dark) { navController.navigate("version_info") }
         if (!BuildConfig.PLAY_BUILD) {
             MenuDivider()
-            MenuNavRow("Troubleshooting", dark) { navController.navigate("debug") }
+            MenuNavRow(stringResource(R.string.ui_troubleshooting), dark) { navController.navigate("debug") }
         }
         MenuDivider()
-        MenuNavRow("Email Support", dark) {
+        MenuNavRow(stringResource(R.string.ui_email_support), dark) {
             context.openEveryPodsSupportEmail()
         }
-        MenuNavRow("GitHub Issues", dark) {
+        MenuNavRow(stringResource(R.string.github_issues), dark) {
             context.openEveryPodsIssues()
         }
         MenuDivider()
-        MenuNavRow("Open Source Licenses", dark) { navController.navigate("open_source_licenses") }
+        MenuNavRow(stringResource(R.string.open_source_licenses), dark) { navController.navigate("open_source_licenses") }
     }
 }
 
@@ -1221,7 +1235,7 @@ internal fun BudColumnHeader(
                 painter = painterResource(imageRes),
                 contentDescription = label,
                 contentScale = ContentScale.Fit,
-                modifier = Modifier.height(46.dp).fillMaxWidth()
+                modifier = Modifier.heightIn(min = 46.dp).fillMaxWidth()
             )
             Text(label, style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium,
                 fontFamily = SfPro, color = if (selected) Color(0xFF0A84FF) else textColor))
@@ -1256,12 +1270,12 @@ private fun PressDropdown(
                 .padding(horizontal = 10.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-            Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            Text(label,
                 style = TextStyle(fontSize = 10.sp, fontFamily = SfPro,
                 color = textColor.copy(alpha = 0.5f)))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
-                Text(actionName, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                Text(actionName,
                     style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium,
                     fontFamily = SfPro, color = textColor), modifier = Modifier.weight(1f))
                 Text("▾", style = TextStyle(fontSize = 11.sp, fontFamily = SfPro, color = textColor.copy(alpha = 0.4f)))

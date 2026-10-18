@@ -18,6 +18,10 @@
 
 package io.automated.ventures.everypods.presentation.screens
 
+import io.automated.ventures.everypods.R
+
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -120,7 +124,7 @@ fun GymTimerScreen() {
         onDispose { GymTimer.removeListener(listener) }
     }
 
-    StyledScaffold(title = "Gym Timer") { topPadding, hazeState, bottomPadding ->
+    StyledScaffold(title = stringResource(R.string.ui_gym_timer)) { topPadding, hazeState, bottomPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -134,7 +138,7 @@ fun GymTimerScreen() {
 
             // Mode selector
             Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp)).padding(16.dp)) {
-                Text("Timer Mode", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
+                Text(stringResource(R.string.ui_timer_mode), style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
                     fontFamily = SfPro, color = if (dark) Color.White else Color.Black))
                 Spacer(Modifier.height(8.dp))
                 ModeSelectorRow(timerMode, timerState, dark) { selectedMode ->
@@ -167,7 +171,7 @@ fun GymTimerScreen() {
                         )
                         if (timerState == GymTimer.State.IDLE) {
                             Spacer(Modifier.height(4.dp))
-                            Text("Duration: ${countdownDurationSec / 60}m ${countdownDurationSec % 60}s", style = TextStyle(fontSize = 13.sp, fontFamily = SfPro,
+                            Text(stringResource(R.string.ui_timer_duration, countdownDurationSec / 60, countdownDurationSec % 60), style = TextStyle(fontSize = 13.sp, fontFamily = SfPro,
                                 color = if (dark) Color.White.copy(0.5f) else Color.Black.copy(0.5f)))
                         }
                     }
@@ -187,7 +191,7 @@ fun GymTimerScreen() {
                         if (laps.isNotEmpty()) {
                             Spacer(Modifier.height(8.dp))
                             val lastLap = laps.last()
-                            Text("Lap ${lastLap.number}: ${lastLap.splitMs / 1000}s",
+                            Text(stringResource(R.string.ui_lap_split, lastLap.number, lastLap.splitMs / 1000),
                                 style = TextStyle(fontSize = 14.sp, fontFamily = SfPro,
                                     color = if (dark) Color.White.copy(0.5f) else Color.Black.copy(0.5f)))
                         }
@@ -220,7 +224,7 @@ fun GymTimerScreen() {
                         )
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            "Round $round / ${GymTimer.getHiitRounds()}",
+                            stringResource(R.string.ui_round_progress, round, GymTimer.getHiitRounds()),
                             style = TextStyle(fontSize = 14.sp, fontFamily = SfPro,
                                 color = if (dark) Color.White.copy(0.5f) else Color.Black.copy(0.5f))
                         )
@@ -229,7 +233,7 @@ fun GymTimerScreen() {
                 if (timerState == GymTimer.State.PREPARING) {
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "Starting in ${GymTimer.preparationSecondsRemaining()}",
+                        stringResource(R.string.ui_preparing_in, GymTimer.preparationSecondsRemaining()),
                         style = TextStyle(
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Medium,
@@ -280,7 +284,7 @@ fun GymTimerScreen() {
                     backdrop = backdrop,
                     modifier = Modifier.weight(1f).heightIn(min = 52.dp)
                 ) {
-                    Text("RESET", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium,
+                    Text(stringResource(R.string.ui_reset), style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium,
                         fontFamily = SfPro, color = if (dark) Color.White else Color.Black))
                 }
             }
@@ -292,7 +296,7 @@ fun GymTimerScreen() {
                     backdrop = backdrop,
                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                 ) {
-                    Text("LAP", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium,
+                    Text(stringResource(R.string.ui_lap), style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium,
                         fontFamily = SfPro, color = if (dark) Color.White else Color.Black))
                 }
             }
@@ -300,13 +304,13 @@ fun GymTimerScreen() {
             // Laps list (only for stopwatch)
             if (timerMode == GymTimer.Mode.STOPWATCH && laps.isNotEmpty()) {
                 Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp)).padding(16.dp)) {
-                    Text("Laps", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
+                    Text(stringResource(R.string.ui_laps), style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
                         fontFamily = SfPro, color = if (dark) Color.White else Color.Black))
                     Spacer(Modifier.height(8.dp))
                     laps.reversed().forEachIndexed { idx, lap ->
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Lap ${lap.number}", style = bodyStyle(dark))
-                            Text("${lap.splitMs / 1000}s / ${lap.elapsedMs / 1000}s",
+                            Text(stringResource(R.string.ui_lap_label, lap.number), style = bodyStyle(dark))
+                            Text(stringResource(R.string.ui_lap_times, lap.splitMs / 1000, lap.elapsedMs / 1000),
                                 style = TextStyle(fontSize = 14.sp, fontFamily = SfPro,
                                     color = if (dark) Color.White.copy(0.5f) else Color.Black.copy(0.5f)))
                         }
@@ -353,8 +357,8 @@ fun GymTimerScreen() {
             // Timer announcements are independent from notification announcements.
             Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp)).padding(16.dp)) {
                 StyledToggle(
-                    label = "5-second start countdown",
-                    description = "Count down before a new timer begins",
+                    label = stringResource(R.string.ui_5_second_start_countdown),
+                    description = stringResource(R.string.ui_count_down_before_a_new_timer),
                     checked = preparationCountdownEnabled,
                     onCheckedChange = {
                         preparationCountdownEnabled = it
@@ -365,8 +369,8 @@ fun GymTimerScreen() {
                 )
                 Spacer(Modifier.height(14.dp))
                 StyledToggle(
-                    label = "Timer announcements",
-                    description = "Hear timer progress, controls, and completion",
+                    label = stringResource(R.string.ui_timer_announcements),
+                    description = stringResource(R.string.ui_hear_timer_progress_controls_a),
                     checked = voiceEnabled,
                     onCheckedChange = {
                         voiceEnabled = it
@@ -377,8 +381,7 @@ fun GymTimerScreen() {
 
                 if (voiceEnabled && timerMode == GymTimer.Mode.STOPWATCH) {
                     Spacer(Modifier.height(14.dp))
-                    Text(
-                        "Stopwatch elapsed-time cue",
+                    Text(stringResource(R.string.ui_stopwatch_elapsed_time_cue),
                         style = TextStyle(
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium,
@@ -400,8 +403,8 @@ fun GymTimerScreen() {
                 if (voiceEnabled) {
                     Spacer(Modifier.height(14.dp))
                     StyledToggle(
-                        label = "Intermediate announcements",
-                        description = "Countdown quarters, HIIT phases, laps, and stopwatch intervals",
+                        label = stringResource(R.string.ui_intermediate_announcements),
+                        description = stringResource(R.string.ui_countdown_quarters_hiit_phases),
                         checked = intermediateAnnouncementsEnabled,
                         onCheckedChange = {
                             intermediateAnnouncementsEnabled = it
@@ -411,8 +414,8 @@ fun GymTimerScreen() {
                     )
                     Spacer(Modifier.height(14.dp))
                     StyledToggle(
-                        label = "Final countdown",
-                        description = "Speak the final 5 seconds before countdown and HIIT phases end",
+                        label = stringResource(R.string.ui_final_countdown),
+                        description = stringResource(R.string.ui_speak_the_final_5_seconds_befo),
                         checked = finalCountdownEnabled,
                         onCheckedChange = {
                             finalCountdownEnabled = it
@@ -425,8 +428,8 @@ fun GymTimerScreen() {
 
             Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp)).padding(16.dp)) {
                 StyledToggle(
-                    label = "Wake screen and show timer",
-                    description = "Open the full timer interface when a gesture starts or resumes it",
+                    label = stringResource(R.string.ui_wake_screen_and_show_timer),
+                    description = stringResource(R.string.ui_open_the_full_timer_interface),
                     checked = wakeScreenOnTimerStart,
                     onCheckedChange = {
                         wakeScreenOnTimerStart = it
@@ -447,7 +450,10 @@ private fun StopwatchAnnouncementIntervalSelector(
     dark: Boolean,
     onSelect: (Int) -> Unit
 ) {
-    val options = listOf(0 to "Off", 1 to "1 min", 5 to "5 min", 10 to "10 min")
+    val options = listOf(0, 1, 5, 10).map { minutes ->
+        minutes to if (minutes == 0) stringResource(R.string.off)
+        else stringResource(R.string.ui_timer_value_minutes, minutes)
+    }
     val textColor = if (dark) Color.White else Color.Black
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         options.forEach { (minutes, label) ->
@@ -488,8 +494,8 @@ private fun ModeSelectorRow(
     onSelect: (GymTimer.Mode) -> Unit
 ) {
     val modes = listOf(
-        GymTimer.Mode.COUNTDOWN to "Countdown",
-        GymTimer.Mode.STOPWATCH to "Stopwatch",
+        GymTimer.Mode.COUNTDOWN to stringResource(R.string.timer_countdown_label),
+        GymTimer.Mode.STOPWATCH to stringResource(R.string.speech_timer_name_stopwatch),
         GymTimer.Mode.HIIT to "HIIT",
     )
     val textColor = if (dark) Color.White else Color.Black
@@ -530,7 +536,7 @@ private fun CountdownSettings(
     val cardColor = if (dark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
 
     Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp)).padding(16.dp)) {
-        Text("Duration", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
+        Text(stringResource(R.string.ui_duration), style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
             fontFamily = SfPro, color = if (dark) Color.White else Color.Black))
         Spacer(Modifier.height(8.dp))
         val minLabel = "${durationSec / 60}m ${durationSec % 60}s"
@@ -540,7 +546,7 @@ private fun CountdownSettings(
         
         // Quick seconds (sub-minute timers)
         Column(Modifier.fillMaxWidth()) {
-            Text("Quick", style = bodyStyle(dark))
+            Text(stringResource(R.string.ui_quick), style = bodyStyle(dark))
             Spacer(Modifier.height(6.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf(20, 30, 40, 45, 60, 90).forEach { s ->
@@ -560,7 +566,7 @@ private fun CountdownSettings(
                             .padding(horizontal = 10.dp, vertical = 4.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("${s}s", style = TextStyle(fontSize = 12.sp, fontFamily = SfPro, color = fg))
+                        Text(stringResource(R.string.ui_timer_value_seconds, s), style = TextStyle(fontSize = 12.sp, fontFamily = SfPro, color = fg))
                     }
                 }
             }
@@ -569,7 +575,7 @@ private fun CountdownSettings(
         
         // Minutes
         Column(Modifier.fillMaxWidth()) {
-            Text("Minutes", style = bodyStyle(dark))
+            Text(stringResource(R.string.ui_minutes), style = bodyStyle(dark))
             Spacer(Modifier.height(6.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(1, 2, 3, 5, 10).forEach { m ->
@@ -590,7 +596,7 @@ private fun CountdownSettings(
                             .padding(horizontal = 12.dp, vertical = 6.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("${m}m", style = TextStyle(fontSize = 13.sp, fontFamily = SfPro, color = fg))
+                        Text(stringResource(R.string.ui_timer_value_minutes, m), style = TextStyle(fontSize = 13.sp, fontFamily = SfPro, color = fg))
                     }
                 }
             }
@@ -599,7 +605,7 @@ private fun CountdownSettings(
         
         // Seconds
         Column(Modifier.fillMaxWidth()) {
-            Text("Seconds", style = bodyStyle(dark))
+            Text(stringResource(R.string.ui_seconds), style = bodyStyle(dark))
             Spacer(Modifier.height(6.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(0, 15, 30, 45).forEach { s ->
@@ -620,7 +626,7 @@ private fun CountdownSettings(
                             .padding(horizontal = 12.dp, vertical = 6.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("${s}s", style = TextStyle(fontSize = 13.sp, fontFamily = SfPro, color = fg))
+                        Text(stringResource(R.string.ui_timer_value_seconds, s), style = TextStyle(fontSize = 13.sp, fontFamily = SfPro, color = fg))
                     }
                 }
             }
@@ -641,14 +647,14 @@ private fun HiitSettings(
     val cardColor = if (dark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
 
     Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp)).padding(16.dp)) {
-        Text("HIIT Configuration", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
+        Text(stringResource(R.string.ui_hiit_configuration), style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
             fontFamily = SfPro, color = if (dark) Color.White else Color.Black))
         Spacer(Modifier.height(12.dp))
 
         // Work
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("Work", style = bodyStyle(dark), modifier = Modifier.weight(1f))
-            Text("$workSec s", style = TextStyle(fontSize = 14.sp, fontFamily = SfPro,
+            Text(stringResource(R.string.ui_work), style = bodyStyle(dark), modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.ui_timer_value_seconds, workSec), style = TextStyle(fontSize = 14.sp, fontFamily = SfPro,
                 color = if (dark) Color.White.copy(0.5f) else Color.Black.copy(0.5f)))
         }
         Spacer(Modifier.height(4.dp))
@@ -670,7 +676,7 @@ private fun HiitSettings(
                         .padding(vertical = 6.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("${s}s", style = TextStyle(fontSize = 13.sp, fontFamily = SfPro, color = fg))
+                    Text(stringResource(R.string.ui_timer_value_seconds, s), style = TextStyle(fontSize = 13.sp, fontFamily = SfPro, color = fg))
                 }
             }
         }
@@ -681,8 +687,8 @@ private fun HiitSettings(
 
         // Rest
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("Rest", style = bodyStyle(dark), modifier = Modifier.weight(1f))
-            Text("$restSec s", style = TextStyle(fontSize = 14.sp, fontFamily = SfPro,
+            Text(stringResource(R.string.ui_rest), style = bodyStyle(dark), modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.ui_timer_value_seconds, restSec), style = TextStyle(fontSize = 14.sp, fontFamily = SfPro,
                 color = if (dark) Color.White.copy(0.5f) else Color.Black.copy(0.5f)))
         }
         Spacer(Modifier.height(4.dp))
@@ -704,7 +710,7 @@ private fun HiitSettings(
                         .padding(vertical = 6.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("${s}s", style = TextStyle(fontSize = 13.sp, fontFamily = SfPro, color = fg))
+                    Text(stringResource(R.string.ui_timer_value_seconds, s), style = TextStyle(fontSize = 13.sp, fontFamily = SfPro, color = fg))
                 }
             }
         }
@@ -715,8 +721,8 @@ private fun HiitSettings(
 
         // Rounds
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("Rounds", style = bodyStyle(dark), modifier = Modifier.weight(1f))
-            Text("$rounds", style = TextStyle(fontSize = 14.sp, fontFamily = SfPro,
+            Text(stringResource(R.string.ui_rounds), style = bodyStyle(dark), modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.ui_timer_value_rounds, rounds), style = TextStyle(fontSize = 14.sp, fontFamily = SfPro,
                 color = if (dark) Color.White.copy(0.5f) else Color.Black.copy(0.5f)))
         }
         Spacer(Modifier.height(4.dp))
@@ -738,7 +744,7 @@ private fun HiitSettings(
                         .padding(vertical = 6.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("$r", style = TextStyle(fontSize = 13.sp, fontFamily = SfPro, color = fg))
+                    Text(stringResource(R.string.ui_timer_value_rounds, r), style = TextStyle(fontSize = 13.sp, fontFamily = SfPro, color = fg))
                 }
             }
         }

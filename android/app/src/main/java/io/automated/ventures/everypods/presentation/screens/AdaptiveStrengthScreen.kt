@@ -131,7 +131,7 @@ fun AdaptiveStrengthScreen(viewModel: AirPodsViewModel, navController: NavContro
                 ) {
                     io.automated.ventures.everypods.presentation.components.RequiresAacpIcon()
                     Text(
-                        text = "Adaptive Audio requires AACP support",
+                        text = stringResource(R.string.ui_adaptive_audio_requires_aacp_s),
                         style = TextStyle(
                             fontSize = 13.sp,
                             fontFamily = FontFamily(Font(R.font.sf_pro)),

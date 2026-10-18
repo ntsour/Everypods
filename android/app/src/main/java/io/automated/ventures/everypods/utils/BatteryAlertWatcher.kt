@@ -160,8 +160,12 @@ object BatteryAlertWatcher {
             BatteryComponent.CASE -> "case"
             else -> "battery"
         }
-        val language = AnnouncementPrefs.resolvedLanguage(ctx)
-        val text = AnnouncementPrefs.batteryAlert(language, componentKey, b.level)
-        AnnouncementCoordinator.announce(ctx, text, AnnouncementCoordinator.Priority.SAFETY)
+        val language = AnnouncementPrefs.generatedSpeechLanguage(ctx)
+        val text = AnnouncementPrefs.batteryAlert(ctx, language, componentKey, b.level)
+        AnnouncementCoordinator.announceSpeech(
+            ctx,
+            LocalizedSpeech(text, language),
+            AnnouncementCoordinator.Priority.SAFETY
+        )
     }
 }

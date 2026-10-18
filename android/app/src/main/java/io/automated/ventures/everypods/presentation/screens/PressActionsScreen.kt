@@ -1,5 +1,7 @@
 package io.automated.ventures.everypods.presentation.screens
 
+import androidx.compose.ui.res.stringResource
+
 import android.content.SharedPreferences
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -50,22 +52,22 @@ fun PressActionsScreen(viewModel: AirPodsViewModel) {
         runCatching { StemAction.valueOf(sharedPrefs.getString(key, default.name) ?: default.name) }.getOrDefault(default)
     
     val pressTypes = listOf(
-        Pair("Single Press", AACPManager.Companion.StemPressType.SINGLE_PRESS),
-        Pair("Double Press", AACPManager.Companion.StemPressType.DOUBLE_PRESS),
-        Pair("Triple Press", AACPManager.Companion.StemPressType.TRIPLE_PRESS),
-        Pair("Long Press", AACPManager.Companion.StemPressType.LONG_PRESS),
+        Pair(stringResource(R.string.ui_single_press), AACPManager.Companion.StemPressType.SINGLE_PRESS),
+        Pair(stringResource(R.string.press_twice), AACPManager.Companion.StemPressType.DOUBLE_PRESS),
+        Pair(stringResource(R.string.press_three_times), AACPManager.Companion.StemPressType.TRIPLE_PRESS),
+        Pair(stringResource(R.string.press_and_hold_airpods), AACPManager.Companion.StemPressType.LONG_PRESS),
     )
     
     val actionOptions = listOf(
-        StemAction.PLAY_PAUSE              to "Play / Pause",
-        StemAction.NEXT_TRACK              to "Next Track",
-        StemAction.PREVIOUS_TRACK          to "Prev. Track",
-        StemAction.DIGITAL_ASSISTANT       to "Voice Assistant",
-        StemAction.CYCLE_NOISE_CONTROL_MODES to "Listening Mode",
-        StemAction.TOGGLE_GYM_MODE         to "Gym Mode On / Off",
+        StemAction.PLAY_PAUSE              to stringResource(R.string.action_play_pause),
+        StemAction.NEXT_TRACK              to stringResource(R.string.action_next_track),
+        StemAction.PREVIOUS_TRACK          to stringResource(R.string.action_previous_track),
+        StemAction.DIGITAL_ASSISTANT       to stringResource(R.string.digital_assistant),
+        StemAction.CYCLE_NOISE_CONTROL_MODES to stringResource(R.string.noise_control),
+        StemAction.TOGGLE_GYM_MODE         to stringResource(R.string.action_toggle_gym),
     )
     
-    StyledScaffold(title = "Press Actions") { topPadding, hazeState, bottomPadding ->
+    StyledScaffold(title = stringResource(R.string.ui_press_actions)) { topPadding, hazeState, bottomPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -81,7 +83,7 @@ fun PressActionsScreen(viewModel: AirPodsViewModel) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         BudColumnHeader(
                             imageRes = state.instance?.model?.leftBudsRes ?: R.drawable.airpods_pro_2_left,
-                            label = "Left Bud",
+                            label = stringResource(R.string.ui_left_bud),
                             selected = selectedBud == "left",
                             dark = dark,
                             modifier = Modifier.weight(1f),
@@ -89,7 +91,7 @@ fun PressActionsScreen(viewModel: AirPodsViewModel) {
                         )
                         BudColumnHeader(
                             imageRes = state.instance?.model?.rightBudsRes ?: R.drawable.airpods_pro_2_right,
-                            label = "Right Bud",
+                            label = stringResource(R.string.ui_right_bud),
                             selected = selectedBud == "right",
                             dark = dark,
                             modifier = Modifier.weight(1f),
@@ -118,14 +120,13 @@ fun PressActionsScreen(viewModel: AirPodsViewModel) {
                 }
 
                 Spacer(Modifier.height(8.dp))
-                Text(
-                    "Voice Assistant behavior depends on the assistant app: some (e.g. ChatGPT) may not respond to this gesture, and some require the device to be unlocked first — this is an Android platform limitation, not a bug.",
+                Text(stringResource(R.string.ui_voice_assistant_behavior_depen),
                     style = captionStyle(dark),
                     modifier = Modifier.padding(horizontal = 4.dp)
                 )
             } else {
                 Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp)).padding(16.dp)) {
-                    Text("Stem controls not available on this model.", style = captionStyle(dark))
+                    Text(stringResource(R.string.ui_stem_controls_not_available_on), style = captionStyle(dark))
                 }
             }
 

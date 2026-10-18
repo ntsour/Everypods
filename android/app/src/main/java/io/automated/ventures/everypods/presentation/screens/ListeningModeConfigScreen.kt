@@ -37,7 +37,7 @@ fun ListeningModeConfigScreen(viewModel: AirPodsViewModel) {
     val cardColor = if (dark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
     val currentByte = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.LISTENING_MODE_CONFIGS]?.get(0)?.toInt() ?: 0
     
-    StyledScaffold(title = "Listening Mode Configuration") { topPadding, hazeState, bottomPadding ->
+    StyledScaffold(title = stringResource(R.string.ui_listening_mode_configuration)) { topPadding, hazeState, bottomPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()

@@ -20,7 +20,18 @@
 
 package io.automated.ventures.everypods.services
 
+import io.automated.ventures.everypods.bluetooth.hrm.SharingError
+import io.automated.ventures.everypods.bluetooth.hrm.HeartRateSharingState
+import io.automated.ventures.everypods.bluetooth.hrm.HeartRateSharingMethod
+import io.automated.ventures.everypods.bluetooth.hrm.HeartRateSharingPrefs
+import io.automated.ventures.everypods.bluetooth.hrm.HeartRateSharingIntent
+import io.automated.ventures.everypods.bluetooth.hrm.WahooDiagnosticBridge
+import io.automated.ventures.everypods.bluetooth.hrm.BluetoothHeartRatePeripheral
+import io.automated.ventures.everypods.bluetooth.hrm.BluetoothHrPeripheralError
+
 import io.automated.ventures.everypods.startup.StartupGate
+import androidx.compose.ui.res.stringResource
+
 import io.automated.ventures.everypods.utils.CrossDevice
 import io.automated.ventures.everypods.utils.CrossDeviceClient
 import io.automated.ventures.everypods.utils.CrossDevicePackets
@@ -79,11 +90,13 @@ import androidx.annotation.RequiresPermission
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.core.app.NotificationCompat
 import androidx.core.content.edit
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -104,6 +117,8 @@ import io.automated.ventures.everypods.bluetooth.BluetoothConnectionManager
 import io.automated.ventures.everypods.data.AirPodsInstance
 import io.automated.ventures.everypods.data.AirPodsModels
 import io.automated.ventures.everypods.data.AirPodsNotifications
+import io.automated.ventures.everypods.bluetooth.hrm.HeartRateSession
+import io.automated.ventures.everypods.bluetooth.hrm.HeartRateFailure
 import io.automated.ventures.everypods.data.CustomEq
 import io.automated.ventures.everypods.data.Battery
 import io.automated.ventures.everypods.data.BatteryComponent
@@ -120,6 +135,7 @@ import io.automated.ventures.everypods.utils.GestureDetector
 import io.automated.ventures.everypods.utils.HeadTracking
 import io.automated.ventures.everypods.utils.AnnouncementCoordinator
 import io.automated.ventures.everypods.utils.AnnouncementPrefs
+import io.automated.ventures.everypods.utils.LocalizedSpeech
 import io.automated.ventures.everypods.utils.ElevenLabsEngine
 import io.automated.ventures.everypods.utils.GymModePrefs
 import io.automated.ventures.everypods.utils.GymModeStemPressArbitration
@@ -183,6 +199,284 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     lateinit var aacpManager: AACPManager
     var airpodsInstance: AirPodsInstance? = null
     private var disconnectedBecauseReversed = false
+    private var heartRateDevice: String? = null
+    private var heartRateWatchdog: kotlinx.coroutines.Job? = null
+    private val heartRateSession = HeartRateSession(
+        elapsed = { SystemClock.elapsedRealtime() },
+        wallClock = { System.currentTimeMillis() },
+        send = { sensorService, interval ->
+            Log.i("EveryPodsHRM", "Sensor command service=$sensorService intervalMicros=$interval")
+            aacpManager.sendHeartRateCommand(sensorService, interval)
+        }
+    )
+    val heartRateState get() = heartRateSession.state
+
+    private val mutableHeartRateSharing = kotlinx.coroutines.flow.MutableStateFlow(HeartRateSharingState())
+    val heartRateSharingState = mutableHeartRateSharing.asStateFlow()
+    @Volatile private var wahooDiagnosticBridge: WahooDiagnosticBridge? = null
+    @Volatile private var bluetoothHeartRatePeripheral: BluetoothHeartRatePeripheral? = null
+    private val hrSharingIntent = HeartRateSharingIntent()
+    private val hrSharingScope = CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.Main.immediate)
+    private var hrRecovery: kotlinx.coroutines.Job? = null
+    private var hrTransportRecovery: kotlinx.coroutines.Job? = null
+    private var hrTransportRetries = 0
+    @Volatile private var hrGeneration = 0L
+    private var hrSharingDevice: String? = null
+    private var hrRecoveryDeadline = 0L
+    private var heartRateSharingWakeLock: android.os.PowerManager.WakeLock? = null
+
+    /** Preview lifecycle must not cancel a separately authorized sharing session. */
+    fun stopHeartRatePreview() {
+        if (!heartRateSharingState.value.active) stopHeartRate(heartRateState.value.failure)
+    }
+
+    @SuppressLint("WakelockTimeout") // Explicit sharing session; Stop/error/disconnect/onDestroy release it.
+    fun startHeartRateSharing(method: HeartRateSharingMethod, gym: Boolean = false) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            Handler(Looper.getMainLooper()).post { startHeartRateSharing(method, gym) }
+            return
+        }
+        val gymOwned = gym || (heartRateSharingState.value.active && hrSharingIntent.gymOwned)
+        if (heartRateSharingState.value.active) {
+            if (hrSharingIntent.method == method) return
+            stopHeartRate()
+        }
+        if (method == HeartRateSharingMethod.TICKR && runCatching {
+                packageManager.getPackageInfo("com.wahoofitness.fitness", 0)
+            }.isFailure) {
+            mutableHeartRateSharing.value = HeartRateSharingState(error = SharingError.WAHOO_UNAVAILABLE)
+            return
+        }
+        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED ||
+            (method == HeartRateSharingMethod.BLUETOOTH && checkSelfPermission(Manifest.permission.BLUETOOTH_ADVERTISE) != PackageManager.PERMISSION_GRANTED)) {
+            mutableHeartRateSharing.value = HeartRateSharingState(error = SharingError.PERMISSION)
+            return
+        }
+        startHeartRate()
+        if (!heartRateState.value.running) return
+        hrSharingIntent.start(method, gymOwned)
+        hrSharingDevice = device?.address
+        hrRecoveryDeadline = 0L
+        hrTransportRetries = 0
+        try {
+            if (method == HeartRateSharingMethod.TICKR) {
+                wahooDiagnosticBridge = WahooDiagnosticBridge(this)
+                mutableHeartRateSharing.value = HeartRateSharingState(active = true, wahooDiagnostic = true)
+            } else {
+                startBluetoothHeartRateTransport()
+            }
+            heartRateSharingWakeLock = getSystemService(android.os.PowerManager::class.java)
+                .newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "EveryPods:HeartRateSharing")
+                .apply { setReferenceCounted(false); acquire() }
+            showHeartRateSharingNotification()
+        } catch (e: Exception) {
+            Log.w("EveryPodsHRM", "Sharing start failed: ${e.javaClass.simpleName}")
+            stopHeartRate()
+            mutableHeartRateSharing.value = heartRateSharingState.value.copy(
+                error = SharingError.SERVER)
+        }
+    }
+
+    private fun startBluetoothHeartRateTransport() {
+        lateinit var peripheral: BluetoothHeartRatePeripheral
+        peripheral = BluetoothHeartRatePeripheral(this, changed = { state ->
+            Handler(Looper.getMainLooper()).post {
+                if (bluetoothHeartRatePeripheral === peripheral) mutableHeartRateSharing.value = HeartRateSharingState(
+                    active = hrSharingIntent.method == HeartRateSharingMethod.BLUETOOTH,
+                    advertised = state.advertising,
+                    name = "EveryPods HR",
+                    clients = state.connected,
+                    subscriptions = state.subscribed,
+                    sent = state.sent,
+                    bluetoothPeripheral = true,
+                    recovering = heartRateSharingState.value.recovering,
+                    error = when (state.error) {
+                        BluetoothHrPeripheralError.UNSUPPORTED -> SharingError.BLUETOOTH_UNSUPPORTED
+                        BluetoothHrPeripheralError.PERMISSION -> SharingError.BLUETOOTH_PERMISSION
+                        BluetoothHrPeripheralError.GATT_SERVER, BluetoothHrPeripheralError.SERVICE -> SharingError.BLUETOOTH_GATT
+                        BluetoothHrPeripheralError.ADVERTISING -> SharingError.BLUETOOTH_ADVERTISING
+                        null -> null
+                    }
+                )
+            }
+        }, failed = { error ->
+            Handler(Looper.getMainLooper()).post {
+                if (bluetoothHeartRatePeripheral === peripheral) {
+                    retryBluetoothHeartRate(error)
+                }
+            }
+        })
+        bluetoothHeartRatePeripheral = peripheral
+        mutableHeartRateSharing.value = heartRateSharingState.value.copy(active = true, bluetoothPeripheral = true, error = null)
+        peripheral.start()
+    }
+
+    private fun retryBluetoothHeartRate(error: BluetoothHrPeripheralError) {
+        bluetoothHeartRatePeripheral = null // Invalidate delayed callbacks from the failed server.
+        val rendered = when (error) {
+            BluetoothHrPeripheralError.UNSUPPORTED -> SharingError.BLUETOOTH_UNSUPPORTED
+            BluetoothHrPeripheralError.PERMISSION -> SharingError.BLUETOOTH_PERMISSION
+            BluetoothHrPeripheralError.GATT_SERVER, BluetoothHrPeripheralError.SERVICE -> SharingError.BLUETOOTH_GATT
+            BluetoothHrPeripheralError.ADVERTISING -> SharingError.BLUETOOTH_ADVERTISING
+        }
+        if (error == BluetoothHrPeripheralError.PERMISSION || error == BluetoothHrPeripheralError.UNSUPPORTED || hrTransportRetries >= 3) {
+            stopHeartRate(HeartRateFailure.SEND_FAILED)
+            mutableHeartRateSharing.value = HeartRateSharingState(error = rendered)
+            return
+        }
+        hrTransportRetries++
+        mutableHeartRateSharing.value = heartRateSharingState.value.copy(active = true, recovering = true, advertised = false, clients = 0, subscriptions = 0, error = null)
+        showHeartRateSharingNotification()
+        hrTransportRecovery?.cancel()
+        hrTransportRecovery = hrSharingScope.launch {
+            delay(2_000L * hrTransportRetries)
+            if (hrSharingIntent.method == HeartRateSharingMethod.BLUETOOTH) {
+                runCatching { startBluetoothHeartRateTransport() }.onFailure {
+                    stopHeartRate(HeartRateFailure.SEND_FAILED)
+                }
+            }
+        }
+    }
+
+    @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+    private fun showHeartRateSharingNotification() {
+        val manager = getSystemService(NotificationManager::class.java)
+        manager.createNotificationChannel(NotificationChannel("heart_rate_sharing",
+            getString(R.string.hrm_share_title), NotificationManager.IMPORTANCE_LOW))
+        val stop = PendingIntent.getService(this, 731, Intent(this, AirPodsService::class.java)
+            .setAction("io.automated.ventures.everypods.STOP_HR_SHARING"),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val open = PendingIntent.getActivity(this, 732, Intent(this, MainActivity::class.java).putExtra(io.automated.ventures.everypods.EXTRA_OPEN_HEART_RATE, true)
+                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        manager.notify(731, NotificationCompat.Builder(this, "heart_rate_sharing")
+            .setSmallIcon(R.drawable.ic_bluetooth).setContentTitle(getString(R.string.hrm_share_title))
+            .setContentText(getString(if (heartRateSharingState.value.recovering) R.string.hrs_reconnecting
+                else if (heartRateState.value.status == io.automated.ventures.everypods.bluetooth.hrm.HeartRateStatus.STALE) R.string.hrm_stale
+                else if (heartRateState.value.bpm == null) R.string.hrm_waiting
+                else if (hrSharingIntent.method == HeartRateSharingMethod.TICKR) R.string.hrs_tickr_sending else R.string.hrs_ble_ready)).setContentIntent(open)
+            .setOngoing(true).setOnlyAlertOnce(true)
+            .addAction(R.drawable.ic_bluetooth, getString(R.string.hrm_stop), stop).build())
+    }
+
+    fun startHeartRate() {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            Handler(Looper.getMainLooper()).post { startHeartRate() }
+            return
+        }
+        if (heartRateState.value.running) return
+        hrGeneration++
+        val connected = BluetoothConnectionManager.getCurrentSocket()?.isConnected == true
+        val supported = io.automated.ventures.everypods.utils.isAacpCapable() &&
+            airpodsInstance?.model?.capabilities?.contains(
+                io.automated.ventures.everypods.data.Capability.HRM) == true
+        val firmware = airpodsInstance?.version3.orEmpty()
+        if (firmware.isBlank()) Log.i("EveryPodsHRM", "Firmware unknown; using legacy service 19")
+        heartRateDevice = device?.address
+        if (!heartRateSession.start(supported, connected, aacpManager.owns || isA2dpConnected(), firmware)) {
+            heartRateDevice = null
+            Log.i("EveryPodsHRM", "Start rejected: ${heartRateState.value.failure}")
+            return
+        }
+        heartRateWatchdog?.cancel()
+        heartRateWatchdog = CoroutineScope(Dispatchers.Main).launch {
+            while (heartRateState.value.running) {
+                delay(500)
+                if (device?.address != null && heartRateDevice != device?.address) {
+                    stopHeartRate(HeartRateFailure.DEVICE_CHANGED, false)
+                } else if (device == null || BluetoothConnectionManager.getCurrentSocket()?.isConnected != true) {
+                    stopHeartRate(HeartRateFailure.CONNECTION_LOST, false)
+                } else if (!aacpManager.owns && !isA2dpConnected()) {
+                    stopHeartRate(HeartRateFailure.NOT_OWNER)
+                } else {
+                    val before = heartRateState.value.status
+                    heartRateSession.tick()
+                    if (heartRateState.value.status == io.automated.ventures.everypods.bluetooth.hrm.HeartRateStatus.STALE) {
+                        wahooDiagnosticBridge?.clearReading()
+                        if (before != heartRateState.value.status && heartRateSharingState.value.active) showHeartRateSharingNotification()
+                    }
+                    if (!heartRateState.value.running) stopHeartRate(heartRateState.value.failure)
+                    if (before != heartRateState.value.status)
+                        Log.i("EveryPodsHRM", "Session ${heartRateState.value.status} reason=${heartRateState.value.failure}; ${aacpManager.heartRateDiagnostics()}")
+                }
+            }
+        }
+        Log.i("EveryPodsHRM", "Session waiting; firmware=$firmware service=${heartRateState.value.serviceId}")
+    }
+
+    fun stopHeartRate(reason: HeartRateFailure? = null, connectionUsable: Boolean = true) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            Handler(Looper.getMainLooper()).post { stopHeartRate(reason, connectionUsable) }
+            return
+        }
+        if (hrSharingIntent.method != null && reason in setOf(HeartRateFailure.CONNECTION_LOST, HeartRateFailure.NO_DATA)) {
+            recoverHeartRate(reason!!, connectionUsable)
+            return
+        }
+        hrGeneration++
+        hrTransportRecovery?.cancel()
+        hrTransportRecovery = null
+        hrRecovery?.cancel()
+        hrRecovery = null
+        hrSharingIntent.stop(manual = reason == null)
+        hrSharingDevice = null
+        hrRecoveryDeadline = 0L
+        wahooDiagnosticBridge?.stop()
+        wahooDiagnosticBridge = null
+        bluetoothHeartRatePeripheral?.stop()
+        bluetoothHeartRatePeripheral = null
+        mutableHeartRateSharing.value = HeartRateSharingState()
+        heartRateSharingWakeLock?.let { if (it.isHeld) it.release() }
+        heartRateSharingWakeLock = null
+        getSystemService(NotificationManager::class.java).cancel(731)
+        heartRateWatchdog?.cancel()
+        heartRateWatchdog = null
+        heartRateSession.stop(reason, connectionUsable)
+        heartRateDevice = null
+        Log.i("EveryPodsHRM", "Session ${heartRateState.value.status} reason=${heartRateState.value.failure}; ${aacpManager.heartRateDiagnostics()}")
+    }
+
+    private fun recoverHeartRate(reason: HeartRateFailure, connectionUsable: Boolean) {
+        wahooDiagnosticBridge?.clearReading()
+        heartRateSession.stop(reason, connectionUsable)
+        heartRateWatchdog?.cancel()
+        heartRateWatchdog = null
+        mutableHeartRateSharing.value = heartRateSharingState.value.copy(recovering = true)
+        showHeartRateSharingNotification()
+        if (hrRecovery?.isActive == true) return
+        if (hrRecoveryDeadline == 0L) hrRecoveryDeadline = android.os.SystemClock.elapsedRealtime() + 60_000L
+        hrRecovery = hrSharingScope.launch {
+            var backoff = 2_000L
+            while (hrSharingIntent.method != null && android.os.SystemClock.elapsedRealtime() < hrRecoveryDeadline) {
+                delay(backoff)
+                backoff = (backoff * 2).coerceAtMost(8_000L)
+                if (device?.address != null && device?.address != hrSharingDevice) {
+                    stopHeartRate(HeartRateFailure.DEVICE_CHANGED, false)
+                    return@launch
+                }
+                // Recovery uses an existing local connection and never requests takeover.
+                if (device?.address == hrSharingDevice && BluetoothConnectionManager.getCurrentSocket()?.isConnected == true &&
+                    (aacpManager.owns || isA2dpConnected())) {
+                    startHeartRate()
+                    if (heartRateState.value.running) return@launch
+                }
+            }
+            // A terminal reason bypasses recovery and tears down the transport.
+            stopHeartRate(HeartRateFailure.SEND_FAILED, false)
+        }
+    }
+
+    private fun onGymHeartRateChanged(enabled: Boolean) {
+        val wasGymOwned = hrSharingIntent.gymOwned
+        if (!enabled) {
+            if (wasGymOwned) stopHeartRate()
+            hrSharingIntent.gymChanged(false)
+        } else if (HeartRateSharingPrefs.gymAuto(this) && !hrSharingIntent.suppressedForGym &&
+            !heartRateSharingState.value.active) {
+            startHeartRateSharing(HeartRateSharingPrefs.method(this), gym = true)
+        }
+    }
+
 
     data class ServiceConfig(
         var deviceName: String = "AirPods",
@@ -688,6 +982,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     @SuppressLint("MissingPermission", "UnspecifiedRegisterReceiverFlag", "HardwareIds")
     override fun onCreate() {
         super.onCreate()
+        WahooDiagnosticBridge.resetInterruptedSession(this)
         Log.i(
             StartupGate.TAG,
             "service onCreate pid=${android.os.Process.myPid()} btConnect=${
@@ -1396,6 +1691,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
             override fun onOwnershipChangeReceived(owns: Boolean) {
                 if (!owns) {
+                    if (heartRateState.value.running || heartRateSharingState.value.active) stopHeartRate(HeartRateFailure.NOT_OWNER)
                     Log.d(TAG, "ownership lost — Android will fire AUDIO_BECOMING_NOISY to pause the old device")
                     disconnectAudio(
                         this@AirPodsService, device
@@ -1513,6 +1809,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 config.airpodsHardwareRevision = deviceInformation.hardwareRevision
                 config.airpodsUpdaterIdentifier = deviceInformation.updaterIdentifier
 
+                if ((heartRateState.value.running || heartRateSharingState.value.active) && airpodsInstance?.actualModelNumber != config.airpodsModelNumber)
+                    stopHeartRate(HeartRateFailure.DEVICE_CHANGED, false)
                 val model = AirPodsModels.getModelByModelNumber(config.airpodsModelNumber)
                 if (model != null) {
                     airpodsInstance = AirPodsInstance(
@@ -1691,6 +1989,43 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     Intent(AirPodsNotifications.EQ_DATA).putExtra("eqData", eqData).apply {
                         setPackage(packageName)
                     })
+            }
+
+            override fun onHeartRateSample(bpm: Int) {
+                if (Looper.myLooper() != Looper.getMainLooper()) {
+                    val generation = hrGeneration
+                    Handler(Looper.getMainLooper()).post {
+                        if (generation == hrGeneration) onHeartRateSample(bpm)
+                    }
+                    return
+                }
+                if (heartRateDevice != device?.address) {
+                    if (heartRateState.value.running) stopHeartRate(HeartRateFailure.DEVICE_CHANGED, false)
+                    return
+                }
+                val previousStatus = heartRateState.value.status
+                heartRateSession.sample(bpm)
+                if (heartRateState.value.running) {
+                    if (wahooDiagnosticBridge?.publish(bpm) == false) {
+                        stopHeartRate(HeartRateFailure.SEND_FAILED)
+                        return
+                    }
+                    bluetoothHeartRatePeripheral?.publish(bpm)
+                    if (heartRateSharingState.value.recovering && (wahooDiagnosticBridge != null || bluetoothHeartRatePeripheral != null)) {
+                        mutableHeartRateSharing.value = heartRateSharingState.value.copy(recovering = false)
+                        showHeartRateSharingNotification()
+                    }
+                    if (heartRateSharingState.value.active && previousStatus != io.automated.ventures.everypods.bluetooth.hrm.HeartRateStatus.LIVE)
+                        showHeartRateSharingNotification()
+                    hrRecoveryDeadline = 0L
+                    wahooDiagnosticBridge?.let { bridge ->
+                        mutableHeartRateSharing.value = heartRateSharingState.value.copy(sent = bridge.sent)
+                    }
+                }
+            }
+
+            override fun onSensorDisconnected() {
+                if (heartRateState.value.running) stopHeartRate(HeartRateFailure.CONNECTION_LOST, false)
             }
 
             override fun onCustomEqReceived(customEq: CustomEq) {
@@ -1888,23 +2223,25 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
     private fun announceGymModeToggle() {
         if (!sharedPreferences.getBoolean("gym_voice_announcements_enabled", true)) return
+        val languageTag = AnnouncementPrefs.generatedSpeechLanguage(this)
+        val localized = AnnouncementPrefs.contextForLanguage(this, languageTag)
         val text = if (config.gymModeEnabled) {
             val modeName = when (GymTimer.mode()) {
-                GymTimer.Mode.COUNTDOWN -> "Countdown timer"
-                GymTimer.Mode.STOPWATCH -> "Stopwatch"
-                GymTimer.Mode.HIIT -> "HIIT timer"
+                GymTimer.Mode.COUNTDOWN -> localized.getString(R.string.speech_timer_name_countdown)
+                GymTimer.Mode.STOPWATCH -> localized.getString(R.string.speech_timer_name_stopwatch)
+                GymTimer.Mode.HIIT -> localized.getString(R.string.speech_timer_name_hiit)
             }
-            "Gym Mode on. $modeName ready. Double press to start."
-        } else "Gym Mode off."
-        announceGymText(text, AnnouncementCoordinator.Priority.CONTROL)
+            localized.getString(R.string.speech_gym_mode_on, modeName)
+        } else localized.getString(R.string.speech_gym_mode_off)
+        announceGymText(LocalizedSpeech(text, languageTag), AnnouncementCoordinator.Priority.CONTROL)
     }
 
     /**
      * Routes gym timer announcements through the same TTS configuration as
      * notification announcements (ElevenLabs vs System TTS, language, voice).
      */
-    private fun announceGymText(text: String, priority: AnnouncementCoordinator.Priority) {
-        AnnouncementCoordinator.announce(this, text, priority)
+    private fun announceGymText(text: LocalizedSpeech, priority: AnnouncementCoordinator.Priority) {
+        AnnouncementCoordinator.announceSpeech(this, text, priority)
     }
 
     /**
@@ -1999,7 +2336,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         val actualAfter = audioManager.isMicrophoneMute
         Log.d(TAG, "toggleMicMute: setMicrophoneMute($nowMuted) -> isMicrophoneMute=$actualAfter (was=$wasMuted)")
 
-        sendToast(if (nowMuted) "Mic muted" else "Mic unmuted")
+        sendToast(getString(if (nowMuted) R.string.toast_mic_muted else R.string.toast_mic_unmuted))
         if (nowMuted) startMutedReminder() else stopMutedReminder()
 
         // Sync Teams' in-app mute UI by firing the Mute/Unmute action from its
@@ -2312,6 +2649,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     intermediateAnnouncementsEnabled = GymModePrefs.intermediateAnnouncementsEnabled(this@AirPodsService),
                     finalCountdownEnabled = GymModePrefs.finalCountdownEnabled(this@AirPodsService)
                 )?.let { speechEvent -> GymTimerAnnouncementText.forEvent(
+                    context = this@AirPodsService,
+                    languageTag = AnnouncementPrefs.generatedSpeechLanguage(this@AirPodsService),
                     event = speechEvent,
                     stopwatchIntervalMinutes = GymModePrefs.stopwatchAnnouncementIntervalMinutes(this@AirPodsService)
                 ) }?.let { text -> announceGymText(text, event.gymAnnouncementPriority()) }
@@ -2410,7 +2749,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         )
         val builder = NotificationCompat.Builder(this, GYM_TIMER_NOTIFICATION_CHANNEL)
             .setSmallIcon(R.drawable.airpods)
-            .setContentTitle("Gym Timer")
+            .setContentTitle(getString(R.string.ui_gym_timer))
             .setContentText(contentText)
             .setContentIntent(contentIntent)
             .setCategory(NotificationCompat.CATEGORY_STOPWATCH)
@@ -2541,9 +2880,16 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
             "gym_mode_enabled" -> {
                 config.gymModeEnabled = preferences.getBoolean(key, false)
+                onGymHeartRateChanged(config.gymModeEnabled)
                 setupStemActions()
                 announceGymModeToggle()
                 refreshGymModeNotification()
+            }
+
+            HeartRateSharingPrefs.GYM_AUTO -> {
+                if (!HeartRateSharingPrefs.gymAuto(this)) {
+                    if (hrSharingIntent.gymOwned) stopHeartRate()
+                } else onGymHeartRateChanged(config.gymModeEnabled)
             }
 
             "gym_left_double_press_action" -> {
@@ -2775,24 +3121,24 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     fun startForegroundNotification() {
         val disconnectedNotificationChannel = NotificationChannel(
             "background_service_status",
-            "AirPods Connection",
+            getString(R.string.channel_airpods_connection),
             NotificationManager.IMPORTANCE_LOW
         ).apply {
-            description = "Shows when EveryPods is maintaining the AirPods connection in the background"
+            description = getString(R.string.channel_connection_background_description)
         }
 
         val connectedNotificationChannel = NotificationChannel(
             "airpods_connection_status",
-            "AirPods Connection Status",
+            getString(R.string.channel_airpods_connection_status),
             NotificationManager.IMPORTANCE_LOW,
         )
 
         val socketFailureChannel = NotificationChannel(
             "socket_connection_failure",
-            "AirPods Socket Connection Issues",
+            getString(R.string.channel_airpods_socket_issues),
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
-            description = "Notifications about problems connecting to AirPods protocol"
+            description = getString(R.string.channel_socket_failure_description)
             enableLights(true)
             lightColor = Color.RED
             enableVibration(true)
@@ -2800,10 +3146,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
         val gymTimerChannel = NotificationChannel(
             GYM_TIMER_NOTIFICATION_CHANNEL,
-            "Gym Timer on lock screen",
+            getString(R.string.channel_gym_timer),
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
-            description = "Shows an active Gym Timer on the lock screen"
+            description = getString(R.string.channel_gym_timer_description)
             setSound(null, null)
             enableVibration(false)
         }
@@ -2827,11 +3173,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         )
 
         val foregroundText = listOfNotNull(
-            "Maintaining your AirPods connection and controls",
+            getString(R.string.qs_maintaining_connection),
             gymModeNotificationStatus()
         ).joinToString(" · ")
         val notificationBuilder = NotificationCompat.Builder(this, "background_service_status")
-            .setSmallIcon(R.drawable.airpods).setContentTitle("EveryPods — AirPods connection active")
+            .setSmallIcon(R.drawable.airpods).setContentTitle(getString(R.string.qs_connection_active))
             .setContentText(foregroundText)
             .setContentIntent(pendingIntentNotifDisable).setCategory(Notification.CATEGORY_SERVICE)
             .setPriority(NotificationCompat.PRIORITY_LOW).setOngoing(true)
@@ -2860,6 +3206,24 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         }
     }
 
+    /** Refreshes localized presentation after Android applies a per-app locale change. */
+    fun refreshLocalizedPresentation() {
+        if (heartRateSharingState.value.active) showHeartRateSharingNotification()
+        startForegroundNotification()
+        val connected = runCatching { isConnected() || isA2dpConnected() }.getOrDefault(false)
+        if (connected) {
+            updateNotificationContent(
+                true,
+                getSharedPreferences("settings", MODE_PRIVATE).getString("name", config.deviceName),
+                batteryNotification.getBattery()
+            )
+        } else {
+            getSystemService(NotificationManager::class.java).cancel(2)
+        }
+        updateBatteryWidget()
+        updateNoiseControlWidget()
+    }
+
     @Suppress("KotlinUnreachableCode")
     @OptIn(ExperimentalMaterial3Api::class)
     private fun showSocketConnectionFailureNotification(errorMessage: String) {
@@ -2875,10 +3239,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         )
 
         val notification = NotificationCompat.Builder(this, "socket_connection_failure")
-            .setSmallIcon(R.drawable.airpods).setContentTitle("AirPods Connection Issue")
-            .setContentText("Unable to connect to AirPods over L2CAP").setStyle(
+            .setSmallIcon(R.drawable.airpods).setContentTitle(getString(R.string.notification_airpods_connection_issue))
+            .setContentText(getString(R.string.ui_unable_to_connect_to_airpods_o)).setStyle(
                 NotificationCompat.BigTextStyle().bigText(
-                    "Your AirPods are connected via Bluetooth, but EveryPods couldn't connect to AirPods using L2CAP. Error: $errorMessage"
+                    getString(R.string.notification_airpods_l2cap_error, errorMessage)
                 )
             ).setContentIntent(pendingIntent).setCategory(Notification.CATEGORY_ERROR)
             .setPriority(NotificationCompat.PRIORITY_HIGH).setAutoCancel(true).build()
@@ -3432,7 +3796,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 if (!isMuted) {
                     audioManager.setMicrophoneMute(true)
                     CallNotifListener.setMuted(true)
-                    sendToast("Mic muted")
+                    sendToast(getString(R.string.toast_mic_muted))
                     Log.d(TAG, "Gesture mute: shake → muted")
                     startMutedReminder()
                 }
@@ -3440,7 +3804,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 if (isMuted) {
                     audioManager.setMicrophoneMute(false)
                     CallNotifListener.setMuted(false)
-                    sendToast("Mic unmuted")
+                    sendToast(getString(R.string.toast_mic_unmuted))
                     Log.d(TAG, "Gesture unmute: nod → unmuted")
                     stopMutedReminder()
                 }
@@ -3581,7 +3945,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             // (WhatsApp, Signal, etc.).
             if (dispatchHeadsethookToTelecom()) {
                 Log.d(TAG, "rejectCall: dispatched to Telecom session — active call should end")
-                sendToast("Call ended")
+                sendToast(getString(R.string.toast_call_ended))
                 islandWindow?.close()
                 return
             }
@@ -3616,18 +3980,18 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             val handled = CallNotifListener.hangUp()
             if (handled) {
                 Log.d(TAG, "rejectCall: ended via notification hang-up action")
-                sendToast("Call ended")
+                sendToast(getString(R.string.toast_call_ended))
             } else {
                 val declined = CallNotifListener.declineCall()
                 if (declined) {
                     Log.d(TAG, "rejectCall: declined via notification decline action")
-                    sendToast("Call declined")
+                    sendToast(getString(R.string.toast_call_declined))
                 } else {
                     Log.w(TAG, "rejectCall: no method worked — call may remain active")
                 }
             }
         } else {
-            sendToast("Call ended")
+            sendToast(getString(R.string.toast_call_ended))
         }
         islandWindow?.close()
     }
@@ -4102,6 +4466,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             disconnectedBecauseReversed = false
             takeOver("music", manualTakeOverAfterReversed = true)
         }
+
+        if (intent?.action == "io.automated.ventures.everypods.STOP_HR_SHARING") stopHeartRate()
 
         if (intent?.action == ACTION_TOGGLE_GYM_MODE) {
             GymModePrefs.setEnabled(this, !GymModePrefs.isEnabled(this))
@@ -4672,7 +5038,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 )
             )
             if (manual) {
-                sendToast("Couldn't connect to socket: ${lastError?.localizedMessage ?: "Timeout"}")
+                sendToast(getString(R.string.toast_socket_connection_error, lastError?.localizedMessage ?: "Timeout"))
             } else {
                 showSocketConnectionFailureNotification(
                     "Couldn't connect to socket: ${lastError?.localizedMessage ?: "Timeout"}"
@@ -4743,7 +5109,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                             if (bytesRead > 0) {
                                 lastBytesAtMs = System.currentTimeMillis()
                                 val data = buffer.copyOfRange(0, bytesRead)
-                                sendBroadcast(Intent(AirPodsNotifications.AIRPODS_DATA).apply {
+                                // Keep health sensor payloads out of general packet logs/broadcasts.
+                                val rawTraceAllowed = !heartRateState.value.running && data.size >= 6 &&
+                                    data[0] == 4.toByte() && data[1] == 0.toByte() &&
+                                    data[2] == 4.toByte() && data[3] == 0.toByte() && data[4] != 0x17.toByte()
+                                if (rawTraceAllowed) sendBroadcast(Intent(AirPodsNotifications.AIRPODS_DATA).apply {
                                     putExtra("data", data)
                                     setPackage(packageName)
                                 })
@@ -4754,7 +5124,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                                     batteryNotification.getBattery()
                                 )
                                 aacpManager.receivePacket(data)
-                                if (!isHeadTrackingData(data)) {
+                                if (rawTraceAllowed && !isHeadTrackingData(data)) {
                                     Log.d("AirPodsData", "Data received: $formattedHex")
                                     logPacket(data, "AirPods")
                                 }
@@ -5362,6 +5732,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }
 
     override fun onDestroy() {
+        stopHeartRate()
+        hrSharingScope.cancel()
+
         Log.i(StartupGate.TAG, "service onDestroy")
         clearPacketLogs()
         Log.w(TAG, "W5 Service onDestroy — process going away; RFCOMM links will drop until restart")

@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -80,6 +81,7 @@ fun StyledButton(
     maxScale: Float = 0.1f,
     height: Dp = 48.dp,
     enabled: Boolean = true,
+    adaptHeightToContent: Boolean = true,
     content: @Composable RowScope.() -> Unit,
 ) {
     val isInteractive = enabled && isInteractive
@@ -328,7 +330,7 @@ half4 main(float2 coord) {
                     }
                 }
             )
-            .height(height)
+            .then(if (adaptHeightToContent) Modifier.heightIn(min = height) else Modifier.height(height))
             .padding(horizontal = 16f.dp),
         horizontalArrangement = Arrangement.spacedBy(8f.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,

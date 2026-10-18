@@ -1,0 +1,43 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="speech_battery_left">Заряд лівого AirPod — %1$d відсотків</string>
+    <string name="speech_battery_right">Заряд правого AirPod — %1$d відсотків</string>
+    <string name="speech_battery_case">Заряд футляра AirPods — %1$d відсотків</string>
+    <string name="speech_battery_generic">Заряд батареї — %1$d відсотків</string>
+    <string name="speech_call_named">Вхідний дзвінок від %1$s</string>
+    <string name="speech_call_generic">Вхідний дзвінок</string>
+    <string name="speech_timer_countdown_started">Зворотний відлік почався. %1$s.</string>
+    <string name="speech_timer_stopwatch_started">Запустився секундомір.</string>
+    <string name="speech_timer_hiit_started">Стартував HIIT. %1$d раундів. Робота %2$s. Відпочинок %3$s.</string>
+    <string name="speech_timer_countdown_resumed">Зворотний відлік відновлено. Залишилося %1$s.</string>
+    <string name="speech_timer_stopwatch_resumed">Секундомір відновлено. %1$s минуло.</string>
+    <string name="speech_timer_hiit_resumed">HIIT відновлено. Залишилося %1$s.</string>
+    <string name="speech_timer_countdown_paused">Зворотний відлік призупинено. Залишилося %1$s.</string>
+    <string name="speech_timer_stopwatch_paused">Секундомір призупинено. %1$s минуло.</string>
+    <string name="speech_timer_hiit_paused">HIIT призупинено. Залишилося %1$s.</string>
+    <string name="speech_timer_countdown_reset">Скидання зворотного відліку.</string>
+    <string name="speech_timer_stopwatch_reset">Скидання секундоміра.</string>
+    <string name="speech_timer_hiit_reset">Скидання HIIT.</string>
+    <string name="speech_timer_quarter_complete">Одна чверть виконана</string>
+    <string name="speech_timer_halfway">На півдорозі</string>
+    <string name="speech_timer_three_quarters_complete">Три чверті виконано</string>
+    <string name="speech_timer_elapsed">%1$s минуло.</string>
+    <string name="speech_timer_round_phase">Круглий %1$d. %2$s.</string>
+    <string name="speech_timer_work">Робота</string>
+    <string name="speech_timer_rest">Відпочинок</string>
+    <string name="speech_timer_lap">Коло %1$d. %2$s. Усього %3$s.</string>
+    <string name="speech_timer_countdown_complete">Зворотний відлік завершено.</string>
+    <string name="speech_timer_hiit_complete">HIIT завершено.</string>
+    <plurals name="speech_minutes">
+        <item quantity="one">%1$d хвилина</item>
+        <item quantity="few">%1$d хвилини</item>
+        <item quantity="many">%1$d хвилин</item>
+        <item quantity="other">%1$d хвилин</item>
+    </plurals>
+    <plurals name="speech_seconds">
+        <item quantity="one">%1$d секунда</item>
+        <item quantity="few">%1$d секунди</item>
+        <item quantity="many">%1$d секунд</item>
+        <item quantity="other">%1$d секунд</item>
+    </plurals>
+</resources>

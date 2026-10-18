@@ -213,8 +213,8 @@ class AirPodsQSService : TileService() {
             tile.icon = Icon.createWithResource(this, getModeIcon(currentAncMode))
         } else {
             tile.state = Tile.STATE_UNAVAILABLE
-            tile.label = "AirPods"
-            tile.subtitle = "Disconnected"
+            tile.label = getString(R.string.airpods_brand)
+            tile.subtitle = getString(R.string.takeover_disconnected)
             tile.icon = Icon.createWithResource(this, R.drawable.airpods)
         }
 

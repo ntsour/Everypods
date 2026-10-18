@@ -1,5 +1,9 @@
 package io.automated.ventures.everypods.presentation.screens
 
+import io.automated.ventures.everypods.R
+
+import androidx.compose.ui.res.stringResource
+
 import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -43,7 +47,7 @@ fun SmartAutomationScreen(viewModel: AirPodsViewModel) {
     val cardColor = if (dark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
     val capabilities = state.capabilities
     
-    StyledScaffold(title = "Automation") { topPadding, hazeState, bottomPadding ->
+    StyledScaffold(title = stringResource(R.string.ui_automation)) { topPadding, hazeState, bottomPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -57,27 +61,27 @@ fun SmartAutomationScreen(viewModel: AirPodsViewModel) {
             Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp)).padding(16.dp)) {
                 if (capabilities.contains(Capability.SLEEP_DETECTION)) {
                     val id = AACPManager.Companion.ControlCommandIdentifiers.SLEEP_DETECTION_CONFIG
-                    StyledToggle(label = "Sleep Detection",
+                    StyledToggle(label = stringResource(R.string.ui_sleep_detection),
                         checked = state.controlStates[id]?.getOrNull(0) == 0x01.toByte(),
                         onCheckedChange = { viewModel.setControlCommandBoolean(id, it) },
                         independent = true, enabled = state.isPremium && state.aacpAvailable)
                     Spacer(Modifier.height(12.dp))
                 }
                 
-                StyledToggle(label = "Optimized Charging",
-                    description = "Slows charging past 80% to preserve battery health",
+                StyledToggle(label = stringResource(R.string.ui_optimized_charging),
+                    description = stringResource(R.string.ui_slows_charging_past_80_to_pres),
                     checked = state.dynamicEndOfCharge, onCheckedChange = viewModel::setDynamicEndOfCharge, independent = true)
                 Spacer(Modifier.height(12.dp))
                 
                 var autoResume by remember { mutableStateOf(SmartFeaturesPrefs.autoResumeAfterCall(context)) }
-                StyledToggle(label = "Resume media after call", checked = autoResume, independent = true,
+                StyledToggle(label = stringResource(R.string.ui_resume_media_after_call), checked = autoResume, independent = true,
                     onCheckedChange = { autoResume = it; SmartFeaturesPrefs.prefs(context).edit().putBoolean(SmartFeaturesPrefs.KEY_AUTO_RESUME_AFTER_CALL, it).apply() })
                 Spacer(Modifier.height(12.dp))
                 
                 var batteryAlerts by remember { mutableStateOf(SmartFeaturesPrefs.batteryAlertsEnabled(context)) }
                 var batteryThreshold by remember { mutableStateOf(SmartFeaturesPrefs.batteryAlertThreshold(context)) }
-                StyledToggle(label = "Speak when battery is low", checked = batteryAlerts, independent = true,
-                    description = "Announces at threshold, then every 5% below it",
+                StyledToggle(label = stringResource(R.string.ui_speak_when_battery_is_low), checked = batteryAlerts, independent = true,
+                    description = stringResource(R.string.ui_announces_at_threshold_then_ev),
                     onCheckedChange = { batteryAlerts = it; SmartFeaturesPrefs.prefs(context).edit().putBoolean(SmartFeaturesPrefs.KEY_BATTERY_ALERTS_ENABLED, it).apply() })
                 if (batteryAlerts) {
                     Spacer(Modifier.height(6.dp))

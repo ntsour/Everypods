@@ -18,6 +18,8 @@
 
 package io.automated.ventures.everypods.presentation.screens
 
+import androidx.compose.ui.res.stringResource
+
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
@@ -109,7 +111,7 @@ fun AnnouncementAppPickerScreen(navController: NavController) {
         else apps.filter { it.label.contains(query, ignoreCase = true) || it.packageName.contains(query, ignoreCase = true) }
     }
 
-    StyledScaffold(title = "Apps — disable to silence") { topPadding, _, bottomPadding ->
+    StyledScaffold(title = stringResource(R.string.ui_apps_disable_to_silence)) { topPadding, _, bottomPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -120,7 +122,7 @@ fun AnnouncementAppPickerScreen(navController: NavController) {
                 value = query,
                 onValueChange = { query = it },
                 modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                placeholder = { Text("Search apps") },
+                placeholder = { Text(stringResource(R.string.ui_search_apps)) },
                 singleLine = true,
             )
             androidx.compose.foundation.layout.Row(
@@ -128,8 +130,7 @@ fun AnnouncementAppPickerScreen(navController: NavController) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Text(
-                    "Show system apps",
+                Text(stringResource(R.string.ui_show_system_apps),
                     style = TextStyle(fontSize = 14.sp, color = textColor, fontFamily = FontFamily(Font(R.font.sf_pro)))
                 )
                 Switch(checked = showSystem, onCheckedChange = { showSystem = it })

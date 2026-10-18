@@ -18,6 +18,8 @@
 
 package io.automated.ventures.everypods.presentation.screens
 
+import androidx.compose.ui.res.stringResource
+
 import android.app.TimePickerDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -85,7 +87,7 @@ fun AncProfilesScreen(navController: NavController) {
         onDispose { AncProfilesManager.removeListener(l) }
     }
 
-    StyledScaffold(title = "ANC profiles") { topPadding, _, bottomPadding ->
+    StyledScaffold(title = stringResource(R.string.ui_anc_profiles)) { topPadding, _, bottomPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -102,8 +104,8 @@ fun AncProfilesScreen(navController: NavController) {
                     .padding(vertical = 4.dp)
             ) {
                 StyledToggle(
-                    label = "Auto-ANC profiles",
-                    description = "Switch noise control mode automatically based on time of day. The first matching profile wins; check in declaration order.",
+                    label = stringResource(R.string.ui_auto_anc_profiles),
+                    description = stringResource(R.string.ui_switch_noise_control_mode_auto),
                     checked = enabled,
                     independent = false,
                     onCheckedChange = {
@@ -113,8 +115,7 @@ fun AncProfilesScreen(navController: NavController) {
                 )
             }
 
-            Text(
-                "Profiles",
+            Text(stringResource(R.string.ui_profiles),
                 style = TextStyle(
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
@@ -132,7 +133,7 @@ fun AncProfilesScreen(navController: NavController) {
                         .padding(16.dp)
                 ) {
                     Text(
-                        "No profiles yet. Tap \"Add profile\" below.",
+                        stringResource(R.string.ui_anc_no_profiles, stringResource(R.string.ui_add_profile)),
                         style = TextStyle(fontSize = 14.sp, color = textColor.copy(alpha = 0.6f), fontFamily = FontFamily(Font(R.font.sf_pro)))
                     )
                 }
@@ -156,8 +157,7 @@ fun AncProfilesScreen(navController: NavController) {
                     .clickable { showAdd = true }
                     .padding(horizontal = 16.dp, vertical = 14.dp),
             ) {
-                Text(
-                    "Add profile",
+                Text(stringResource(R.string.ui_add_profile),
                     style = TextStyle(fontSize = 16.sp, color = Color(0xFF0A84FF), fontFamily = FontFamily(Font(R.font.sf_pro)))
                 )
             }
@@ -212,7 +212,7 @@ private fun ProfileRow(p: AncProfile, textColor: Color, onClick: () -> Unit) {
         Column {
             Text(p.name, style = TextStyle(fontSize = 15.sp, color = textColor, fontFamily = FontFamily(Font(R.font.sf_pro))))
             Text(
-                "$display · ${labelFor(p.ancMode)}",
+                stringResource(R.string.ui_anc_profile_summary, display, labelFor(p.ancMode)),
                 style = TextStyle(fontSize = 12.sp, color = textColor.copy(alpha = 0.6f), fontFamily = FontFamily(Font(R.font.sf_pro))),
                 modifier = Modifier.padding(top = 2.dp)
             )
@@ -243,13 +243,13 @@ private fun ProfileEditDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (initial == null) "New profile" else "Edit profile") },
+        title = { Text(stringResource(if (initial == null) R.string.profile_new else R.string.profile_edit)) },
         text = {
             Column {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Name") },
+                    label = { Text(stringResource(R.string.ui_name)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
                     modifier = Modifier.fillMaxWidth(),
@@ -262,8 +262,8 @@ private fun ProfileEditDialog(
                         .padding(vertical = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Text("Start", style = TextStyle(fontSize = 15.sp))
-                    Text("%02d:%02d".format(startMin / 60, startMin % 60), style = TextStyle(fontSize = 15.sp))
+                    Text(stringResource(R.string.ui_start), style = TextStyle(fontSize = 15.sp))
+                    Text(stringResource(R.string.ui_02d_02d).format(startMin / 60, startMin % 60), style = TextStyle(fontSize = 15.sp))
                 }
                 Row(
                     modifier = Modifier
@@ -272,8 +272,8 @@ private fun ProfileEditDialog(
                         .padding(vertical = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Text("End", style = TextStyle(fontSize = 15.sp))
-                    Text("%02d:%02d".format(endMin / 60, endMin % 60), style = TextStyle(fontSize = 15.sp))
+                    Text(stringResource(R.string.ui_end), style = TextStyle(fontSize = 15.sp))
+                    Text(stringResource(R.string.ui_02d_02d).format(endMin / 60, endMin % 60), style = TextStyle(fontSize = 15.sp))
                 }
                 Spacer(Modifier.height(8.dp))
                 StyledSelectList(items = NoiseControlMode.entries.map { m ->
@@ -301,22 +301,23 @@ private fun ProfileEditDialog(
                         ancMode = mode,
                     )
                 )
-            }) { Text("Save") }
+            }) { Text(stringResource(R.string.ui_save)) }
         },
         dismissButton = {
             Row {
                 if (onDelete != null) {
-                    TextButton(onClick = onDelete) { Text("Delete", color = Color(0xFFFF453A)) }
+                    TextButton(onClick = onDelete) { Text(stringResource(R.string.ui_delete), color = Color(0xFFFF453A)) }
                 }
-                TextButton(onClick = onDismiss) { Text("Cancel") }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.ui_cancel)) }
             }
         },
     )
 }
 
-private fun labelFor(m: NoiseControlMode): String = when (m) {
-    NoiseControlMode.OFF -> "Off"
-    NoiseControlMode.NOISE_CANCELLATION -> "Noise Cancellation"
-    NoiseControlMode.TRANSPARENCY -> "Transparency"
-    NoiseControlMode.ADAPTIVE -> "Adaptive"
-}
+@Composable
+private fun labelFor(m: NoiseControlMode): String = stringResource(when (m) {
+    NoiseControlMode.OFF -> R.string.off
+    NoiseControlMode.NOISE_CANCELLATION -> R.string.noise_cancellation
+    NoiseControlMode.TRANSPARENCY -> R.string.transparency
+    NoiseControlMode.ADAPTIVE -> R.string.adaptive
+})

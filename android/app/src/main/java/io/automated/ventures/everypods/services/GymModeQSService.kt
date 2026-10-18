@@ -118,18 +118,18 @@ class GymModeQSService : TileService() {
 
         if (isAirPodsConnected) {
             tile.state = if (enabled) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
-            tile.label = "Gym Mode"
+            tile.label = getString(R.string.quick_settings_gym_mode)
             val subtitle = if (enabled) {
                 val e = GymTimer.elapsedMs() / 1000
-                if (GymTimer.state() == GymTimer.State.RUNNING) String.format("Running %02d:%02d", e / 60, e % 60)
-                else "Stopwatch ready"
-            } else "Tap to enable"
+                if (GymTimer.state() == GymTimer.State.RUNNING) getString(R.string.quick_settings_gym_running, e / 60, e % 60)
+                else getString(R.string.quick_settings_stopwatch_ready)
+            } else getString(R.string.quick_settings_tap_to_enable)
             tile.subtitle = subtitle
             tile.icon = Icon.createWithResource(this, R.drawable.airpods)
         } else {
             tile.state = Tile.STATE_UNAVAILABLE
-            tile.label = "Gym Mode"
-            tile.subtitle = "Disconnected"
+            tile.label = getString(R.string.quick_settings_gym_mode)
+            tile.subtitle = getString(R.string.takeover_disconnected)
             tile.icon = Icon.createWithResource(this, R.drawable.airpods)
         }
 

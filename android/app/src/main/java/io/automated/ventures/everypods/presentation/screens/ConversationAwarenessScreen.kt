@@ -46,7 +46,7 @@ fun ConversationAwarenessScreen(
     val masterEnabled = appState.isPremium && state.aacpAvailable
     val subEnabled = convoEnabled && masterEnabled
 
-    StyledScaffold(title = "Conversation Awareness") { topPadding, hazeState, bottomPadding ->
+    StyledScaffold(title = stringResource(R.string.ui_conversation_awareness)) { topPadding, hazeState, bottomPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()

@@ -33,7 +33,7 @@ fun PhoneBatteryScreen(appSettingsViewModel: AppSettingsViewModel) {
     val dark = isSystemInDarkTheme()
     val cardColor = if (dark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
     
-    StyledScaffold(title = "Battery in Widget") { topPadding, hazeState, bottomPadding ->
+    StyledScaffold(title = stringResource(R.string.ui_battery_in_widget)) { topPadding, hazeState, bottomPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()

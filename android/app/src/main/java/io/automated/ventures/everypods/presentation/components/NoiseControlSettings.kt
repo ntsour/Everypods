@@ -38,6 +38,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -370,8 +371,6 @@ fun NoiseControlSettings(
                         text = stringResource(R.string.off),
                         style = TextStyle(fontSize = 10.sp, color = textColor),
                         textAlign = TextAlign.Center,
-                        maxLines = 1,
-                        softWrap = false,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -379,24 +378,18 @@ fun NoiseControlSettings(
                     text = stringResource(R.string.transparency),
                     style = TextStyle(fontSize = 10.sp, color = textColor),
                     textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    softWrap = false,
                     modifier = Modifier.weight(1f)
                 )
                 Text(
                     text = stringResource(R.string.adaptive),
                     style = TextStyle(fontSize = 10.sp, color = textColor),
                     textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    softWrap = false,
                     modifier = Modifier.weight(1f)
                 )
                 Text(
                     text = stringResource(R.string.noise_cancellation),
                     style = TextStyle(fontSize = 10.sp, color = textColor),
                     textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    softWrap = false,
                     modifier = Modifier.weight(1f)
                 )
             }

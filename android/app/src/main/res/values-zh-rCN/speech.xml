@@ -1,0 +1,39 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="speech_battery_left">左侧 AirPod 电量为百分之 %1$d</string>
+    <string name="speech_battery_right">右侧 AirPod 电量为百分之 %1$d</string>
+    <string name="speech_battery_case">AirPods 充电盒电量为百分之 %1$d</string>
+    <string name="speech_battery_generic">电量为百分之 %1$d</string>
+    <string name="speech_call_named">%1$s 来电</string>
+    <string name="speech_call_generic">来电</string>
+    <string name="speech_timer_countdown_started">倒计时开始了。%1$s。</string>
+    <string name="speech_timer_stopwatch_started">秒表开始了。</string>
+    <string name="speech_timer_hiit_started">HIIT 开始了。 %1$d 轮。工作 %2$s。其余 %3$s。</string>
+    <string name="speech_timer_countdown_resumed">倒计时重新开始。剩余 %1$s。</string>
+    <string name="speech_timer_stopwatch_resumed">秒表恢复计时。 %1$s 已过。</string>
+    <string name="speech_timer_hiit_resumed">HIIT 恢复。剩余 %1$s。</string>
+    <string name="speech_timer_countdown_paused">倒计时暂停了。剩余 %1$s。</string>
+    <string name="speech_timer_stopwatch_paused">秒表暂停了。 %1$s 已过。</string>
+    <string name="speech_timer_hiit_paused">HIIT 暂停了。剩余 %1$s。</string>
+    <string name="speech_timer_countdown_reset">倒计时重置。</string>
+    <string name="speech_timer_stopwatch_reset">秒表重置。</string>
+    <string name="speech_timer_hiit_reset">HIIT 重置。</string>
+    <string name="speech_timer_quarter_complete">四分之一完成</string>
+    <string name="speech_timer_halfway">中途</string>
+    <string name="speech_timer_three_quarters_complete">四分之三已完成</string>
+    <string name="speech_timer_elapsed">%1$s 已过。</string>
+    <string name="speech_timer_round_phase">第 %1$d 轮。%2$s。</string>
+    <string name="speech_timer_work">工作</string>
+    <string name="speech_timer_rest">休息</string>
+    <string name="speech_timer_lap">第 %1$d 圈。%2$s。总计 %3$s。</string>
+    <string name="speech_timer_countdown_complete">倒计时完成。</string>
+    <string name="speech_timer_hiit_complete">HIIT 完成。</string>
+    <plurals name="speech_minutes">
+        <item quantity="one">%1$d 分钟</item>
+        <item quantity="other">%1$d 分钟</item>
+    </plurals>
+    <plurals name="speech_seconds">
+        <item quantity="one">%1$d 第二个</item>
+        <item quantity="other">%1$d 秒</item>
+    </plurals>
+</resources>

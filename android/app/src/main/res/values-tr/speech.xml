@@ -1,0 +1,39 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="speech_battery_left">Sol AirPod pil seviyesi yüzde %1$d</string>
+    <string name="speech_battery_right">Sağ AirPod pil seviyesi yüzde %1$d</string>
+    <string name="speech_battery_case">AirPods kutusu pil seviyesi yüzde %1$d</string>
+    <string name="speech_battery_generic">Pil seviyesi yüzde %1$d</string>
+    <string name="speech_call_named">%1$s adlı kişiden gelen arama</string>
+    <string name="speech_call_generic">Gelen arama</string>
+    <string name="speech_timer_countdown_started">Geri sayım başladı. %1$s.</string>
+    <string name="speech_timer_stopwatch_started">Kronometre başlatıldı.</string>
+    <string name="speech_timer_hiit_started">HIIT\'e başlandı. %1$d turlar. %2$s\'yi çalıştırın. Dinlenme %3$s.</string>
+    <string name="speech_timer_countdown_resumed">Geri sayım yeniden başladı. %1$s kaldı.</string>
+    <string name="speech_timer_stopwatch_resumed">Kronometre yeniden başlatıldı. %1$s süresi doldu.</string>
+    <string name="speech_timer_hiit_resumed">HIIT yeniden başladı. %1$s kaldı.</string>
+    <string name="speech_timer_countdown_paused">Geri sayım duraklatıldı. %1$s kaldı.</string>
+    <string name="speech_timer_stopwatch_paused">Kronometre duraklatıldı. %1$s süresi doldu.</string>
+    <string name="speech_timer_hiit_paused">HIIT duraklatıldı. %1$s kaldı.</string>
+    <string name="speech_timer_countdown_reset">Geri sayım sıfırlandı.</string>
+    <string name="speech_timer_stopwatch_reset">Kronometre sıfırlandı.</string>
+    <string name="speech_timer_hiit_reset">HIIT\'i sıfırla.</string>
+    <string name="speech_timer_quarter_complete">Dörtte biri tamamlandı</string>
+    <string name="speech_timer_halfway">yarı yolda</string>
+    <string name="speech_timer_three_quarters_complete">Dörtte üçü tamamlandı</string>
+    <string name="speech_timer_elapsed">%1$s süresi doldu.</string>
+    <string name="speech_timer_round_phase">Yuvarlak %1$d. %2$s.</string>
+    <string name="speech_timer_work">iş</string>
+    <string name="speech_timer_rest">Dinlenme</string>
+    <string name="speech_timer_lap">%1$d turu. %2$s. Toplam %3$s.</string>
+    <string name="speech_timer_countdown_complete">Geri sayım tamamlandı.</string>
+    <string name="speech_timer_hiit_complete">HIIT\'i tamamladım.</string>
+    <plurals name="speech_minutes">
+        <item quantity="one">%1$d dakika</item>
+        <item quantity="other">%1$d dakika</item>
+    </plurals>
+    <plurals name="speech_seconds">
+        <item quantity="one">%1$d saniye</item>
+        <item quantity="other">%1$d saniye</item>
+    </plurals>
+</resources>

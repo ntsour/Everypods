@@ -18,6 +18,8 @@
 
 package io.automated.ventures.everypods.presentation.screens
 
+import androidx.compose.ui.res.stringResource
+
 import android.Manifest
 import android.app.TimePickerDialog
 import androidx.compose.foundation.clickable
@@ -68,6 +70,7 @@ import androidx.navigation.NavController
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.Locale
 import io.automated.ventures.everypods.R
 import io.automated.ventures.everypods.presentation.components.NavigationButton
 import io.automated.ventures.everypods.presentation.components.SelectItem
@@ -98,6 +101,9 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
     var quietEnd by remember { mutableStateOf(AnnouncementPrefs.quietEnd(context)) }
     var contentMode by remember { mutableStateOf(prefs.getString(AnnouncementPrefs.KEY_CONTENT_MODE, AnnouncementPrefs.CONTENT_TITLE_BODY) ?: AnnouncementPrefs.CONTENT_TITLE_BODY) }
     var language by remember { mutableStateOf(prefs.getString(AnnouncementPrefs.KEY_LANGUAGE, AnnouncementPrefs.LANG_AUTO) ?: AnnouncementPrefs.LANG_AUTO) }
+    val localeTags = remember(context) {
+        context.resources.getStringArray(R.array.supported_locale_tags).toList()
+    }
 
     // ElevenLabs engine
     val scope = rememberCoroutineScope()
@@ -109,17 +115,21 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
     var elVoices by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
     var elVoicesLoading by remember { mutableStateOf(false) }
     var elVoiceDropdownOpen by remember { mutableStateOf(false) }
-    var spanishVoices by remember { mutableStateOf<List<TtsEngine.AvailableVoice>>(emptyList()) }
-    var englishVoices by remember { mutableStateOf<List<TtsEngine.AvailableVoice>>(emptyList()) }
+    var systemVoices by remember { mutableStateOf<Map<String, List<TtsEngine.AvailableVoice>>>(emptyMap()) }
     var systemVoicesLoading by remember { mutableStateOf(false) }
 
-    LaunchedEffect(ttsEngine) {
+    LaunchedEffect(ttsEngine, localeTags) {
         if (ttsEngine == AnnouncementPrefs.TTS_ENGINE_SYSTEM) {
             systemVoicesLoading = true
-            TtsEngine.loadAvailableVoices(context, "es") { spanishVoices = it }
-            TtsEngine.loadAvailableVoices(context, "en") {
-                englishVoices = it
-                systemVoicesLoading = false
+            systemVoices = emptyMap()
+            var remaining = localeTags.size
+            if (remaining == 0) systemVoicesLoading = false
+            localeTags.forEach { tag ->
+                TtsEngine.loadAvailableVoices(context, tag) { voices ->
+                    systemVoices = systemVoices + (tag to voices)
+                    remaining -= 1
+                    if (remaining == 0) systemVoicesLoading = false
+                }
             }
         }
     }
@@ -152,7 +162,7 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
         })
     }
 
-    StyledScaffold(title = "Notification Announcements") { topPadding, _, bottomPadding ->
+    StyledScaffold(title = stringResource(R.string.ui_notification_announcements)) { topPadding, _, bottomPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -172,7 +182,7 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = "Permissions",
+                    text = stringResource(R.string.ui_permissions),
                     style = TextStyle(
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
@@ -181,14 +191,14 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
                     )
                 )
                 PermStatusRow(
-                    label = "Notification access",
+                    label = stringResource(R.string.ui_notification_access),
                     granted = notifAccess,
                     hint = if (!notifAccess)
-                        "Enable \"EveryPods Notification Announcements\" in the list (EveryPods has two entries — pick this one, not Teams Mute Sync)."
+                        stringResource(R.string.notification_access_hint)
                     else null,
                     onClick = { NotificationAnnouncementService.openAccessSettings(context) }
                 )
-                PermStatusRow("Phone state (call detection)", phoneStateGranted) {
+                PermStatusRow(stringResource(R.string.permission_call_detection), phoneStateGranted) {
                     openAppSettings()
                 }
             }
@@ -201,8 +211,8 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
                     .padding(vertical = 4.dp)
             ) {
                 StyledToggle(
-                    label = "Announce notifications",
-                    description = "Read incoming notifications and callers aloud through the AirPods.",
+                    label = stringResource(R.string.ui_announce_notifications),
+                    description = stringResource(R.string.ui_read_incoming_notifications_an),
                     checked = enabled,
                     independent = false,
                     onCheckedChange = {
@@ -212,8 +222,8 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
                 )
                 HorizontalDivider(thickness = 1.dp, color = Color(0x40888888), modifier = Modifier.padding(horizontal = 12.dp))
                 StyledToggle(
-                    label = "Skip during a call",
-                    description = "Don't announce while a call is in progress.",
+                    label = stringResource(R.string.ui_skip_during_a_call),
+                    description = stringResource(R.string.ui_don_t_announce_while_a_call_is),
                     checked = skipDuringCall,
                     independent = false,
                     enabled = enabled,
@@ -224,8 +234,8 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
                 )
                 HorizontalDivider(thickness = 1.dp, color = Color(0x40888888), modifier = Modifier.padding(horizontal = 12.dp))
                 StyledToggle(
-                    label = "Skip during active media",
-                    description = "Don't announce while music or other media is playing.",
+                    label = stringResource(R.string.ui_skip_during_active_media),
+                    description = stringResource(R.string.ui_don_t_announce_while_music_or),
                     checked = skipDuringMedia,
                     independent = false,
                     enabled = enabled,
@@ -236,8 +246,8 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
                 )
                 HorizontalDivider(thickness = 1.dp, color = Color(0x40888888), modifier = Modifier.padding(horizontal = 12.dp))
                 StyledToggle(
-                    label = "Only when AirPods are in ear",
-                    description = "Suppress announcements unless at least one AirPod is detected in your ear.",
+                    label = stringResource(R.string.ui_only_when_airpods_are_in_ear),
+                    description = stringResource(R.string.ui_suppress_announcements_unless),
                     checked = onlyInEar,
                     independent = false,
                     enabled = enabled,
@@ -248,8 +258,8 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
                 )
                 HorizontalDivider(thickness = 1.dp, color = Color(0x40888888), modifier = Modifier.padding(horizontal = 12.dp))
                 StyledToggle(
-                    label = "Also announce on other Bluetooth devices",
-                    description = "Read notifications aloud through car stereos, speakers and other headphones",
+                    label = stringResource(R.string.announce_other_bluetooth),
+                    description = stringResource(R.string.announce_other_bluetooth_description),
                     checked = alsoOtherBt,
                     independent = false,
                     enabled = enabled,
@@ -261,8 +271,7 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
             }
 
             // TTS Engine picker
-            Text(
-                "Voice engine",
+            Text(stringResource(R.string.ui_voice_engine),
                 style = TextStyle(
                     fontSize = 14.sp, fontWeight = FontWeight.Bold,
                     color = textColor.copy(alpha = 0.6f),
@@ -272,7 +281,7 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
             )
             StyledSelectList(items = listOf(
                 SelectItem(
-                    name = "System TTS",
+                    name = stringResource(R.string.ui_system_tts),
                     selected = ttsEngine == AnnouncementPrefs.TTS_ENGINE_SYSTEM,
                     onClick = {
                         ttsEngine = AnnouncementPrefs.TTS_ENGINE_SYSTEM
@@ -280,7 +289,7 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
                     }
                 ),
                 SelectItem(
-                    name = "ElevenLabs (natural voice)",
+                    name = stringResource(R.string.ui_elevenlabs_natural_voice),
                     selected = ttsEngine == AnnouncementPrefs.TTS_ENGINE_ELEVENLABS,
                     onClick = {
                         ttsEngine = AnnouncementPrefs.TTS_ENGINE_ELEVENLABS
@@ -294,12 +303,17 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
                     modifier = Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(20.dp)).padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Text("System voices", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Bold, color = textColor.copy(alpha = 0.6f), fontFamily = FontFamily(Font(R.font.sf_pro))))
-                    Text("Automatic detection stays on. Choose a consistent installed voice for Spanish and English, or keep Android's default.", style = TextStyle(fontSize = 13.sp, color = textColor.copy(alpha = 0.6f), fontFamily = FontFamily(Font(R.font.sf_pro))))
+                    Text(stringResource(R.string.ui_system_voices), style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Bold, color = textColor.copy(alpha = 0.6f), fontFamily = FontFamily(Font(R.font.sf_pro))))
+                    Text(stringResource(R.string.ui_automatic_detection_stays_on_c), style = TextStyle(fontSize = 13.sp, color = textColor.copy(alpha = 0.6f), fontFamily = FontFamily(Font(R.font.sf_pro))))
                     if (systemVoicesLoading) CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
                     else {
-                        SystemVoicePicker("Spanish voice", "es", spanishVoices, context, textColor, isDark)
-                        SystemVoicePicker("English voice", "en", englishVoices, context, textColor, isDark)
+                        localeTags.forEach { tag ->
+                            val locale = Locale.forLanguageTag(tag)
+                            SystemVoicePicker(
+                                locale.getDisplayName(locale), tag, systemVoices[tag].orEmpty(),
+                                context, textColor, isDark
+                            )
+                        }
                     }
                 }
             }
@@ -312,8 +326,7 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Text(
-                        "Get a free API key at elevenlabs.io → Log in → Profile (top-right) → API Keys → Create API Key. The free plan includes 10,000 characters/month.",
+                    Text(stringResource(R.string.ui_get_a_free_api_key_at_elevenla),
                         style = TextStyle(
                             fontSize = 13.sp,
                             color = textColor.copy(alpha = 0.6f),
@@ -327,7 +340,7 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
                             prefs.edit().putString(AnnouncementPrefs.KEY_ELEVENLABS_API_KEY, it).apply()
                             elTestStatus = ""
                         },
-                        label = { Text("API key") },
+                        label = { Text(stringResource(R.string.ui_api_key)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         visualTransformation = if (elKeyVisible) VisualTransformation.None
@@ -335,7 +348,7 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         trailingIcon = {
                             TextButton(onClick = { elKeyVisible = !elKeyVisible }) {
-                                Text(if (elKeyVisible) "Hide" else "Show",
+                                Text(stringResource(if (elKeyVisible) R.string.hide_secret else R.string.show_secret),
                                     style = TextStyle(fontSize = 12.sp, color = Color(0xFF0A84FF)))
                             }
                         }
@@ -348,15 +361,15 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
                         TextButton(
                             onClick = {
                                 if (elApiKey.isBlank()) {
-                                    elTestStatus = "Enter an API key first"
+                                    elTestStatus = context.getString(R.string.enter_api_key)
                                     return@TextButton
                                 }
-                                elTestStatus = "Testing…"
+                                elTestStatus = context.getString(R.string.connection_testing)
                                 scope.launch {
                                     val err = withContext(Dispatchers.IO) {
                                         ElevenLabsEngine.testKey(elApiKey)
                                     }
-                                    elTestStatus = if (err == null) "Connected ✓" else "Error: $err"
+                                    elTestStatus = if (err == null) context.getString(R.string.island_connected_text) else context.getString(R.string.connection_test_error, err)
                                     if (err == null && elVoices.isEmpty()) {
                                         elVoicesLoading = true
                                         elVoices = withContext(Dispatchers.IO) {
@@ -367,7 +380,7 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
                                 }
                             }
                         ) {
-                            Text("Test connection", color = Color(0xFF0A84FF),
+                            Text(stringResource(R.string.ui_test_connection), color = Color(0xFF0A84FF),
                                 style = TextStyle(fontFamily = FontFamily(Font(R.font.sf_pro))))
                         }
                         if (elTestStatus.isNotEmpty()) {
@@ -384,8 +397,7 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
                     }
 
                     // Voice picker
-                    Text(
-                        "Voice",
+                    Text(stringResource(R.string.ui_voice),
                         style = TextStyle(
                             fontSize = 13.sp, fontWeight = FontWeight.Bold,
                             color = textColor.copy(alpha = 0.6f),
@@ -397,7 +409,7 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
                     } else if (elVoices.isNotEmpty()) {
                         Box {
                             val currentName = elVoices.find { it.first == elVoiceId }?.second
-                                ?: "Rachel (default)"
+                                ?: "Rachel (" + context.getString(R.string.default_option) + ")"
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -433,7 +445,7 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
                         }
                     } else if (elApiKey.isNotBlank()) {
                         Text(
-                            "Tap \"Test connection\" to load your available voices.",
+                            stringResource(R.string.ui_tap_test_connection, stringResource(R.string.ui_test_connection)),
                             style = TextStyle(fontSize = 13.sp, color = textColor.copy(alpha = 0.5f),
                                 fontFamily = FontFamily(Font(R.font.sf_pro)))
                         )
@@ -442,8 +454,7 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
             }
 
             // Content mode
-            Text(
-                "Notification content",
+            Text(stringResource(R.string.ui_notification_content),
                 style = TextStyle(
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
@@ -454,7 +465,7 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
             )
             StyledSelectList(items = listOf(
                 SelectItem(
-                    name = "Title only",
+                    name = stringResource(R.string.ui_title_only),
                     selected = contentMode == AnnouncementPrefs.CONTENT_TITLE_ONLY,
                     onClick = {
                         contentMode = AnnouncementPrefs.CONTENT_TITLE_ONLY
@@ -462,7 +473,7 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
                     }
                 ),
                 SelectItem(
-                    name = "Title and body",
+                    name = stringResource(R.string.ui_title_and_body),
                     selected = contentMode == AnnouncementPrefs.CONTENT_TITLE_BODY,
                     onClick = {
                         contentMode = AnnouncementPrefs.CONTENT_TITLE_BODY
@@ -472,8 +483,7 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
             ))
 
             // Language
-            Text(
-                "Speech language",
+            Text(stringResource(R.string.ui_speech_language),
                 style = TextStyle(
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
@@ -482,7 +492,17 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
                 ),
                 modifier = Modifier.padding(start = 16.dp, top = 4.dp)
             )
-            StyledSelectList(items = AnnouncementPrefs.SUPPORTED_LANGUAGES.map { (tag, name) ->
+            val automaticDetectionLabel = stringResource(R.string.automatic_detection)
+            val systemDefaultLabel = stringResource(R.string.system_default)
+            val languageOptions = buildList {
+                add(AnnouncementPrefs.LANG_DETECT to automaticDetectionLabel)
+                add(AnnouncementPrefs.LANG_SYSTEM to systemDefaultLabel)
+                localeTags.forEach { tag ->
+                    val locale = Locale.forLanguageTag(tag)
+                    add(tag to locale.getDisplayName(locale))
+                }
+            }.distinctBy { it.first }
+            StyledSelectList(items = languageOptions.map { (tag, name) ->
                 SelectItem(
                     name = name,
                     selected = language == tag,
@@ -496,14 +516,13 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
             // Per-app whitelist navigation
             NavigationButton(
                 to = "announcement_app_picker",
-                name = "Choose apps",
-                description = "All apps enabled by default. Disable specific apps you don't want announced.",
+                name = stringResource(R.string.ui_choose_apps),
+                description = stringResource(R.string.ui_all_apps_enabled_by_default_di),
                 navController = navController,
             )
 
             // Quiet hours
-            Text(
-                "Quiet hours",
+            Text(stringResource(R.string.ui_quiet_hours),
                 style = TextStyle(
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
@@ -519,8 +538,8 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
                     .padding(vertical = 4.dp)
             ) {
                 StyledToggle(
-                    label = "Suppress during quiet hours",
-                    description = "Skip announcements during a manual schedule, or follow the system Do Not Disturb.",
+                    label = stringResource(R.string.ui_suppress_during_quiet_hours),
+                    description = stringResource(R.string.ui_skip_announcements_during_a_ma),
                     checked = quietEnabled,
                     independent = false,
                     enabled = enabled,
@@ -535,8 +554,7 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
             // Selecting an option flips the state; the master toggle still gates
             // whether quiet hours actually fires.
             val pickerEnabled = enabled && quietEnabled
-            Text(
-                "Mode",
+            Text(stringResource(R.string.ui_mode),
                 style = TextStyle(
                     fontSize = 13.sp,
                     color = textColor.copy(alpha = if (pickerEnabled) 0.6f else 0.3f),
@@ -546,7 +564,7 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
             )
             StyledSelectList(items = listOf(
                 SelectItem(
-                    name = "Manual schedule",
+                    name = stringResource(R.string.ui_manual_schedule),
                     selected = quietMode == AnnouncementPrefs.QUIET_MODE_MANUAL,
                     onClick = {
                         if (pickerEnabled) {
@@ -556,7 +574,7 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
                     }
                 ),
                 SelectItem(
-                    name = "Follow system Do Not Disturb",
+                    name = stringResource(R.string.ui_follow_system_do_not_disturb),
                     selected = quietMode == AnnouncementPrefs.QUIET_MODE_SYSTEM,
                     onClick = {
                         if (pickerEnabled) {
@@ -575,7 +593,7 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
                         .padding(vertical = 4.dp)
                 ) {
                     TimeRow(
-                        label = "Start",
+                        label = stringResource(R.string.ui_start_952f3),
                         minutes = quietStart,
                         enabled = true,
                         textColor = textColor,
@@ -593,7 +611,7 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
                     )
                     HorizontalDivider(thickness = 1.dp, color = Color(0x40888888), modifier = Modifier.padding(horizontal = 12.dp))
                     TimeRow(
-                        label = "End",
+                        label = stringResource(R.string.ui_end_a2bb9),
                         minutes = quietEnd,
                         enabled = true,
                         textColor = textColor,
@@ -670,7 +688,8 @@ private fun SystemVoicePicker(
     var selectedVoiceName by remember(languageTag) {
         mutableStateOf(AnnouncementPrefs.systemTtsVoiceName(context, languageTag))
     }
-    val selectedLabel = voices.firstOrNull { it.name == selectedVoiceName }?.label ?: "Android default"
+    val selectedLabel = voices.firstOrNull { it.name == selectedVoiceName }?.label
+        ?: context.getString(R.string.android_default)
 
     Text(label, style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Bold, color = textColor.copy(alpha = 0.6f), fontFamily = FontFamily(Font(R.font.sf_pro))))
     Box {
@@ -685,7 +704,7 @@ private fun SystemVoicePicker(
             Text("▾", style = TextStyle(fontSize = 13.sp, color = textColor.copy(alpha = 0.5f)))
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            DropdownMenuItem(text = { Text("Android default") }, onClick = {
+            DropdownMenuItem(text = { Text(context.getString(R.string.android_default)) }, onClick = {
                 selectedVoiceName = null
                 AnnouncementPrefs.setSystemTtsVoiceName(context, languageTag, null)
                 expanded = false
@@ -699,12 +718,14 @@ private fun SystemVoicePicker(
             }
         }
     }
+    if (voices.isEmpty()) {
+        Text(context.getString(R.string.speech_voice_unavailable))
+    }
     TextButton(onClick = {
-        val sample = if (languageTag == "es") "Esta es la voz en español." else "This is the English voice."
-        // The preview always plays, regardless of the AirPods-only route gate.
-        TtsEngine.speak(context, sample, languageTag, bypassRouteGate = true)
+        val speechContext = AnnouncementPrefs.contextForLanguage(context, languageTag)
+        TtsEngine.speak(context, speechContext.getString(R.string.speech_preview_sample), languageTag, bypassRouteGate = true)
     }, enabled = voices.isNotEmpty()) {
-        Text("Preview", color = Color(0xFF0A84FF), style = TextStyle(fontFamily = FontFamily(Font(R.font.sf_pro))))
+        Text(stringResource(R.string.ui_preview), color = Color(0xFF0A84FF), style = TextStyle(fontFamily = FontFamily(Font(R.font.sf_pro))))
     }
 }
 
@@ -727,7 +748,7 @@ private fun PermStatusRow(
             style = TextStyle(fontSize = 15.sp, color = textColor, fontFamily = FontFamily(Font(R.font.sf_pro)))
         )
         Text(
-            text = if (granted) "Granted" else "Tap to grant",
+            text = stringResource(if (granted) R.string.permission_granted else R.string.permission_tap_to_grant),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 2.dp),
@@ -759,7 +780,7 @@ private fun PermStatusRow(
                     .padding(top = 2.dp)
             )
             androidx.compose.material3.TextButton(onClick = onClick) {
-                Text("Grant", color = statusColor)
+                Text(stringResource(R.string.ui_grant), color = statusColor)
             }
         }
     }

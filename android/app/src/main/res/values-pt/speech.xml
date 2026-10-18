@@ -1,0 +1,39 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="speech_battery_left">A bateria do AirPod esquerdo está em %1$d por cento</string>
+    <string name="speech_battery_right">A bateria do AirPod direito está em %1$d por cento</string>
+    <string name="speech_battery_case">A bateria do estojo dos AirPods está em %1$d por cento</string>
+    <string name="speech_battery_generic">Bateria em %1$d por cento</string>
+    <string name="speech_call_named">Chamada recebida de %1$s</string>
+    <string name="speech_call_generic">Chamada recebida</string>
+    <string name="speech_timer_countdown_started">Contagem decrescente iniciada. %1$s.</string>
+    <string name="speech_timer_stopwatch_started">Cronómetro iniciado.</string>
+    <string name="speech_timer_hiit_started">HIIT iniciado. %1$d rondas. Trabalho %2$s. Descanso %3$s.</string>
+    <string name="speech_timer_countdown_resumed">Contagem decrescente retomada. Restam %1$s.</string>
+    <string name="speech_timer_stopwatch_resumed">Cronómetro retomado. %1$s decorridos.</string>
+    <string name="speech_timer_hiit_resumed">HIIT retomado. Restam %1$s.</string>
+    <string name="speech_timer_countdown_paused">Contagem decrescente pausada. Restam %1$s.</string>
+    <string name="speech_timer_stopwatch_paused">Cronómetro pausado. %1$s decorridos.</string>
+    <string name="speech_timer_hiit_paused">HIIT pausado. Restam %1$s.</string>
+    <string name="speech_timer_countdown_reset">Contagem decrescente reiniciada.</string>
+    <string name="speech_timer_stopwatch_reset">Cronómetro reiniciado.</string>
+    <string name="speech_timer_hiit_reset">HIIT reiniciado.</string>
+    <string name="speech_timer_quarter_complete">Um quarto concluído</string>
+    <string name="speech_timer_halfway">A meio</string>
+    <string name="speech_timer_three_quarters_complete">Três quartos concluídos</string>
+    <string name="speech_timer_elapsed">%1$s decorridos.</string>
+    <string name="speech_timer_round_phase">Ronda %1$d. %2$s.</string>
+    <string name="speech_timer_work">Trabalho</string>
+    <string name="speech_timer_rest">Descanso</string>
+    <string name="speech_timer_lap">Volta %1$d. %2$s. Total %3$s.</string>
+    <string name="speech_timer_countdown_complete">Contagem decrescente concluída.</string>
+    <string name="speech_timer_hiit_complete">HIIT concluído.</string>
+    <plurals name="speech_minutes">
+        <item quantity="one">%1$d minuto</item>
+        <item quantity="other">%1$d minutos</item>
+    </plurals>
+    <plurals name="speech_seconds">
+        <item quantity="one">%1$d segundo</item>
+        <item quantity="other">%1$d segundos</item>
+    </plurals>
+</resources>

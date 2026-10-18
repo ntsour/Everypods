@@ -18,6 +18,10 @@
 
 package io.automated.ventures.everypods.presentation.components
 
+import io.automated.ventures.everypods.R
+
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.size
@@ -40,18 +44,15 @@ import androidx.compose.ui.unit.dp
 // cannot run AACP. Tapping opens a short dialog explaining why the control is
 // disabled and what would unlock it.
 @Composable
-fun RequiresAacpIcon(
-    message: String =
-        "This setting requires AirPods control commands (AACP). " +
-        "Your device cannot send them — this feature isn't available on this device."
-) {
+fun RequiresAacpIcon(message: String? = null) {
     var showInfo by remember { mutableStateOf(false) }
     val isDark = isSystemInDarkTheme()
     val iconTint = if (isDark) Color(0xFF8E8E93) else Color(0xFF6E6E73)
+    val resolvedMessage = message ?: stringResource(R.string.requires_aacp_message)
 
     Icon(
         imageVector = Icons.Outlined.Info,
-        contentDescription = "Feature unavailable on this device",
+        contentDescription = stringResource(R.string.feature_unavailable_on_device),
         tint = iconTint,
         modifier = Modifier
             .size(18.dp)
@@ -61,10 +62,10 @@ fun RequiresAacpIcon(
     if (showInfo) {
         AlertDialog(
             onDismissRequest = { showInfo = false },
-            title = { Text("Feature unavailable") },
-            text = { Text(message) },
+            title = { Text(stringResource(R.string.ui_feature_unavailable)) },
+            text = { Text(resolvedMessage) },
             confirmButton = {
-                TextButton(onClick = { showInfo = false }) { Text("OK") }
+                TextButton(onClick = { showInfo = false }) { Text(stringResource(R.string.ui_ok)) }
             }
         )
     }

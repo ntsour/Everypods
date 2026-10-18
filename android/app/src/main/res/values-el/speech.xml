@@ -1,0 +1,39 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="speech_battery_left">Η μπαταρία του αριστερού AirPod είναι στο %1$d τοις εκατό</string>
+    <string name="speech_battery_right">Η μπαταρία του δεξιού AirPod είναι στο %1$d τοις εκατό</string>
+    <string name="speech_battery_case">Η μπαταρία της θήκης των AirPods είναι στο %1$d τοις εκατό</string>
+    <string name="speech_battery_generic">Μπαταρία στο %1$d τοις εκατό</string>
+    <string name="speech_call_named">Εισερχόμενη κλήση από %1$s</string>
+    <string name="speech_call_generic">Εισερχόμενη κλήση</string>
+    <string name="speech_timer_countdown_started">Η αντίστροφη μέτρηση ξεκίνησε. %1$s.</string>
+    <string name="speech_timer_stopwatch_started">Το χρονόμετρο ξεκίνησε.</string>
+    <string name="speech_timer_hiit_started">Το HIIT ξεκίνησε. Γύροι: %1$d. Άσκηση %2$s. Ανάπαυση %3$s.</string>
+    <string name="speech_timer_countdown_resumed">Η αντίστροφη μέτρηση συνεχίζεται. Χρόνος που απομένει: %1$s.</string>
+    <string name="speech_timer_stopwatch_resumed">Το χρονόμετρο συνεχίζεται. Χρόνος που πέρασε: %1$s.</string>
+    <string name="speech_timer_hiit_resumed">Το HIIT συνεχίζεται. Χρόνος που απομένει: %1$s.</string>
+    <string name="speech_timer_countdown_paused">Η αντίστροφη μέτρηση τέθηκε σε παύση. Χρόνος που απομένει: %1$s.</string>
+    <string name="speech_timer_stopwatch_paused">Το χρονόμετρο τέθηκε σε παύση. Χρόνος που πέρασε: %1$s.</string>
+    <string name="speech_timer_hiit_paused">Το HIIT τέθηκε σε παύση. Χρόνος που απομένει: %1$s.</string>
+    <string name="speech_timer_countdown_reset">Η αντίστροφη μέτρηση επανήλθε στην αρχή.</string>
+    <string name="speech_timer_stopwatch_reset">Το χρονόμετρο μηδενίστηκε.</string>
+    <string name="speech_timer_hiit_reset">Το HIIT επανήλθε στην αρχή.</string>
+    <string name="speech_timer_quarter_complete">Πέρασε το ένα τέταρτο του χρόνου</string>
+    <string name="speech_timer_halfway">Στα μισά</string>
+    <string name="speech_timer_three_quarters_complete">Πέρασαν τα τρία τέταρτα του χρόνου</string>
+    <string name="speech_timer_elapsed">Χρόνος που πέρασε: %1$s.</string>
+    <string name="speech_timer_round_phase">Γύρος %1$d. %2$s.</string>
+    <string name="speech_timer_work">Άσκηση</string>
+    <string name="speech_timer_rest">Ανάπαυση</string>
+    <string name="speech_timer_lap">Ενδιάμεσος χρόνος %1$d. %2$s. Σύνολο %3$s.</string>
+    <string name="speech_timer_countdown_complete">Η αντίστροφη μέτρηση ολοκληρώθηκε.</string>
+    <string name="speech_timer_hiit_complete">Το HIIT ολοκληρώθηκε.</string>
+    <plurals name="speech_minutes">
+        <item quantity="one">%1$d λεπτό</item>
+        <item quantity="other">%1$d λεπτά</item>
+    </plurals>
+    <plurals name="speech_seconds">
+        <item quantity="one">%1$d δευτερόλεπτο</item>
+        <item quantity="other">%1$d δευτερόλεπτα</item>
+    </plurals>
+</resources>

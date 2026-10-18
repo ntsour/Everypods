@@ -60,7 +60,7 @@ object TtsEngine {
     @Volatile private var speechAttributes: AudioAttributes? = null
     private val initialised = AtomicBoolean(false)
     private val initialising = AtomicBoolean(false)
-    private data class PendingUtterance(val text: String, val onDone: () -> Unit)
+    private data class PendingUtterance(val text: String, val languageTag: String, val onDone: () -> Unit)
     private val pendingUtterances = mutableListOf<PendingUtterance>()
     private val completionCallbacks = mutableMapOf<String, () -> Unit>()
     private val lastUseAt = AtomicLong(0L)
@@ -126,7 +126,10 @@ object TtsEngine {
         if (initialised.get()) {
             val desiredVoice = AnnouncementPrefs.systemTtsVoiceName(ctx, desiredLang)
             if (desiredLang != configuredLanguage || desiredVoice != configuredVoiceName) {
-                applyLanguage(ctx, desiredLang)
+                if (!applyLanguage(ctx, desiredLang)) {
+                    onDone()
+                    return
+                }
             }
             enqueue(text, onDone)
             return
@@ -136,7 +139,7 @@ object TtsEngine {
                 enqueue(text, onDone)
                 return
             }
-            pendingUtterances.add(PendingUtterance(text, onDone))
+            pendingUtterances.add(PendingUtterance(text, desiredLang, onDone))
             if (initialising.compareAndSet(false, true)) {
                 Log.d(TAG, "Initialising TextToSpeech engine")
                 tts = TextToSpeech(ctx) { status ->
@@ -145,7 +148,10 @@ object TtsEngine {
                         initialised.set(true)
                         initialising.set(false)
                         synchronized(this) {
-                            pendingUtterances.forEach { enqueue(it.text, it.onDone) }
+                            pendingUtterances.forEach {
+                                if (applyLanguage(ctx, it.languageTag)) enqueue(it.text, it.onDone)
+                                else it.onDone()
+                            }
                             pendingUtterances.clear()
                         }
                     } else {
@@ -279,16 +285,16 @@ object TtsEngine {
         }
     }
 
-    private fun applyLanguage(context: Context, languageTag: String) {
-        val engine = tts ?: return
+    private fun applyLanguage(context: Context, languageTag: String): Boolean {
+        val engine = tts ?: return false
         val preferred = Locale.forLanguageTag(languageTag).takeIf { it.language.isNotEmpty() }
             ?: Locale(languageTag)
         val result = engine.setLanguage(preferred)
         if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-            Log.w(TAG, "Locale $preferred unsupported; falling back to English")
-            engine.setLanguage(Locale.ENGLISH)
-            configuredLanguage = "en"
+            Log.w(TAG, "Locale $preferred is unsupported; dropping generated speech")
+            configuredLanguage = null
             configuredVoiceName = null
+            return false
         } else {
             Log.d(TAG, "TTS language set to $preferred (tag=$languageTag)")
             configuredLanguage = languageTag
@@ -306,6 +312,7 @@ object TtsEngine {
                 }
             }
         }
+        return true
     }
 
     data class AvailableVoice(val name: String, val label: String)
@@ -319,7 +326,11 @@ object TtsEngine {
             val result = if (status == TextToSpeech.SUCCESS) {
                 runCatching {
                     probe?.voices.orEmpty().asSequence()
-                        .filter { it.locale.language == language }
+                        .filter {
+                            it.locale.language == language &&
+                                (Locale.forLanguageTag(languageTag).country.isBlank() ||
+                                    it.locale.country.equals(Locale.forLanguageTag(languageTag).country, ignoreCase = true))
+                        }
                         .map { voice -> AvailableVoice(
                             name = voice.name,
                             label = buildString {

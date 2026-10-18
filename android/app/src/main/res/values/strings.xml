@@ -1,4 +1,5 @@
-<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
     <string name="app_name" translatable="false">EveryPods</string>
     <string name="app_description">Liberate your AirPods from Apple\'s ecosystem.</string>
     <string name="app_widget_description">See your AirPods battery status right from your home screen!</string>
@@ -9,7 +10,7 @@
     <string name="adaptive_audio">Adaptive Audio</string>
     <string name="customize_adaptive_audio">Customize Adaptive Audio</string>
     <string name="adaptive_audio_description">Adaptive audio dynamically responds to your environment and cancels or allows external noise. You can customize Adaptive Audio to allow more or less noise.</string>
-    <string name="buds">Buds</string>
+    <string name="buds">Earbuds</string>
     <string name="case_alt">Case</string>
     <string name="test">Test</string>
     <string name="name">Name</string>
@@ -17,13 +18,13 @@
     <string name="off">Off</string>
     <string name="transparency">Transparency</string>
     <string name="adaptive">Adaptive</string>
-    <string name="noise_cancellation">Cancel Noise</string>
+    <string name="noise_cancellation">Noise cancellation</string>
     <string name="press_and_hold_airpods">Press and Hold AirPods</string>
     <string name="press_and_hold_noise_control_description">Press and hold the stem to cycle between the selected listening modes.</string>
     <string name="head_gestures">Head Gestures</string>
     <string name="left">Left</string>
     <string name="right">Right</string>
-    <string name="conversational_awareness">Conversational Awareness</string>
+    <string name="conversational_awareness">Conversation Awareness</string>
     <string name="conversational_awareness_description">Lowers media volume and reduces background noise when you start speaking to other people.</string>
     <string name="personalized_volume">Personalized Volume</string>
     <string name="personalized_volume_description">Adjusts the volume of media in response to your environment.</string>
@@ -34,12 +35,12 @@
     <string name="airpods_not_connected">Waiting to connect</string>
     <string name="airpods_not_connected_description">Tap Reconnect if you paired before to force connection.</string>
     <string name="disconnected_hero_guide">Tap Reconnect if you paired before to force connection.</string>
-    <string name="reconnect_to_last">Reconnect to last</string>
+    <string name="reconnect_to_last">Reconnect to last device</string>
     <string name="connections_title">Connections</string>
     <string name="connections_guide">Manage the Android phones that share these AirPods. Required to enable Handover.</string>
     <string name="connections_empty">No other phones added yet.</string>
-    <string name="add_peer">Add peer</string>
-    <string name="add_peer_android_device">Add peer Android device</string>
+    <string name="add_peer">Add device</string>
+    <string name="add_peer_android_device">Add Android device</string>
     <string name="peer_online">Online</string>
     <string name="peer_offline">Offline</string>
     <string name="peer_connection_warning_title">Handover connection lost</string>
@@ -61,7 +62,7 @@
     <string name="back">Back</string>
     <string name="customizations">Customizations</string>
     <string name="relative_conversational_awareness_volume">Relative volume</string>
-    <string name="relative_conversational_awareness_volume_description">When on, the slider becomes a reduction (e.g. 40% means "reduce current volume to 40% of itself") instead of an absolute target.</string>
+    <string name="relative_conversational_awareness_volume_description">When on, the slider becomes a reduction (for example, 40 percent means “reduce current volume to 40 percent of itself”) instead of an absolute target.</string>
     <string name="conversational_awareness_pause_music">Pause Music</string>
     <string name="conversational_awareness_pause_music_description">When you start speaking, music will be paused instead of just lowered.</string>
     <string name="appwidget_text">EXAMPLE</string>
@@ -131,11 +132,11 @@
     <string name="press_and_hold_duration_description">Adjust the duration required to press and hold on your AirPods.</string>
     <string name="volume_swipe_speed">Volume Swipe Speed</string>
     <string name="volume_swipe_speed_description">To prevent unintended volume adjustments, select preferred wait time between swipes.</string>
-     <string name="eq_recommended">Recommended</string>
-     <string name="eq_custom">Custom</string>
-     <string name="eq_bass">Bass</string>
-     <string name="eq_mid">Mid</string>
-     <string name="eq_treble">Treble</string>
+    <string name="eq_recommended">Recommended</string>
+    <string name="eq_custom">Custom</string>
+    <string name="eq_bass">Bass</string>
+    <string name="eq_mid">Mid</string>
+    <string name="eq_treble">Treble</string>
     <string name="equalizer">Equalizer</string>
     <string name="default_option">Default</string>
     <string name="slower">Slower</string>
@@ -151,7 +152,7 @@
     <string name="show_island_popup">Dynamic Island popup</string>
     <string name="show_island_popup_description">Show the Dynamic Island-style popup at the top for connection and takeover events.</string>
     <string name="conversational_awareness_volume">Target media volume during conversation</string>
-    <string name="conversational_awareness_volume_description">When you speak, media volume is set to this level (% of maximum). When you stop, it returns to where it was.</string>
+    <string name="conversational_awareness_volume_description">When you speak, media volume is set to this level (percentage of maximum). When you stop, it returns to where it was.</string>
     <string name="conversational_awareness_master_description">Lower media volume (and optionally pause music) when you start speaking. Required for the options below.</string>
     <string name="quick_settings_tile">Quick Settings Tile</string>
     <string name="open_dialog_for_controlling">Open dialog for controlling</string>
@@ -206,7 +207,7 @@
     <string name="tip_thank_you_body">Your tip helps keep EveryPods free and improving.</string>
     <string name="tips_are_voluntary">Tips are voluntary. All features stay free.</string>
     <string name="tip_billing_unavailable">Tips are unavailable right now. Try again later.</string>
-    <string name="tip_products_unavailable">Couldn\'t load tip options. In Play Console, confirm tip_coffee, tip_beer, tip_lunch, and tip_supporter are Active consumables for this app.</string>
+    <string name="tip_products_unavailable">Could not load contribution options. Try again later.</string>
     <string name="tip_retry">Retry</string>
     <string name="tip_loading_prices">Loading tip options…</string>
     <string name="tip_purchase_error">Something went wrong. Please try again.</string>
@@ -249,9 +250,7 @@
     <string name="subject">Subject</string>
     <string name="describe_your_issue">Describe your issue</string>
     <string name="optimized_charging">Optimized Charge Limit</string>
-    <string name="optimized_charging_description">AirPods can learn from your daily usage and determine when to charge to an optmized limit and when to allow or full charge. This limit adapts to your daily usage and preserves your battery lifespan over time.\\nThis setting may not affect unsupported AirPods, or AirPods on an older firmware version.</string>
-
-    <!-- Proximity finder strings -->
+    <string name="optimized_charging_description">AirPods learn from your daily use to decide when to charge to an optimized limit and when to charge fully. This limit adapts to your use to preserve battery lifespan.\nThis setting may not work on unsupported models or older firmware.</string>
     <string name="find_nearby">Find Nearby</string>
     <string name="find_nearby_empty_description">Open the case briefly, hold the phone out, and walk doorway to doorway. Bands are relative — not exact meters.</string>
     <string name="focus">Focus</string>
@@ -265,7 +264,6 @@
     <string name="scan_paused">Scan Paused</string>
     <string name="scanning">Scanning</string>
     <string name="start_scan">Start Scan</string>
-
     <string name="proximity_band_right_here">Right here</string>
     <string name="proximity_band_same_room">Same room</string>
     <string name="proximity_band_next_room">Nearby / next room</string>
@@ -285,17 +283,436 @@
     <string name="proximity_walk_tip">Walk room to room and watch whether you are getting closer. The graphic is warmer/colder only - it does not point at the case.</string>
     <string name="proximity_walk_tip_dismiss">Got it</string>
     <string name="proximity_coach_zones">Warmer = closer. Zone = roughly where you are. Direction = whether walking helps.</string>
-    <string name="proximity_metric_trend">Direction</string>
-    <string name="proximity_metric_band">Where you are</string>
+    <string name="proximity_metric_trend">Signal trend</string>
+    <string name="proximity_metric_band">Estimated proximity</string>
     <string name="proximity_metric_rssi">RSSI</string>
     <string name="proximity_metric_seen">Seen</string>
     <string name="proximity_show_signal_details">Show signal details</string>
     <string name="proximity_hide_signal_details">Hide signal details</string>
-    <string name="proximity_feedback_sound">􀊡  Feedback: Sound</string>
-    <string name="proximity_feedback_vibration">􀝗  Feedback: Vibration</string>
+    <string name="proximity_feedback_sound">Sound feedback</string>
+    <string name="proximity_feedback_vibration">Vibration feedback</string>
     <string name="proximity_empty_tip">Open the case briefly, hold the phone out, and walk doorway to doorway. Watch the zone and whether you are getting warmer or colder. Relative only - not left/right and not exact meters.</string>
-    <string name="gym_long_press_same_as_controls">Same as Controls: %1$s</string>
-    <string name="gym_long_press_overrides_controls_hint">Gym Mode overrides long press for this bud</string>
-    <string name="gym_long_press_open_gym_press_actions">Edit in Gym Press Actions ›</string>
     <string name="eq_reset">Reset</string>
+    <string name="app_language">App language</string>
+    <string name="system_default">System default</string>
+    <string name="automatic_detection">Automatic detection</string>
+    <string name="speech_preview_sample">This is a preview of the selected speech language.</string>
+    <string name="speech_voice_unavailable">No installed system voice supports this language.</string>
+    <string name="android_default">Android default</string>
+    <string name="speech_gym_mode_on">Gym Mode on. %1$s ready. Double press to start.</string>
+    <string name="speech_gym_mode_off">Gym Mode off.</string>
+    <string name="speech_timer_name_countdown">Countdown timer</string>
+    <string name="speech_timer_name_stopwatch">Stopwatch</string>
+    <string name="speech_timer_name_hiit">HIIT timer</string>
+    <string name="app_settings">App Settings</string>
+    <string name="ui_02d_02d">%1$02d:%2$02d</string>
+    <string name="ui_add_peer_android_device">Add peer Android device</string>
+    <string name="ui_add_profile">Add profile</string>
+    <string name="ui_allow_unrestricted_background">Allow unrestricted background activity</string>
+    <string name="ui_api_key">API key</string>
+    <string name="ui_automatic_detection_stays_on_c">Automatic detection stays on. Choose an installed voice for each language, or keep the Android default.</string>
+    <string name="ui_cancel">Cancel</string>
+    <string name="ui_continue">Continue</string>
+    <string name="ui_delete">Delete</string>
+    <string name="ui_disconnect">Disconnect</string>
+    <string name="ui_duration">Duration</string>
+    <string name="ui_email">Email</string>
+    <string name="ui_end">End</string>
+    <string name="ui_feature_unavailable">Feature unavailable</string>
+    <string name="ui_get_a_free_api_key_at_elevenla">Create an API key at elevenlabs.io: sign in, open your profile at the top right, then choose API Keys → Create API Key. Check the website for your current plan limits.</string>
+    <string name="ui_github">GitHub</string>
+    <string name="ui_grant">Grant</string>
+    <string name="ui_grant_required_permissions">Grant Required Permissions</string>
+    <string name="ui_grant_the_permissions_everypod">Grant the permissions EveryPods needs to function correctly.</string>
+    <string name="ui_head_orientation">Head Orientation</string>
+    <string name="ui_hiit_configuration">HIIT Configuration</string>
+    <string name="ui_horizontal">Horizontal</string>
+    <string name="ui_lap">LAP</string>
+    <string name="ui_laps">Laps</string>
+    <string name="ui_loading">Loading...</string>
+    <string name="ui_minutes">Minutes</string>
+    <string name="ui_mode">Mode</string>
+    <string name="ui_name">Name</string>
+    <string name="ui_no_timer_running">No timer running</string>
+    <string name="ui_notification_content">Notification content</string>
+    <string name="ui_ok">OK</string>
+    <string name="ui_open_github_issues">Open GitHub Issues</string>
+    <string name="ui_packet">Packet</string>
+    <string name="ui_packet_data">Packet Data</string>
+    <string name="ui_play_pause_always_controls_med">Play / Pause — always controls media</string>
+    <string name="ui_preview">Preview</string>
+    <string name="ui_profiles">Profiles</string>
+    <string name="ui_quick">Quick</string>
+    <string name="ui_quiet_hours">Quiet hours</string>
+    <string name="ui_reconnect">Reconnect</string>
+    <string name="ui_remove">Remove</string>
+    <string name="ui_remove_device">Remove device</string>
+    <string name="ui_report_bugs_or_request_feature">Report bugs or request features on GitHub.</string>
+    <string name="ui_reset">RESET</string>
+    <string name="ui_reset_to_defaults">Reset to defaults</string>
+    <string name="ui_rest">Rest</string>
+    <string name="ui_retry">Retry</string>
+    <string name="ui_rounds">Rounds</string>
+    <string name="ui_save">Save</string>
+    <string name="ui_search_apps">Search apps</string>
+    <string name="ui_search_settings">Search settings...</string>
+    <string name="ui_seconds">Seconds</string>
+    <string name="ui_select_peer_android_device">Select peer Android device</string>
+    <string name="ui_send_email">Send Email</string>
+    <string name="ui_show_system_apps">Show system apps</string>
+    <string name="ui_single_press">Single Press</string>
+    <string name="ui_special_permissions_give_every">Special permissions give EveryPods deeper system access. They are used </string>
+    <string name="ui_speech_language">Speech language</string>
+    <string name="ui_start">Start</string>
+    <string name="ui_stem_controls_not_available_on">Stem controls not available on this model.</string>
+    <string name="ui_stopwatch_elapsed_time_cue">Stopwatch elapsed-time cue</string>
+    <string name="ui_system_voices">System voices</string>
+    <string name="ui_test_connection">Test connection</string>
+    <string name="ui_test_head_gestures">Test Head Gestures</string>
+    <string name="ui_timer_mode">Timer Mode</string>
+    <string name="ui_unable_to_connect_to_airpods_o">Unable to connect to AirPods over L2CAP</string>
+    <string name="ui_velocity">Velocity</string>
+    <string name="ui_vertical">Vertical</string>
+    <string name="ui_voice">Voice</string>
+    <string name="ui_voice_assistant_behavior_depen">Voice Assistant behavior depends on the assistant app: some (e.g. ChatGPT) may not respond to this gesture, and some require the device to be unlocked first — this is an Android platform limitation, not a bug.</string>
+    <string name="ui_voice_engine">Voice engine</string>
+    <string name="ui_volume_swipe_speed">Volume Swipe Speed</string>
+    <string name="ui_work">Work</string>
+    <string name="ui_adaptive_audio_requires_aacp_s">Adaptive Audio requires AACP support</string>
+    <string name="ui_add_device">+ Add device</string>
+    <string name="ui_connected_devices">Connected devices</string>
+    <string name="ui_export_share_report">Export &amp; share report</string>
+    <string name="ui_forget">Forget</string>
+    <string name="ui_has_airpods">Has AirPods</string>
+    <string name="ui_peer_android_device">Peer Android device</string>
+    <string name="ui_permissions">Permissions</string>
+    <string name="ui_reconnect_to_peer">Reconnect to peer</string>
+    <string name="ui_report_lid_open_connect_failur">Report lid-open connect failure</string>
+    <string name="ui_use_after_lid_open_didn_t_auto">Use after lid open didn\'t auto-connect; saves recent lid/BT logs.</string>
+    <string name="ui_5_second_start_countdown">5-second start countdown</string>
+    <string name="ui_all_apps_enabled_by_default_di">All apps enabled by default. Disable specific apps you don\'t want announced.</string>
+    <string name="ui_alternate_stem_actions_for_wor">Alternate stem actions for workouts</string>
+    <string name="ui_anc_profiles">ANC profiles</string>
+    <string name="ui_announce_notifications">Announce notifications</string>
+    <string name="ui_announces_at_threshold_then_ev">Announces at threshold, then every 5 percent below it</string>
+    <string name="ui_announces_at_threshold_then_ev_10f37">Announces at threshold, then every 5 percent below it (every 2 percent under 10 percent, repeats every 10 min under 2 percent)</string>
+    <string name="ui_answer_calls_with_head_gesture">Answer calls with head gestures and stem press</string>
+    <string name="ui_answer_decline_incoming_calls">Answer/decline incoming calls</string>
+    <string name="ui_apps_disable_to_silence">Apps — disable to silence</string>
+    <string name="ui_audio_settings">Audio Settings</string>
+    <string name="ui_auto_anc_profiles">Auto-ANC profiles</string>
+    <string name="ui_automation">Automation</string>
+    <string name="ui_battery_in_widget">Battery in Widget</string>
+    <string name="ui_bluetooth">Bluetooth</string>
+    <string name="ui_bluetooth_control">Bluetooth Control</string>
+    <string name="ui_call_controls">Call Controls</string>
+    <string name="ui_choose_apps">Choose apps</string>
+    <string name="ui_communicate_with_your_airpods">Communicate with your AirPods</string>
+    <string name="ui_connected_devices_3d9fd">Connected Devices</string>
+    <string name="ui_connection_settings">Connection Settings</string>
+    <string name="ui_conversation_awareness">Conversation Awareness</string>
+    <string name="ui_count_down_before_a_new_timer">Count down before a new timer begins</string>
+    <string name="ui_countdown_quarters_hiit_phases">Countdown quarters, HIIT phases, laps, and stopwatch intervals</string>
+    <string name="ui_debug">Debug</string>
+    <string name="ui_display_over_other_apps">Display Over Other Apps</string>
+    <string name="ui_don_t_announce_while_a_call_is">Don\'t announce while a call is in progress.</string>
+    <string name="ui_don_t_announce_while_music_or">Don\'t announce while music or other media is playing.</string>
+    <string name="ui_elevenlabs_natural_voice">ElevenLabs (natural voice)</string>
+    <string name="ui_email_support">Email Support</string>
+    <string name="ui_enable_head_tracking">Enable Head Tracking</string>
+    <string name="ui_end_a2bb9">End</string>
+    <string name="ui_final_countdown">Final countdown</string>
+    <string name="ui_follow_system_do_not_disturb">Follow system Do Not Disturb</string>
+    <string name="ui_github_issues">GitHub Issues</string>
+    <string name="ui_grant_or_revoke_app_permission">Grant or revoke app permissions</string>
+    <string name="ui_gym_mode">🏋️ Gym Mode</string>
+    <string name="ui_gym_press_actions">Gym Press Actions</string>
+    <string name="ui_gym_timer">Gym Timer</string>
+    <string name="ui_head_gestures">Head gestures</string>
+    <string name="ui_hear_timer_progress_controls_a">Hear timer progress, controls, and completion</string>
+    <string name="ui_intermediate_announcements">Intermediate announcements</string>
+    <string name="ui_left_bud">Left earbud</string>
+    <string name="ui_listening_mode_configuration">Listening Mode Configuration</string>
+    <string name="ui_location">Location</string>
+    <string name="ui_manage_permissions">Manage Permissions</string>
+    <string name="ui_manual_schedule">Manual schedule</string>
+    <string name="ui_master_switch_for_all_head_ges">Master switch for all head gesture features.</string>
+    <string name="ui_microphone_settings">Microphone Settings</string>
+    <string name="ui_mute_unmute_during_a_call">Mute/unmute during a call</string>
+    <string name="ui_nod_to_answer_an_incoming_call">Nod to answer an incoming call, shake your head to decline.</string>
+    <string name="ui_notification_access">Notification access</string>
+    <string name="ui_notification_access_4dca8">Notification Access</string>
+    <string name="ui_notification_announcements">Notification Announcements</string>
+    <string name="ui_notifications">Notifications</string>
+    <string name="ui_only_when_airpods_are_in_ear">Only when AirPods are in ear</string>
+    <string name="ui_open_the_full_timer_interface">Open the full timer interface when a gesture starts or resumes it</string>
+    <string name="ui_optimized_charging">Optimized Charging</string>
+    <string name="ui_permissions_d06d5">Permissions</string>
+    <string name="ui_phone">Phone</string>
+    <string name="ui_pop_up_animations">Pop-up Animations</string>
+    <string name="ui_press_actions">Press Actions</string>
+    <string name="ui_read_incoming_notifications_an">Read incoming notifications and callers aloud through the AirPods.</string>
+    <string name="ui_required_for_bluetooth_scannin">Required for Bluetooth scanning on Android 11 and below</string>
+    <string name="ui_resume_media_after_call">Resume media after call</string>
+    <string name="ui_right_bud">Right earbud</string>
+    <string name="ui_send_head_tracking_data_to_the">Send head-tracking data to the AirPods on connect. Off by default — enable only if you use head-gesture controls.</string>
+    <string name="ui_shake_your_head_during_an_acti">Shake your head during an active call to mute the mic, nod to unmute.</string>
+    <string name="ui_show_battery_status_and_alerts">Show battery status and alerts</string>
+    <string name="ui_show_dynamic_island_popup_when">Show Dynamic Island popup when AirPods connect</string>
+    <string name="ui_skip_announcements_during_a_ma">Skip announcements during a manual schedule, or follow the system Do Not Disturb.</string>
+    <string name="ui_skip_during_a_call">Skip during a call</string>
+    <string name="ui_skip_during_active_media">Skip during active media</string>
+    <string name="ui_sleep_detection">Sleep Detection</string>
+    <string name="ui_sleep_timer">Sleep Timer</string>
+    <string name="ui_slows_charging_past_80_to_pres">Slows charging above eighty percent to preserve battery health.</string>
+    <string name="ui_speak_the_final_5_seconds_befo">Speak the final 5 seconds before countdown and HIIT phases end</string>
+    <string name="ui_speak_when_battery_is_low">Speak when battery is low</string>
+    <string name="ui_start_952f3">Start</string>
+    <string name="ui_suppress_announcements_unless">Suppress announcements unless at least one AirPod is detected in your ear.</string>
+    <string name="ui_suppress_during_quiet_hours">Suppress during quiet hours</string>
+    <string name="ui_switch_noise_control_mode_auto">Switch noise control mode automatically based on time of day. The first matching profile wins; check in declaration order.</string>
+    <string name="ui_sync_mute_state_with_teams_vib">Sync mute state with Teams/Viber; announce notifications aloud</string>
+    <string name="ui_system_tts">System TTS</string>
+    <string name="ui_timer_announcements">Timer announcements</string>
+    <string name="ui_title_and_body">Title and body</string>
+    <string name="ui_title_only">Title only</string>
+    <string name="ui_volume_control">Volume Control</string>
+    <string name="ui_wake_screen_and_show_timer">Wake screen and show timer</string>
+    <string name="ui_packet_copied_to_clipboard">Packet copied to clipboard</string>
+    <string name="airpods_icon_accessibility">AirPods icon</string>
+    <string name="feature_unavailable_on_device">Feature unavailable on this device</string>
+    <string name="ui_send">Send</string>
+    <string name="quick_settings_gym_mode">Gym Mode</string>
+    <string name="quick_settings_gym_running">Running %1$02d:%2$02d</string>
+    <string name="quick_settings_stopwatch_ready">Stopwatch ready</string>
+    <string name="quick_settings_tap_to_enable">Tap to enable</string>
+    <string name="airpods_brand" translatable="false">AirPods</string>
+    <string name="requires_aacp_message">This setting requires AirPods control commands (AACP). Your device cannot send them, so this feature is unavailable on this device.</string>
+    <string name="email_support_contact">Need help? Contact us at %1$s.</string>
+    <string name="ui_timer_duration">Duration: %1$d min %2$d s</string>
+    <string name="ui_lap_split">Lap %1$d: %2$d s</string>
+    <string name="ui_lap_label">Lap %1$d</string>
+    <string name="ui_lap_times">%1$d s / %2$d s</string>
+    <string name="ui_configure_gym_press_actions">Configure Gym Press Actions</string>
+    <string name="ui_find_my_case">Find my Case</string>
+    <string name="ui_find_my_case_description">Locate your AirPods case via Bluetooth signal.</string>
+    <string name="ui_head_gestures_status">Head Gestures — %1$s</string>
+    <string name="qs_maintaining_connection">Maintaining your AirPods connection and controls</string>
+    <string name="qs_connection_active">EveryPods — AirPods connection active</string>
+    <string name="channel_airpods_connection">AirPods Connection</string>
+    <string name="channel_airpods_connection_status">AirPods Connection Status</string>
+    <string name="channel_airpods_socket_issues">AirPods Socket Connection Issues</string>
+    <string name="channel_gym_timer">Gym Timer on lock screen</string>
+    <string name="channel_connection_background_description">Shows when EveryPods is maintaining the AirPods connection in the background</string>
+    <string name="channel_socket_failure_description">Notifications about problems connecting to AirPods protocol</string>
+    <string name="channel_gym_timer_description">Shows an active Gym Timer on the lock screen</string>
+    <string name="notification_airpods_connection_issue">AirPods Connection Issue</string>
+    <string name="notification_airpods_l2cap_error">Your AirPods are connected via Bluetooth, but EveryPods could not connect using L2CAP. Error: %1$s</string>
+    <string name="ui_countdown_ready">Countdown ready</string>
+    <string name="ui_stopwatch_ready">Stopwatch ready</string>
+    <string name="ui_hiit_ready">HIIT ready</string>
+    <string name="ui_timer_starting_in">Starting in %1$d s</string>
+    <string name="ui_timer_running">Running %1$02d:%2$02d</string>
+    <string name="ui_timer_running_hiit">Running %1$s round %2$d, %3$02d:%4$02d</string>
+    <string name="ui_timer_paused">Paused %1$02d:%2$02d</string>
+    <string name="ui_timer_paused_hiit">Paused %1$s round %2$d</string>
+    <string name="ui_timer_phase_work">Work</string>
+    <string name="ui_timer_phase_rest">Rest</string>
+    <string name="ui_device_name">Device Name</string>
+    <string name="ui_version_info">Version Info</string>
+    <string name="ui_troubleshooting">Troubleshooting</string>
+    <string name="phone">Phone</string>
+    <string name="ui_close">Close</string>
+    <string name="airpods_pro_name" translatable="false">AirPods Pro</string>
+    <string name="support_no_email_app">No email app found.</string>
+    <string name="viewmodel_minimum_modes">At least 2 modes must be selected.</string>
+    <string name="viewmodel_disconnected_settings">The app disconnected. Disconnect AirPods from Android Settings.</string>
+    <string name="ui_sleep_preset_minutes">%1$d min</string>
+    <string name="ui_sleep_remaining">%1$d min %2$d s remaining</string>
+    <string name="ui_anc_no_profiles">No profiles yet. Tap \"%1$s\" below.</string>
+    <string name="ui_anc_profile_summary">%1$s · %2$s</string>
+    <string name="ui_report_saved">Report saved: %1$s</string>
+    <string name="ui_report_shared_empty">Buffer empty — report file shared anyway</string>
+    <string name="ui_report_ready">Lid-open failure report ready</string>
+    <string name="ui_share_lid_report">Share lid-open report</string>
+    <string name="ui_debug_field">%1$s:</string>
+    <string name="ui_debug_raw">Raw: %1$s</string>
+    <string name="ui_tap_test_connection">Tap \"%1$s\" to load your available voices.</string>
+    <string name="ui_round_progress">Round %1$d / %2$d</string>
+    <string name="ui_preparing_in">Starting in %1$d</string>
+    <string name="ui_timer_value_seconds">%1$d s</string>
+    <string name="ui_timer_value_minutes">%1$d min</string>
+    <string name="ui_timer_value_rounds">%1$d rounds</string>
+    <string name="ui_proximity_summary">%1$s · %2$s · %3$s</string>
+    <string name="ui_percentage_value">%1$d%%</string>
+    <string name="ui_battery_percent">%1$s %2$d%%</string>
+    <string name="ui_battery_value_empty">%1$s —</string>
+    <string name="ui_add_label">+ %1$s</string>
+    <string name="ui_owner_likely">Likely yours</string>
+    <string name="ui_owner_maybe">Maybe yours</string>
+    <string name="ui_owner_other">Other nearby</string>
+    <string name="ui_kind_find_my">Find My</string>
+    <string name="ui_kind_apple_ble">Apple BLE</string>
+    <string name="ui_kind_named_airpods">Named AirPods</string>
+    <string name="toast_mic_muted">Mic muted</string>
+    <string name="toast_mic_unmuted">Mic unmuted</string>
+    <string name="toast_call_ended">Call ended</string>
+    <string name="toast_call_declined">Call declined</string>
+    <string name="toast_socket_connection_error">Could not connect to socket: %1$s</string>
+<string name="gym_long_press_same_as_controls">Same as Controls: %1$s</string>
+
+<string name="gym_long_press_overrides_controls_hint">Gym Mode overrides long press for this bud</string>
+
+<string name="gym_long_press_open_gym_press_actions">Edit in Gym Press Actions ›</string>
+
+<string name="hrm_title">Heart rate · Experimental</string>
+
+<string name="hrm_stopped">Stopped</string>
+
+<string name="hrm_waiting">Waiting for a reading…</string>
+
+<string name="hrm_live">Live</string>
+
+<string name="hrm_stale">No recent reading</string>
+
+<string name="hrm_error">Monitoring stopped</string>
+
+<string name="hrm_start">Start</string>
+
+<string name="hrm_stop">Stop</string>
+
+<string name="hrm_retry">Retry</string>
+
+<string name="hrm_bpm">%1$d BPM</string>
+
+<string name="hrm_updated">Last update: %1$s</string>
+
+<string name="hrm_unsupported">Heart rate requires AirPods Pro 3.</string>
+
+<string name="hrm_connection">Connect your AirPods here before starting.</string>
+
+<string name="hrm_not_owner">Connect audio to this phone before starting.</string>
+
+<string name="hrm_send_failed">Couldn’t send the sensor command. Reconnect and try again.</string>
+
+<string name="hrm_no_data">No readings received. Check the fit of your AirPods and retry.</string>
+
+<string name="hrm_lost">Connection lost. Reconnect and press Start.</string>
+
+<string name="hrm_device_changed">Connected AirPods changed. Press Start to begin a new session.</string>
+
+<string name="hrm_hint">Wear your AirPods Pro 3, then press Start. Monitoring stops when you leave this screen.</string>
+
+
+<string name="hrm_share_title">Heart rate sharing · Experimental</string>
+
+<string name="hrm_share_start">Start sharing to Wahoo</string>
+
+<string name="hrm_share_stop">Stop sharing</string>
+
+<string name="hrm_share_advertised">Advertising as %1$s</string>
+
+<string name="hrm_share_preparing">Preparing %1$s…</string>
+
+<string name="hrm_share_counts">Receivers: %1$d · Subscribed: %2$d · Sent: %3$d</string>
+
+<string name="hrm_share_explanation">Uses Wi-Fi to share real readings with compatible apps. Other devices on this Wi-Fi can also connect while sharing is on. Wahoo compatibility is experimental.</string>
+
+<string name="hrm_share_hint">Sharing continues when you leave this screen. Stop here or from the notification.</string>
+
+<string name="hrm_share_notification">Sharing AirPods heart rate. Tap Stop to end the session.</string>
+
+<string name="hrm_share_wifi">Connect to Wi-Fi before starting sharing.</string>
+
+<string name="hrm_share_permission">Allow Nearby devices and notification permissions to share heart rate.</string>
+
+<string name="hrm_share_network_lost">Wi-Fi changed or disconnected. Sharing stopped; start again manually.</string>
+
+<string name="hrm_share_advertisement">Could not advertise the heart rate sensor. Stop and try again.</string>
+
+<string name="hrm_share_server">Could not start the local heart rate server. Stop and try again.</string>
+
+<string name="hrm_ble_preparing">Preparing Bluetooth sensor…</string>
+
+<string name="hrm_ble_unsupported">Bluetooth heart-rate sharing is unavailable on this device. Check that Bluetooth is on.</string>
+
+<string name="hrm_ble_gatt">Could not start the Bluetooth heart-rate service. Try again.</string>
+
+<string name="hrm_ble_advertising">Could not advertise the Bluetooth sensor. Try again.</string>
+
+
+    <string name="hrs_title">Heart rate</string>
+    <string name="hrs_share">Share heart rate</string>
+    <string name="hrs_tickr">Wahoo on this phone · TICKR</string>
+    <string name="hrs_bluetooth">Bluetooth sensor · Another device</string>
+    <string name="hrs_tickr_hint">Experimental Wahoo integration. Appears as TICKR. Stopping sends zero and keeps the sensor saved.</string>
+    <string name="hrs_bluetooth_hint">For a receiver on another device. Look for this phone’s Bluetooth name. Nearby devices can connect while sharing is enabled.</string>
+    <string name="hrs_start_sharing">Start sharing</string>
+    <string name="hrs_monitor_only">Monitor only</string>
+    <string name="hrs_background_hint">Sharing continues with the screen locked. Use Stop here or in the notification to end it.</string>
+    <string name="hrs_gym_auto">Automatically share with Gym mode</string>
+    <string name="hrs_gym_hint">Uses the selected method. Turning Gym mode off stops sharing it started. Stop pauses automation until the next Gym mode session.</string>
+    <string name="hrs_diagnostics">Diagnostics</string>
+    <string name="hrs_tickr_sending">Sending to Wahoo</string>
+    <string name="hrs_ble_ready">Bluetooth sensor discoverable</string>
+    <string name="hrs_ble_connected">Receiver connected</string>
+    <string name="hrs_ble_subscribed">Receiver subscribed</string>
+    <string name="hrs_reconnecting">Restoring heart-rate sharing…</string>
+    <string name="hrs_wahoo_missing">Install Wahoo on this phone to use TICKR sharing.</string>
+
+
+    <string name="hrs_needs_attention">Needs attention</string>
+    <string name="hrs_monitoring">Monitoring</string>
+    <string name="hrs_identifying">EveryPods has not identified your AirPods model yet. Bluetooth audio alone does not provide heart-rate access. Connect your AirPods in EveryPods; this screen will update when identification completes.</string>
+
+    <string name="category_controls">AirPods Controls</string>
+    <string name="category_settings">AirPods Settings</string>
+    <string name="category_smart">Smart Features</string>
+    <string name="category_audio">Audio &amp; Connection</string>
+    <string name="category_help">Help &amp; Troubleshooting</string>
+    <string name="controls_configuration">Controls configuration</string>
+    <string name="background_activity">Background activity</string>
+    <string name="press_three_times">Triple press</string>
+    <string name="action_play_pause">Play / Pause</string>
+    <string name="action_next_track">Next track</string>
+    <string name="action_previous_track">Previous track</string>
+    <string name="action_toggle_gym">Gym mode on / off</string>
+    <string name="action_timer_start_stop">Start / pause timer</string>
+    <string name="action_timer_lap">Record lap</string>
+    <string name="action_timer_reset">Reset timer</string>
+    <string name="airpods_nearby_elsewhere">AirPods on another device or in the case</string>
+    <string name="airpods_not_nearby">AirPods not nearby</string>
+    <string name="announce_other_bluetooth">Also read on other Bluetooth devices</string>
+    <string name="announce_other_bluetooth_description">Read notifications through car audio systems, speakers and other headphones</string>
+    <string name="show_secret">Show</string>
+    <string name="hide_secret">Hide</string>
+    <string name="special_permissions_explanation">Special permissions give EveryPods additional system access for the features described below. You can revoke them at any time in system settings.</string>
+    <string name="battery_alerts">Battery alerts</string>
+
+    <string name="background_unrestricted">Background activity allowed</string>
+    <string name="background_restricted">Battery optimization is active</string>
+    <string name="background_unrestricted_description">EveryPods can run in the background for device switching, Bluetooth proximity and automatic startup.</string>
+    <string name="background_restricted_description">Android may stop EveryPods to save battery, affecting device switching and automatic startup. Allow unrestricted background activity below.</string>
+    <string name="permission_granted">Allowed</string>
+    <string name="permission_tap_to_grant">Tap to allow</string>
+    <string name="permission_call_detection">Phone state (call detection)</string>
+    <string name="notification_access_hint">Enable “EveryPods Notification Announcements” in the list. EveryPods has two entries; choose this one for reading notifications.</string>
+    <string name="enter_api_key">Enter an API key first</string>
+    <string name="connection_testing">Testing…</string>
+    <string name="connection_test_error">Error: %1$s</string>
+    <string name="profile_new">New profile</string>
+    <string name="profile_edit">Edit profile</string>
+    <string name="calibration_saved_title">AirPods recognized</string>
+    <string name="calibration_learn_title">Identify your AirPods</string>
+    <string name="calibration_hint">Open the case beside the phone, then calibrate once.</string>
+    <string name="calibration_start">Calibrate</string>
+    <string name="calibration_wait">Keep the open case beside the phone for %1$d s.</string>
+    <string name="calibration_saved">The AirPods signal pattern is saved. Matching devices appear first.</string>
+    <string name="bluetooth_unavailable">Bluetooth is unavailable on this device.</string>
+    <string name="bluetooth_disabled">Bluetooth is turned off.</string>
+    <string name="bluetooth_scan_unavailable">Bluetooth LE scanning is unavailable.</string>
+    <string name="bluetooth_scan_failed">Bluetooth scan failed: %1$d</string>
+    <string name="bluetooth_scan_permission">Bluetooth scan permission is missing.</string>
+    <string name="bluetooth_scan_start_failed">Could not start Bluetooth scanning.</string>
+    <string name="timer_countdown_label">Countdown</string>
 </resources>

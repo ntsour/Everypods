@@ -20,6 +20,8 @@
 
 package io.automated.ventures.everypods
 
+import androidx.compose.ui.res.stringResource
+
 import android.annotation.SuppressLint
 import android.content.BroadcastReceiver
 import android.content.ComponentName
@@ -430,7 +432,7 @@ fun NewControlCenterDialogContent(
             ) {
                 Icon(
                     painter = painterResource(id = R.drawable.airpods),
-                    contentDescription = "Device Icon",
+                    contentDescription = stringResource(R.string.airpods_icon_accessibility),
                     tint = textColor.copy(alpha = 0.8f),
                     modifier = Modifier.size(48.dp)
                 )
@@ -590,7 +592,7 @@ fun NewControlCenterDialogContent(
                                 ) {
                                     Icon(
                                         painter = painterResource(id = R.drawable.airpods),
-                                        contentDescription = "Conversational Awareness",
+                                        contentDescription = stringResource(R.string.conversational_awareness),
                                         tint = Color.White,
                                         modifier = Modifier.size(32.dp)
                                     )
@@ -599,7 +601,7 @@ fun NewControlCenterDialogContent(
                                 Spacer(modifier = Modifier.height(8.dp))
 
                                 Text(
-                                    text = "Conversational\nAwareness",
+                                    text = stringResource(R.string.conversational_awareness),
                                     color = Color.White,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Medium,
@@ -615,7 +617,7 @@ fun NewControlCenterDialogContent(
         } else {
             Spacer(modifier = Modifier.weight(1f))
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Text("Loading...", color = textColor)
+                Text(stringResource(R.string.ui_loading), color = textColor)
             }
             Spacer(modifier = Modifier.weight(1f))
         }

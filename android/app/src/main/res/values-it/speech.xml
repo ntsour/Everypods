@@ -1,0 +1,39 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="speech_battery_left">La batteria dell’AirPod sinistro è al %1$d percento</string>
+    <string name="speech_battery_right">La batteria dell’AirPod destro è al %1$d percento</string>
+    <string name="speech_battery_case">La batteria della custodia degli AirPods è al %1$d percento</string>
+    <string name="speech_battery_generic">Batteria al %1$d percento</string>
+    <string name="speech_call_named">Chiamata in arrivo da %1$s</string>
+    <string name="speech_call_generic">Chiamata in arrivo</string>
+    <string name="speech_timer_countdown_started">Conto alla rovescia avviato. %1$s.</string>
+    <string name="speech_timer_stopwatch_started">Cronometro avviato.</string>
+    <string name="speech_timer_hiit_started">HIIT avviato. %1$d round. Lavoro %2$s. Riposo %3$s.</string>
+    <string name="speech_timer_countdown_resumed">Conto alla rovescia ripreso. Restano %1$s.</string>
+    <string name="speech_timer_stopwatch_resumed">Cronometro ripreso. %1$s trascorsi.</string>
+    <string name="speech_timer_hiit_resumed">HIIT ripreso. Restano %1$s.</string>
+    <string name="speech_timer_countdown_paused">Conto alla rovescia in pausa. Restano %1$s.</string>
+    <string name="speech_timer_stopwatch_paused">Cronometro in pausa. %1$s trascorsi.</string>
+    <string name="speech_timer_hiit_paused">HIIT in pausa. Restano %1$s.</string>
+    <string name="speech_timer_countdown_reset">Conto alla rovescia azzerato.</string>
+    <string name="speech_timer_stopwatch_reset">Cronometro azzerato.</string>
+    <string name="speech_timer_hiit_reset">HIIT azzerato.</string>
+    <string name="speech_timer_quarter_complete">Un quarto completato</string>
+    <string name="speech_timer_halfway">A metà</string>
+    <string name="speech_timer_three_quarters_complete">Tre quarti completati</string>
+    <string name="speech_timer_elapsed">%1$s trascorsi.</string>
+    <string name="speech_timer_round_phase">Giro %1$d. %2$s.</string>
+    <string name="speech_timer_work">Lavoro</string>
+    <string name="speech_timer_rest">Riposo</string>
+    <string name="speech_timer_lap">Giro %1$d. %2$s. Totale %3$s.</string>
+    <string name="speech_timer_countdown_complete">Conto alla rovescia completato.</string>
+    <string name="speech_timer_hiit_complete">HIIT completato.</string>
+    <plurals name="speech_minutes">
+        <item quantity="one">%1$d minuto</item>
+        <item quantity="other">%1$d minuti</item>
+    </plurals>
+    <plurals name="speech_seconds">
+        <item quantity="one">%1$d secondo</item>
+        <item quantity="other">%1$d secondi</item>
+    </plurals>
+</resources>

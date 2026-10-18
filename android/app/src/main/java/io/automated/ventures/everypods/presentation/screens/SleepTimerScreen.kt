@@ -1,5 +1,9 @@
 package io.automated.ventures.everypods.presentation.screens
 
+import io.automated.ventures.everypods.R
+
+import androidx.compose.ui.res.stringResource
+
 import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -50,7 +54,7 @@ fun SleepTimerScreen() {
         SleepTimer.addListener(l); onDispose { SleepTimer.removeListener(l) }
     }
     
-    StyledScaffold(title = "Sleep Timer") { topPadding, hazeState, bottomPadding ->
+    StyledScaffold(title = stringResource(R.string.ui_sleep_timer)) { topPadding, hazeState, bottomPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -66,7 +70,7 @@ fun SleepTimerScreen() {
                     listOf(15, 30, 45, 60, 90).forEach { mins ->
                         StyledButton(onClick = { SleepTimer.start(context, mins * 60_000L); sleepRemainingMs.value = SleepTimer.remainingMs(context) },
                             backdrop = rememberLayerBackdrop(), modifier = Modifier.weight(1f).heightIn(min = 40.dp)) {
-                            Text("${mins}m", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro, color = textColor))
+                            Text(stringResource(R.string.ui_sleep_preset_minutes, mins), style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro, color = textColor))
                         }
                     }
                 }
@@ -74,13 +78,13 @@ fun SleepTimerScreen() {
                     val mins = (sleepRemainingMs.value / 60_000L).toInt()
                     val secs = ((sleepRemainingMs.value % 60_000L) / 1000L).toInt()
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text("⏱ ${mins}m ${secs}s remaining", style = TextStyle(fontSize = 13.sp, fontFamily = SfPro, color = textColor.copy(0.7f)))
+                        Text(stringResource(R.string.ui_sleep_remaining, mins, secs), style = TextStyle(fontSize = 13.sp, fontFamily = SfPro, color = textColor.copy(0.7f)))
                         StyledButton(onClick = { SleepTimer.cancel(context); sleepRemainingMs.value = 0L }, backdrop = rememberLayerBackdrop(), modifier = Modifier.heightIn(min = 36.dp)) {
-                            Text("Cancel", style = TextStyle(fontSize = 13.sp, fontFamily = SfPro, color = textColor))
+                            Text(stringResource(R.string.ui_cancel), style = TextStyle(fontSize = 13.sp, fontFamily = SfPro, color = textColor))
                         }
                     }
                 } else {
-                    Text("No timer running", style = captionStyle(dark))
+                    Text(stringResource(R.string.ui_no_timer_running), style = captionStyle(dark))
                 }
             }
             

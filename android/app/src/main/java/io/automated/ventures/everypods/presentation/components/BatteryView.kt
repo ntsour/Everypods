@@ -75,7 +75,10 @@ fun BatteryView(
     // landscape ~411dp). Tablets (≥ 480dp tall) keep the larger image.
     val configuration = androidx.compose.ui.platform.LocalConfiguration.current
     val isShortViewport = configuration.screenHeightDp < 480
-    val imageMaxHeight = if (isShortViewport) 96.dp else 200.dp
+    // Reduce the measured artwork area, rather than just drawing it smaller,
+    // so the saved height becomes available to the phone controls below.
+    val artworkScale = if (configuration.smallestScreenWidthDp < 600) 0.7f else 1f
+    val imageMaxHeight = (if (isShortViewport) 96.dp else 200.dp) * artworkScale
 
     // A bud is "known" when its status is not DISCONNECTED (or null)
     val leftKnown  = left  != null && left.status  != BatteryStatus.DISCONNECTED
@@ -103,7 +106,7 @@ fun BatteryView(
                     bitmap = ImageBitmap.imageResource(budsRes),
                     contentDescription = stringResource(R.string.buds),
                     modifier = Modifier
-                        .fillMaxWidth()
+                        .fillMaxWidth(artworkScale)
                         .heightIn(max = imageMaxHeight)
                         .padding(8.dp)
                 )
@@ -157,7 +160,7 @@ fun BatteryView(
                     bitmap = ImageBitmap.imageResource(caseRes),
                     contentDescription = stringResource(R.string.case_alt),
                     modifier = Modifier
-                        .fillMaxWidth()
+                        .fillMaxWidth(artworkScale)
                         .heightIn(max = imageMaxHeight)
                         .padding(8.dp)
                 )
@@ -226,7 +229,7 @@ private fun BudPlaceholder(label: String, dark: Boolean) {
         )
         Spacer(Modifier.height(4.dp))
         Text(
-            text = "$label —",
+            text = stringResource(R.string.ui_battery_value_empty, label),
             style = TextStyle(
                 fontSize = 14.sp, fontFamily = sfPro,
                 color = color, textAlign = TextAlign.Center

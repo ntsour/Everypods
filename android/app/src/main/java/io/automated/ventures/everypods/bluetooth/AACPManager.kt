@@ -22,6 +22,8 @@ package io.automated.ventures.everypods.bluetooth
 
 import android.util.Log
 import io.automated.ventures.everypods.bluetooth.connection.DeferredHandshakeAckSource
+import io.automated.ventures.everypods.bluetooth.hrm.BuddyFrameDecoder
+import io.automated.ventures.everypods.bluetooth.hrm.HeartRateProtocol
 import io.automated.ventures.everypods.data.CustomEq
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -229,7 +231,28 @@ class AACPManager {
         }
     }
 
+    private val buddyFrames = BuddyFrameDecoder { Log.w("EveryPodsHRM", it) }
+    private var heartRateSequence = 0
+    private var heartRatePackets = 0L
+    private var buddyPackets = 0L
+    private var sensorAcknowledgments = 0L
+    private var sensorRejections = 0L
+
+    @Synchronized fun heartRateDiagnostics(): String =
+        "buddy=$buddyPackets samples=$heartRatePackets acknowledgments=$sensorAcknowledgments rejected=$sensorRejections"
+
+    @Synchronized fun sendHeartRateCommand(service: Int, intervalMicros: Int): Boolean {
+        val sequence = heartRateSequence
+        heartRateSequence = (heartRateSequence + 1) and Int.MAX_VALUE
+        val sent = sendDataPacket(HeartRateProtocol.command(service, intervalMicros, sequence))
+        Log.i("EveryPodsHRM", "Command write service=$service intervalMicros=$intervalMicros seq=$sequence success=$sent")
+        return sent
+    }
+
     interface PacketCallback {
+        fun onHeartRateSample(bpm: Int) {}
+        fun onSensorDisconnected() {}
+
         fun onBatteryInfoReceived(batteryInfo: ByteArray)
         fun onEarDetectionReceived(earDetection: ByteArray)
         fun onConversationAwarenessReceived(conversationAwareness: ByteArray)
@@ -406,9 +429,16 @@ class AACPManager {
 
     @OptIn(ExperimentalStdlibApi::class)
     fun receivePacket(packet: ByteArray) {
+        buddyFrames.feed(packet).forEach(::receiveCompletePacket)
+    }
+
+    @OptIn(ExperimentalStdlibApi::class)
+    private fun receiveCompletePacket(packet: ByteArray) {
         // Raw RX trace — every inbound AACP frame, byte for byte. Used to diff a
         // failing cold-connect session against a healthy handover session.
-        Log.d(TAG, "RX: ${packet.joinToString(" ") { "%02X".format(it) }}")
+        if (packet.size >= 6 && packet.take(4) == HEADER_BYTES.toList() && packet[4] != Opcodes.HEADTRACKING) {
+            Log.d(TAG, "RX: ${packet.joinToString(" ") { "%02X".format(it) }}")
+        }
         if (!packet.toHexString().startsWith("04000400")) {
             Log.w(
                 TAG, "Received packet does not start with expected header: ${
@@ -498,13 +528,35 @@ class AACPManager {
             }
 
             Opcodes.HEADTRACKING -> {
+                buddyPackets++
+                when (val result = HeartRateProtocol.decode(packet) { metadata ->
+                    if (buddyPackets <= 3L || buddyPackets % 60L == 0L || metadata.kind.endsWith("ack"))
+                        Log.i("EveryPodsHRM", "Buddy count=$buddyPackets descriptor=${metadata.descriptor} seq=${metadata.sequence} kind=${metadata.kind} service=${metadata.service}")
+                }) {
+                    is HeartRateProtocol.Result.Sample -> {
+                        heartRatePackets++
+                        if (heartRatePackets == 1L || heartRatePackets % 60L == 0L)
+                            Log.i("EveryPodsHRM", "Valid sensor samples=$heartRatePackets")
+                        // Enable only for an explicitly requested local device validation.
+                        if (Log.isLoggable("EveryPodsHRM", Log.VERBOSE))
+                            Log.v("EveryPodsHRM", "sample bpm=${result.bpm}")
+                        callback?.onHeartRateSample(result.bpm)
+                        return
+                    }
+                    is HeartRateProtocol.Result.Rejected -> {
+                        sensorRejections++
+                        Log.w("EveryPodsHRM", "Rejected sensor packet: ${result.reason}")
+                        return
+                    }
+                    is HeartRateProtocol.Result.Acknowledgment -> {
+                        sensorAcknowledgments++
+                        Log.i("EveryPodsHRM", "Sensor ${result.kind} service=${result.service}; ${heartRateDiagnostics()}")
+                        return
+                    }
+                    HeartRateProtocol.Result.OtherSensor -> Unit
+                }
                 if (packet.size < 70) {
-                    Log.w(
-                        TAG, "Received HEADTRACKING packet too short: ${
-                        packet.joinToString(" ") {
-                            "%02X".format(it)
-                        }
-                    }")
+                    Log.d(TAG, "Non-HRM Buddy frame below legacy movement length: bytes=${packet.size}")
                     return
                 }
                 callback?.onHeadTrackingReceived(packet)
@@ -651,6 +703,8 @@ class AACPManager {
         return opcode + data
     }
 
+    // Matches LibrePods e4218c2 connectService4, verified with Pro 3 HRM.
+    // Keep this shared encoder for every handshake/retransmission on the socket.
     fun createHandshakePacket(): ByteArray {
         return byteArrayOf(
             0x00,
@@ -659,7 +713,7 @@ class AACPManager {
             0x00,
             0x01,
             0x00,
-            0x02,
+            0x03,
             0x00,
             0x00,
             0x00,
@@ -1284,6 +1338,13 @@ class AACPManager {
     }
 
     fun disconnected() {
+        buddyFrames.reset()
+        heartRateSequence = 0
+        heartRatePackets = 0
+        buddyPackets = 0
+        sensorAcknowledgments = 0
+        sensorRejections = 0
+        callback?.onSensorDisconnected()
         Log.d(TAG, "Disconnected, clearing state")
         controlCommandStatusList.clear()
         controlCommandListeners.clear()

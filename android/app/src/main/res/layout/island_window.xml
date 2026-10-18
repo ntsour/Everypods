@@ -58,7 +58,7 @@
             android:lineSpacingExtra="0dp"
             android:lineSpacingMultiplier="1"
             android:padding="0dp"
-            android:text="AirPods Pro"
+            android:text="@string/airpods_pro_name"
             android:textColor="@color/white"
             android:textSize="24sp"
             tools:ignore="HardcodedText" />
@@ -100,7 +100,7 @@
             android:layout_gravity="center"
             android:fontFamily="@font/sf_pro"
             android:gravity="center"
-            android:text="50%"
+            android:text=""
             android:textColor="#1ceb72"
             android:textSize="16sp"
             android:textStyle="bold"

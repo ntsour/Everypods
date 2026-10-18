@@ -18,6 +18,8 @@
 
 package io.automated.ventures.everypods.presentation.screens
 
+import androidx.compose.ui.res.stringResource
+
 import android.content.SharedPreferences
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -80,32 +82,32 @@ fun GymPressActionsScreen(viewModel: AirPodsViewModel) {
         runCatching { StemAction.valueOf(sharedPrefs.getString(key, default.name) ?: default.name) }.getOrDefault(default)
 
     val pressTypes = listOf(
-        Triple("Double Press", AACPManager.Companion.StemPressType.DOUBLE_PRESS,  StemAction.GYM_TIMER_START_STOP),
-        Triple("Triple Press", AACPManager.Companion.StemPressType.TRIPLE_PRESS,  StemAction.GYM_TIMER_LAP),
-        Triple("Long Press",   AACPManager.Companion.StemPressType.LONG_PRESS,    StemAction.GYM_TIMER_RESET),
+        Triple(stringResource(R.string.press_twice), AACPManager.Companion.StemPressType.DOUBLE_PRESS,  StemAction.GYM_TIMER_START_STOP),
+        Triple(stringResource(R.string.press_three_times), AACPManager.Companion.StemPressType.TRIPLE_PRESS,  StemAction.GYM_TIMER_LAP),
+        Triple(stringResource(R.string.press_and_hold_airpods),   AACPManager.Companion.StemPressType.LONG_PRESS,    StemAction.GYM_TIMER_RESET),
     )
 
     val actionOptions = listOf(
-        StemAction.PLAY_PAUSE              to "Play / Pause",
-        StemAction.NEXT_TRACK              to "Next Track",
-        StemAction.PREVIOUS_TRACK          to "Prev. Track",
-        StemAction.CYCLE_NOISE_CONTROL_MODES to "Listening Mode",
+        StemAction.PLAY_PAUSE              to stringResource(R.string.action_play_pause),
+        StemAction.NEXT_TRACK              to stringResource(R.string.action_next_track),
+        StemAction.PREVIOUS_TRACK          to stringResource(R.string.action_previous_track),
+        StemAction.CYCLE_NOISE_CONTROL_MODES to stringResource(R.string.noise_control),
         // Gym Mode On/Off is owned by AirPods Controls long-press only (per bud).
-        StemAction.GYM_TIMER_START_STOP    to "Timer Start / Stop",
-        StemAction.GYM_TIMER_LAP           to "Timer Lap",
-        StemAction.GYM_TIMER_RESET         to "Timer Reset",
+        StemAction.GYM_TIMER_START_STOP    to stringResource(R.string.action_timer_start_stop),
+        StemAction.GYM_TIMER_LAP           to stringResource(R.string.action_timer_lap),
+        StemAction.GYM_TIMER_RESET         to stringResource(R.string.action_timer_reset),
     )
     // Display names for the Controls long-press shown in "Same as Controls: …".
     val controlsActionNames = mapOf(
-        StemAction.PLAY_PAUSE                to "Play / Pause",
-        StemAction.NEXT_TRACK                to "Next Track",
-        StemAction.PREVIOUS_TRACK            to "Prev. Track",
-        StemAction.DIGITAL_ASSISTANT         to "Voice Assistant",
-        StemAction.CYCLE_NOISE_CONTROL_MODES to "Listening Mode",
-        StemAction.TOGGLE_GYM_MODE           to "Gym Mode On / Off",
+        StemAction.PLAY_PAUSE                to stringResource(R.string.action_play_pause),
+        StemAction.NEXT_TRACK                to stringResource(R.string.action_next_track),
+        StemAction.PREVIOUS_TRACK            to stringResource(R.string.action_previous_track),
+        StemAction.DIGITAL_ASSISTANT         to stringResource(R.string.digital_assistant),
+        StemAction.CYCLE_NOISE_CONTROL_MODES to stringResource(R.string.noise_control),
+        StemAction.TOGGLE_GYM_MODE           to stringResource(R.string.action_toggle_gym),
     )
 
-    StyledScaffold(title = "Gym Press Actions") { topPadding, hazeState, bottomPadding ->
+    StyledScaffold(title = stringResource(R.string.ui_gym_press_actions)) { topPadding, hazeState, bottomPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -120,7 +122,7 @@ fun GymPressActionsScreen(viewModel: AirPodsViewModel) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     BudColumnHeader(
                         imageRes = R.drawable.airpods_pro_2_left,
-                        label = "Left Bud",
+                        label = stringResource(R.string.ui_left_bud),
                         selected = selectedBud == "left",
                         dark = dark,
                         modifier = Modifier.weight(1f),
@@ -128,7 +130,7 @@ fun GymPressActionsScreen(viewModel: AirPodsViewModel) {
                     )
                     BudColumnHeader(
                         imageRes = R.drawable.airpods_pro_2_right,
-                        label = "Right Bud",
+                        label = stringResource(R.string.ui_right_bud),
                         selected = selectedBud == "right",
                         dark = dark,
                         modifier = Modifier.weight(1f),
@@ -140,9 +142,9 @@ fun GymPressActionsScreen(viewModel: AirPodsViewModel) {
 
                 // Single Press — fixed
                 Column(Modifier.fillMaxWidth().background(if (dark) Color(0xFF2C2C2E) else Color(0xFFF2F2F7), RoundedCornerShape(12.dp)).padding(horizontal = 10.dp, vertical = 8.dp)) {
-                    Text("Single Press", style = TextStyle(fontSize = 10.sp, fontFamily = SfPro,
+                    Text(stringResource(R.string.ui_single_press), style = TextStyle(fontSize = 10.sp, fontFamily = SfPro,
                         color = if (dark) Color.White.copy(0.5f) else Color.Black.copy(0.5f)))
-                    Text("Play / Pause — always controls media", style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium,
+                    Text(stringResource(R.string.ui_play_pause_always_controls_med), style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium,
                         fontFamily = SfPro, color = if (dark) Color.White.copy(0.4f) else Color.Black.copy(0.4f)))
                 }
 
@@ -177,7 +179,7 @@ fun GymPressActionsScreen(viewModel: AirPodsViewModel) {
                         else -> readGymAction(prefKey, defaultAction)
                     }
                     val options: List<Pair<StemAction?, String>> = when {
-                        locked -> listOf(StemAction.TOGGLE_GYM_MODE to "Gym Mode On / Off")
+                        locked -> listOf(StemAction.TOGGLE_GYM_MODE to stringResource(R.string.action_toggle_gym))
                         isLong -> listOf<Pair<StemAction?, String>>(null to sameAsControlsLabel) + actionOptions
                         else -> actionOptions
                     }
@@ -206,7 +208,7 @@ fun GymPressActionsScreen(viewModel: AirPodsViewModel) {
                             )
                         }
                     }
-                    if (label != "Long Press") Spacer(Modifier.height(8.dp))
+                    if (label != stringResource(R.string.press_and_hold_airpods)) Spacer(Modifier.height(8.dp))
                 }
             }
 
@@ -229,7 +231,7 @@ fun GymPressActionsScreen(viewModel: AirPodsViewModel) {
             }.padding(horizontal = 16.dp, vertical = 14.dp),
                 horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Reset to defaults", style = bodyStyle(dark))
+                Text(stringResource(R.string.ui_reset_to_defaults), style = bodyStyle(dark))
                 Text("􀅉", style = TextStyle(fontSize = 15.sp, fontFamily = SfPro, color = if (dark) Color.White.copy(0.35f) else Color.Black.copy(0.35f)))
             }
 
@@ -299,20 +301,18 @@ private fun GymPressDropdown(
             .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
-        Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis,
+        Text(label,
             style = TextStyle(fontSize = 10.sp, fontFamily = SfPro,
                 color = textColor.copy(alpha = 0.5f)))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(actionName, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                Text(actionName,
                     style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium,
                         fontFamily = SfPro, color = textColor))
                 if (lockedHint != null) {
                     Text(
                         lockedHint,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
                         style = TextStyle(
                             fontSize = 10.sp,
                             fontFamily = SfPro,
