@@ -55,6 +55,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -85,6 +86,7 @@ import io.automated.ventures.everypods.utils.TtsEngine
 @Composable
 fun NotificationAnnouncementsScreen(navController: NavController) {
     val context = LocalContext.current
+    val resources = LocalResources.current
     val prefs = remember { AnnouncementPrefs.prefs(context) }
     val isDark = isSystemInDarkTheme()
     val cardColor = if (isDark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
@@ -101,8 +103,8 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
     var quietEnd by remember { mutableStateOf(AnnouncementPrefs.quietEnd(context)) }
     var contentMode by remember { mutableStateOf(prefs.getString(AnnouncementPrefs.KEY_CONTENT_MODE, AnnouncementPrefs.CONTENT_TITLE_BODY) ?: AnnouncementPrefs.CONTENT_TITLE_BODY) }
     var language by remember { mutableStateOf(prefs.getString(AnnouncementPrefs.KEY_LANGUAGE, AnnouncementPrefs.LANG_AUTO) ?: AnnouncementPrefs.LANG_AUTO) }
-    val localeTags = remember(context) {
-        context.resources.getStringArray(R.array.supported_locale_tags).toList()
+    val localeTags = remember(resources) {
+        resources.getStringArray(R.array.supported_locale_tags).toList()
     }
 
     // ElevenLabs engine
@@ -361,15 +363,15 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
                         TextButton(
                             onClick = {
                                 if (elApiKey.isBlank()) {
-                                    elTestStatus = context.getString(R.string.enter_api_key)
+                                    elTestStatus = resources.getString(R.string.enter_api_key)
                                     return@TextButton
                                 }
-                                elTestStatus = context.getString(R.string.connection_testing)
+                                elTestStatus = resources.getString(R.string.connection_testing)
                                 scope.launch {
                                     val err = withContext(Dispatchers.IO) {
                                         ElevenLabsEngine.testKey(elApiKey)
                                     }
-                                    elTestStatus = if (err == null) context.getString(R.string.island_connected_text) else context.getString(R.string.connection_test_error, err)
+                                    elTestStatus = if (err == null) resources.getString(R.string.island_connected_text) else resources.getString(R.string.connection_test_error, err)
                                     if (err == null && elVoices.isEmpty()) {
                                         elVoicesLoading = true
                                         elVoices = withContext(Dispatchers.IO) {
@@ -409,7 +411,7 @@ fun NotificationAnnouncementsScreen(navController: NavController) {
                     } else if (elVoices.isNotEmpty()) {
                         Box {
                             val currentName = elVoices.find { it.first == elVoiceId }?.second
-                                ?: "Rachel (" + context.getString(R.string.default_option) + ")"
+                                ?: "Rachel (" + stringResource(R.string.default_option) + ")"
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -689,7 +691,7 @@ private fun SystemVoicePicker(
         mutableStateOf(AnnouncementPrefs.systemTtsVoiceName(context, languageTag))
     }
     val selectedLabel = voices.firstOrNull { it.name == selectedVoiceName }?.label
-        ?: context.getString(R.string.android_default)
+        ?: stringResource(R.string.android_default)
 
     Text(label, style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Bold, color = textColor.copy(alpha = 0.6f), fontFamily = FontFamily(Font(R.font.sf_pro))))
     Box {
@@ -704,7 +706,7 @@ private fun SystemVoicePicker(
             Text("▾", style = TextStyle(fontSize = 13.sp, color = textColor.copy(alpha = 0.5f)))
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            DropdownMenuItem(text = { Text(context.getString(R.string.android_default)) }, onClick = {
+            DropdownMenuItem(text = { Text(stringResource(R.string.android_default)) }, onClick = {
                 selectedVoiceName = null
                 AnnouncementPrefs.setSystemTtsVoiceName(context, languageTag, null)
                 expanded = false
@@ -719,7 +721,7 @@ private fun SystemVoicePicker(
         }
     }
     if (voices.isEmpty()) {
-        Text(context.getString(R.string.speech_voice_unavailable))
+        Text(stringResource(R.string.speech_voice_unavailable))
     }
     TextButton(onClick = {
         val speechContext = AnnouncementPrefs.contextForLanguage(context, languageTag)

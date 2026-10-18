@@ -37,6 +37,7 @@ import kotlin.io.encoding.ExperimentalEncodingApi
 class AACPManager {
     companion object {
         private const val TAG = "AACPManager"
+        private const val HRM_TAG = "EveryPodsHRM"
 
         @Suppress("unused")
         object Opcodes {
@@ -231,7 +232,7 @@ class AACPManager {
         }
     }
 
-    private val buddyFrames = BuddyFrameDecoder { Log.w("EveryPodsHRM", it) }
+    private val buddyFrames = BuddyFrameDecoder { Log.w(HRM_TAG, it) }
     private var heartRateSequence = 0
     private var heartRatePackets = 0L
     private var buddyPackets = 0L
@@ -245,7 +246,7 @@ class AACPManager {
         val sequence = heartRateSequence
         heartRateSequence = (heartRateSequence + 1) and Int.MAX_VALUE
         val sent = sendDataPacket(HeartRateProtocol.command(service, intervalMicros, sequence))
-        Log.i("EveryPodsHRM", "Command write service=$service intervalMicros=$intervalMicros seq=$sequence success=$sent")
+        Log.i(HRM_TAG, "Command write service=$service intervalMicros=$intervalMicros seq=$sequence success=$sent")
         return sent
     }
 
@@ -531,26 +532,26 @@ class AACPManager {
                 buddyPackets++
                 when (val result = HeartRateProtocol.decode(packet) { metadata ->
                     if (buddyPackets <= 3L || buddyPackets % 60L == 0L || metadata.kind.endsWith("ack"))
-                        Log.i("EveryPodsHRM", "Buddy count=$buddyPackets descriptor=${metadata.descriptor} seq=${metadata.sequence} kind=${metadata.kind} service=${metadata.service}")
+                        Log.i(HRM_TAG, "Buddy count=$buddyPackets descriptor=${metadata.descriptor} seq=${metadata.sequence} kind=${metadata.kind} service=${metadata.service}")
                 }) {
                     is HeartRateProtocol.Result.Sample -> {
                         heartRatePackets++
                         if (heartRatePackets == 1L || heartRatePackets % 60L == 0L)
-                            Log.i("EveryPodsHRM", "Valid sensor samples=$heartRatePackets")
+                            Log.i(HRM_TAG, "Valid sensor samples=$heartRatePackets")
                         // Enable only for an explicitly requested local device validation.
-                        if (Log.isLoggable("EveryPodsHRM", Log.VERBOSE))
-                            Log.v("EveryPodsHRM", "sample bpm=${result.bpm}")
+                        if (Log.isLoggable(HRM_TAG, Log.VERBOSE))
+                            Log.v(HRM_TAG, "sample bpm=${result.bpm}")
                         callback?.onHeartRateSample(result.bpm)
                         return
                     }
                     is HeartRateProtocol.Result.Rejected -> {
                         sensorRejections++
-                        Log.w("EveryPodsHRM", "Rejected sensor packet: ${result.reason}")
+                        Log.w(HRM_TAG, "Rejected sensor packet: ${result.reason}")
                         return
                     }
                     is HeartRateProtocol.Result.Acknowledgment -> {
                         sensorAcknowledgments++
-                        Log.i("EveryPodsHRM", "Sensor ${result.kind} service=${result.service}; ${heartRateDiagnostics()}")
+                        Log.i(HRM_TAG, "Sensor ${result.kind} service=${result.service}; ${heartRateDiagnostics()}")
                         return
                     }
                     HeartRateProtocol.Result.OtherSensor -> Unit

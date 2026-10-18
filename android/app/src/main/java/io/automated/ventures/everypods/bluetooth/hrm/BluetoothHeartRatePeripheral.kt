@@ -168,7 +168,7 @@ class BluetoothHeartRatePeripheral(
                 if (subscriptions.contains(device)) BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
                 else BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE
             else null
-            server?.sendResponse(device, requestId,
+            sendResponse(device, requestId,
                 if (value == null) BluetoothGatt.GATT_INVALID_OFFSET else BluetoothGatt.GATT_SUCCESS,
                 offset, value)
         }
@@ -179,7 +179,7 @@ class BluetoothHeartRatePeripheral(
         ) {
             if (stopped) return
             if (preparedWrite || descriptor.uuid != CLIENT_CONFIGURATION || descriptor.characteristic.uuid != HEART_RATE_MEASUREMENT || offset != 0 || value.size != 2) {
-                if (responseNeeded) server?.sendResponse(device, requestId, BluetoothGatt.GATT_REQUEST_NOT_SUPPORTED, offset, null)
+                if (responseNeeded) sendResponse(device, requestId, BluetoothGatt.GATT_REQUEST_NOT_SUPPORTED, offset, null)
                 return
             }
             connected.add(device)
@@ -187,11 +187,11 @@ class BluetoothHeartRatePeripheral(
                 value.contentEquals(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE) -> subscriptions.add(device)
                 value.contentEquals(BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE) -> subscriptions.remove(device)
                 else -> {
-                    if (responseNeeded) server?.sendResponse(device, requestId, BluetoothGatt.GATT_REQUEST_NOT_SUPPORTED, offset, null)
+                    if (responseNeeded) sendResponse(device, requestId, BluetoothGatt.GATT_REQUEST_NOT_SUPPORTED, offset, null)
                     return
                 }
             }
-            if (responseNeeded) server?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, value)
+            if (responseNeeded) sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, value)
             update { it.copy(connected = connected.size, subscribed = subscriptions.size) }
             Log.i(TAG, "BLE HR notifications subscribed=${subscriptions.contains(device)}")
         }
@@ -219,7 +219,17 @@ class BluetoothHeartRatePeripheral(
                 else -> BluetoothGatt.GATT_SUCCESS
             }
             val response = if (status == BluetoothGatt.GATT_SUCCESS) value!!.copyOfRange(offset, value.size) else null
-            server?.sendResponse(device, requestId, status, offset, response)
+            sendResponse(device, requestId, status, offset, response)
+        }
+    }
+
+    /** Permissions can be revoked after Start, while GATT callbacks are still arriving. */
+    private fun sendResponse(device: BluetoothDevice, requestId: Int, status: Int, offset: Int, value: ByteArray?) {
+        if (stopped) return
+        try {
+            server?.sendResponse(device, requestId, status, offset, value)
+        } catch (_: SecurityException) {
+            fail(BluetoothHrPeripheralError.PERMISSION)
         }
     }
 
