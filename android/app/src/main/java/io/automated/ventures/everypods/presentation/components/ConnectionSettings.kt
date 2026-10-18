@@ -71,8 +71,12 @@ import io.automated.ventures.everypods.presentation.viewmodel.PeerUiInfo
 import kotlin.io.encoding.ExperimentalEncodingApi
 
 private fun BluetoothDevice.isAndroidPeerCandidate(): Boolean {
-    val major = bluetoothClass?.majorDeviceClass ?: return false
-    return major == BluetoothClass.Device.Major.PHONE || major == BluetoothClass.Device.Major.COMPUTER
+    return try {
+        val major = bluetoothClass?.majorDeviceClass ?: return false
+        major == BluetoothClass.Device.Major.PHONE || major == BluetoothClass.Device.Major.COMPUTER
+    } catch (_: SecurityException) {
+        false
+    }
 }
 
 @SuppressLint("MissingPermission")

@@ -455,6 +455,8 @@ fun AirPodsSettingsScreen(
     val appState by appSettingsViewModel.uiState.collectAsState()
     val dark     = isSystemInDarkTheme()
     val context  = LocalContext.current
+    val closeSearchDescription = stringResource(R.string.ui_close)
+    val searchSettingsDescription = stringResource(R.string.ui_search_settings)
     val sharedPreferences = context.getSharedPreferences("settings", MODE_PRIVATE)
 
     val contactBottomSheet = remember { mutableStateOf(false) }
@@ -536,7 +538,7 @@ fun AirPodsSettingsScreen(
                             }
                         )
                         Spacer(Modifier.padding(start = 8.dp))
-                        StyledIconButton(onClick = { searchActive = false; searchQuery = ""; restoreSearchOnReturn = false }, icon = "􀆄", backdrop = scaffoldBackdrop, modifier = Modifier.testTag("close_search").semantics { contentDescription = context.getString(R.string.ui_close) })
+                        StyledIconButton(onClick = { searchActive = false; searchQuery = ""; restoreSearchOnReturn = false }, icon = "􀆄", backdrop = scaffoldBackdrop, modifier = Modifier.testTag("close_search").semantics { contentDescription = closeSearchDescription })
                     }
                 }
             } else {
@@ -556,7 +558,7 @@ fun AirPodsSettingsScreen(
                             onClick = { searchActive = true },
                             icon = "􀊫",
                             backdrop = scaffoldBackdrop,
-                            modifier = Modifier.testTag("nav_settings_search_button").semantics { contentDescription = context.getString(R.string.ui_search_settings) }
+                            modifier = Modifier.testTag("nav_settings_search_button").semantics { contentDescription = searchSettingsDescription }
                         )
                     }
                 }

@@ -65,7 +65,7 @@ fun AboutCard(
     val textColor = if (isDarkTheme) Color.White else Color.Black
     val backgroundColor = if (isDarkTheme) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
 
-        SettingsHeading(stringResource(R.string.about))
+    SettingsHeading(stringResource(R.string.about))
 
     val rowHeight = remember { mutableStateOf(0.dp) }
     val density = LocalDensity.current
