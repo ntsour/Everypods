@@ -30,6 +30,8 @@
 
     <queries>
         <package android:name="com.wahoofitness.fitness" />
+        <!-- Relay dev build detects the production app to warn about coexistence. -->
+        <package android:name="io.automated.ventures.everypods" />
     </queries>
 
     <application
@@ -37,7 +39,7 @@
         android:allowBackup="false"
         android:enableOnBackInvokedCallback="true"
         android:icon="@mipmap/ic_launcher"
-        android:label="@string/app_name"
+        android:label="${appLabel}"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.EveryPods"

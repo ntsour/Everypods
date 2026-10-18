@@ -208,6 +208,7 @@ class MainActivity : ComponentActivity() {
                 "debug=${BuildConfig.DEBUG}"
         )
         enableEdgeToEdge()
+        io.automated.ventures.everypods.utils.RelayDevMode.logStartup(this)
         if (intent?.getBooleanExtra(EXTRA_OPEN_GYM_TIMER, false) == true) {
             gymTimerNavigationRequest++
         }
@@ -215,7 +216,16 @@ class MainActivity : ComponentActivity() {
         if (intent?.getBooleanExtra(EXTRA_OPEN_HEART_RATE, false) == true) heartRateNavigationRequest++
         setContent {
             EveryPodsTheme {
-                Main(gymTimerNavigationRequest, heartRateNavigationRequest)
+                if (io.automated.ventures.everypods.utils.RelayDevMode.isDevBuild) {
+                    androidx.compose.foundation.layout.Column {
+                        io.automated.ventures.everypods.presentation.components.RelayDevBanner()
+                        androidx.compose.foundation.layout.Box(Modifier.weight(1f)) {
+                            Main(gymTimerNavigationRequest, heartRateNavigationRequest)
+                        }
+                    }
+                } else {
+                    Main(gymTimerNavigationRequest, heartRateNavigationRequest)
+                }
             }
         }
     }
@@ -343,6 +353,7 @@ fun Main(gymTimerNavigationRequest: Int = 0, heartRateNavigationRequest: Int = 0
     }
 
     fun ensureAirPodsBound(reason: String) {
+        if (io.automated.ventures.everypods.utils.RelayDevMode.blocks(context, "AirPodsService start ($reason)")) return
         val perms = hasCriticalBtPerms()
         btPermsNow = perms
         when (StartupGate.decideBind(airPodsService.value != null, perms)) {

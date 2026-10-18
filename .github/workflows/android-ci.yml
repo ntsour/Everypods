@@ -6,7 +6,7 @@ on:
       - "android/**"
       - ".github/workflows/**"
   push:
-    branches: [main]
+    branches: [main, feature/audio-relay]
     paths:
       - "android/**"
       - ".github/workflows/**"
@@ -33,4 +33,6 @@ jobs:
       - name: Test and build
         working-directory: android
         run: |
-          ./gradlew :app:validateLocalizationResources :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+          # Only :app and :relay-core are built here; :audio-probe is a diagnostic app and
+          # is never part of CI artifacts or the Play release (play-release.yml builds :app only).
+          ./gradlew :app:validateLocalizationResources :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :relay-core:testDebugUnitTest :relay-core:assembleDebug :relay-core:assembleDebugAndroidTest

@@ -168,7 +168,7 @@ class NotificationAnnouncementService : NotificationListenerService() {
     }
 
     private fun shouldAnnounce(sbn: StatusBarNotification): Boolean {
-        if (sbn.packageName in IGNORED_PACKAGES) return false
+        if (sbn.packageName in IGNORED_PACKAGES || sbn.packageName == packageName) return false
         val n = sbn.notification ?: return false
         if (n.flags and Notification.FLAG_ONGOING_EVENT != 0) return false
         if (n.flags and Notification.FLAG_FOREGROUND_SERVICE != 0) return false

@@ -83,6 +83,11 @@ android {
         targetSdk = 37
         versionCode = 130
         versionName = appVersionName
+        manifestPlaceholders["appLabel"] = "@string/app_name"
+        // Relay dev isolation (feature/audio-relay). Production values here; debug overrides.
+        buildConfigField("Boolean", "RELAY_DEV", "false")
+        buildConfigField("String", "CROSS_DEVICE_UUID", "\"1abbb9a4-10e4-4000-a75c-8953c5471342\"")
+        buildConfigField("String", "CROSS_DEVICE_SERVICE_NAME", "\"EveryPodsCrossDevice\"")
     }
     buildTypes {
         release {
@@ -106,6 +111,13 @@ android {
         debug {
             buildConfigField("Boolean", "PLAY_BUILD", "false")
             versionNameSuffix = "-debug"
+            // Installs next to the Play app; playDebug inherits this via initWith(debug).
+            applicationIdSuffix = ".relaydev"
+            manifestPlaceholders["appLabel"] = "EveryPods Relay (dev)"
+            buildConfigField("Boolean", "RELAY_DEV", "true")
+            // Own cross-device namespace: never peers or leases with production installs.
+            buildConfigField("String", "CROSS_DEVICE_UUID", "\"6f1d2c3e-7a5b-4e0f-9d1c-52656c617944\"")
+            buildConfigField("String", "CROSS_DEVICE_SERVICE_NAME", "\"EveryPodsRelayDevCrossDevice\"")
         }
         create("playRelease") {
             initWith(getByName("release"))

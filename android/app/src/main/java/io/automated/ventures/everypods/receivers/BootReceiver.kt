@@ -29,6 +29,7 @@ import io.automated.ventures.everypods.services.AirPodsService
 class BootReceiver: BroadcastReceiver() {
     override fun onReceive(context: Context?, intent: Intent?) {
         android.util.Log.i(io.automated.ventures.everypods.startup.StartupGate.TAG, "boot receiver action=${intent?.action}")
+        if (context != null && io.automated.ventures.everypods.utils.RelayDevMode.blocks(context, "boot/replace service start")) return
         when (intent?.action) {
             Intent.ACTION_MY_PACKAGE_REPLACED -> try { context?.startForegroundService(
                 Intent(

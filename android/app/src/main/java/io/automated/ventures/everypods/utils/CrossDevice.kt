@@ -62,7 +62,8 @@ enum class CrossDevicePackets(val packet: ByteArray) {
 
 object CrossDevice {
     private const val TAG = "CrossDevice"
-    private val UUID_CROSS_DEVICE = UUID.fromString("1abbb9a4-10e4-4000-a75c-8953c5471342")
+    // Production UUID 1abbb9a4-10e4-4000-a75c-8953c5471342; relay dev builds use their own namespace.
+    private val UUID_CROSS_DEVICE: UUID get() = RelayDevMode.crossDeviceUuid
 
     // Keep-alive ping interval for server-side sockets, mirroring CrossDeviceClient.
     // Server-only role (when the peer's MAC sorts lower than ours) has no app traffic
@@ -235,7 +236,7 @@ object CrossDevice {
                 // re-negotiation (caused by other BT activity on the same ACL) can't
                 // make the next connect fail with "read ret: -1". The underlying ACL
                 // is still encrypted because both devices are bonded for A2DP.
-                serverSocket = adapter.listenUsingInsecureRfcommWithServiceRecord("EveryPodsCrossDevice", UUID_CROSS_DEVICE)
+                serverSocket = adapter.listenUsingInsecureRfcommWithServiceRecord(RelayDevMode.crossDeviceServiceName, UUID_CROSS_DEVICE)
                 Log.d(TAG, "RFCOMM server listening")
             } catch (e: IOException) {
                 Log.e(TAG, "Failed to open RFCOMM server: ${e.message}")

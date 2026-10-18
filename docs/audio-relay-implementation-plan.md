@@ -23,9 +23,9 @@ The dev build must install next to the production Play app on both phones.
 
 - **Variant:** `applicationIdSuffix = ".relaydev"` on the existing `debug` build type, so the
   debug APK is `io.automated.ventures.everypods.relaydev`. A separate `relayDebug` type was
-  rejected: CI and every developer already run `assembleDebug`/`testDebugUnitTest`; adding a
-  fourth type would leave plain `debug` able to overwrite nothing but also untested for the
-  flag. `playDebug` is created with `initWith(debug)` and therefore inherits the suffix too
+  rejected: CI and every developer already run `assembleDebug`/`testDebugUnitTest`, so the
+  flag-on code path is what CI tests, and a fourth build type would double native/debug build
+  time and disk on the Mac for no isolation benefit. `playDebug` is created with `initWith(debug)` and therefore inherits the suffix too
   (it must never replace the Play install either). `release`/`playRelease` are unchanged.
 - **Identity:** label "EveryPods Relay (dev)" (debug `res` overlay), orange-tinted launcher
   background plus "DEV" badge.
@@ -46,9 +46,10 @@ The dev build must install next to the production Play app on both phones.
 
 | Item | Finding | Action |
 |---|---|---|
-| FileProvider `${applicationId}.provider` | derived from applicationId | OK (becomes `...relaydev.provider`) |
+| FileProvider `${applicationId}.provider`, androidx-startup provider | derived from applicationId | OK (`...relaydev.provider`, `...relaydev.androidx-startup`, verified with aapt2) |
+| Declared `<permission>` (androidx `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`) | applicationId-prefixed by the merger | OK (a duplicate permission name would block install) |
 | Hard-coded authorities / account / sync types | none | none |
-| Deep link `everypods://` | both apps would offer it (chooser) | debug overlay removes the VIEW filter from the dev build |
+| Deep link `everypods://add-magic-keys` | intent filter is commented out in the manifest | none (re-check if it is re-enabled) |
 | Exported services (2 notification listeners, 2 QS tiles) | component names are package-scoped | OK; listeners only active if the user grants access |
 | Widget receivers, BootReceiver | not exported / package-scoped | BootReceiver honours relay-only gate |
 | Internal broadcasts (`io.automated.ventures.everypods.*` actions) | receivers use `RECEIVER_NOT_EXPORTED` or `setPackage` for cross-device; actions are hard-coded strings | relay-only mode never starts `AirPodsService`, so no dev receiver is registered; documented risk if AACP is enabled |
@@ -153,4 +154,9 @@ CrossDevice link) plus an app-level identity handshake; not Companion Device Man
 - Forgetting a peer deletes its pinned key (revokes relay).
 
 ## Status log
-- P0/P1 started 2026-10-18.
+- P0/P1 started 2026-10-18. Unit tests run on the debug variant, so `RelayDevModeTest` asserts
+  the debug BuildConfig uses the `.relaydev` id and the dev cross-device UUID.
+- Dev cross-device namespace: RFCOMM UUID `6f1d2c3e-7a5b-4e0f-9d1c-52656c617944`, SDP record
+  `EveryPodsRelayDevCrossDevice` (production: `1abbb9a4-10e4-4000-a75c-8953c5471342`, `EveryPodsCrossDevice`).
+- P1 crypto/control/packet code lives in `:relay-core` (Android library, `minSdk 33`, arm64-v8a
+  native only for now). `:app` does not depend on it yet (P2), so release outputs are unchanged.

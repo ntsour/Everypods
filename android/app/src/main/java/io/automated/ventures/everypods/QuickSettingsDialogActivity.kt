@@ -152,8 +152,10 @@ class QuickSettingsDialogActivity : ComponentActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
         window.setGravity(Gravity.BOTTOM)
 
-        Intent(this, AirPodsService::class.java).also { intent ->
-            bindService(intent, connection, BIND_AUTO_CREATE)
+        if (!io.automated.ventures.everypods.utils.RelayDevMode.blocks(this, "QS dialog service bind")) {
+            Intent(this, AirPodsService::class.java).also { intent ->
+                bindService(intent, connection, BIND_AUTO_CREATE)
+            }
         }
 
         setContent {

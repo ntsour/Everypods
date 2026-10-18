@@ -41,7 +41,7 @@ import java.util.concurrent.ConcurrentHashMap
 // packet protocol used by the Windows tray client and the server side.
 object CrossDeviceClient {
     private const val TAG = "CrossDeviceClient"
-    private val RFCOMM_UUID = java.util.UUID.fromString("1abbb9a4-10e4-4000-a75c-8953c5471342")
+    private val RFCOMM_UUID: java.util.UUID get() = RelayDevMode.crossDeviceUuid
 
     // Interval for keep-alive pings while an RFCOMM channel is idle.
     // Sends REQUEST_CONNECTION_STATUS so Android's BT power-management doesn't

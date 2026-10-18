@@ -32,6 +32,7 @@ import io.automated.ventures.everypods.bluetooth.hrm.BluetoothHrPeripheralError
 import io.automated.ventures.everypods.startup.StartupGate
 import androidx.compose.ui.res.stringResource
 
+import io.automated.ventures.everypods.utils.RelayDevMode
 import io.automated.ventures.everypods.utils.CrossDevice
 import io.automated.ventures.everypods.utils.CrossDeviceClient
 import io.automated.ventures.everypods.utils.CrossDevicePackets
@@ -1223,7 +1224,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             this@AirPodsService
         )
         Log.d(TAG, "Initializing CrossDevice")
-        CrossDevice.init(this@AirPodsService)
+        if (!RelayDevMode.blocks(this@AirPodsService, "CrossDevice peer channel")) CrossDevice.init(this@AirPodsService)
 
         sharedPreferences = getSharedPreferences("settings", MODE_PRIVATE)
         macAddress = sharedPreferences.getString("mac_address", "") ?: ""
@@ -4501,6 +4502,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         manualTakeOverAfterReversed: Boolean = false,
         startHeadTrackingAgain: Boolean = false
     ) {
+        if (RelayDevMode.blocks(this, "music takeover ($takingOverFor)")) return
         if (takingOverFor == "reverse") {
             aacpManager.sendControlCommand(
                 AACPManager.Companion.ControlCommandIdentifiers.OWNS_CONNECTION.value, 1
@@ -4837,6 +4839,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     fun connectToSocket(
         adapter: BluetoothAdapter, device: BluetoothDevice, manual: Boolean = false
     ) {
+        if (RelayDevMode.blocks(this, "AACP L2CAP connect")) return
         // Manual user-initiated connects bypass all auto-reconnect gates.
         if (!manual) {
             val now = System.currentTimeMillis()
@@ -5509,6 +5512,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         device: BluetoothDevice?,
         lidDiagSource: String? = null,
     ) {
+        if (RelayDevMode.blocks(context, "A2DP connectAudio")) return
         val bluetoothAdapter = context.getSystemService(BluetoothManager::class.java).adapter
 
         bluetoothAdapter?.getProfileProxy(context, object : BluetoothProfile.ServiceListener {
@@ -6267,6 +6271,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
      */
     @SuppressLint("MissingPermission")
     private fun startLidConnectWithRetries(savedDevice: android.bluetooth.BluetoothDevice) {
+        if (RelayDevMode.blocks(this, "lid-open autoconnect")) return
         if (!mayContinueLidAutoconnect()) return
         val now = System.currentTimeMillis()
         lastLidAutoconnectAttemptMs = now

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dev-only Wi-Fi relay coexistence banner (shown only when BuildConfig.RELAY_DEV). Not translated. -->
+<resources>
+    <string name="relaydev_banner_relay_only" translatable="false">EveryPods Relay (dev): relay-only, AACP/autoconnect/takeover disabled</string>
+    <string name="relaydev_banner_aacp_on" translatable="false">EveryPods Relay (dev): AACP/autoconnect ENABLED</string>
+    <string name="relaydev_banner_prod_warning" translatable="false">Production EveryPods is installed on this phone. Before enabling AACP here, force-stop or disable production EveryPods on BOTH phones.</string>
+    <string name="relaydev_banner_toggle" translatable="false">Dev: enable AACP (restart app)</string>
+</resources>
