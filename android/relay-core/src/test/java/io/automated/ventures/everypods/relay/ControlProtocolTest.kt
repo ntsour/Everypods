@@ -8,7 +8,7 @@ import org.junit.Test
 class ControlProtocolTest {
     private val all = listOf(
         ControlMessage.Hello(1, "pixel-☃", ByteArray(32) { it.toByte() }),
-        ControlMessage.Start(RelayPacket.CODEC_OPUS, 48_000, 2, 20, 192_000, 47474),
+        ControlMessage.Start(RelayPacket.CODEC_OPUS, 48_000, 2, 20, 192_000, 47474, 1_700_000_000_000_000L),
         ControlMessage.Stop(ControlMessage.STOP_FOCUS_LOST),
         ControlMessage.Keepalive(123_456_789L, 42L),
         ControlMessage.Stats(1000, 3, 2, 1, 200, 450),

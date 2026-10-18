@@ -216,14 +216,7 @@ class MainActivity : ComponentActivity() {
         if (intent?.getBooleanExtra(EXTRA_OPEN_HEART_RATE, false) == true) heartRateNavigationRequest++
         setContent {
             EveryPodsTheme {
-                if (io.automated.ventures.everypods.utils.RelayDevMode.isDevBuild) {
-                    androidx.compose.foundation.layout.Column {
-                        io.automated.ventures.everypods.presentation.components.RelayDevBanner()
-                        androidx.compose.foundation.layout.Box(Modifier.weight(1f)) {
-                            Main(gymTimerNavigationRequest, heartRateNavigationRequest)
-                        }
-                    }
-                } else {
+                io.automated.ventures.everypods.presentation.components.RelayDevBannerHost {
                     Main(gymTimerNavigationRequest, heartRateNavigationRequest)
                 }
             }

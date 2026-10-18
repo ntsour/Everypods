@@ -45,6 +45,11 @@ object RelayDevMode {
     /** Pure decision, unit-tested: production always on; dev only with an explicit opt-in. */
     fun aacpAllowed(relayDev: Boolean, devOptIn: Boolean): Boolean = !relayDev || devOptIn
 
+    /** Dev CrossDevice channel is allowed without AACP, but only for relay control (PM note 3). */
+    fun crossDeviceRelayControlOnly(relayDev: Boolean, devOptIn: Boolean): Boolean = relayDev && !devOptIn
+
+    const val RELAY_DEV_ACTIVITY = "io.automated.ventures.everypods.relaydev.RelayDevActivity"
+
     /** Whether AACP, takeover, autoconnect, lid features and the CrossDevice peer may run. */
     fun aacpEnabled(context: Context): Boolean {
         if (!isDevBuild) return true

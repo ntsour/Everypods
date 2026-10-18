@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- DEV ONLY (feature/audio-relay P2): Wi-Fi relay roles. Debug build type only, so release and
+     playRelease manifests, permissions and Play declarations are unchanged. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES"
+        android:maxSdkVersion="36" android:usesPermissionFlags="neverForLocation" />
+    <application>
+        <activity
+            android:name="io.automated.ventures.everypods.relaydev.RelayDevActivity"
+            android:exported="false"
+            android:label="EveryPods Relay (dev)"
+            android:theme="@style/Theme.EveryPods" />
+        <service
+            android:name="io.automated.ventures.everypods.relaydev.RelaySourceService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection" />
+        <service
+            android:name="io.automated.ventures.everypods.relaydev.RelayReceiverService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+    </application>
+</manifest>

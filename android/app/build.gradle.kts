@@ -228,6 +228,8 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.billing.ktx)
     debugImplementation(libs.androidx.compose.ui.tooling)
+    // Wi-Fi audio relay (dev only until P5): never in release/playRelease.
+    debugImplementation(project(":relay-core"))
     implementation(libs.androidx.compose.foundation.layout)
     implementation(libs.aboutlibraries)
     implementation(libs.aboutlibraries.compose.m3)

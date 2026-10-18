@@ -131,7 +131,14 @@ object CrossDevice {
     @Volatile private var isServerRunning: Boolean = false
 
     @SuppressLint("MissingPermission")
+    /**
+     * Dev relay builds without the AACP opt-in may use their own-UUID channel for relay
+     * pairing/control only: every lease, takeover, holder and handover packet is dropped.
+     */
+    @Volatile internal var relayControlOnly = false
+
     fun init(context: Context) {
+        relayControlOnly = RelayDevMode.crossDeviceRelayControlOnly(RelayDevMode.isDevBuild, RelayDevMode.aacpEnabled(context))
         val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
         configuredPeers = loadAndMigratePeers(prefs)
         // Fresh installs: Handover ON by default. Persist missing key so UI and
@@ -370,6 +377,11 @@ object CrossDevice {
 
     internal fun processPacket(raw: ByteArray, sourceMac: String) {
         Log.d(TAG, "[$sourceMac] received: ${raw.joinToString("") { "%02x".format(it) }}")
+        if (relayControlOnly) {
+            // P3 adds relay pairing/control packets here; nothing else is honoured.
+            Log.i(RelayDevMode.TAG, "[$sourceMac] relay-control-only CrossDevice: ignoring lease/takeover/holder packet")
+            return
+        }
         when {
             raw.contentEquals(CrossDevicePackets.REQUEST_HANDOVER.packet) -> {
                 // Peer wants the AirPods — release them if we hold the connection.

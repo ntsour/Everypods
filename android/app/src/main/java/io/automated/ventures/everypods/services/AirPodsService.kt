@@ -33,6 +33,7 @@ import io.automated.ventures.everypods.startup.StartupGate
 import androidx.compose.ui.res.stringResource
 
 import io.automated.ventures.everypods.utils.RelayDevMode
+import io.automated.ventures.everypods.utils.RelaySessionState
 import io.automated.ventures.everypods.utils.CrossDevice
 import io.automated.ventures.everypods.utils.CrossDeviceClient
 import io.automated.ventures.everypods.utils.CrossDevicePackets
@@ -1224,7 +1225,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             this@AirPodsService
         )
         Log.d(TAG, "Initializing CrossDevice")
-        if (!RelayDevMode.blocks(this@AirPodsService, "CrossDevice peer channel")) CrossDevice.init(this@AirPodsService)
+        // Dev builds keep their own-UUID channel, scoped to relay control (see CrossDevice.relayControlOnly).
+        CrossDevice.init(this@AirPodsService)
 
         sharedPreferences = getSharedPreferences("settings", MODE_PRIVATE)
         macAddress = sharedPreferences.getString("mac_address", "") ?: ""
@@ -4503,6 +4505,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         startHeadTrackingAgain: Boolean = false
     ) {
         if (RelayDevMode.blocks(this, "music takeover ($takingOverFor)")) return
+        if (RelaySessionState.blocks("music takeover ($takingOverFor)")) return
         if (takingOverFor == "reverse") {
             aacpManager.sendControlCommand(
                 AACPManager.Companion.ControlCommandIdentifiers.OWNS_CONNECTION.value, 1
@@ -6272,6 +6275,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     @SuppressLint("MissingPermission")
     private fun startLidConnectWithRetries(savedDevice: android.bluetooth.BluetoothDevice) {
         if (RelayDevMode.blocks(this, "lid-open autoconnect")) return
+        if (RelaySessionState.blocks("lid-open autoconnect")) return
         if (!mayContinueLidAutoconnect()) return
         val now = System.currentTimeMillis()
         lastLidAutoconnectAttemptMs = now

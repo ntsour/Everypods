@@ -35,4 +35,28 @@ class RelayDevModeTest {
         assertNotEquals("EveryPodsCrossDevice", RelayDevMode.crossDeviceServiceName)
         assertEquals(36, BuildConfig.CROSS_DEVICE_UUID.length)
     }
+
+    @Test fun devCrossDeviceIsRelayControlOnlyWithoutOptIn() {
+        assertTrue(RelayDevMode.crossDeviceRelayControlOnly(relayDev = true, devOptIn = false))
+        assertFalse(RelayDevMode.crossDeviceRelayControlOnly(relayDev = true, devOptIn = true))
+        assertFalse(RelayDevMode.crossDeviceRelayControlOnly(relayDev = false, devOptIn = false))
+    }
+
+    @Test fun relayControlOnlyDropsHolderPackets() {
+        val before = CrossDevice.holders.toSet()
+        CrossDevice.relayControlOnly = true
+        try {
+            CrossDevice.processPacket(CrossDevicePackets.AIRPODS_CONNECTED.packet, "AA:AA:AA:AA:AA:01")
+            assertEquals(before, CrossDevice.holders.toSet())
+        } finally {
+            CrossDevice.relayControlOnly = false
+        }
+    }
+
+    @Test fun relaySessionFlagBlocksWhileActive() {
+        assertFalse(RelaySessionState.blocks("takeover"))
+        RelaySessionState.begin("receiver")
+        try { assertTrue(RelaySessionState.blocks("takeover")) } finally { RelaySessionState.end("receiver") }
+        assertFalse(RelaySessionState.active)
+    }
 }

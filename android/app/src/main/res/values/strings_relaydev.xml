@@ -4,5 +4,12 @@
     <string name="relaydev_banner_relay_only" translatable="false">EveryPods Relay (dev): relay-only, AACP/autoconnect/takeover disabled</string>
     <string name="relaydev_banner_aacp_on" translatable="false">EveryPods Relay (dev): AACP/autoconnect ENABLED</string>
     <string name="relaydev_banner_prod_warning" translatable="false">Production EveryPods is installed on this phone. Before enabling AACP here, force-stop or disable production EveryPods on BOTH phones.</string>
+    <string name="relaydev_banner_open_relay" translatable="false">Open Wi-Fi relay (dev)</string>
     <string name="relaydev_banner_toggle" translatable="false">Dev: enable AACP (restart app)</string>
+    <string name="relaydev_banner_short" translatable="false">Relay dev · relay-only</string>
+    <string name="relaydev_banner_short_aacp" translatable="false">Relay dev · AACP ON</string>
+    <string name="relaydev_banner_short_prod" translatable="false">· prod installed</string>
+    <string name="relaydev_banner_more" translatable="false">More</string>
+    <string name="relaydev_banner_less" translatable="false">Less</string>
+    <string name="relaydev_banner_dismiss" translatable="false">Hide</string>
 </resources>

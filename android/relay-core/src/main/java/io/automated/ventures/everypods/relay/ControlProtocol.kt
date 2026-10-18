@@ -18,7 +18,8 @@ sealed class ControlMessage {
             deviceId == other.deviceId && ephemeralPublic.contentEquals(other.ephemeralPublic)
         override fun hashCode() = deviceId.hashCode() * 31 + ephemeralPublic.contentHashCode()
     }
-    data class Start(val codec: Int, val sampleRate: Int, val channels: Int, val frameMs: Int, val bitrate: Int, val udpPort: Int) : ControlMessage() {
+    /** [sessionStartMicros]: sender clock at media timestamp 0, for end-to-end latency. */
+    data class Start(val codec: Int, val sampleRate: Int, val channels: Int, val frameMs: Int, val bitrate: Int, val udpPort: Int, val sessionStartMicros: Long = 0) : ControlMessage() {
         override val type = TYPE_START
     }
     data class Stop(val reason: Int) : ControlMessage() { override val type = TYPE_STOP }
@@ -60,7 +61,7 @@ object ControlCodec {
                 }
                 is ControlMessage.Start -> {
                     o.writeByte(m.codec); o.writeInt(m.sampleRate); o.writeByte(m.channels)
-                    o.writeByte(m.frameMs); o.writeInt(m.bitrate); o.writeShort(m.udpPort)
+                    o.writeByte(m.frameMs); o.writeInt(m.bitrate); o.writeShort(m.udpPort); o.writeLong(m.sessionStartMicros)
                 }
                 is ControlMessage.Stop -> o.writeByte(m.reason)
                 is ControlMessage.Keepalive -> { o.writeLong(m.sentAtMicros); o.writeLong(m.echoOfMicros) }
@@ -87,7 +88,7 @@ object ControlCodec {
                     ControlMessage.Hello(v, String(id, Charsets.UTF_8), pub)
                 }
                 ControlMessage.TYPE_START -> ControlMessage.Start(
-                    i.readUnsignedByte(), i.readInt(), i.readUnsignedByte(), i.readUnsignedByte(), i.readInt(), i.readUnsignedShort()
+                    i.readUnsignedByte(), i.readInt(), i.readUnsignedByte(), i.readUnsignedByte(), i.readInt(), i.readUnsignedShort(), i.readLong()
                 )
                 ControlMessage.TYPE_STOP -> ControlMessage.Stop(i.readUnsignedByte())
                 ControlMessage.TYPE_KEEPALIVE -> ControlMessage.Keepalive(i.readLong(), i.readLong())
