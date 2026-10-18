@@ -22,4 +22,6 @@ dependencyResolutionManagement {
 
 rootProject.name = "EveryPods"
 include(":app")
+// Diagnostic probe app: never a dependency of :app; CI and Play release run only :app/:relay-core tasks.
 include(":audio-probe")
+include(":relay-core")
