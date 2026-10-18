@@ -17,7 +17,7 @@
     <string name="off">关闭</string>
     <string name="transparency">通透模式</string>
     <string name="adaptive">自适应</string>
-    <string name="noise_cancellation">主动降噪</string>
+    <string name="noise_cancellation">降噪</string>
     <string name="press_and_hold_airpods">按住 AirPods</string>
     <string name="press_and_hold_noise_control_description">按住耳机柄以在选定的听音模式之间循环切换。</string>
     <string name="head_gestures">头部手势</string>

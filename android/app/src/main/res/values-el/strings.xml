@@ -17,7 +17,7 @@
     <string name="off">Ανενεργό</string>
     <string name="transparency">Διαφάνεια</string>
     <string name="adaptive">Προσαρμοστικό</string>
-    <string name="noise_cancellation">Ακύρωση θορύβου</string>
+    <string name="noise_cancellation">Ακύρωση</string>
     <string name="press_and_hold_airpods">Παρατεταμένο πάτημα</string>
     <string name="press_and_hold_noise_control_description">Πατήστε παρατεταμένα το στέλεχος του ακουστικού για εναλλαγή μεταξύ των επιλεγμένων λειτουργιών ακρόασης.</string>
     <string name="head_gestures">Χειρονομίες κεφαλής</string>

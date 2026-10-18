@@ -159,7 +159,7 @@
     <string name="no">Nein</string>
     <string name="no_airpods_signals_yet">Noch keine AirPods oder Find My-Signale</string>
     <string name="no_signal_selected">Kein Signal ausgewählt</string>
-    <string name="noise_cancellation">Rauschen unterdrücken</string>
+    <string name="noise_cancellation">Dämpfen</string>
     <string name="noise_cancellation_single_airpod">Geräuschunterdrückung mit einem einzelnen AirPod</string>
     <string name="noise_cancellation_single_airpod_description">Lassen Sie zu, dass AirPods in den Geräuschunterdrückungsmodus versetzt werden, wenn sich nur ein AirPod in Ihrem Ohr befindet.</string>
     <string name="noise_control">Hörmodus</string>

@@ -18,7 +18,7 @@
     <string name="off">Desligado</string>
     <string name="transparency">Transparência</string>
     <string name="adaptive">Adaptativo</string>
-    <string name="noise_cancellation">Cancelamento de Ruído</string>
+    <string name="noise_cancellation">Cancelando</string>
     <string name="press_and_hold_airpods">Pressionar e Segurar AirPods</string>
     <string name="press_and_hold_noise_control_description">Pressione e segure a haste para alternar entre os modos de escuta selecionados.</string>
     <string name="head_gestures">Gestos com a Cabeça</string>

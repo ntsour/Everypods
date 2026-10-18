@@ -18,7 +18,7 @@
     <string name="off">Tắt</string>
     <string name="transparency">Xuyên âm</string>
     <string name="adaptive">Thích ứng</string>
-    <string name="noise_cancellation">Chống ồn chủ động</string>
+    <string name="noise_cancellation">Chống ồn</string>
     <string name="press_and_hold_airpods">Nhấn và giữ AirPods</string>
     <string name="press_and_hold_noise_control_description">Nhấn và giữ thân tai nghe để chuyển giữa các chế độ nghe đã chọn.</string>
     <string name="head_gestures">Cử chỉ đầu</string>

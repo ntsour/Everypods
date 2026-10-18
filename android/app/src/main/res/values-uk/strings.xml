@@ -18,7 +18,7 @@
     <string name="off">Вимкнено</string>
     <string name="transparency">Проникність</string>
     <string name="adaptive">Адаптування</string>
-    <string name="noise_cancellation">Шумогасіння</string>
+    <string name="noise_cancellation">Гасіння</string>
     <string name="press_and_hold_airpods">Натисніть і утримуйте AirPods</string>
     <string name="press_and_hold_noise_control_description">Натисніть і утримуйте ніжку, щоб перемикатися між обраними режимами прослуховування.</string>
     <string name="head_gestures">Жести Головою</string>

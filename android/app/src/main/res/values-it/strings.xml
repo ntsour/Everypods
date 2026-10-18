@@ -18,7 +18,7 @@
     <string name="off">Spento</string>
     <string name="transparency">Trasparenza</string>
     <string name="adaptive">Adattivo</string>
-    <string name="noise_cancellation">Cancellazione del Rumore</string>
+    <string name="noise_cancellation">Riduzione</string>
     <string name="press_and_hold_airpods">Premi e Tieni Premuto sugli AirPods</string>
     <string name="press_and_hold_noise_control_description">Premi e tieni premuto sullo stelo per alternare tra le modalità di ascolto selezionate.</string>
     <string name="head_gestures">Gesti della Testa</string>
