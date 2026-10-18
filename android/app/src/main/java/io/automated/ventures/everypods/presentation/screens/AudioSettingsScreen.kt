@@ -20,7 +20,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.navigation.NavController
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
-import io.automated.ventures.everypods.presentation.components.AudioSettings
 import io.automated.ventures.everypods.presentation.components.StyledScaffold
 import io.automated.ventures.everypods.presentation.viewmodel.AirPodsViewModel
 import io.automated.ventures.everypods.presentation.viewmodel.AppSettingsViewModel
@@ -46,20 +45,7 @@ fun AudioSettingsScreen(
         ) {
             Spacer(Modifier.height(topPadding))
             
-            AudioSettings(
-                navController = navController,
-                adaptiveVolumeCapability = false,
-                conversationalAwarenessCapability = appState.isPremium,
-                adaptiveAudioCapability = state.capabilities.contains(io.automated.ventures.everypods.data.Capability.ADAPTIVE_VOLUME),
-                customEqCapability = state.capabilities.contains(io.automated.ventures.everypods.data.Capability.CUSTOM_EQ),
-
-                adaptiveVolumeChecked = false,
-                onAdaptiveVolumeCheckedChange = {},
-                conversationalAwarenessChecked = appState.conversationalAwarenessPauseMusicEnabled,
-                onConversationalAwarenessCheckedChange = appSettingsViewModel::setConversationalAwarenessPauseMusicEnabled,
-                isPremium = state.isPremium,
-                aacpAvailable = state.aacpAvailable
-            )
+            AudioSettingsSection(state, appState, viewModel, appSettingsViewModel, navController)
             
             Spacer(Modifier.height(bottomPadding))
         }

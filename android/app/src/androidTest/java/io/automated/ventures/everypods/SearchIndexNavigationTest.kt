@@ -3,9 +3,10 @@ package io.automated.ventures.everypods
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import io.automated.ventures.everypods.presentation.screens.searchIndex
 import org.junit.Rule
@@ -23,9 +24,10 @@ import org.junit.runner.RunWith
  *   5. If the item has an anchor, asserts the anchor testTag is visible.
  *   6. Presses back to return to the settings screen.
  *
- * Run with: ./gradlew :app:connectedNormalDebugAndroidTest
+ * Run with: ./gradlew :app:connectedDebugAndroidTest
  */
 @RunWith(AndroidJUnit4::class)
+@OptIn(ExperimentalTestApi::class, ExperimentalMaterial3Api::class)
 class SearchIndexNavigationTest {
 
     @get:Rule
@@ -33,11 +35,11 @@ class SearchIndexNavigationTest {
 
     @Test
     fun every_search_item_navigates_to_a_visible_destination() {
-        searchIndex.forEach { item ->
-            // Open search
-            composeRule
-                .onNodeWithTag("nav_settings_search_button")
-                .performClick()
+        val items = searchIndex(composeRule.activity)
+        items.forEachIndexed { index, item ->
+            if (index == 0) {
+                composeRule.onNodeWithTag("nav_settings_search_button").performClick()
+            }
 
             // Type label
             composeRule
@@ -46,20 +48,18 @@ class SearchIndexNavigationTest {
 
             // Click first result
             composeRule
-                .onNodeWithText(item.label)
+                .onNodeWithTag("search_result_${item.label}_${item.directRoute}_${item.anchor.orEmpty()}")
                 .performClick()
 
-            // Assert destination root is present
-            val destTag = item.directRoute.replace("/", "/")
-            composeRule
-                .onNodeWithTag("dest_${item.directRoute}")
-                .assertIsDisplayed()
+            val route = item.directRoute.substringBefore('?')
+            composeRule.onNodeWithTag("destination_$route").assertIsDisplayed()
 
-            // Assert anchor section is visible when applicable
-            item.anchor?.let { a ->
-                composeRule
-                    .onNodeWithTag("anchor_$a")
-                    .assertIsDisplayed()
+            // Category search results must land on their category and requested section.
+            if (route.startsWith("category/")) {
+                composeRule.onNodeWithTag("dest_$route").assertIsDisplayed()
+                val anchor = item.anchor
+                    ?: Regex("(?:\\?|&)anchor=([^&]+)").find(item.directRoute)?.groupValues?.get(1)
+                anchor?.let { composeRule.onNodeWithTag("anchor_$it").assertIsDisplayed() }
             }
 
             // Navigate back to settings screen

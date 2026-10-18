@@ -100,6 +100,8 @@ import io.automated.ventures.everypods.R
 import io.automated.ventures.everypods.presentation.components.StyledButton
 import io.automated.ventures.everypods.presentation.components.StyledIconButton
 import io.automated.ventures.everypods.presentation.components.StyledScaffold
+import io.automated.ventures.everypods.presentation.components.SettingsSection
+import io.automated.ventures.everypods.presentation.screens.MenuNavRow
 import io.automated.ventures.everypods.presentation.components.StyledToggle
 import io.automated.ventures.everypods.presentation.viewmodel.AirPodsViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -121,11 +123,10 @@ fun HeadTrackingScreen(
     appSettingsViewModel: AppSettingsViewModel = viewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
-    DisposableEffect(Unit) {
-        viewModel.startHeadTracking()
-        onDispose {
-            viewModel.stopHeadTracking()
-        }
+    var diagnosticsExpanded by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    DisposableEffect(diagnosticsExpanded) {
+        if (diagnosticsExpanded) viewModel.startHeadTracking()
+        onDispose { if (diagnosticsExpanded) viewModel.stopHeadTracking() }
     }
     val isDarkTheme = isSystemInDarkTheme()
     if (isDarkTheme) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
@@ -134,8 +135,8 @@ fun HeadTrackingScreen(
     val scrollState = rememberScrollState()
     val backdrop = rememberLayerBackdrop()
     StyledScaffold(
-        title = stringResource(R.string.head_tracking),
-        actionButtons = listOf(
+        title = stringResource(R.string.ui_head_gestures),
+        actionButtons = if (!diagnosticsExpanded) emptyList() else listOf(
             { scaffoldBackdrop ->
                 StyledIconButton(
                     onClick = {
@@ -201,6 +202,7 @@ fun HeadTrackingScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                 }
 
+                SettingsSection(stringResource(R.string.ui_head_gestures)) {
                 StyledToggle(
                     label = stringResource(R.string.ui_head_gestures),
                     checked = state.headGesturesEnabled,
@@ -226,6 +228,10 @@ fun HeadTrackingScreen(
                 )
 
 
+                }
+                MenuNavRow(stringResource(R.string.design_diagnostics), isDarkTheme,
+                    subtitle = if (diagnosticsExpanded) "−" else "+") { diagnosticsExpanded = !diagnosticsExpanded }
+                if (diagnosticsExpanded) {
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(stringResource(R.string.ui_head_orientation),
                     style = TextStyle(
@@ -293,7 +299,9 @@ fun HeadTrackingScreen(
                         }
                     }
                 }
+                }
             }
+            if (diagnosticsExpanded) {
             val gestureTextValue = stringResource(R.string.shake_your_head_or_nod)
             StyledButton(
                 onClick = {
@@ -366,6 +374,7 @@ fun HeadTrackingScreen(
                         )
                     }
                 }
+            }
             }
         }
     }

@@ -56,26 +56,13 @@ fun AppInfoCard() {
     val textColor = if (isDarkTheme) Color.White else Color.Black
 
     Column {
-        Box(
-            modifier = Modifier
-                .background(if (isDarkTheme) Color.Black else Color(0xFFF2F2F7))
-                .padding(start = 16.dp, bottom = 8.dp, end = 4.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.about), style = TextStyle(
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = textColor.copy(alpha = 0.6f),
-                    fontFamily = FontFamily(Font(R.font.sf_pro))
-                )
-            )
-        }
+        SettingsHeading(stringResource(R.string.about))
 
         Column(
             modifier = Modifier
-                .clip(RoundedCornerShape(28.dp))
+                .clip(RoundedCornerShape(18.dp))
                 .fillMaxWidth()
-                .background(backgroundColor, RoundedCornerShape(28.dp))
+                .background(backgroundColor, RoundedCornerShape(18.dp))
         ) {
             Row(
                 modifier = Modifier

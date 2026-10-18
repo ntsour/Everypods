@@ -74,7 +74,7 @@ internal fun localizeSearchItem(context: Context, item: SearchableItem): Searcha
     }
     return item.copy(
         label = localizedLabel,
-        category = categoryTitles[item.categoryKey]?.let(context::getString) ?: item.category,
+        category = categoryTitles[item.categoryKey] ?: item.category,
         // English search aliases remain useful for protocol names and existing users.
         keywords = item.keywords + item.label,
     )

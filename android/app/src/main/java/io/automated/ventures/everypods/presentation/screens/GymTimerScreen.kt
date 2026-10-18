@@ -67,6 +67,8 @@ import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import io.automated.ventures.everypods.presentation.components.StyledButton
 import io.automated.ventures.everypods.presentation.components.StyledScaffold
+import io.automated.ventures.everypods.presentation.components.SettingsHeading
+import io.automated.ventures.everypods.presentation.components.LocalSettingsGroup
 import io.automated.ventures.everypods.presentation.components.StyledSlider
 import io.automated.ventures.everypods.presentation.components.StyledToggle
 import io.automated.ventures.everypods.utils.GymModePrefs
@@ -124,6 +126,7 @@ fun GymTimerScreen() {
         onDispose { GymTimer.removeListener(listener) }
     }
 
+    androidx.compose.runtime.CompositionLocalProvider(LocalSettingsGroup provides true) {
     StyledScaffold(title = stringResource(R.string.ui_gym_timer)) { topPadding, hazeState, bottomPadding ->
         Column(
             modifier = Modifier
@@ -137,9 +140,9 @@ fun GymTimerScreen() {
             Spacer(Modifier.height(topPadding))
 
             // Mode selector
+            SettingsHeading(stringResource(R.string.ui_timer_mode))
             Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp)).padding(16.dp)) {
-                Text(stringResource(R.string.ui_timer_mode), style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
-                    fontFamily = SfPro, color = if (dark) Color.White else Color.Black))
+
                 Spacer(Modifier.height(8.dp))
                 ModeSelectorRow(timerMode, timerState, dark) { selectedMode ->
                     // Allow mode change when idle or when paused (timer finished)
@@ -247,10 +250,10 @@ fun GymTimerScreen() {
             // Controls
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 // Check if timer is finished (paused with 0 remaining time)
-                val isFinished = timerState == GymTimer.State.PAUSED && 
+                val isFinished = timerState == GymTimer.State.PAUSED &&
                     ((timerMode == GymTimer.Mode.COUNTDOWN && countdownRemainingMs <= 0) ||
                      (timerMode == GymTimer.Mode.HIIT && GymTimer.hiitComplete()))
-                
+
                 StyledButton(
                     onClick = {
                         when {
@@ -269,22 +272,22 @@ fun GymTimerScreen() {
                     modifier = Modifier.weight(1f).heightIn(min = 52.dp)
                 ) {
                     val label = when {
-                        isFinished -> "START"  // Show START when finished instead of RESUME
-                        timerState == GymTimer.State.IDLE -> "START"
-                        timerState == GymTimer.State.PREPARING -> "CANCEL"
-                        timerState == GymTimer.State.RUNNING -> "PAUSE"
-                        timerState == GymTimer.State.PAUSED -> "RESUME"
-                        else -> "START"
+                        isFinished -> stringResource(R.string.ui_start)
+                        timerState == GymTimer.State.IDLE -> stringResource(R.string.ui_start)
+                        timerState == GymTimer.State.PREPARING -> stringResource(R.string.ui_cancel)
+                        timerState == GymTimer.State.RUNNING -> stringResource(R.string.ui_pause)
+                        timerState == GymTimer.State.PAUSED -> stringResource(R.string.ui_resume)
+                        else -> stringResource(R.string.ui_start)
                     }
                     Text(label, style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium,
-                        fontFamily = SfPro, color = if (dark) Color.White else Color.Black))
+                        fontFamily = SfPro, color = if (dark) Color.White else Color.Black), maxLines = 1, softWrap = false)
                 }
                 StyledButton(
                     onClick = { GymTimer.reset() },
                     backdrop = backdrop,
                     modifier = Modifier.weight(1f).heightIn(min = 52.dp)
                 ) {
-                    Text(stringResource(R.string.ui_reset), style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium,
+                    Text(stringResource(R.string.ui_timer_reset), style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium,
                         fontFamily = SfPro, color = if (dark) Color.White else Color.Black))
                 }
             }
@@ -303,9 +306,9 @@ fun GymTimerScreen() {
 
             // Laps list (only for stopwatch)
             if (timerMode == GymTimer.Mode.STOPWATCH && laps.isNotEmpty()) {
-                Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp)).padding(16.dp)) {
-                    Text(stringResource(R.string.ui_laps), style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
-                        fontFamily = SfPro, color = if (dark) Color.White else Color.Black))
+                SettingsHeading(stringResource(R.string.ui_laps))
+            Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp)).padding(16.dp)) {
+
                     Spacer(Modifier.height(8.dp))
                     laps.reversed().forEachIndexed { idx, lap ->
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -443,6 +446,7 @@ fun GymTimerScreen() {
         }
     }
 }
+}
 
 @Composable
 private fun StopwatchAnnouncementIntervalSelector(
@@ -450,10 +454,7 @@ private fun StopwatchAnnouncementIntervalSelector(
     dark: Boolean,
     onSelect: (Int) -> Unit
 ) {
-    val options = listOf(0, 1, 5, 10).map { minutes ->
-        minutes to if (minutes == 0) stringResource(R.string.off)
-        else stringResource(R.string.ui_timer_value_minutes, minutes)
-    }
+    val options = listOf(0 to "Off", 1 to "1 min", 5 to "5 min", 10 to "10 min")
     val textColor = if (dark) Color.White else Color.Black
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         options.forEach { (minutes, label) ->
@@ -494,8 +495,8 @@ private fun ModeSelectorRow(
     onSelect: (GymTimer.Mode) -> Unit
 ) {
     val modes = listOf(
-        GymTimer.Mode.COUNTDOWN to stringResource(R.string.timer_countdown_label),
-        GymTimer.Mode.STOPWATCH to stringResource(R.string.speech_timer_name_stopwatch),
+        GymTimer.Mode.COUNTDOWN to "Countdown",
+        GymTimer.Mode.STOPWATCH to "Stopwatch",
         GymTimer.Mode.HIIT to "HIIT",
     )
     val textColor = if (dark) Color.White else Color.Black
@@ -535,15 +536,15 @@ private fun CountdownSettings(
 ) {
     val cardColor = if (dark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
 
-    Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp)).padding(16.dp)) {
-        Text(stringResource(R.string.ui_duration), style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
-            fontFamily = SfPro, color = if (dark) Color.White else Color.Black))
+    SettingsHeading(stringResource(R.string.ui_duration))
+            Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp)).padding(16.dp)) {
+
         Spacer(Modifier.height(8.dp))
         val minLabel = "${durationSec / 60}m ${durationSec % 60}s"
         Text(minLabel, style = TextStyle(fontSize = 14.sp, fontFamily = SfPro,
             color = if (dark) Color.White.copy(0.6f) else Color.Black.copy(0.6f)))
         Spacer(Modifier.height(12.dp))
-        
+
         // Quick seconds (sub-minute timers)
         Column(Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.ui_quick), style = bodyStyle(dark))
@@ -572,7 +573,7 @@ private fun CountdownSettings(
             }
         }
         Spacer(Modifier.height(12.dp))
-        
+
         // Minutes
         Column(Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.ui_minutes), style = bodyStyle(dark))
@@ -602,7 +603,7 @@ private fun CountdownSettings(
             }
         }
         Spacer(Modifier.height(12.dp))
-        
+
         // Seconds
         Column(Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.ui_seconds), style = bodyStyle(dark))
@@ -646,9 +647,9 @@ private fun HiitSettings(
 ) {
     val cardColor = if (dark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
 
-    Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp)).padding(16.dp)) {
-        Text(stringResource(R.string.ui_hiit_configuration), style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
-            fontFamily = SfPro, color = if (dark) Color.White else Color.Black))
+    SettingsHeading(stringResource(R.string.ui_hiit_configuration))
+            Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp)).padding(16.dp)) {
+
         Spacer(Modifier.height(12.dp))
 
         // Work

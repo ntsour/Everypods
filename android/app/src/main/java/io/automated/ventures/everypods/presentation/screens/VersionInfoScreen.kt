@@ -62,7 +62,7 @@ fun VersionScreen(viewModel: AirPodsViewModel) {
     val backdrop = rememberLayerBackdrop()
 
     StyledScaffold(
-        title = stringResource(R.string.version)
+        title = stringResource(R.string.ui_device_protocol_versions)
     ) { spacerHeight ->
         Column(
             modifier = Modifier

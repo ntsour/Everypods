@@ -80,7 +80,7 @@ fun StyledSelectList(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(backgroundColor, RoundedCornerShape(28.dp)),
+            .background(backgroundColor, RoundedCornerShape(if (LocalSettingsGroup.current) 0.dp else 18.dp)),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         val visibleItems = items.filter { it.visible }
@@ -89,10 +89,10 @@ fun StyledSelectList(
             val isLast = index == visibleItems.size - 1
             val hasIcon = item.iconRes != null
 
-            val shape = when {
-                isFirst && isLast -> RoundedCornerShape(28.dp)
-                isFirst -> RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
-                isLast -> RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp)
+            val shape = if (LocalSettingsGroup.current) RoundedCornerShape(0.dp) else when {
+                isFirst && isLast -> RoundedCornerShape(if (LocalSettingsGroup.current) 0.dp else 18.dp)
+                isFirst -> RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp)
+                isLast -> RoundedCornerShape(bottomStart = 18.dp, bottomEnd = 18.dp)
                 else -> RoundedCornerShape(0.dp)
             }
             // Keep a MutableState so the pointerInput lambda always sees the latest item,
@@ -105,7 +105,7 @@ fun StyledSelectList(
 
             Row(
                 modifier = Modifier
-                    .heightIn(min = if (hasIcon) 72.dp else 55.dp)
+                    .heightIn(min = if (hasIcon) 72.dp else 56.dp)
                     .background(animatedBackgroundColor, shape)
                     .pointerInput(Unit) {
                         detectTapGestures(
@@ -154,7 +154,7 @@ fun StyledSelectList(
                     item.description?.let {
                         Text(
                             it,
-                            fontSize = 14.sp,
+                            fontSize = 13.sp,
                             color = textColor.copy(alpha = 0.6f),
                             fontFamily = FontFamily(Font(R.font.sf_pro)),
                         )

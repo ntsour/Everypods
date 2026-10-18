@@ -138,7 +138,7 @@ fun AnnouncementAppPickerScreen(navController: NavController) {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(cardColor, RoundedCornerShape(20.dp))
+                    .background(cardColor, RoundedCornerShape(18.dp))
             ) {
                 items(filtered, key = { it.packageName }) { entry ->
                     AppRow(

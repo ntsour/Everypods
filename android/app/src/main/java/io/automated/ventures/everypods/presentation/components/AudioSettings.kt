@@ -27,7 +27,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -72,14 +71,13 @@ fun AudioSettings(
     }
     Box(
         modifier = Modifier
-            .background(if (isDarkTheme) Color(0xFF000000) else Color(0xFFF2F2F7))
             .padding(horizontal = 16.dp, vertical = 4.dp)
     ){
         Text(
             text = stringResource(R.string.audio),
             style = TextStyle(
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
                 color = textColor.copy(alpha = 0.6f),
                 fontFamily = FontFamily(Font(R.font.sf_pro))
             )
@@ -90,9 +88,9 @@ fun AudioSettings(
 
     Column(
         modifier = Modifier
-            .clip(RoundedCornerShape(28.dp))
+            .clip(RoundedCornerShape(18.dp))
             .fillMaxWidth()
-            .background(backgroundColor, RoundedCornerShape(28.dp))
+            .background(backgroundColor, RoundedCornerShape(18.dp))
             .padding(top = 2.dp)
     ) {
 
@@ -106,12 +104,6 @@ fun AudioSettings(
                 enabled = effectiveEnabled
             )
 
-            HorizontalDivider(
-                thickness = 1.dp,
-                color = Color(0x40888888),
-                modifier = Modifier
-                    .padding(horizontal = 12.dp)
-            )
         }
 
         if (conversationalAwarenessCapability) {
@@ -122,12 +114,6 @@ fun AudioSettings(
                 checked = conversationalAwarenessChecked,
                 onCheckedChange = onConversationalAwarenessCheckedChange,
                 enabled = effectiveEnabled
-            )
-            HorizontalDivider(
-                thickness = 1.dp,
-                color = Color(0x40888888),
-                modifier = Modifier
-                    .padding(horizontal = 12.dp)
             )
         }
 
@@ -141,12 +127,6 @@ fun AudioSettings(
         }
 
         if (customEqCapability) {
-            HorizontalDivider(
-                thickness = 1.dp,
-                color = Color(0x40888888),
-                modifier = Modifier
-                    .padding(horizontal = 12.dp)
-            )
             NavigationButton(
                 to = "equalizer_screen",
                 name = stringResource(R.string.equalizer),

@@ -60,6 +60,7 @@ import dev.chrisbanes.haze.hazeSource
 import io.automated.ventures.everypods.R
 import io.automated.ventures.everypods.billing.TipProduct
 import io.automated.ventures.everypods.billing.TipPurchaseStatus
+import io.automated.ventures.everypods.billing.TipSkus
 import io.automated.ventures.everypods.presentation.components.StyledButton
 import io.automated.ventures.everypods.presentation.components.StyledScaffold
 import io.automated.ventures.everypods.presentation.viewmodel.PurchaseViewModel
@@ -337,6 +338,13 @@ private fun TipTierList(
         products.forEachIndexed { index, product ->
             TipTierRow(
                 product = product,
+                title = when (product.productId) {
+                    TipSkus.COFFEE -> stringResource(R.string.tip_tier_coffee)
+                    TipSkus.BEER -> stringResource(R.string.tip_tier_beer)
+                    TipSkus.LUNCH -> stringResource(R.string.tip_tier_lunch)
+                    TipSkus.SUPPORTER -> stringResource(R.string.tip_tier_supporter)
+                    else -> product.title
+                },
                 busy = purchasingSku == product.productId,
                 textColor = textColor,
                 accent = accent,
@@ -356,6 +364,7 @@ private fun TipTierList(
 @Composable
 private fun TipTierRow(
     product: TipProduct,
+    title: String,
     busy: Boolean,
     textColor: Color,
     accent: Color,
@@ -373,7 +382,7 @@ private fun TipTierRow(
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
             Text(
-                text = product.title,
+                text = title,
                 style = TextStyle(
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium,

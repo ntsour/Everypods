@@ -554,7 +554,9 @@ object CrossDevice {
         clientSockets.clear()
         serverSocket = null
         holders.clear()
-        configuredPeers = emptySet()
+        // Peer selection is persistent configuration, not live connection state.
+        // Preserve it so disabling handover does not remove the information needed
+        // to enable it again without restarting the process.
         isEnabled = false
         isServerRunning = false
     }

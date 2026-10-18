@@ -65,30 +65,16 @@ fun AboutCard(
     val textColor = if (isDarkTheme) Color.White else Color.Black
     val backgroundColor = if (isDarkTheme) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
 
-    Box(
-        modifier = Modifier
-            .background(if (isDarkTheme) Color(0xFF000000) else Color(0xFFF2F2F7))
-            .padding(horizontal = 16.dp, vertical = 4.dp)
-    ){
-        Text(
-            text = stringResource(R.string.about),
-            style = TextStyle(
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = textColor.copy(alpha = 0.6f),
-                fontFamily = FontFamily(Font(R.font.sf_pro))
-            )
-        )
-    }
+    SettingsHeading(stringResource(R.string.about))
 
     val rowHeight = remember { mutableStateOf(0.dp) }
     val density = LocalDensity.current
 
     Column(
         modifier = Modifier
-            .clip(RoundedCornerShape(28.dp))
+            .clip(RoundedCornerShape(18.dp))
             .fillMaxWidth()
-            .background(backgroundColor, RoundedCornerShape(28.dp))
+            .background(backgroundColor, RoundedCornerShape(18.dp))
             .padding(top = 2.dp)
     ) {
         Row(
