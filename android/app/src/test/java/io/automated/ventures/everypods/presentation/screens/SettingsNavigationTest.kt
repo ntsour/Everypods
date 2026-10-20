@@ -29,6 +29,7 @@ class SettingsNavigationTest {
             "microphone_settings" to "category/audio?anchor=microphone",
             "phone_battery" to "category/appsettings?anchor=phone_battery",
             "connection_settings" to "category/connection",
+            "paired_devices" to "category/connection?anchor=connections",
             "sleep_timer" to "category/smart?anchor=sleep_timer",
         ).forEach { (old, canonical) ->
             assertEquals(canonical, canonicalSettingsRoute(old))
@@ -37,7 +38,7 @@ class SettingsNavigationTest {
     }
 
     @Test fun complex_tools_keep_their_dedicated_destinations() {
-        listOf("notification_announcements?target=quiet_hours", "gym_timer", "head_tracking", "proximity_finder", "equalizer_screen", "paired_devices").forEach {
+        listOf("notification_announcements?target=quiet_hours", "gym_timer", "head_tracking", "proximity_finder", "equalizer_screen").forEach {
             assertEquals(it, canonicalSettingsRoute(it))
         }
     }

@@ -138,7 +138,12 @@ object CrossDevice {
         if (!prefs.contains("cross_device_enabled")) {
             prefs.edit().putBoolean("cross_device_enabled", true).apply()
         }
-        isEnabled = prefs.getBoolean("cross_device_enabled", true)
+        val connections = io.automated.ventures.everypods.relay.DeviceConnectionStore(context)
+        connections.migrate(configuredPeers)
+        // Wi-Fi relay still needs peer ownership/status coordination when BT handover is disabled.
+        isEnabled = prefs.getBoolean("cross_device_enabled", true) || configuredPeers.any {
+            connections.has(it, io.automated.ventures.everypods.relay.DeviceConnectionType.WIFI_RELAY) || it.uppercase() in connections.pendingRevocations()
+        }
         if (!isEnabled) {
             Log.d(TAG, "Cross-device disabled by preference")
             return
@@ -603,10 +608,8 @@ object CrossDevice {
             .edit()
             .putBoolean("cross_device_enabled", enabled)
             .apply()
-        if (enabled) {
-            init(context)
-        } else {
-            close()
-        }
+        val connections = io.automated.ventures.everypods.relay.DeviceConnectionStore(context)
+        if (enabled || configuredPeers.any { connections.has(it, io.automated.ventures.everypods.relay.DeviceConnectionType.WIFI_RELAY) || it.uppercase() in connections.pendingRevocations() }) init(context)
+        else close()
     }
 }

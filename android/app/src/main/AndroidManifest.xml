@@ -30,6 +30,10 @@
 
     <queries>
         <package android:name="com.wahoofitness.fitness" />
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
     </queries>
 
     <application
@@ -37,7 +41,7 @@
         android:allowBackup="false"
         android:enableOnBackInvokedCallback="true"
         android:icon="@mipmap/ic_launcher"
-        android:label="@string/app_name"
+        android:label="${appLabel}"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.EveryPods"
@@ -117,7 +121,7 @@
         <service
             android:name=".services.CallNotifListener"
             android:exported="true"
-            android:label="EveryPods Call Mute Sync"
+            android:label="@string/media_handover_access_service"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />

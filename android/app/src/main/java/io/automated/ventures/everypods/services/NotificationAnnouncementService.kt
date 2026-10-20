@@ -91,6 +91,7 @@ class NotificationAnnouncementService : NotificationListenerService() {
     override fun onListenerConnected() {
         super.onListenerConnected()
         isListenerConnected = true
+        io.automated.ventures.everypods.utils.MediaController.refreshMediaSessionMonitoring(this, force = true)
         Log.d(TAG, "Listener connected")
         migrateLegacyPrefs()
     }
@@ -98,6 +99,7 @@ class NotificationAnnouncementService : NotificationListenerService() {
     override fun onListenerDisconnected() {
         super.onListenerDisconnected()
         isListenerConnected = false
+        io.automated.ventures.everypods.utils.MediaController.refreshMediaSessionMonitoring(this)
         Log.w(TAG, "Listener disconnected — requesting rebind")
         requestRebind(ComponentName(applicationContext, NotificationAnnouncementService::class.java))
     }

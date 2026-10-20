@@ -83,6 +83,8 @@ android {
         targetSdk = 37
         versionCode = 130
         versionName = appVersionName
+        buildConfigField("Boolean", "AUDIO_RELAY_PREVIEW", "false")
+        manifestPlaceholders["appLabel"] = "EveryPods"
     }
     buildTypes {
         release {
@@ -115,6 +117,14 @@ android {
             } else {
                 signingConfigs.getByName("debug")
             }
+        }
+        create("relayPreview") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".relay"
+            versionNameSuffix = "-relay"
+            buildConfigField("Boolean", "AUDIO_RELAY_PREVIEW", "true")
+            manifestPlaceholders["appLabel"] = "EveryPods Relay"
+            signingConfig = signingConfigs.getByName("debug")
         }
         create("playDebug") {
             initWith(getByName("debug"))
@@ -161,6 +171,14 @@ android {
     }
 }
 
+androidComponents {
+    beforeVariants(selector().withBuildType("relayPreview")) { variant ->
+        (variant as com.android.build.api.variant.HasHostTestsBuilder).hostTests.values
+            .filter { it.type == com.android.build.api.variant.HostTestBuilder.UNIT_TEST_TYPE }
+            .forEach { it.enable = true }
+    }
+}
+
 // Keep picker choices and packaged resources derived from app translation folders.
 val localeCatalogOutput = layout.buildDirectory.dir("generated/res/localeCatalog")
 val generatedLocaleTags = (listOf("en") + appLocaleFolders).map { qualifier ->
@@ -194,6 +212,8 @@ protobuf {
 }
 
 dependencies {
+    add("relayPreviewImplementation", "io.github.webrtc-sdk:android:150.7871.01")
+    add("relayPreviewImplementation", project(":opus-codec"))
     implementation(libs.protobuf.java.lite)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.accompanist.permissions)

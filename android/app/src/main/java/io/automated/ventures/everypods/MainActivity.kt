@@ -87,6 +87,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.delay
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -169,6 +170,7 @@ import io.automated.ventures.everypods.presentation.screens.BluetoothControlScre
 import io.automated.ventures.everypods.presentation.screens.AudioSettingsScreen
 import io.automated.ventures.everypods.presentation.screens.ConnectionSettingsScreen
 import io.automated.ventures.everypods.presentation.screens.PairedDevicesScreen
+import io.automated.ventures.everypods.presentation.screens.DevicePlaybackScreen
 import io.automated.ventures.everypods.presentation.screens.MicrophoneSettingsScreen
 import io.automated.ventures.everypods.presentation.screens.ListeningModeConfigScreen
 import io.automated.ventures.everypods.presentation.screens.SmartAutomationScreen
@@ -231,6 +233,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        io.automated.ventures.everypods.utils.MediaController.refreshMediaSessionMonitoring(this)
         Log.i(StartupGate.TAG, "activity onResume")
     }
 
@@ -463,6 +466,27 @@ fun Main(gymTimerNavigationRequest: Int = 0, heartRateNavigationRequest: Int = 0
 
     val startDestination = if (needsPermissions) "permissions" else "settings"
     val navController = rememberNavController()
+
+    // Notification taps reopen the exact relay peer; the Quick Settings tile starts
+    // directly when there is one unambiguous eligible receiver.
+    LaunchedEffect(airPodsViewModel, needsPermissions) {
+        val activity = context as? android.app.Activity ?: return@LaunchedEffect
+        if (needsPermissions) return@LaunchedEffect
+        val peerMac = activity.intent.getStringExtra("audio_relay_open_peer_mac")
+        val startFromTile = activity.intent.getBooleanExtra("audio_relay_open_start", false)
+        if (peerMac == null && !startFromTile) return@LaunchedEffect
+        if (startFromTile && airPodsViewModel == null) return@LaunchedEffect
+        val selectedPeer = peerMac ?: airPodsViewModel?.uiState?.value?.crossDevicePeers
+            ?.filter { it.connected && it.hasPods && io.automated.ventures.everypods.relay.DeviceConnectionStore(context).authorized(it.mac) }
+            ?.singleOrNull()?.mac
+        if (selectedPeer != null) {
+            navController.navigate("device_playback/${android.net.Uri.encode(selectedPeer)}?start=$startFromTile") {
+                launchSingleTop = true
+            }
+        }
+        activity.intent.removeExtra("audio_relay_open_peer_mac")
+        activity.intent.removeExtra("audio_relay_open_start")
+    }
 
     LaunchedEffect(gymTimerNavigationRequest, needsPermissions) {
         if (gymTimerNavigationRequest > 0 && !needsPermissions) {
@@ -768,7 +792,46 @@ fun Main(gymTimerNavigationRequest: Int = 0, heartRateNavigationRequest: Int = 0
                         if (airPodsViewModel != null) CategoryScreen(airPodsViewModel, viewModel(), navController, "connection", null)
                     }
                     composable("paired_devices") {
-                        if (airPodsViewModel != null) PairedDevicesScreen(airPodsViewModel, navController)
+                        LaunchedEffect(Unit) {
+                            navController.navigate("category/connection?anchor=connections") {
+                                popUpTo("paired_devices") { inclusive = true }
+                            }
+                        }
+                    }
+                    composable(
+                        route = "device_playback/{mac}?start={start}&handover={handover}&setup={setup}&type={type}",
+                        arguments = listOf(navArgument("mac") { type = NavType.StringType }, navArgument("start") { type = NavType.BoolType; defaultValue = false }, navArgument("handover") { type = NavType.BoolType; defaultValue = false }, navArgument("setup") { type = NavType.BoolType; defaultValue = false }, navArgument("type") { type = NavType.StringType; defaultValue = "wifi" }),
+                    ) { entry ->
+                        if (BuildConfig.AUDIO_RELAY_PREVIEW && airPodsViewModel != null) {
+                            val context = androidx.compose.ui.platform.LocalContext.current
+                            val mac = android.net.Uri.decode(entry.arguments?.getString("mac").orEmpty())
+                            val airPodsState by airPodsViewModel.uiState.collectAsState()
+                            val peer = airPodsState.crossDevicePeers.firstOrNull { it.mac.equals(mac, ignoreCase = true) }
+                            DevicePlaybackScreen(
+                                peerName = peer?.name ?: mac,
+                                peerMac = mac,
+                                peer = peer,
+                                localAirPodsConnected = airPodsState.isLocallyConnected || airPodsState.isA2dpConnected,
+                                airPodsName = airPodsState.actualModel.ifBlank { airPodsState.modelName },
+                                autoStart = entry.arguments?.getBoolean("start") == true,
+                                autoHandover = entry.arguments?.getBoolean("handover") == true,
+                                autoSetup = entry.arguments?.getBoolean("setup") == true,
+                                connectionType = entry.arguments?.getString("type") ?: "wifi",
+                                onSetupComplete = { navController.popBackStack() },
+                                onForgetPeer = {
+                                    val connections = io.automated.ventures.everypods.relay.DeviceConnectionStore(context)
+                                    if (entry.arguments?.getString("type") == "bt") {
+                                        connections.remove(mac, io.automated.ventures.everypods.relay.DeviceConnectionType.BT_HANDOVER)
+                                    } else {
+                                        connections.remove(mac, io.automated.ventures.everypods.relay.DeviceConnectionType.WIFI_RELAY)
+                                        androidx.core.content.ContextCompat.startForegroundService(context,
+                                            android.content.Intent().setClassName(context, "io.automated.ventures.everypods.relay.RelayPreviewService")
+                                                .setAction("io.automated.ventures.everypods.relay.FORGET_PEER").putExtra("peer_mac", mac))
+                                    }
+                                    navController.popBackStack()
+                                },
+                            )
+                        }
                     }
                     composable("microphone_settings") {
                         if (airPodsViewModel != null) CategoryScreen(airPodsViewModel, viewModel(), navController, "audio", "microphone")
@@ -788,6 +851,15 @@ fun Main(gymTimerNavigationRequest: Int = 0, heartRateNavigationRequest: Int = 0
                     composable("gym_timer") {
                         GymTimerScreen()
                     }
+                }
+
+                val isRelayHome = currentDestination == "settings"
+                val isRelayDetail = currentDestination.startsWith("device_playback/")
+                if (!isRelayHome && !isRelayDetail) {
+                    io.automated.ventures.everypods.presentation.screens.AudioRelaySessionStrip(
+                        navController = navController,
+                        modifier = Modifier.align(Alignment.BottomCenter).padding(horizontal = 16.dp, vertical = 12.dp),
+                    )
                 }
             }
 

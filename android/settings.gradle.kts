@@ -23,3 +23,4 @@ dependencyResolutionManagement {
 rootProject.name = "EveryPods"
 include(":app")
 include(":audio-probe")
+include(":opus-codec")

@@ -8,6 +8,7 @@ internal fun canonicalSettingsRoute(route: String): String {
         if (pair.size == 2) pair[0] to pair[1] else null
     }.toMap()
     val destination = when (path) {
+        "paired_devices" -> "category/connection?anchor=connections"
         "app_settings" -> "category/appsettings"
         "smart_features" -> "category/smart"
         "accessibility", "controls_configuration" -> "category/controls?anchor=controls_configuration"
