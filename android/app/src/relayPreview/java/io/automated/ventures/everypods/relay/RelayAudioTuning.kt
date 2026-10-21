@@ -26,6 +26,7 @@ data class RelayAudioTuning(
         require(playbackBufferMs in PLAYBACK_BUFFER_OPTIONS)
         require(captureBufferMs in CAPTURE_BUFFER_OPTIONS)
         require(frameDurationMs in setOf(10, 20))
+        require(initialJitterMs % frameDurationMs == 0 && maximumJitterMs % frameDurationMs == 0)
         require(bitrateKbps in BITRATE_OPTIONS)
         require(retransmissionMs in RETRANSMISSION_OPTIONS)
         return this
@@ -47,9 +48,11 @@ data class RelayAudioTuning(
 
     companion object {
         const val WIRE_BYTES = 12
-        val JITTER_OPTIONS = listOf(60, 80, 100, 120, 160, 200, 240, 300, 400, 500)
-        val PLAYBACK_BUFFER_OPTIONS = listOf(0, 40, 60, 80, 120, 160, 200)
-        val CAPTURE_BUFFER_OPTIONS = listOf(0, 40, 60, 80, 120, 160)
+        val JITTER_OPTIONS = listOf(20, 30, 40, 60, 80, 100, 120, 160, 200, 240, 300, 400, 500)
+        val PLAYBACK_BUFFER_OPTIONS = listOf(0, 10, 20, 30, 40, 60, 80, 120, 160, 200)
+        val CAPTURE_BUFFER_OPTIONS = listOf(0, 10, 20, 30, 40, 60, 80, 120, 160)
+        // Preserve the original wire codes when adding smaller UI choices.
+        private val WIRE_BUFFER_VALUES = listOf(0, 40, 60, 80, 120, 160, 200, 10, 20, 30)
         val BITRATE_OPTIONS = listOf(96, 128, 160, 192, 256)
         val RETRANSMISSION_OPTIONS = listOf(0, 20, 40, 80)
         val DEFAULT = RelayAudioTuning()
@@ -99,8 +102,8 @@ data class RelayAudioTuning(
 
         fun clear(preferences: SharedPreferences, peerMac: String) { preferences.edit().remove(storageKey(peerMac)).apply() }
         private fun storageKey(peerMac: String) = "audio_relay_tuning_${peerMac.uppercase(Locale.ROOT)}"
-        private fun bufferCode(value: Int) = if (value == 0) 0 else PLAYBACK_BUFFER_OPTIONS.indexOf(value)
-        private fun bufferValue(code: Int, options: List<Int>): Int { require(code in options.indices); return options[code] }
+        private fun bufferCode(value: Int) = WIRE_BUFFER_VALUES.indexOf(value)
+        private fun bufferValue(code: Int, options: List<Int>): Int { require(code in WIRE_BUFFER_VALUES.indices); return WIRE_BUFFER_VALUES[code].also { require(it in options) } }
         private fun retransmissionCode(value: Int) = RETRANSMISSION_OPTIONS.indexOf(value)
         private fun retransmissionValue(code: Int): Int { require(code in RETRANSMISSION_OPTIONS.indices); return RETRANSMISSION_OPTIONS[code] }
     }

@@ -35,4 +35,22 @@ class RelayAudioTuningTest {
             RelayAudioTuning.decodeWire(ByteArray(RelayAudioTuning.WIRE_BYTES - 1))
         }
     }
+
+    @Test
+    fun lowerBufferValuesRoundTripWithoutChangingLegacyWireCodes() {
+        for (buffer in listOf(10, 20, 30)) {
+            for (jitter in listOf(20, 30, 40)) {
+                val profile = RelayAudioTuning(initialJitterMs = jitter, maximumJitterMs = 60,
+                    frameDurationMs = 10, playbackBufferMs = buffer, captureBufferMs = buffer)
+                assertEquals(profile, RelayAudioTuning.decodeWire(profile.encodeWire()))
+            }
+        }
+        for ((code, value) in listOf(0, 40, 60, 80, 120, 160, 200).withIndex()) {
+            val bytes = RelayAudioTuning(playbackBufferMs = value).encodeWire()
+            assertEquals(code, bytes[9].toInt())
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            RelayAudioTuning(initialJitterMs = 30, frameDurationMs = 20).validated()
+        }
+    }
 }

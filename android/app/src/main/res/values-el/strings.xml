@@ -42,7 +42,8 @@
     <string name="add_peer_android_device">Προσθήκη συσκευής Android</string>
     <string name="peer_online">Σε σύνδεση</string>
     <string name="peer_offline">Εκτός σύνδεσης</string>
-    <string name="peer_connection_warning_title">Χάθηκε η σύνδεση εναλλαγής</string>
+    <string name="peer_connection_warning_title">Ομότιμος αποσυνδέθηκε</string>
+    <string name="peer_connection_warning_title_many">Ομότιμοι αποσυνδέθηκαν: %1$d</string>
     <string name="peer_connection_warning_one">Η συσκευή %1$s είναι εκτός σύνδεσης. Η αυτόματη εναλλαγή και η σύνδεση με το άνοιγμα της θήκης ενδέχεται να μη λειτουργούν αξιόπιστα μέχρι να επανασυνδεθεί.</string>
     <string name="peer_connection_warning_many">%1$d συσκευές είναι εκτός σύνδεσης. Η αυτόματη εναλλαγή και η σύνδεση με το άνοιγμα της θήκης ενδέχεται να μη λειτουργούν αξιόπιστα μέχρι να επανασυνδεθούν.</string>
     <string name="peer_connection_warning_retry">Νέα προσπάθεια σύνδεσης</string>
@@ -863,6 +864,9 @@
     <string name="audio_relay_preset_unstable_desc">Αυξάνει το buffer για ασταθείς συνδέσεις και μειώνει τον ρυθμό bit.</string>
     <string name="audio_relay_preset_custom_desc">Οι τιμές δεν αντιστοιχούν σε προεπιλογή.</string>
     <string name="audio_relay_delay_estimate">Εκτιμώμενη καθυστέρηση έως την έξοδο Android: %1$d ms</string>
+    <string name="audio_relay_delay_capture_receiver">Από τη λήψη έως τον δέκτη (κωδικοποίηση + Wi-Fi): %1$d ms</string>
+    <string name="audio_relay_delay_encode">Κωδικοποίηση Opus: %1$d ms</string>
+    <string name="audio_relay_delay_send_call">Κλήση αποστολής μεταφοράς: %1$d ms</string>
     <string name="audio_relay_delay_components">Στόχος jitter: %1$d ms · Ουρά AudioTrack: %2$d ms</string>
     <string name="audio_relay_clock_uncertainty">Αβεβαιότητα συγχρονισμού ρολογιού: περίπου ±%1$d ms</string>
     <string name="audio_relay_delay_limit">Η εκτίμηση σταματά στην έξοδο Bluetooth του Android· τα AirPods μπορεί να προσθέσουν καθυστέρηση.</string>
@@ -878,4 +882,12 @@
     <string name="audio_relay_suspension_expired">Η αναμετάδοση σταμάτησε μετά από δύο λεπτά σε παύση. Ξεκινήστε ξανά για κοινή χρήση ήχου.</string>
     <string name="settings_expanded">Αναπτυγμένο</string>
     <string name="settings_collapsed">Συμπτυγμένο</string>
+    <string name="audio_relay_output_buffer_actual">Ζητήθηκε: %1$s · Ενεργό: %2$d ms · Χωρητικότητα: %3$d ms · Όριο έναρξης: %4$s · Εξαντλήσεις: %5$d</string>
+    <string name="audio_relay_preset_save_as">Αποθήκευση ως προρύθμιση…</string>
+    <string name="audio_relay_preset_name">Όνομα προρύθμισης</string>
+    <string name="audio_relay_saved_presets">Αποθηκευμένες προρυθμίσεις</string>
+    <string name="audio_relay_preset_delete">Διαγραφή της προρύθμισης «%1$s»;</string>
+    <string name="audio_relay_preset_duplicate">Υπάρχει ήδη προρύθμιση με αυτό το όνομα.</string>
+    <string name="audio_relay_capture_delivery">Χρόνος παράδοσης λήψης (μέσος): %1$d ms</string>
+    <string name="audio_relay_capture_read_peak">Αναμονή ανάγνωσης λήψης (μέγιστη): %1$d ms</string>
 </resources>

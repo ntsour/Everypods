@@ -21,6 +21,14 @@ data class RelayPeerReadiness(
 
 data class RelayPeerVerification(val stage: RelayStage, val code: String? = null, val reason: String? = null)
 
+data class RelayOutputBufferState(
+    val requestedMillis: Int,
+    val effectiveMillis: Int,
+    val capacityMillis: Int,
+    val startThresholdMillis: Int?,
+    val underruns: Int,
+)
+
 data class RelayUiState(
     val peerMac: String? = null,
     val role: RelayRole = RelayRole.NONE,
@@ -54,6 +62,14 @@ data class RelayUiState(
     val relayClockSyncUncertaintyMillis: Int? = null,
     val relayJitterTargetMillis: Int? = null,
     val relayAudioTrackQueueMillis: Int? = null,
+    /** Capture timestamp age when the corresponding media reached the receiver. */
+    val relayCaptureToReceiverMillis: Int? = null,
+    /** Source-side Opus encode and synchronous transport enqueue durations. */
+    val relayOutputBuffer: RelayOutputBufferState? = null,
+    val relayCaptureDeliveryMillis: Int? = null,
+    val relayCaptureReadPeakMillis: Int? = null,
+    val relayEncodeMillis: Int? = null,
+    val relaySendCallMillis: Int? = null,
 )
 
 interface RelaySessionApi {

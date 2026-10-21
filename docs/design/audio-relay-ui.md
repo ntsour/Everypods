@@ -47,3 +47,7 @@ Verify migration, both saved types for one peer, duplicate prevention, independe
 Inline expandable settings always show a visible down/up chevron, whether collapsed or expanded. Use the shared `SettingsExpansionHeader` with wrapping labels, a minimum 48dp touch target, and localized expanded/collapsed accessibility state. Experimental audio settings use this header.
 
 The Wi-Fi connection screen offers Stop as a full-width session action. Do not place a Move AirPods here button beside it; Bluetooth transfer remains in the Bluetooth connection flow.
+
+### Compact active session on Home
+
+On both participants, the active Home card shows only “Sending to [receiver]” or “Receiving from [sender]” and a separate full-width Stop action. Do not add a generic playback-health line, duplicate transmission heading or tappable card that opens a session popup. Idle senders retain their direct receiver list. Pending switch approval and actionable suspension/Resume information remain visible when required. Detailed configuration and session statistics remain under Connection settings.

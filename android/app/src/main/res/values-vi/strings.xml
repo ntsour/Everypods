@@ -235,7 +235,8 @@
     <string name="peer_connection_warning_many">Các thiết bị được ghép nối %1$d đang ngoại tuyến. Chuyển giao tự động và kết nối mở trường hợp có thể không đáng tin cậy cho đến khi chúng kết nối lại.</string>
     <string name="peer_connection_warning_one">%1$s đang ngoại tuyến. Chuyển giao tự động và kết nối mở trường hợp có thể không đáng tin cậy cho đến khi kết nối lại.</string>
     <string name="peer_connection_warning_retry">Thử lại kết nối</string>
-    <string name="peer_connection_warning_title">Mất kết nối chuyển giao</string>
+    <string name="peer_connection_warning_title">Nút ngang hàng mất kết nối</string>
+    <string name="peer_connection_warning_title_many">%1$d nút ngang hàng mất kết nối</string>
     <string name="peer_offline">Ngoại tuyến</string>
     <string name="peer_online">trực tuyến</string>
     <string name="popup_animations">Ảnh động bật lên</string>
@@ -898,6 +899,9 @@
     <string name="audio_relay_preset_unstable_desc">Tăng bộ đệm cho kết nối không ổn định và giảm tốc độ bit.</string>
     <string name="audio_relay_preset_custom_desc">Các giá trị này không khớp cấu hình sẵn nào.</string>
     <string name="audio_relay_delay_estimate">Độ trễ ước tính đến đầu ra Android: %1$d ms</string>
+    <string name="audio_relay_delay_capture_receiver">Từ lúc thu đến thiết bị nhận (mã hóa + Wi-Fi): %1$d ms</string>
+    <string name="audio_relay_delay_encode">Mã hóa Opus: %1$d ms</string>
+    <string name="audio_relay_delay_send_call">Lệnh gửi qua kết nối: %1$d ms</string>
     <string name="audio_relay_delay_components">Mục tiêu jitter: %1$d ms · Hàng đợi AudioTrack: %2$d ms</string>
     <string name="audio_relay_clock_uncertainty">Sai số đồng bộ đồng hồ: khoảng ±%1$d ms</string>
     <string name="audio_relay_delay_limit">Ước tính kết thúc tại đầu ra Bluetooth của Android; AirPods có thể làm tăng độ trễ.</string>
@@ -913,4 +917,12 @@
     <string name="audio_relay_suspension_expired">Quá trình truyền đã dừng sau hai phút tạm dừng. Hãy bắt đầu lại để chia sẻ âm thanh.</string>
     <string name="settings_expanded">Đã mở rộng</string>
     <string name="settings_collapsed">Đã thu gọn</string>
+    <string name="audio_relay_output_buffer_actual">Yêu cầu: %1$s · Thực tế: %2$d ms · Dung lượng: %3$d ms · Ngưỡng bắt đầu: %4$s · Số lần cạn: %5$d</string>
+    <string name="audio_relay_preset_save_as">Lưu thành cấu hình…</string>
+    <string name="audio_relay_preset_name">Tên cấu hình</string>
+    <string name="audio_relay_saved_presets">Cấu hình đã lưu</string>
+    <string name="audio_relay_preset_delete">Xóa cấu hình “%1$s”?</string>
+    <string name="audio_relay_preset_duplicate">Đã có cấu hình mang tên này.</string>
+    <string name="audio_relay_capture_delivery">Độ trễ giao dữ liệu thu (trung bình): %1$d ms</string>
+    <string name="audio_relay_capture_read_peak">Thời gian chờ đọc dữ liệu thu (cao nhất): %1$d ms</string>
 </resources>

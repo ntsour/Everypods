@@ -15,8 +15,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,9 +23,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -64,7 +59,6 @@ import io.automated.ventures.everypods.relay.RelayUiState
 import io.automated.ventures.everypods.relay.DeviceConnectionType
 import io.automated.ventures.everypods.relay.DeviceConnectionStore
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AudioRelayHomeSurface(
     peers: List<PeerUiInfo>,
@@ -175,20 +169,14 @@ fun AudioRelayHomeSurface(
     val pendingName = peers.firstOrNull { it.mac.equals(state.pendingSenderMac, true) }?.name
         ?: stringResource(R.string.audio_relay_device_fallback)
     val body = if (androidx.compose.foundation.isSystemInDarkTheme()) Color.White else Color.Black
-    var showDetails by remember { mutableStateOf(false) }
-    var networkChoice by remember(state.peerMac) {
-        val key = state.peerMac?.let { "audio_relay_network_${it.uppercase()}" } ?: "audio_relay_network_default"
-        mutableStateOf(context.getSharedPreferences("settings", Context.MODE_PRIVATE).getString(key, "auto") ?: "auto")
-    }
-
-    Column(modifier.fillMaxWidth().clickable { showDetails = true }) {
-        if (!localAirPodsConnected) Text(
+    Column(modifier.fillMaxWidth()) {
+        if (!localAirPodsConnected && !active) Text(
             stringResource(R.string.audio_relay_relay_home_title),
             modifier = Modifier.padding(start = 4.dp, bottom = 6.dp),
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
             fontFamily = FontFamily(Font(R.font.sf_pro)),
-            color = if (body == Color.White) body.copy(alpha = .72f) else body.copy(alpha = .65f),
+            color = body.copy(alpha = .65f),
         )
         SettingsGroup {
             Column(
@@ -206,45 +194,43 @@ fun AudioRelayHomeSurface(
                         }
                     }
                 }
-                if (localAirPodsConnected) {
-                    Text(stringResource(if (active && state.role == RelayRole.RECEIVER) R.string.audio_relay_receiving_from_peer else R.string.audio_relay_ready_receiver, peerName), color = body)
-                    if (active && state.role == RelayRole.RECEIVER) {
-                        RelayInterruptionNotice(state, peerName, body) { relay?.resumeRelay() }
-                        if (state.stage != RelayStage.SUSPENDED) Text(stringResource(if (state.stage == RelayStage.BUFFERING) R.string.audio_relay_buffering else if (state.stage == RelayStage.STREAMING) R.string.audio_relay_streaming else R.string.audio_relay_waiting_audio), color = body.copy(alpha = .65f))
-                        OutlinedButton(onClick = { relay?.stopRelay() }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(stringResource(R.string.audio_relay_stop)) }
+                if (active && state.role != RelayRole.NONE) {
+                    Text(
+                        when {
+                            state.waitingForReceiverApproval -> stringResource(R.string.audio_relay_waiting_approval, peerName)
+                            state.role == RelayRole.SOURCE -> stringResource(R.string.audio_relay_sending_to_peer, peerName)
+                            else -> stringResource(R.string.audio_relay_receiving_from_peer, peerName)
+                        },
+                        color = body,
+                    )
+                    // Only actionable interruptions add information to the compact session card.
+                    RelayInterruptionNotice(state, peerName, body) { relay?.resumeRelay() }
+                    OutlinedButton(
+                        onClick = { pendingCaptureMac = null; relay?.stopRelay() },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    ) {
+                        Text(stringResource(if (state.waitingForReceiverApproval) R.string.audio_relay_cancel_request else R.string.audio_relay_stop))
                     }
-                    if (!active) state.reason?.let { Text(it, color = body.copy(alpha = .7f)) }
+                } else if (localAirPodsConnected) {
+                    Text(stringResource(R.string.audio_relay_ready_receiver), color = body)
+                    state.reason?.let { Text(it, color = body.copy(alpha = .7f)) }
                 }
-                if (!localAirPodsConnected) wifiPeers.forEach { candidate ->
+                if (!localAirPodsConnected && !active) wifiPeers.forEach { candidate ->
                     val selected = state.role == RelayRole.SOURCE && state.peerMac.equals(candidate.mac, true)
-                    val selectedActive = selected && active
                     val authorized = relay?.isPeerTrusted(candidate.mac) == true
                     val occupied = !localAirPodsConnected && state.peerMac.equals(candidate.mac, true) && state.remoteReceiverActive
-                    val canStart = !localAirPodsConnected && !active && authorized && candidate.connected && candidate.hasPods
+                    val canStart = authorized && candidate.connected && candidate.hasPods
                     val label = when {
-                        selectedActive && state.waitingForReceiverApproval -> stringResource(R.string.audio_relay_cancel_request)
-                        selectedActive && state.stage == RelayStage.SUSPENDED -> candidate.name + " · " + stringResource(R.string.audio_relay_stop)
-                        selectedActive -> stringResource(R.string.audio_relay_sending_to_peer, candidate.name) + " · " + stringResource(R.string.audio_relay_stop)
                         canStart && occupied -> candidate.name + " · " + stringResource(R.string.audio_relay_request_switch)
                         canStart -> stringResource(R.string.audio_relay_play_through_peer, candidate.name)
                         else -> candidate.name
                     }
                     OutlinedButton(
-                        onClick = {
-                            if (selectedActive) {
-                                pendingCaptureMac = null
-                                relay?.stopRelay()
-                            }
-                            else if (localAirPodsConnected) navController.navigate("device_playback/${android.net.Uri.encode(candidate.mac)}")
-                            else startSourceFromHome(candidate.mac)
-                        },
-                        enabled = selectedActive || canStart || localAirPodsConnected,
+                        onClick = { startSourceFromHome(candidate.mac) },
+                        enabled = canStart,
                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                     ) { Text(label) }
                     val detail = when {
-                        selectedActive && state.waitingForReceiverApproval -> stringResource(R.string.audio_relay_waiting_approval, candidate.name)
-                        selectedActive && state.stage == RelayStage.SUSPENDED -> stringResource(R.string.audio_relay_suspended)
-                        selectedActive -> stringResource(if (state.stage == RelayStage.BUFFERING) R.string.audio_relay_buffering else if (state.stage == RelayStage.STREAMING) R.string.audio_relay_streaming else if (state.captureApprovalReady) R.string.audio_relay_waiting_audio else R.string.audio_relay_connecting)
                         selected && state.stage in setOf(RelayStage.FAILED, RelayStage.STOPPED) && state.reason != null -> state.reason ?: stringResource(R.string.audio_relay_action_needed)
                         !authorized -> stringResource(R.string.audio_relay_peer_not_authorized)
                         !candidate.connected -> stringResource(R.string.audio_relay_peer_offline)
@@ -253,72 +239,11 @@ fun AudioRelayHomeSurface(
                         occupied -> stringResource(R.string.audio_relay_receiver_receiving_from_sender, candidate.name, state.remoteActiveSenderName.orEmpty())
                         else -> stringResource(R.string.audio_relay_start_detail, candidate.name)
                     }
-                    if (selectedActive && state.stage == RelayStage.SUSPENDED) {
-                        RelayInterruptionNotice(state, candidate.name, body) { relay?.resumeRelay() }
-                    } else Text(detail, color = body.copy(alpha = .65f))
+                    Text(detail, color = body.copy(alpha = .65f))
                 }
-                if (!localAirPodsConnected && wifiPeers.isEmpty()) {
+                if (!localAirPodsConnected && !active && wifiPeers.isEmpty()) {
                     Text(stringResource(R.string.connection_add_wifi_hint), color = body.copy(alpha = .65f))
                     TextButton(onClick = { navController.navigate("category/connection?anchor=connections") }) { Text(stringResource(R.string.connection_add)) }
-                }
-            }
-        }
-    }
-    if (showDetails) {
-        ModalBottomSheet(onDismissRequest = { showDetails = false }) {
-            Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(stringResource(R.string.audio_relay_relay_home_title), fontSize = 20.sp, fontWeight = FontWeight.Medium, color = body)
-                Text(when {
-                    state.role == RelayRole.SOURCE -> stringResource(R.string.audio_relay_sending_to_peer, peerName)
-                    state.role == RelayRole.RECEIVER && state.peerMac != null -> stringResource(R.string.audio_relay_receiving_from_peer, peerName)
-                    localAirPodsConnected -> stringResource(R.string.audio_relay_ready_receiver)
-                    else -> stringResource(R.string.audio_relay_connect_airpods)
-                }, color = body)
-                RelayInterruptionNotice(state, peerName, body) { relay?.resumeRelay() }
-                if (active) OutlinedButton(onClick = { relay?.stopRelay() }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-                    Text(stringResource(R.string.audio_relay_stop))
-                }
-                wifiPeers.forEach { candidate ->
-                    val readiness = state.peerReadiness[candidate.mac.uppercase()]
-                    val online = stringResource(if (readiness?.online ?: candidate.connected) R.string.audio_relay_peer_online else R.string.audio_relay_peer_offline)
-                    val authorized = stringResource(if (readiness?.authorized ?: (relay?.isPeerTrusted(candidate.mac) == true)) R.string.audio_relay_peer_authorized else R.string.audio_relay_peer_not_authorized)
-                    Column {
-                        Text(readiness?.name ?: candidate.name, color = body.copy(alpha = .88f))
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Text(online, color = body.copy(alpha = .65f))
-                            Text(authorized, color = body.copy(alpha = .65f))
-                            if (active && state.peerMac.equals(candidate.mac, true)) Text(stringResource(R.string.audio_relay_peer_active), color = body.copy(alpha = .65f))
-                        }
-                    }
-                }
-                if (state.role == RelayRole.SOURCE || (state.role == RelayRole.NONE && state.peerMac != null)) {
-                    Text(stringResource(R.string.audio_relay_network_heading), fontWeight = FontWeight.SemiBold, color = body)
-                    listOf("auto" to R.string.audio_relay_network_auto, "wifi" to R.string.audio_relay_shared_wifi, "hotspot" to R.string.audio_relay_device_hotspot).forEach { (mode, label) ->
-                        TextButton(onClick = {
-                            if (active && networkChoice != mode) relay?.stopRelay()
-                            networkChoice = mode
-                            state.peerMac?.let { mac -> context.getSharedPreferences("settings", Context.MODE_PRIVATE).edit().putString("audio_relay_network_${mac.uppercase()}", mode).apply() }
-                        }) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                RadioButton(selected = networkChoice == mode, onClick = null)
-                                Text(stringResource(label))
-                            }
-                        }
-                    }
-                }
-                if (state.role == RelayRole.RECEIVER && state.networkMode != null) {
-                    Text(stringResource(R.string.audio_relay_network_heading), fontWeight = FontWeight.SemiBold, color = body)
-                    Text(stringResource(when (state.networkMode) {
-                        "wifi" -> R.string.audio_relay_shared_wifi
-                        "hotspot" -> R.string.audio_relay_device_hotspot
-                        else -> R.string.audio_relay_network_auto
-                    }), color = body.copy(alpha = .72f))
-                }
-                TextButton(onClick = { showDetails = false; navController.navigate("category/connection?anchor=connections") }) { Text(stringResource(R.string.connections_title)) }
-                val detailPeer = state.peerMac ?: peers.firstOrNull { it.connected }?.mac
-                if (detailPeer != null) {
-                    TextButton(onClick = { showDetails = false; navController.navigate("device_playback/${android.net.Uri.encode(detailPeer)}?handover=true") }) { Text(stringResource(R.string.audio_relay_move_airpods_here)) }
-                    TextButton(onClick = { showDetails = false; navController.navigate("device_playback/${android.net.Uri.encode(detailPeer)}") }) { Text(stringResource(R.string.audio_relay_advanced)) }
                 }
             }
         }

@@ -240,7 +240,8 @@
     <string name="peer_connection_warning_many">Les appareils couplés %1$d sont hors ligne. Le transfert automatique et la connexion à l\'ouverture du boîtier peuvent ne pas être fiables jusqu\'à ce qu\'ils se reconnectent.</string>
     <string name="peer_connection_warning_one">%1$s est hors ligne. Le transfert automatique et la connexion à l\'ouverture du boîtier peuvent ne pas être fiables jusqu\'à ce qu\'ils se reconnectent.</string>
     <string name="peer_connection_warning_retry">Réessayer la connexion</string>
-    <string name="peer_connection_warning_title">Connexion de transfert perdue</string>
+    <string name="peer_connection_warning_title">Pair déconnecté</string>
+    <string name="peer_connection_warning_title_many">%1$d pairs déconnectés</string>
     <string name="peer_offline">Hors ligne</string>
     <string name="peer_online">En ligne</string>
     <string name="proximity_band_farther">Plus loin</string>
@@ -898,6 +899,9 @@
     <string name="audio_relay_preset_unstable_desc">Augmente le tampon pour les connexions instables et réduit le débit.</string>
     <string name="audio_relay_preset_custom_desc">Ces valeurs ne correspondent à aucun préréglage.</string>
     <string name="audio_relay_delay_estimate">Délai estimé jusqu’à la sortie Android : %1$d ms</string>
+    <string name="audio_relay_delay_capture_receiver">Capture jusqu’au récepteur (encodage + Wi-Fi) : %1$d ms</string>
+    <string name="audio_relay_delay_encode">Encodage Opus : %1$d ms</string>
+    <string name="audio_relay_delay_send_call">Appel d’envoi du transport : %1$d ms</string>
     <string name="audio_relay_delay_components">Cible de gigue : %1$d ms · File AudioTrack : %2$d ms</string>
     <string name="audio_relay_clock_uncertainty">Incertitude de synchronisation : environ ±%1$d ms</string>
     <string name="audio_relay_delay_limit">L’estimation s’arrête à la sortie Bluetooth d’Android ; les AirPods peuvent ajouter du délai.</string>
@@ -913,4 +917,12 @@
     <string name="audio_relay_suspension_expired">La transmission s’est arrêtée après deux minutes de pause. Relancez-la pour partager le son.</string>
     <string name="settings_expanded">Développé</string>
     <string name="settings_collapsed">Réduit</string>
+    <string name="audio_relay_output_buffer_actual">Demandé: %1$s · Effectif: %2$d ms · Capacité: %3$d ms · Seuil de démarrage: %4$s · Sous-alimentations: %5$d</string>
+    <string name="audio_relay_preset_save_as">Enregistrer comme préréglage…</string>
+    <string name="audio_relay_preset_name">Nom du préréglage</string>
+    <string name="audio_relay_saved_presets">Préréglages enregistrés</string>
+    <string name="audio_relay_preset_delete">Supprimer le préréglage « %1$s » ?</string>
+    <string name="audio_relay_preset_duplicate">Un préréglage portant ce nom existe déjà.</string>
+    <string name="audio_relay_capture_delivery">Âge de la capture à réception (moyenne) : %1$d ms</string>
+    <string name="audio_relay_capture_read_peak">Attente de lecture de capture (maximum) : %1$d ms</string>
 </resources>

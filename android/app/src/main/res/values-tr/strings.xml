@@ -235,7 +235,8 @@
     <string name="peer_connection_warning_many">%1$d eşlenen cihazlar çevrimdışı. Otomatik devir ve kasa açık bağlantı, yeniden bağlanana kadar güvenilmez olabilir.</string>
     <string name="peer_connection_warning_one">%1$s çevrimdışı. Otomatik devir ve kasa açma bağlantısı, yeniden bağlanana kadar güvenilmez olabilir.</string>
     <string name="peer_connection_warning_retry">Bağlantıyı yeniden dene</string>
-    <string name="peer_connection_warning_title">Devir teslim bağlantısı kesildi</string>
+    <string name="peer_connection_warning_title">Eş bağlantısı kesildi</string>
+    <string name="peer_connection_warning_title_many">Bağlantısı kesilen eşler: %1$d</string>
     <string name="peer_offline">Çevrimdışı</string>
     <string name="peer_online">Çevrimiçi</string>
     <string name="popup_animations">Açılır Animasyonlar</string>
@@ -898,6 +899,9 @@
     <string name="audio_relay_preset_unstable_desc">Kararsız bağlantılar için arabelleği artırır ve bit hızını düşürür.</string>
     <string name="audio_relay_preset_custom_desc">Bu değerler bir ön ayarla eşleşmiyor.</string>
     <string name="audio_relay_delay_estimate">Android çıkışına kadar tahmini gecikme: %1$d ms</string>
+    <string name="audio_relay_delay_capture_receiver">Yakalamadan alıcıya (kodlama + Wi-Fi): %1$d ms</string>
+    <string name="audio_relay_delay_encode">Opus kodlama: %1$d ms</string>
+    <string name="audio_relay_delay_send_call">Aktarım gönderme çağrısı: %1$d ms</string>
     <string name="audio_relay_delay_components">Jitter hedefi: %1$d ms · AudioTrack kuyruğu: %2$d ms</string>
     <string name="audio_relay_clock_uncertainty">Saat eşitleme belirsizliği: yaklaşık ±%1$d ms</string>
     <string name="audio_relay_delay_limit">Tahmin Android Bluetooth çıkışında sona erer; AirPods ek gecikme oluşturabilir.</string>
@@ -913,4 +917,12 @@
     <string name="audio_relay_suspension_expired">Aktarım iki dakika duraklatıldıktan sonra durduruldu. Ses paylaşmak için yeniden başlatın.</string>
     <string name="settings_expanded">Genişletilmiş</string>
     <string name="settings_collapsed">Daraltılmış</string>
+    <string name="audio_relay_output_buffer_actual">İstenen: %1$s · Etkin: %2$d ms · Kapasite: %3$d ms · Başlama eşiği: %4$s · Yetersiz dolum: %5$d</string>
+    <string name="audio_relay_preset_save_as">Ön ayar olarak kaydet…</string>
+    <string name="audio_relay_preset_name">Ön ayar adı</string>
+    <string name="audio_relay_saved_presets">Kayıtlı ön ayarlar</string>
+    <string name="audio_relay_preset_delete">“%1$s” ön ayarı silinsin mi?</string>
+    <string name="audio_relay_preset_duplicate">Bu ada sahip bir ön ayar zaten var.</string>
+    <string name="audio_relay_capture_delivery">Yakalama teslim yaşı (ortalama): %1$d ms</string>
+    <string name="audio_relay_capture_read_peak">Yakalama okuma beklemesi (en yüksek): %1$d ms</string>
 </resources>

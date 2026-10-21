@@ -179,7 +179,8 @@
     <string name="peer_connection_warning_many">%1$d gekoppelte Geräte sind offline. Die automatische Übergabe und die Verbindung bei geöffnetem Fall können unzuverlässig sein, bis die Verbindung wiederhergestellt wird.</string>
     <string name="peer_connection_warning_one">%1$s ist offline. Die automatische Übergabe und die Verbindung bei geöffnetem Fall können unzuverlässig sein, bis die Verbindung wiederhergestellt wird.</string>
     <string name="peer_connection_warning_retry">Verbindung erneut versuchen</string>
-    <string name="peer_connection_warning_title">Übergabeverbindung unterbrochen</string>
+    <string name="peer_connection_warning_title">Peer getrennt</string>
+    <string name="peer_connection_warning_title_many">%1$d Peers getrennt</string>
     <string name="peer_offline">Offline</string>
     <string name="peer_online">Online</string>
     <string name="permissions_required">Für die Nutzung der App sind folgende Berechtigungen erforderlich. Bitte erlauben Sie ihnen, fortzufahren.</string>
@@ -897,6 +898,9 @@
     <string name="audio_relay_preset_unstable_desc">Erhöht den Puffer für instabile Verbindungen und senkt die Bitrate.</string>
     <string name="audio_relay_preset_custom_desc">Diese Werte entsprechen keiner Voreinstellung.</string>
     <string name="audio_relay_delay_estimate">Geschätzte Verzögerung bis zur Android-Ausgabe: %1$d ms</string>
+    <string name="audio_relay_delay_capture_receiver">Aufnahme bis Empfänger (Kodierung + WLAN): %1$d ms</string>
+    <string name="audio_relay_delay_encode">Opus-Kodierung: %1$d ms</string>
+    <string name="audio_relay_delay_send_call">Transport-Sendeaufruf: %1$d ms</string>
     <string name="audio_relay_delay_components">Jitterziel: %1$d ms · AudioTrack-Warteschlange: %2$d ms</string>
     <string name="audio_relay_clock_uncertainty">Uhrensynchronisierung: etwa ±%1$d ms Unsicherheit</string>
     <string name="audio_relay_delay_limit">Die Schätzung endet an der Bluetooth-Ausgabe von Android; AirPods können zusätzliche Verzögerung verursachen.</string>
@@ -912,4 +916,12 @@
     <string name="audio_relay_suspension_expired">Die Übertragung wurde nach zwei Minuten Pause beendet. Starte sie erneut, um Audio zu teilen.</string>
     <string name="settings_expanded">Ausgeklappt</string>
     <string name="settings_collapsed">Eingeklappt</string>
+    <string name="audio_relay_output_buffer_actual">Angefordert: %1$s · Effektiv: %2$d ms · Kapazität: %3$d ms · Startschwelle: %4$s · Unterläufe: %5$d</string>
+    <string name="audio_relay_preset_save_as">Als Vorgabe speichern…</string>
+    <string name="audio_relay_preset_name">Name der Vorgabe</string>
+    <string name="audio_relay_saved_presets">Gespeicherte Vorgaben</string>
+    <string name="audio_relay_preset_delete">Vorgabe „%1$s“ löschen?</string>
+    <string name="audio_relay_preset_duplicate">Eine Vorgabe mit diesem Namen existiert bereits.</string>
+    <string name="audio_relay_capture_delivery">Aufnahmealter bei Übergabe (Mittel): %1$d ms</string>
+    <string name="audio_relay_capture_read_peak">Wartezeit beim Lesen (Maximum): %1$d ms</string>
 </resources>

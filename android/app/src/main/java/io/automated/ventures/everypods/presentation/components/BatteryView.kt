@@ -26,6 +26,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -59,7 +61,8 @@ import kotlin.io.encoding.ExperimentalEncodingApi
 fun BatteryView(
     batteryList: List<Battery>,
     budsRes: Int,
-    caseRes: Int
+    caseRes: Int,
+    caseControl: (@Composable BoxScope.() -> Unit)? = null
 ) {
     val left  = batteryList.find { it.component == BatteryComponent.LEFT }
     val right = batteryList.find { it.component == BatteryComponent.RIGHT }
@@ -156,14 +159,24 @@ fun BatteryView(
                 modifier = Modifier.weight(1f),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Image(
-                    bitmap = ImageBitmap.imageResource(caseRes),
-                    contentDescription = stringResource(R.string.case_alt),
+                Box(
                     modifier = Modifier
                         .fillMaxWidth(artworkScale)
                         .heightIn(max = imageMaxHeight)
-                        .padding(8.dp)
-                )
+                        .padding(8.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Image(
+                        bitmap = ImageBitmap.imageResource(caseRes),
+                        contentDescription = stringResource(R.string.case_alt),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    if (caseControl != null) {
+                        Box(Modifier.align(Alignment.Center).offset(y = 8.dp)) {
+                            caseControl()
+                        }
+                    }
+                }
 
                 if (caseKnown) {
                     BatteryIndicator(

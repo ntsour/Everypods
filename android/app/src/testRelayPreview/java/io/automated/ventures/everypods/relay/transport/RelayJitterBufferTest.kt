@@ -140,4 +140,36 @@ class RelayJitterBufferTest {
         assertTrue(adaptive.statistics().targetDelayMillis < grown)
         assertTrue(adaptive.statistics().targetDelayMillis >= 200)
     }
+
+    @Test
+    fun lowerTargetsWaitForTheirConfiguredDeadline() {
+        for (target in listOf(20, 30, 40)) {
+            val buffer = RelayJitterBuffer(target, target, 10)
+            buffer.offer(RelayMediaPacket(0, 0, 10, byteArrayOf(1)), 100)
+            assertNull(buffer.poll(100L + target - 1))
+            assertTrue(buffer.poll(100L + target) is RelayJitterBuffer.Output.Frame)
+        }
+    }
+
+    @Test
+    fun briefCalmPeriodDoesNotImmediatelyReduceAGrownBuffer() {
+        val buffer = RelayJitterBuffer(60, 300, 20, adaptiveMode = 2)
+        for (seq in 0L..100L) {
+            val arrival = seq * 20 + if (seq % 2 == 0L) 0 else 40
+            buffer.offer(packet(seq), arrival)
+            buffer.poll(arrival + 600)
+        }
+        val grown = buffer.statistics().targetDelayMillis
+        assertTrue(grown > 60)
+        for (seq in 101L..150L) {
+            buffer.offer(packet(seq), seq * 20)
+            buffer.poll(seq * 20 + 600)
+        }
+        assertEquals("One second of calm must not trigger a reduction", grown, buffer.statistics().targetDelayMillis)
+        for (seq in 151L..400L) {
+            buffer.offer(packet(seq), seq * 20)
+            buffer.poll(seq * 20 + 600)
+        }
+        assertTrue(buffer.statistics().targetDelayMillis < grown)
+    }
 }

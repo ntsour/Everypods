@@ -240,7 +240,8 @@
     <string name="peer_connection_warning_many">%1$d dispositivos están sin conexión. La transferencia automática y la conexión al abrir el estuche pueden fallar hasta que vuelvan a conectarse.</string>
     <string name="peer_connection_warning_one">%1$s está sin conexión. La transferencia automática y la conexión al abrir el estuche pueden fallar hasta que vuelva a conectarse.</string>
     <string name="peer_connection_warning_retry">Reintentar conexión</string>
-    <string name="peer_connection_warning_title">Conexión de transferencia perdida</string>
+    <string name="peer_connection_warning_title">Par desconectado</string>
+    <string name="peer_connection_warning_title_many">%1$d pares desconectados</string>
     <string name="peer_offline">Sin conexión</string>
     <string name="peer_online">En línea</string>
     <string name="proximity_band_farther">Más lejos</string>
@@ -900,6 +901,9 @@
     <string name="audio_relay_preset_unstable_desc">Aumenta el búfer para conexiones inestables y reduce la tasa de bits.</string>
     <string name="audio_relay_preset_custom_desc">Estos valores no coinciden con un preajuste.</string>
     <string name="audio_relay_delay_estimate">Retardo estimado hasta la salida de Android: %1$d ms</string>
+    <string name="audio_relay_delay_capture_receiver">Captura hasta el receptor (codificación + Wi-Fi): %1$d ms</string>
+    <string name="audio_relay_delay_encode">Codificación Opus: %1$d ms</string>
+    <string name="audio_relay_delay_send_call">Llamada de envío del transporte: %1$d ms</string>
     <string name="audio_relay_delay_components">Objetivo de jitter: %1$d ms · Cola de AudioTrack: %2$d ms</string>
     <string name="audio_relay_clock_uncertainty">Incertidumbre de sincronización del reloj: aprox. ±%1$d ms</string>
     <string name="audio_relay_delay_limit">La estimación termina en la salida Bluetooth de Android; los AirPods pueden añadir más retardo.</string>
@@ -915,4 +919,12 @@
     <string name="audio_relay_suspension_expired">La retransmisión se ha detenido tras dos minutos en pausa. Iníciala de nuevo para compartir audio.</string>
     <string name="settings_expanded">Desplegado</string>
     <string name="settings_collapsed">Plegado</string>
+    <string name="audio_relay_output_buffer_actual">Solicitado: %1$s · Efectivo: %2$d ms · Capacidad: %3$d ms · Umbral de inicio: %4$s · Agotamientos: %5$d</string>
+    <string name="audio_relay_preset_save_as">Guardar como preajuste…</string>
+    <string name="audio_relay_preset_name">Nombre del preajuste</string>
+    <string name="audio_relay_saved_presets">Preajustes guardados</string>
+    <string name="audio_relay_preset_delete">¿Eliminar el preajuste «%1$s»?</string>
+    <string name="audio_relay_preset_duplicate">Ya existe un preajuste con este nombre.</string>
+    <string name="audio_relay_capture_delivery">Edad de entrega de captura (media): %1$d ms</string>
+    <string name="audio_relay_capture_read_peak">Espera de lectura de captura (máxima): %1$d ms</string>
 </resources>

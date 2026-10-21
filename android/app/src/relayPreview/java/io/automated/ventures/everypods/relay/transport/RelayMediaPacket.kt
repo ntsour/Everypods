@@ -87,7 +87,7 @@ class RelayJitterBuffer(
     private var previousTimestampNanos: Long? = null
     private var previousSequence: Long? = null
     private var estimatedJitterMillis = 0.0
-    private var lastTargetReductionMillis = Long.MIN_VALUE
+    private var lowerTargetSinceMillis: Long? = null
     private var accepted = 0L
     private var rejected = 0L
     private var concealed = 0L
@@ -95,7 +95,7 @@ class RelayJitterBuffer(
     private var consecutiveMissing = 0
 
     init {
-        require(initialTargetDelayMillis in 60..maximumDelayMillis)
+        require(initialTargetDelayMillis in 20..maximumDelayMillis)
         require(maximumDelayMillis in initialTargetDelayMillis..500)
         require(frameDurationMillis in RelayMediaPacket.SUPPORTED_FRAME_DURATIONS)
         require(adaptiveMode in 0..2)
@@ -147,16 +147,22 @@ class RelayJitterBuffer(
                 ).toInt() * frameDurationMillis).coerceAtMost(maximumDelayMillis)
                 val adjustment = if (wanted > currentTargetDelayMillis) frameDurationMillis else 0
                 if (adjustment != 0) {
+                    lowerTargetSinceMillis = null
                     currentTargetDelayMillis = (currentTargetDelayMillis + adjustment).coerceIn(initialTargetDelayMillis, maximumDelayMillis)
                     playoutStartsAtMillis = (playoutStartsAtMillis ?: arrivalMillis) + adjustment
                 } else if (adaptiveMode > 0 && wanted < currentTargetDelayMillis && estimatedJitterMillis < 12.0) {
                     val interval = if (adaptiveMode == 1) 5_000L else 1_500L
-                    if (lastTargetReductionMillis == Long.MIN_VALUE || arrivalMillis - lastTargetReductionMillis >= interval) {
+                    // Require sustained headroom: a brief calm interval must not
+                    // pull the deadline forward immediately after a burst.
+                    val stableSince = lowerTargetSinceMillis ?: arrivalMillis.also { lowerTargetSinceMillis = it }
+                    if (arrivalMillis - stableSince >= interval) {
                         currentTargetDelayMillis = (currentTargetDelayMillis - frameDurationMillis).coerceAtLeast(initialTargetDelayMillis)
                         // A frame is removed from the live timeline only at this paced interval.
                         playoutStartsAtMillis = (playoutStartsAtMillis ?: arrivalMillis) - frameDurationMillis
-                        lastTargetReductionMillis = arrivalMillis
+                        lowerTargetSinceMillis = arrivalMillis
                     }
+                } else {
+                    lowerTargetSinceMillis = null
                 }
             }
         }
@@ -206,7 +212,7 @@ class RelayJitterBuffer(
     fun clear() {
         resetTimeline()
         currentTargetDelayMillis = initialTargetDelayMillis
-        lastTargetReductionMillis = Long.MIN_VALUE
+        lowerTargetSinceMillis = null
         estimatedJitterMillis = 0.0
         accepted = 0L
         rejected = 0L
@@ -218,6 +224,7 @@ class RelayJitterBuffer(
     fun statistics(): Statistics = Statistics(accepted, rejected, concealed, refills, frames.size, currentTargetDelayMillis)
 
     private fun resetTimeline() {
+        lowerTargetSinceMillis = null
         frames.clear()
         expectedSequence = null
         firstSequence = null

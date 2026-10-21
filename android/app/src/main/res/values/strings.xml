@@ -43,7 +43,8 @@
     <string name="add_peer_android_device">Add Android device</string>
     <string name="peer_online">Online</string>
     <string name="peer_offline">Offline</string>
-    <string name="peer_connection_warning_title">Handover connection lost</string>
+    <string name="peer_connection_warning_title">Peer disconnected</string>
+    <string name="peer_connection_warning_title_many">%1$d peers disconnected</string>
     <string name="peer_connection_warning_one">%1$s is offline. Automatic handover and case-open connection can be unreliable until it reconnects.</string>
     <string name="peer_connection_warning_many">%1$d paired devices are offline. Automatic handover and case-open connection can be unreliable until they reconnect.</string>
     <string name="peer_connection_warning_retry">Retry connection</string>
@@ -914,6 +915,9 @@
     <string name="audio_relay_preset_unstable_desc">Adds buffering for unstable links and reduces the bitrate.</string>
     <string name="audio_relay_preset_custom_desc">Your values do not match a preset.</string>
     <string name="audio_relay_delay_estimate">Estimated capture-to-Android-output delay: %1$d ms</string>
+    <string name="audio_relay_delay_capture_receiver">Capture to receiver (encoding + Wi-Fi): %1$d ms</string>
+    <string name="audio_relay_delay_encode">Opus encode: %1$d ms</string>
+    <string name="audio_relay_delay_send_call">Transport send call: %1$d ms</string>
     <string name="audio_relay_delay_components">Jitter target: %1$d ms · AudioTrack queue: %2$d ms</string>
     <string name="audio_relay_clock_uncertainty">Clock sync uncertainty: about ±%1$d ms</string>
     <string name="audio_relay_delay_limit">Estimate ends at Android’s Bluetooth output; AirPods may add more delay.</string>
@@ -929,4 +933,12 @@
     <string name="audio_relay_suspension_expired">Relay stopped after two minutes paused. Start again to share audio.</string>
     <string name="settings_expanded">Expanded</string>
     <string name="settings_collapsed">Collapsed</string>
+    <string name="audio_relay_output_buffer_actual">Requested: %1$s · Effective: %2$d ms · Capacity: %3$d ms · Start threshold: %4$s · Underruns: %5$d</string>
+    <string name="audio_relay_preset_save_as">Save as preset…</string>
+    <string name="audio_relay_preset_name">Preset name</string>
+    <string name="audio_relay_saved_presets">Saved presets</string>
+    <string name="audio_relay_preset_delete">Delete preset “%1$s”?</string>
+    <string name="audio_relay_preset_duplicate">A preset with this name already exists.</string>
+    <string name="audio_relay_capture_delivery">Capture delivery age (mean): %1$d ms</string>
+    <string name="audio_relay_capture_read_peak">Capture read wait (peak): %1$d ms</string>
 </resources>

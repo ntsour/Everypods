@@ -10,6 +10,7 @@ import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.AudioTrack
 import android.os.Handler
+import android.os.Build
 import android.os.HandlerThread
 import android.os.SystemClock
 import android.util.Log
@@ -30,7 +31,8 @@ class RelayAudioPlayback(
     private val onBuffering: (Boolean) -> Unit,
     private val onInterruption: (RelayInterruption, resumeUnavailable: Boolean) -> Unit,
     private val sourceClockOffsetNanos: () -> Long?,
-    private val onDelayMeasurement: (estimateMillis: Int, jitterTargetMillis: Int, outputQueueMillis: Int) -> Unit,
+    private val onDelayMeasurement: (estimateMillis: Int, jitterTargetMillis: Int, outputQueueMillis: Int, captureToReceiverMillis: Int) -> Unit,
+    private val onOutputBuffer: (RelayOutputBufferState) -> Unit,
     private val onFailure: (String) -> Unit,
 ) : AutoCloseable {
     private val appContext = context.applicationContext
@@ -52,6 +54,7 @@ class RelayAudioPlayback(
     @Volatile private var writtenFrames = 0L
     @Volatile private var writtenAudioFrames = 0L
     @Volatile private var lastArrivalMillis: Long? = null
+    @Volatile private var latestCaptureToReceiverMillis: Int? = null
     private var buffering = false
     private var healthySinceMillis: Long? = null
     private var noOutputSinceMillis: Long? = null
@@ -140,7 +143,7 @@ class RelayAudioPlayback(
                 else maxOf(minimum, NativeOpusCodec.SAMPLE_RATE * 2 * NativeOpusCodec.CHANNELS * tuning.playbackBufferMs / 1_000))
             .build()
         check(output.state == AudioTrack.STATE_INITIALIZED) { "Bluetooth playback track initialization failed" }
-        Log.i(TAG, "Playback buffer requested=${output.bufferSizeInFrames} frames actual=${output.bufferSizeInFrames} frames configuredMs=${tuning.playbackBufferMs} frameMs=${tuning.frameDurationMs}")
+        configureOutputBuffer(output)
         if (!output.setPreferredDevice(bluetooth)) {
             output.release()
             error("Could not select the Bluetooth audio output")
@@ -153,6 +156,9 @@ class RelayAudioPlayback(
             track = output
             output.addOnRoutingChangedListener({
                 val routed = output.routedDevice
+                if (!closed.get() && routed?.let(::isExpectedAirPods) == true) synchronized(resourceLock) {
+                    if (!closed.get()) configureOutputBuffer(output)
+                }
                 if (!closed.get() && interruption == RelayInterruption.NONE && routed != null && !isExpectedAirPods(routed)) fail("Audio route left AirPods")
             }, handler)
             audioManager.registerAudioDeviceCallback(deviceCallback, handler)
@@ -160,7 +166,8 @@ class RelayAudioPlayback(
         }
         // Prime route selection with silence only. Captured media is not released to AudioTrack
         // until the Bluetooth route has been observed.
-        output.write(ShortArray(framePcmSamples), 0, framePcmSamples, AudioTrack.WRITE_BLOCKING)
+        val primedSamples = output.write(ShortArray(framePcmSamples), 0, framePcmSamples, AudioTrack.WRITE_BLOCKING)
+        writtenAudioFrames += primedSamples.coerceAtLeast(0) / NativeOpusCodec.CHANNELS
         val deadline = SystemClock.elapsedRealtime() + ROUTE_TIMEOUT_MS
         while (!closed.get() && SystemClock.elapsedRealtime() < deadline) {
             if (output.routedDevice?.let(::isExpectedAirPods) == true) break
@@ -169,6 +176,7 @@ class RelayAudioPlayback(
         check(output.routedDevice?.let(::isExpectedAirPods) == true) {
             "AirPods route did not become active; playback was not sent to the speaker"
         }
+        configureOutputBuffer(output)
         Log.i(TAG, "Receiver AudioTrack routed to expected Bluetooth output; type=${output.routedDevice?.type}")
         synchronized(resourceLock) {
             check(!closed.get()) { "Playback stopped during setup" }
@@ -194,6 +202,10 @@ class RelayAudioPlayback(
             Log.i(TAG, "Received media frames=$receivedFrames payloadBytes=${packet.opusPayload.size}")
         }
         val arrival = SystemClock.elapsedRealtime()
+        sourceClockOffsetNanos()?.let { offset ->
+            val captureOnReceiver = packet.timestampNanos - offset
+            latestCaptureToReceiverMillis = ((SystemClock.elapsedRealtimeNanos() - captureOnReceiver).coerceAtLeast(0L) / 1_000_000L).toInt()
+        }
         lastArrivalMillis?.let { previous ->
             if (arrival - previous >= 100) Log.w(TAG, "Incoming audio gap=${arrival - previous}ms sequence=${packet.sequence}")
         }
@@ -248,7 +260,7 @@ class RelayAudioPlayback(
                 val pcm = synchronized(resourceLock) {
                     if (closed.get() || interruption != RelayInterruption.NONE || playbackEpoch != epoch) return@synchronized null
                     when (output) {
-                        is RelayJitterBuffer.Output.Frame -> framer.decode(output.packet.encode())
+                        is RelayJitterBuffer.Output.Frame -> codec.decode(output.packet.opusPayload)
                         is RelayJitterBuffer.Output.Missing -> framer.concealLoss()
                     }
                 } ?: continue
@@ -268,6 +280,7 @@ class RelayAudioPlayback(
                 playedFrames++
                 if (playedFrames == 1L || playedFrames % DIAGNOSTIC_FRAME_INTERVAL == 0L) {
                     val audioTrack = track
+                    audioTrack?.let(::reportOutputBuffer)
                     val head = audioTrack?.playbackHeadPosition?.toLong()?.and(0xffff_ffffL) ?: writtenAudioFrames
                     val queuedMs = ((writtenAudioFrames - head).coerceAtLeast(0L) * 1_000L / NativeOpusCodec.SAMPLE_RATE)
                     Log.i(TAG, "AudioTrack realFrames=$writtenFrames playedFrames=$playedFrames queuedMs=$queuedMs underruns=${audioTrack?.underrunCount} buffer=${jitterBuffer.statistics()} routedToAirPods=${audioTrack?.routedDevice?.let(::isExpectedAirPods) == true}")
@@ -281,7 +294,10 @@ class RelayAudioPlayback(
                     val captureTimeOnReceiver = mediaPacket.timestampNanos - offset
                     val ageMs = ((SystemClock.elapsedRealtimeNanos() - captureTimeOnReceiver).coerceAtLeast(0L) / 1_000_000L).toInt()
                     val estimate = ageMs + queueMs
-                    onDelayMeasurement(estimate, jitterBuffer.statistics().targetDelayMillis, queueMs)
+                    val captureToReceiver = latestCaptureToReceiverMillis
+                    if (captureToReceiver != null) {
+                        onDelayMeasurement(estimate, jitterBuffer.statistics().targetDelayMillis, queueMs, captureToReceiver)
+                    }
                     Log.i(TAG, "Estimated capture-to-Android-output delay=${estimate}ms sampleAge=${ageMs}ms jitterTarget=${jitterBuffer.statistics().targetDelayMillis}ms outputQueue=${queueMs}ms")
                 }
             }
@@ -377,13 +393,16 @@ class RelayAudioPlayback(
                 check(expectedAirPodsAddress?.let(::findBluetoothOutput) != null) { "AirPods audio disconnected" }
                 val output = checkNotNull(track)
                 // No real media is accepted until the original Bluetooth route is verified.
+                resetPlaybackTimeline()
+                configureOutputBuffer(output)
                 output.setVolume(if (ducked) DUCK_VOLUME else 1f)
                 output.play()
-                output.write(ShortArray(framePcmSamples), 0, framePcmSamples, AudioTrack.WRITE_NON_BLOCKING)
+                val primedSamples = output.write(ShortArray(framePcmSamples), 0, framePcmSamples, AudioTrack.WRITE_NON_BLOCKING)
+                writtenAudioFrames += primedSamples.coerceAtLeast(0) / NativeOpusCodec.CHANNELS
                 val deadline = SystemClock.elapsedRealtime() + ROUTE_TIMEOUT_MS
                 while (!closed.get() && output.routedDevice?.let(::isExpectedAirPods) != true && SystemClock.elapsedRealtime() < deadline) Thread.sleep(10)
                 check(output.routedDevice?.let(::isExpectedAirPods) == true) { "AirPods route did not resume" }
-                resetPlaybackTimeline()
+                configureOutputBuffer(output)
                 codec.resetDecoder()
                 discardThroughSourceTimestampNanos = newestSourceTimestampNanos
                 resumeAtReceiverNanos = SystemClock.elapsedRealtimeNanos()
@@ -394,6 +413,34 @@ class RelayAudioPlayback(
         } catch (error: Exception) {
             if (!closed.get()) fail(error.message ?: "Bluetooth playback could not resume")
         }
+    }
+
+    /** Allocation capacity and effective write limit are different Android controls. */
+    private fun configureOutputBuffer(output: AudioTrack) {
+        if (tuning.playbackBufferMs > 0) {
+            val requestedFrames = NativeOpusCodec.SAMPLE_RATE * tuning.playbackBufferMs / 1_000
+            val accepted = output.setBufferSizeInFrames(requestedFrames)
+            if (accepted < 0) Log.w(TAG, "Effective buffer request rejected: $accepted")
+            if (Build.VERSION.SDK_INT >= 31) {
+                // Avoid waiting for the full allocation before initial playback/recovery.
+                val threshold = minOf(output.bufferSizeInFrames, requestedFrames).coerceAtLeast(1)
+                val result = output.setStartThresholdInFrames(threshold)
+                if (result < 0) Log.w(TAG, "Start threshold request rejected: $result")
+            }
+        }
+        Log.i(TAG, "Output buffer requestedMs=${tuning.playbackBufferMs} effectiveFrames=${output.bufferSizeInFrames} capacityFrames=${output.bufferCapacityInFrames}")
+        reportOutputBuffer(output)
+    }
+
+    private fun reportOutputBuffer(output: AudioTrack) {
+        fun millis(frames: Int) = (frames.toLong() * 1_000 / NativeOpusCodec.SAMPLE_RATE).toInt()
+        onOutputBuffer(RelayOutputBufferState(
+            requestedMillis = tuning.playbackBufferMs,
+            effectiveMillis = millis(output.bufferSizeInFrames),
+            capacityMillis = millis(output.bufferCapacityInFrames),
+            startThresholdMillis = if (Build.VERSION.SDK_INT >= 31) millis(output.startThresholdInFrames) else null,
+            underruns = output.underrunCount,
+        ))
     }
 
     private fun resetPlaybackTimeline() {

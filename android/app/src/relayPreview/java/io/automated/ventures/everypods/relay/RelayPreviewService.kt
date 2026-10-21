@@ -497,6 +497,13 @@ class RelayPreviewService : Service(), RelaySessionApi {
                 }
                 sent
             },
+            onFrameTiming = { encodeMs, sendMs, captureAgeMs, peakReadMs ->
+                scope.launch {
+                    if (captureGeneration == playbackGeneration.get()) {
+                        mutableState.value = mutableState.value.copy(relayEncodeMillis = encodeMs, relaySendCallMillis = sendMs, relayCaptureDeliveryMillis = captureAgeMs, relayCaptureReadPeakMillis = peakReadMs)
+                    }
+                }
+            },
             muteLocalPlayback = muteLocalPlayback,
             onAudioActivity = { active ->
                 scope.launch {
@@ -705,14 +712,18 @@ class RelayPreviewService : Service(), RelaySessionApi {
                 updateInterruption(mac, interruption, unavailable)
                 sendControl(mac, RelaySessionControl.interruption(interruption, unavailable))
             } },
+            onOutputBuffer = { buffer -> scope.launch {
+                if (generation == playbackGeneration.get()) mutableState.value = mutableState.value.copy(relayOutputBuffer = buffer)
+            } },
             sourceClockOffsetNanos = { sourceClockOffsetNanos },
-            onDelayMeasurement = { estimate, jitter, queue ->
+            onDelayMeasurement = { estimate, jitter, queue, arrivalAge ->
                 scope.launch {
                     if (generation != playbackGeneration.get() || mutableState.value.interruption != RelayInterruption.NONE) return@launch
                     mutableState.value = mutableState.value.copy(
                         relayDelayEstimateMillis = estimate,
                         relayJitterTargetMillis = jitter,
                         relayAudioTrackQueueMillis = queue,
+                        relayCaptureToReceiverMillis = arrivalAge,
                     )
                 }
             },
@@ -891,6 +902,9 @@ class RelayPreviewService : Service(), RelaySessionApi {
             audioActive = false,
             relayDelayEstimateMillis = null,
             relayAudioTrackQueueMillis = null,
+            relayCaptureToReceiverMillis = null,
+            relayEncodeMillis = null,
+            relaySendCallMillis = null,
             reason = null,
         )
         Log.i(TAG, "Relay interruption=$interruption resumeUnavailable=$unavailable")
@@ -926,6 +940,9 @@ class RelayPreviewService : Service(), RelaySessionApi {
             relayClockSyncUncertaintyMillis = null,
             relayJitterTargetMillis = null,
             relayAudioTrackQueueMillis = null,
+            relayCaptureToReceiverMillis = null,
+            relayEncodeMillis = null,
+            relaySendCallMillis = null,
         )
         clockSyncJob = scope.launch {
             while (mutableState.value.role == RelayRole.RECEIVER && mutableState.value.peerMac == mac && audioPlayback != null) {

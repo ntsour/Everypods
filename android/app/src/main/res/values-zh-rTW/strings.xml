@@ -242,7 +242,8 @@
     <string name="peer_connection_warning_many">%1$d 配對的裝置離線。自動切換和開箱連接在重新連接之前可能不可靠。</string>
     <string name="peer_connection_warning_one">%1$s 已離線。自動切換和開箱連接在重新連接之前可能不可靠。</string>
     <string name="peer_connection_warning_retry">重試連接</string>
-    <string name="peer_connection_warning_title">切換連線遺失</string>
+    <string name="peer_connection_warning_title">對等端已中斷連線</string>
+    <string name="peer_connection_warning_title_many">%1$d 個對等端已中斷連線</string>
     <string name="peer_offline">離線</string>
     <string name="peer_online">網路</string>
     <string name="popup_animations">彈出動畫</string>
@@ -898,6 +899,9 @@
     <string name="audio_relay_preset_unstable_desc">為不穩定的連線增加緩衝並降低位元率。</string>
     <string name="audio_relay_preset_custom_desc">目前數值與任何預設都不相符。</string>
     <string name="audio_relay_delay_estimate">到 Android 輸出的估計延遲：%1$d 毫秒</string>
+    <string name="audio_relay_delay_capture_receiver">擷取至接收端（編碼 + Wi-Fi）：%1$d 毫秒</string>
+    <string name="audio_relay_delay_encode">Opus 編碼：%1$d 毫秒</string>
+    <string name="audio_relay_delay_send_call">傳輸傳送呼叫：%1$d 毫秒</string>
     <string name="audio_relay_delay_components">抖動目標：%1$d 毫秒 · AudioTrack 佇列：%2$d 毫秒</string>
     <string name="audio_relay_clock_uncertainty">時鐘同步誤差：約 ±%1$d 毫秒</string>
     <string name="audio_relay_delay_limit">估算截至 Android 藍牙輸出；AirPods 可能會增加額外延遲。</string>
@@ -913,4 +917,12 @@
     <string name="audio_relay_suspension_expired">音訊轉送已在暫停兩分鐘後停止。請重新開始以分享音訊。</string>
     <string name="settings_expanded">已展開</string>
     <string name="settings_collapsed">已收合</string>
+    <string name="audio_relay_output_buffer_actual">要求: %1$s · 實際: %2$d ms · 容量: %3$d ms · 啟動門檻: %4$s · 欠載: %5$d</string>
+    <string name="audio_relay_preset_save_as">另存為預設…</string>
+    <string name="audio_relay_preset_name">預設名稱</string>
+    <string name="audio_relay_saved_presets">已儲存的預設</string>
+    <string name="audio_relay_preset_delete">刪除預設「%1$s」？</string>
+    <string name="audio_relay_preset_duplicate">已存在同名預設。</string>
+    <string name="audio_relay_capture_delivery">擷取交付時間（平均）：%1$d 毫秒</string>
+    <string name="audio_relay_capture_read_peak">擷取讀取等待（峰值）：%1$d 毫秒</string>
 </resources>

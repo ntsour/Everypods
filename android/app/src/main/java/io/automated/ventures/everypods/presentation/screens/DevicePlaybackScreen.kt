@@ -29,6 +29,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
@@ -48,6 +49,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -70,6 +73,8 @@ import io.automated.ventures.everypods.relay.RelaySessionBinder
 import io.automated.ventures.everypods.relay.RelayRole
 import io.automated.ventures.everypods.relay.RelayStage
 import io.automated.ventures.everypods.relay.RelayUiState
+import io.automated.ventures.everypods.relay.NamedRelayAudioPreset
+import io.automated.ventures.everypods.relay.RelayNamedAudioPresets
 import io.automated.ventures.everypods.relay.RelayAudioTuning
 import java.util.Locale
 import kotlinx.coroutines.launch
@@ -106,6 +111,12 @@ fun DevicePlaybackScreen(
     var allowIncomingAudio by remember(peerMac) { mutableStateOf(preferences.getBoolean(allowIncomingKey, true)) }
     var tuning by remember(peerMac) { mutableStateOf(RelayAudioTuning.load(preferences, peerMac)) }
     var showTuning by remember(peerMac) { mutableStateOf(false) }
+    val namedPresetStore = remember(preferences) { RelayNamedAudioPresets(preferences) }
+    var namedPresets by remember { mutableStateOf(namedPresetStore.load()) }
+    var showSavePreset by remember { mutableStateOf(false) }
+    var presetName by remember { mutableStateOf("") }
+    var presetToDelete by remember { mutableStateOf<NamedRelayAudioPreset?>(null) }
+
     val tuningPresets = listOf(
         RelayAudioTuning.DEFAULT,
         RelayAudioTuning(initialJitterMs = 80, maximumJitterMs = 160, adaptiveBufferMode = 2, playbackBufferMs = 40, captureBufferMs = 40, frameDurationMs = 10, lowDelayMode = true, bitrateKbps = 160, retransmissionMs = 20),
@@ -298,6 +309,35 @@ fun DevicePlaybackScreen(
             dismissButton = { TextButton(onClick = { confirmRemove = false }) { Text(stringResource(R.string.ui_cancel)) } },
         )
     }
+    if (showSavePreset) {
+        val duplicate = namedPresets.any { it.name.equals(presetName.trim(), ignoreCase = true) }
+        AlertDialog(
+            onDismissRequest = { showSavePreset = false },
+            title = { Text(stringResource(R.string.audio_relay_preset_save_as)) },
+            text = {
+                OutlinedTextField(value = presetName, onValueChange = { presetName = it.take(60) }, singleLine = true,
+                    label = { Text(stringResource(R.string.audio_relay_preset_name)) },
+                    isError = duplicate,
+                    supportingText = { if (duplicate) Text(stringResource(R.string.audio_relay_preset_duplicate)) })
+            },
+            confirmButton = { TextButton(enabled = presetName.isNotBlank() && !duplicate, onClick = {
+                namedPresets = namedPresetStore.save(presetName, tuning)
+                showSavePreset = false
+            }) { Text(stringResource(R.string.audio_relay_preset_save_as)) } },
+            dismissButton = { TextButton(onClick = { showSavePreset = false }) { Text(stringResource(android.R.string.cancel)) } },
+        )
+    }
+    presetToDelete?.let { preset ->
+        AlertDialog(onDismissRequest = { presetToDelete = null },
+            title = { Text(stringResource(R.string.audio_relay_preset_delete, preset.name)) },
+            confirmButton = { TextButton(onClick = {
+                namedPresets = namedPresetStore.delete(preset.id)
+                presetToDelete = null
+            }) { Text(stringResource(R.string.audio_relay_preset_delete, preset.name), color = androidx.compose.material3.MaterialTheme.colorScheme.error) } },
+            dismissButton = { TextButton(onClick = { presetToDelete = null }) { Text(stringResource(android.R.string.cancel)) } },
+        )
+    }
+
     StyledScaffold(title = peerName) { top, _, bottom ->
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Spacer(Modifier.height(top))
@@ -354,8 +394,28 @@ fun DevicePlaybackScreen(
                         )
                         if (showTuning) {
                             Text(stringResource(R.string.audio_relay_tuning_next_session), color = secondaryColor, style = TextStyle(fontSize = 13.sp))
+                            OutlinedButton(onClick = { presetName = ""; showSavePreset = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                                Text(stringResource(R.string.audio_relay_preset_save_as))
+                            }
+                            if (namedPresets.isNotEmpty()) {
+                                Text(stringResource(R.string.audio_relay_saved_presets), color = secondaryColor)
+                                namedPresets.forEach { preset ->
+                                    val removeLabel = stringResource(R.string.audio_relay_preset_delete, preset.name)
+                                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                        TextButton(onClick = {
+                                            tuning = preset.tuning
+                                            RelayAudioTuning.save(preferences, peerMac, tuning)
+                                        }, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
+                                            Text(preset.name, modifier = Modifier.fillMaxWidth())
+                                        }
+                                        TextButton(onClick = { presetToDelete = preset }, modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = removeLabel }) {
+                                            Text("−", color = androidx.compose.material3.MaterialTheme.colorScheme.error)
+                                        }
+                                    }
+                                }
+                            }
                             val presetIndex = tuningPresets.indexOf(tuning)
-                            TuningChoiceRow(stringResource(R.string.audio_relay_tuning_preset), tuningPresetNames.getOrElse(presetIndex) { stringResource(R.string.audio_relay_preset_custom) }, tuningPresetNames.mapIndexed { index, name -> name to index }, bodyColor) { value ->
+                            TuningChoiceRow(stringResource(R.string.audio_relay_tuning_preset), tuningPresetNames.getOrElse(presetIndex) { namedPresets.firstOrNull { it.tuning == tuning }?.name ?: stringResource(R.string.audio_relay_preset_custom) }, tuningPresetNames.mapIndexed { index, name -> name to index }, bodyColor) { value ->
                                 tuning = tuningPresets[value]
                                 RelayAudioTuning.save(preferences, peerMac, tuning)
                             }
@@ -365,10 +425,10 @@ fun DevicePlaybackScreen(
                                 2 -> R.string.audio_relay_preset_unstable_desc
                                 else -> R.string.audio_relay_preset_custom_desc
                             }), color = secondaryColor, style = TextStyle(fontSize = 13.sp))
-                            TuningChoiceRow(stringResource(R.string.audio_relay_tuning_initial), "${tuning.initialJitterMs} ms", RelayAudioTuning.JITTER_OPTIONS.filter { it <= tuning.maximumJitterMs }.map { "$it ms" to it }, bodyColor) { value ->
+                            TuningChoiceRow(stringResource(R.string.audio_relay_tuning_initial), "${tuning.initialJitterMs} ms", RelayAudioTuning.JITTER_OPTIONS.filter { it <= tuning.maximumJitterMs && it % tuning.frameDurationMs == 0 }.map { "$it ms" to it }, bodyColor) { value ->
                                 tuning = tuning.copy(initialJitterMs = value); RelayAudioTuning.save(preferences, peerMac, tuning)
                             }
-                            TuningChoiceRow(stringResource(R.string.audio_relay_tuning_maximum), "${tuning.maximumJitterMs} ms", RelayAudioTuning.JITTER_OPTIONS.filter { it >= tuning.initialJitterMs }.map { "$it ms" to it }, bodyColor) { value ->
+                            TuningChoiceRow(stringResource(R.string.audio_relay_tuning_maximum), "${tuning.maximumJitterMs} ms", RelayAudioTuning.JITTER_OPTIONS.filter { it >= tuning.initialJitterMs && it % tuning.frameDurationMs == 0 }.map { "$it ms" to it }, bodyColor) { value ->
                                 tuning = tuning.copy(maximumJitterMs = value); RelayAudioTuning.save(preferences, peerMac, tuning)
                             }
                             val adaptiveLabels = listOf(stringResource(R.string.audio_relay_tuning_off), stringResource(R.string.audio_relay_tuning_conservative), stringResource(R.string.audio_relay_tuning_faster))
@@ -385,7 +445,11 @@ fun DevicePlaybackScreen(
                                 tuning = tuning.copy(captureBufferMs = value); RelayAudioTuning.save(preferences, peerMac, tuning)
                             }
                             TuningChoiceRow(stringResource(R.string.audio_relay_tuning_frame), "${tuning.frameDurationMs} ms", listOf("10 ms" to 10, "20 ms" to 20), bodyColor) { value ->
-                                tuning = tuning.copy(frameDurationMs = value); RelayAudioTuning.save(preferences, peerMac, tuning)
+                                tuning = tuning.copy(
+                                    frameDurationMs = value,
+                                    initialJitterMs = RelayAudioTuning.JITTER_OPTIONS.first { it >= tuning.initialJitterMs && it % value == 0 },
+                                    maximumJitterMs = RelayAudioTuning.JITTER_OPTIONS.first { it >= tuning.maximumJitterMs && it % value == 0 },
+                                ); RelayAudioTuning.save(preferences, peerMac, tuning)
                             }
                             TuningChoiceRow(stringResource(R.string.audio_relay_tuning_opus_mode), if (tuning.lowDelayMode) lowDelayLabel else musicLabel, listOf(musicLabel to 0, lowDelayLabel to 1), bodyColor) { value ->
                                 tuning = tuning.copy(lowDelayMode = value == 1); RelayAudioTuning.save(preferences, peerMac, tuning)
@@ -454,8 +518,27 @@ fun DevicePlaybackScreen(
                         else -> R.string.audio_relay_unavailable
                     }
                     Text("${stringResource(R.string.audio_relay_internet)}  ·  ${stringResource(internetState)}", color = secondaryColor)
+                    serviceState.relayCaptureDeliveryMillis?.let {
+                        Text(stringResource(R.string.audio_relay_capture_delivery, it), color = secondaryColor)
+                    }
+                    serviceState.relayCaptureReadPeakMillis?.let {
+                        Text(stringResource(R.string.audio_relay_capture_read_peak, it), color = secondaryColor)
+                    }
+                    serviceState.relayEncodeMillis?.let {
+                        Text(stringResource(R.string.audio_relay_delay_encode, it), color = secondaryColor)
+                    }
+                    serviceState.relaySendCallMillis?.let {
+                        Text(stringResource(R.string.audio_relay_delay_send_call, it), color = secondaryColor)
+                    }
+                    serviceState.relayOutputBuffer?.let { buffer ->
+                        val requested = if (buffer.requestedMillis == 0) stringResource(R.string.audio_relay_tuning_automatic) else "${buffer.requestedMillis} ms"
+                        Text(stringResource(R.string.audio_relay_output_buffer_actual, requested, buffer.effectiveMillis, buffer.capacityMillis, buffer.startThresholdMillis?.let { "$it ms" } ?: "—", buffer.underruns), color = secondaryColor)
+                    }
                     serviceState.relayDelayEstimateMillis?.let { estimate ->
                         Text(stringResource(R.string.audio_relay_delay_estimate, estimate), color = bodyColor)
+                        serviceState.relayCaptureToReceiverMillis?.let {
+                            Text(stringResource(R.string.audio_relay_delay_capture_receiver, it), color = secondaryColor)
+                        }
                         val jitter = serviceState.relayJitterTargetMillis
                         val queue = serviceState.relayAudioTrackQueueMillis
                         if (jitter != null && queue != null) {

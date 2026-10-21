@@ -742,10 +742,9 @@ private fun PeerConnectionWarning(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                stringResource(R.string.peer_connection_warning_title),
-                modifier = Modifier.weight(1f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+                if (offlinePeers.size == 1) stringResource(R.string.peer_connection_warning_title)
+                else stringResource(R.string.peer_connection_warning_title_many, offlinePeers.size),
+                modifier = Modifier.weight(1f).padding(end = 8.dp),
                 style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = warningTitle, fontFamily = SfPro),
             )
             Text(
@@ -831,9 +830,9 @@ private fun ConnectedScreen(
         val audioHere = state.isLocallyConnected || state.isA2dpConnected
         val airpodsNearby = state.battery.isNotEmpty()
         val (statusText, statusDot) = when {
-            audioHere -> "Connected — audio routed here" to Color(0xFF34C759)
-            airpodsNearby -> "AirPods on another device or in the case" to Color(0xFFFF9500)
-            else -> "AirPods not nearby" to Color(0xFF8E8E93)
+            audioHere -> stringResource(R.string.island_connected_text) to Color(0xFF34C759)
+            airpodsNearby -> stringResource(R.string.airpods_nearby_elsewhere) to Color(0xFFFF9500)
+            else -> stringResource(R.string.airpods_not_nearby) to Color(0xFF8E8E93)
         }
         Row(
             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
@@ -875,7 +874,10 @@ private fun ConnectedScreen(
         BatteryView(
             batteryList = state.battery,
             budsRes = state.instance?.model?.budsRes ?: R.drawable.airpods_pro_2_case,
-            caseRes = state.instance?.model?.caseRes ?: R.drawable.airpods_pro_2_case
+            caseRes = state.instance?.model?.caseRes ?: R.drawable.airpods_pro_2_case,
+            caseControl = if (state.modelIdentified && capabilities.contains(Capability.HRM)) {
+                { io.automated.ventures.everypods.presentation.components.HeartRateCaseControl(viewModel) }
+            } else null,
         )
 
         // ── Listening Mode ────────────────────────────────────────────────

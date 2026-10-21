@@ -24,6 +24,7 @@ import kotlin.math.sqrt
 class RelayAudioCapture(
     context: Context,
     private val onEncodedFrame: (ByteArray) -> Boolean,
+    private val onFrameTiming: (encodeMillis: Int, sendCallMillis: Int, captureAgeMillis: Int?, peakReadMillis: Int) -> Unit = { _, _, _, _ -> },
     private val tuning: RelayAudioTuning = RelayAudioTuning.DEFAULT,
     private val muteLocalPlayback: Boolean,
     private val onAudioActivity: (Boolean) -> Unit,
@@ -99,33 +100,63 @@ class RelayAudioCapture(
         val audioTimestamp = AudioTimestamp()
         val samplesPerChannel = NativeOpusCodec.SAMPLE_RATE * tuning.frameDurationMs / 1_000
         var offset = 0
+        var readWaitNanos = 0L
+        var peakReadNanos = 0L
+        var captureAgeTotalNanos = 0L
+        var captureAgeSamples = 0
+        var silenceFrames = 0
         try {
             while (!closing.get()) {
+                val readStarted = SystemClock.elapsedRealtimeNanos()
                 val count = input.read(frame, offset, frame.size - offset, AudioRecord.READ_BLOCKING)
+                val readCompleted = SystemClock.elapsedRealtimeNanos()
+                readWaitNanos += readCompleted - readStarted
                 if (count < 0) error("Playback capture read failed: $count")
                 if (count == 0) continue
                 offset += count
                 if (offset != frame.size) continue
                 offset = 0
-                val rms = rmsLevel(frame)
-                val active = rms >= RMS_ACTIVITY_THRESHOLD
-                if (lastActivity != active) {
-                    lastActivity = active
-                    Log.i(TAG, "Captured playback activity changed: active=$active rms=$rms")
-                    onAudioActivity(active)
-                }
+                peakReadNanos = maxOf(peakReadNanos, readWaitNanos)
+                readWaitNanos = 0L
                 // AudioRecord can return several buffered frames in a burst. The
                 // media clock advances by sample count, not thread wake-up time.
                 val firstSamplePosition = capturedFrames * samplesPerChannel
-                val timestampNanos = if (input.getTimestamp(audioTimestamp, AudioTimestamp.TIMEBASE_BOOTTIME) == AudioRecord.SUCCESS) {
+                val hasTimestamp = input.getTimestamp(audioTimestamp, AudioTimestamp.TIMEBASE_BOOTTIME) == AudioRecord.SUCCESS
+                val timestampNanos = if (hasTimestamp) {
                     audioTimestamp.nanoTime + (firstSamplePosition - audioTimestamp.framePosition) * 1_000_000_000L / NativeOpusCodec.SAMPLE_RATE
                 } else {
                     // Best-effort fallback when the capture HAL does not expose an audio timestamp.
                     SystemClock.elapsedRealtimeNanos() - tuning.frameDurationMs * 1_000_000L
                 }.coerceAtLeast(0L)
+                if (hasTimestamp && readCompleted >= timestampNanos) {
+                    captureAgeTotalNanos += readCompleted - timestampNanos
+                    captureAgeSamples++
+                }
+                val encodeStartedNanos = SystemClock.elapsedRealtimeNanos()
                 val packet = framer.encode(frame, timestampNanos)
+                val encodeMillis = ((SystemClock.elapsedRealtimeNanos() - encodeStartedNanos) / 1_000_000L).toInt()
+                val sendStartedNanos = SystemClock.elapsedRealtimeNanos()
                 val sent = onEncodedFrame(packet)
+                val sendMillis = ((SystemClock.elapsedRealtimeNanos() - sendStartedNanos) / 1_000_000L).toInt()
                 capturedFrames++
+                // Send media before UI/control notifications; short silent passages must
+                // not flood the reliable channel or flip playback state every frame.
+                val rms = rmsLevel(frame)
+                silenceFrames = if (rms >= RMS_ACTIVITY_THRESHOLD) 0 else silenceFrames + 1
+                val active = rms >= RMS_ACTIVITY_THRESHOLD || (lastActivity == true && silenceFrames * tuning.frameDurationMs < 250)
+                if (lastActivity != active) {
+                    lastActivity = active
+                    onAudioActivity(active)
+                }
+                if (capturedFrames % DIAGNOSTIC_FRAME_INTERVAL == 0L) {
+                    val ageMs = if (captureAgeSamples > 0) (captureAgeTotalNanos / captureAgeSamples / 1_000_000L).toInt() else null
+                    val peakReadMs = (peakReadNanos / 1_000_000L).toInt()
+                    onFrameTiming(encodeMillis, sendMillis, ageMs, peakReadMs)
+                    Log.i(TAG, "Capture delivery meanAgeMs=$ageMs peakReadMs=$peakReadMs encodeMs=$encodeMillis sendCallMs=$sendMillis bufferFrames=${input.bufferSizeInFrames}")
+                    peakReadNanos = 0L
+                    captureAgeTotalNanos = 0L
+                    captureAgeSamples = 0
+                }
                 if (capturedFrames == 1L || capturedFrames % DIAGNOSTIC_FRAME_INTERVAL == 0L) {
                     Log.i(TAG, "Playback capture frames=$capturedFrames rms=$rms transportSent=$sent")
                 }

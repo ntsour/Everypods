@@ -68,6 +68,8 @@ class WebRtcRelayTransport(
 
     private lateinit var factory: PeerConnectionFactory
     private lateinit var peer: PeerConnection
+    private var mediaCallbackCount = 0L
+    private var peakMediaDispatchNanos = 0L
     private var media: DataChannel? = null
     private var control: DataChannel? = null
     private var pendingLocalDescription: SessionDescription? = null
@@ -242,6 +244,7 @@ class WebRtcRelayTransport(
     }
 
     private fun observe(channel: DataChannel, receive: (ByteArray) -> Unit) {
+        val isMedia = channel.label() == MEDIA_CHANNEL
         channel.registerObserver(object : DataChannel.Observer {
             override fun onBufferedAmountChange(previousAmount: Long) = Unit
 
@@ -251,12 +254,20 @@ class WebRtcRelayTransport(
 
             override fun onMessage(buffer: DataChannel.Buffer) {
                 if (closed.get() || !buffer.binary) return
+                val callbackAt = android.os.SystemClock.elapsedRealtimeNanos()
                 val view = buffer.data.slice()
                 val packet = ByteArray(view.remaining())
                 view.get(packet)
                 // Copy native callback memory before returning, then invoke app code
                 // on our owner; STOP/STOP_ACK may close this very transport.
                 onOwner {
+                    if (isMedia) {
+                        peakMediaDispatchNanos = maxOf(peakMediaDispatchNanos, android.os.SystemClock.elapsedRealtimeNanos() - callbackAt)
+                        if (++mediaCallbackCount % 100L == 0L) {
+                            Log.i(TAG, "Receiver media callback peakDispatchMs=${peakMediaDispatchNanos / 1_000_000L}")
+                            peakMediaDispatchNanos = 0L
+                        }
+                    }
                     runCatching { receive(packet) }
                         .onFailure { fail("Data channel message rejected: ${it.message ?: it.javaClass.simpleName}") }
                 }

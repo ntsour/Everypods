@@ -235,7 +235,8 @@
     <string name="peer_connection_warning_many">%1$d спарені пристрої офлайн. Автоматична передача й з’єднання з відкритим корпусом можуть бути ненадійними, доки вони не під’єднаються знову.</string>
     <string name="peer_connection_warning_one">%1$s не в мережі. Автоматична передача й з’єднання з відкритим футляром може бути ненадійним, доки не відновиться з’єднання.</string>
     <string name="peer_connection_warning_retry">Повторити підключення</string>
-    <string name="peer_connection_warning_title">Втрачено з’єднання для передачі</string>
+    <string name="peer_connection_warning_title">Одноранговий вузол від’єднано</string>
+    <string name="peer_connection_warning_title_many">Від’єднані однорангові вузли: %1$d</string>
     <string name="peer_offline">Офлайн</string>
     <string name="peer_online">Онлайн</string>
     <string name="popup_animations">Спливаючі анімації</string>
@@ -898,6 +899,9 @@
     <string name="audio_relay_preset_unstable_desc">Збільшує буфер для нестабільного з’єднання та знижує бітрейт.</string>
     <string name="audio_relay_preset_custom_desc">Ці значення не відповідають жодному набору.</string>
     <string name="audio_relay_delay_estimate">Орієнтовна затримка до виходу Android: %1$d мс</string>
+    <string name="audio_relay_delay_capture_receiver">Від захоплення до приймача (кодування + Wi-Fi): %1$d мс</string>
+    <string name="audio_relay_delay_encode">Кодування Opus: %1$d мс</string>
+    <string name="audio_relay_delay_send_call">Виклик надсилання через транспорт: %1$d мс</string>
     <string name="audio_relay_delay_components">Ціль джитера: %1$d мс · Черга AudioTrack: %2$d мс</string>
     <string name="audio_relay_clock_uncertainty">Похибка синхронізації годинника: близько ±%1$d мс</string>
     <string name="audio_relay_delay_limit">Оцінка завершується на Bluetooth-виході Android; AirPods можуть додати затримку.</string>
@@ -913,4 +917,12 @@
     <string name="audio_relay_suspension_expired">Трансляція зупинилася після двох хвилин паузи. Запустіть її знову, щоб ділитися звуком.</string>
     <string name="settings_expanded">Розгорнуто</string>
     <string name="settings_collapsed">Згорнуто</string>
+    <string name="audio_relay_output_buffer_actual">Запитано: %1$s · Ефективний: %2$d ms · Місткість: %3$d ms · Поріг запуску: %4$s · Спустошення: %5$d</string>
+    <string name="audio_relay_preset_save_as">Зберегти як набір…</string>
+    <string name="audio_relay_preset_name">Назва набору</string>
+    <string name="audio_relay_saved_presets">Збережені набори</string>
+    <string name="audio_relay_preset_delete">Видалити набір «%1$s»?</string>
+    <string name="audio_relay_preset_duplicate">Набір із такою назвою вже існує.</string>
+    <string name="audio_relay_capture_delivery">Вік захоплення під час доставки (середній): %1$d мс</string>
+    <string name="audio_relay_capture_read_peak">Очікування читання захоплення (максимум): %1$d мс</string>
 </resources>
