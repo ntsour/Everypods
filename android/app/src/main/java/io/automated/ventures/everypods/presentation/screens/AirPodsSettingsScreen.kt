@@ -875,7 +875,7 @@ private fun ConnectedScreen(
             batteryList = state.battery,
             budsRes = state.instance?.model?.budsRes ?: R.drawable.airpods_pro_2_case,
             caseRes = state.instance?.model?.caseRes ?: R.drawable.airpods_pro_2_case,
-            caseControl = if (state.modelIdentified && capabilities.contains(Capability.HRM)) {
+            caseControl = if (state.aacpAvailable && state.modelIdentified && capabilities.contains(Capability.HRM)) {
                 { io.automated.ventures.everypods.presentation.components.HeartRateCaseControl(viewModel) }
             } else null,
         )
