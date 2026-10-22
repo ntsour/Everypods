@@ -1,0 +1,17 @@
+cmake_minimum_required(VERSION 3.22.1)
+project(everypods_opus_jni LANGUAGES C CXX)
+
+set(OPUS_BUILD_TESTING OFF CACHE BOOL "" FORCE)
+set(OPUS_BUILD_PROGRAMS OFF CACHE BOOL "" FORCE)
+set(OPUS_BUILD_SHARED_LIBRARY OFF CACHE BOOL "" FORCE)
+set(OPUS_ENABLE_FLOAT_API ON CACHE BOOL "" FORCE)
+set(OPUS_DRED OFF CACHE BOOL "" FORCE)
+set(OPUS_OSCE OFF CACHE BOOL "" FORCE)
+set(OPUS_INSTALL_PKG_CONFIG_MODULE OFF CACHE BOOL "" FORCE)
+set(OPUS_INSTALL_CMAKE_CONFIG_MODULE OFF CACHE BOOL "" FORCE)
+
+add_subdirectory(opus)
+add_library(everypods_opus_jni SHARED opus_jni.cpp)
+target_include_directories(everypods_opus_jni PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/opus/include")
+target_compile_options(everypods_opus_jni PRIVATE -Wall -Wextra -Werror=return-type)
+target_link_libraries(everypods_opus_jni PRIVATE opus log)

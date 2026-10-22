@@ -373,6 +373,7 @@ class CallNotifListener : NotificationListenerService() {
 
     override fun onListenerConnected() {
         super.onListenerConnected()
+        io.automated.ventures.everypods.utils.MediaController.refreshMediaSessionMonitoring(this, force = true)
         Log.d(TAG, "Listener connected")
         // Re-scan currently posted notifications so we pick up an in-progress call.
         try {

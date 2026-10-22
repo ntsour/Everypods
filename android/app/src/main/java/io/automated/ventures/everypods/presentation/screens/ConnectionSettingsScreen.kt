@@ -23,11 +23,13 @@ import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import io.automated.ventures.everypods.presentation.components.ConnectionSettings
 import io.automated.ventures.everypods.presentation.components.StyledScaffold
 import io.automated.ventures.everypods.presentation.viewmodel.AirPodsViewModel
+import io.automated.ventures.everypods.relay.DeviceConnectionStore
 
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 fun ConnectionSettingsScreen(viewModel: AirPodsViewModel, navController: NavController? = null) {
     val state by viewModel.uiState.collectAsState()
+    val handoverTemporarilyPaused by DeviceConnectionStore.emittingState.collectAsState()
 
     StyledScaffold(title = stringResource(R.string.ui_connection_settings)) { topPadding, hazeState, bottomPadding ->
         Column(
@@ -49,6 +51,7 @@ fun ConnectionSettingsScreen(viewModel: AirPodsViewModel, navController: NavCont
                 onAutomaticEarDetectionChanged = viewModel::setAutomaticEarDetectionEnabled,
                 automaticConnectionEnabled = state.automaticConnectionEnabled,
                 onAutomaticConnectionChanged = viewModel::setAutomaticConnectionEnabled,
+                handoverTemporarilyPaused = handoverTemporarilyPaused,
                 lidOpenLastHolderAutoconnect = state.lidOpenLastHolderAutoconnect,
                 onLidOpenLastHolderAutoconnectChanged = viewModel::setLidOpenLastHolderAutoconnect
             )

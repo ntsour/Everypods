@@ -40,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -151,7 +152,16 @@ fun StyledScaffold(
                 }
             }
 
-            content(topPadding + 64.dp, hazeState, bottomPadding + 12.dp)
+            // The header owns its own space. Clip the body viewport so scrolling
+            // cannot draw or accept touches behind the fixed title and controls.
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = topPadding + 64.dp)
+                    .clipToBounds(),
+            ) {
+                content(0.dp, hazeState, bottomPadding + 12.dp)
+            }
         }
     }
 }

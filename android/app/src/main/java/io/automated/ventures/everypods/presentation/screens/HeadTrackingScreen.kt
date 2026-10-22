@@ -52,6 +52,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
+import io.automated.ventures.everypods.presentation.components.SettingsExpansionHeader
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -229,8 +230,12 @@ fun HeadTrackingScreen(
 
 
                 }
-                MenuNavRow(stringResource(R.string.design_diagnostics), isDarkTheme,
-                    subtitle = if (diagnosticsExpanded) "−" else "+") { diagnosticsExpanded = !diagnosticsExpanded }
+                SettingsExpansionHeader(
+                    label = stringResource(R.string.design_diagnostics),
+                    expanded = diagnosticsExpanded,
+                    onToggle = { diagnosticsExpanded = !diagnosticsExpanded },
+                    contentColor = textColor,
+                )
                 if (diagnosticsExpanded) {
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(stringResource(R.string.ui_head_orientation),

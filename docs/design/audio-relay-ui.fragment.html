@@ -1,0 +1,125 @@
+<style>
+#ep-relay-design{color-scheme:light dark;font-family:-apple-system,BlinkMacSystemFont,'SF Pro',Roboto,sans-serif;--ep-bg:light-dark(#f2f2f7,#000);--ep-surface:light-dark(#fff,#1c1c1e);--ep-text:light-dark(#171719,#f7f7f8);--ep-sub:light-dark(#606066,#b1b1b7);--ep-line:light-dark(#e3e3e8,#38383a);--ep-blue:light-dark(#0065d6,#70b4ff);--ep-action:light-dark(#0065d6,#176ccd);--ep-on-action:#fff;--ep-warn:light-dark(#875500,#f2c36c);--ep-good:light-dark(#247044,#87d2a0);--ep-scale:1;color:var(--ep-text)}
+#ep-relay-design *{box-sizing:border-box}
+#ep-relay-design .ep-stage{padding:24px 8px;}
+#ep-relay-design .ep-caption{max-width:420px;margin:0 auto 12px;color:var(--ep-sub);font-size:13px}
+#ep-relay-design .ep-phone{background:var(--ep-bg);max-width:420px;margin:auto;border:1px solid var(--ep-line);border-radius:28px;padding:16px;min-height:690px;overflow-wrap:anywhere;font-size:calc(16px * var(--ep-scale));line-height:1.45;box-shadow:0 8px 28px light-dark(#0000000c,#00000020)}
+#ep-relay-design .ep-top{display:flex;justify-content:space-between;padding:0 8px 18px;font-size:13px;font-weight:500}
+#ep-relay-design .ep-bar{display:flex;align-items:center;gap:10px;margin-bottom:20px}
+#ep-relay-design h2{font-size:calc(20px * var(--ep-scale));font-weight:500;line-height:1.25;margin:0}
+#ep-relay-design h3{font-size:calc(13px * var(--ep-scale));font-weight:600;color:var(--ep-sub);margin:22px 16px 8px}
+#ep-relay-design p{margin:0}
+#ep-relay-design .ep-group{background:var(--ep-surface);border-radius:18px;overflow:hidden}
+#ep-relay-design .ep-row{display:flex;align-items:center;gap:12px;padding:16px;min-height:60px;width:100%;}
+#ep-relay-design .ep-group>.ep-row+.ep-row{border-top:1px solid var(--ep-line)}
+#ep-relay-design .ep-label{flex:1;min-width:0;text-align:left}
+#ep-relay-design small{display:block;font-size:calc(13px * var(--ep-scale));font-weight:400;line-height:1.45;color:var(--ep-sub);margin-top:3px}
+#ep-relay-design.ep-large .ep-row:not(label){flex-wrap:wrap}
+#ep-relay-design.ep-large .ep-row:not(label) .ep-label{flex-basis:100%}
+#ep-relay-design.ep-large .ep-value{max-width:100%;text-align:left}
+#ep-relay-design.ep-large .ep-path{flex-direction:column}
+#ep-relay-design.ep-large .ep-path>svg{transform:rotate(90deg)}
+#ep-relay-design .ep-value{font-size:calc(13px * var(--ep-scale));text-align:right;max-width:45%;flex-shrink:0;color:var(--ep-sub)}
+#ep-relay-design button{font:inherit;line-height:1.35;white-space:normal;min-height:48px;touch-action:manipulation}
+#ep-relay-design .ep-nav{border:0;background:transparent;color:var(--ep-text);text-align:left}
+#ep-relay-design .ep-back{padding:10px;border:0;background:none;color:var(--ep-blue);display:flex;align-items:center;justify-content:center;min-width:48px;flex-shrink:0}
+#ep-relay-design .ep-primary{background:var(--ep-action);color:var(--ep-on-action);border:0;border-radius:14px;width:100%;padding:15px 18px;margin-top:20px;font-weight:500}
+#ep-relay-design .ep-secondary{background:none;color:var(--ep-blue);border:0;width:100%;padding:14px;margin-top:6px}
+#ep-relay-design .ep-foot{font-size:calc(13px * var(--ep-scale));color:var(--ep-sub);margin:10px 16px 0}
+#ep-relay-design .ep-hero{padding:12px 16px 2px}
+#ep-relay-design .ep-hero h2{margin:12px 0 6px}
+#ep-relay-design .ep-hero p{color:var(--ep-sub);font-size:calc(13px * var(--ep-scale))}
+#ep-relay-design .ep-status{display:inline-flex;align-items:center;gap:7px;color:var(--ep-good);font-size:calc(13px * var(--ep-scale))}
+#ep-relay-design .ep-warning{color:var(--ep-warn)}
+#ep-relay-design .ep-path{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:20px;font-size:calc(13px * var(--ep-scale));flex-wrap:wrap}
+#ep-relay-design .ep-node{display:flex;flex-direction:column;align-items:center;gap:5px;flex:1;min-width:64px}
+#ep-relay-design .ep-radio{accent-color:var(--ep-blue);width:20px;height:20px;flex-shrink:0;margin:0}
+#ep-relay-design .ep-detail{background:var(--ep-surface);border-radius:18px;margin-top:20px;padding:16px}
+#ep-relay-design summary{min-height:44px;align-content:center;color:var(--ep-sub);font-size:calc(13px * var(--ep-scale))}
+#ep-relay-design .ep-detail p{font-size:calc(13px * var(--ep-scale));color:var(--ep-sub);margin:10px 0}
+#ep-relay-design .ep-code{font-size:calc(28px * var(--ep-scale));font-variant-numeric:tabular-nums;letter-spacing:3px;text-align:center;padding:24px 12px;font-weight:500}
+#ep-relay-design .ep-system{border-radius:24px;background:var(--ep-surface);padding:24px;margin:20px 0}
+#ep-relay-design .ep-system h2{margin:12px 0}
+#ep-relay-design .ep-system p{font-size:calc(13px * var(--ep-scale));color:var(--ep-sub)}
+#ep-relay-design .ep-small-link{padding:10px 0;min-height:44px;background:none;border:0;color:var(--ep-blue);text-align:left;font-size:calc(13px * var(--ep-scale))}
+#ep-relay-design svg{flex-shrink:0}
+#ep-relay-design button:focus-visible,#ep-relay-design summary:focus-visible{outline:2px solid var(--ep-blue);outline-offset:3px}
+#ep-relay-design .ep-row:hover:where(button){background:light-dark(#00000004,#ffffff06)}
+@media(max-width:380px){#ep-relay-design .ep-stage{padding:16px 0}#ep-relay-design .ep-phone{padding:12px;border-radius:20px}#ep-relay-design .ep-row{padding:14px;gap:8px}#ep-relay-design.ep-large .ep-row:not(label){flex-wrap:wrap}
+#ep-relay-design.ep-large .ep-row:not(label) .ep-label{flex-basis:100%}
+#ep-relay-design.ep-large .ep-value{max-width:100%;text-align:left}
+#ep-relay-design.ep-large .ep-path{flex-direction:column}
+#ep-relay-design.ep-large .ep-path>svg{transform:rotate(90deg)}
+#ep-relay-design .ep-value{max-width:40%}}
+</style>
+<div id="ep-relay-design" aria-label="EveryPods audio relay UI design">
+ <div class="ep-stage viz-dotted-background">
+  <div class="ep-caption">Interactive design · Xiaomi source / Pixel receiver · Sample data</div>
+  <div class="ep-phone" aria-label="EveryPods mobile screen">
+   <div class="ep-top"><span>9:41</span><span>EveryPods</span></div>
+   <div id="ep-screen" aria-live="polite"></div>
+  </div>
+ </div>
+</div>
+<script>
+(()=>{
+const root=document.getElementById('ep-relay-design'), screen=root.querySelector('#ep-screen');
+const allowed=['Devices','Pairing','Verify peer','Ready','Network','Hotspot','Consent','Playing','Receiver','Reconnecting','Capture ended','AirPods disconnected'];
+const prefs={screen:'Ready',scale:100,hr:true};
+let mode='wifi',network='wifi',previous='Ready',hrShared=true;
+const saved=window.openai?.widgetState?.privateContent;
+if(saved&&allowed.includes(saved.screen)){prefs.screen=saved.screen;mode=saved.mode==='bluetooth'?'bluetooth':'wifi';network=saved.network==='hotspot'?'hotspot':'wifi'}
+const icon=(name)=>`<i data-lucide="${name}" aria-hidden="true"></i>`;
+const action=(label,to,primary=false)=>`<button type="button" class="${primary?'ep-primary':'ep-secondary'} cursor-interaction" data-action="${to}">${label}</button>`;
+const header=(name,back='Devices')=>`<header class="ep-bar"><button type="button" class="ep-back cursor-interaction" data-action="${back}" aria-label="Back">${icon('chevron-left')}</button><h2>${name}</h2></header>`;
+const row=(title,sub='',value='',to='')=>`${to?`<button type="button" data-action="${to}" class="ep-row ep-nav cursor-interaction">`:'<div class="ep-row">'}<span class="ep-label">${title}${sub?`<small>${sub}</small>`:''}</span>${value?`<span class="ep-value">${value}</span>`:''}${to?icon('chevron-right'):''}${to?'</button>':'</div>'}`;
+const group=(title,rows)=>`<h3>${title}</h3><div class="ep-group">${rows}</div>`;
+const foot=text=>`<p class="ep-foot">${text}</p>`;
+const route=()=>`<div class="ep-path" aria-label="Xiaomi audio travels over Wi-Fi to Pixel, then Bluetooth to AirPods"><div class="ep-node">${icon('tablet')}<span>Xiaomi</span></div>${icon('arrow-right')}<div class="ep-node">${icon('smartphone')}<span>Pixel</span></div>${icon('arrow-right')}<div class="ep-node">${icon('headphones')}<span>AirPods</span></div></div>`;
+const modes=()=>group('Playback mode',`<label class="ep-row cursor-interaction"><input class="ep-radio" type="radio" name="ep-mode" value="wifi" ${mode==='wifi'?'checked':''}><span class="ep-label">Wi-Fi audio relay<small>Keep AirPods and heart rate on Pixel.</small></span></label><label class="ep-row cursor-interaction"><input class="ep-radio" type="radio" name="ep-mode" value="bluetooth" ${mode==='bluetooth'?'checked':''}><span class="ep-label">Bluetooth handover<small>Connect AirPods directly to this device.</small></span></label>`);
+function save(){window.openai?.setWidgetState?.({modelContent:{design:'Per-device relay',screen:prefs.screen,mode},privateContent:{screen:prefs.screen,mode,network}})?.catch(()=>{})}
+function go(next){prefs.screen=next;render();save()}
+function render(){
+root.style.setProperty('--ep-scale',prefs.scale/100);root.classList.toggle('ep-large',prefs.scale>=150);
+let html='';const s=prefs.screen;const networkName=network==='hotspot'?'Pixel hotspot':'Shared Wi-Fi';
+if(s==='Devices') html=header('Connected devices','Home')+group('Your devices',row('Pixel','AirPods connected · Wi-Fi relay selected','Available','Ready'))+action('Add device','Pairing')+foot('Open a paired device to choose how to play audio.');
+else if(s==='Home') html=header('EveryPods','Devices')+group('AirPods',row('Not connected here','AirPods are connected to Pixel.'))+group('Your devices',row('Pixel','Play through its AirPods','Available','Ready'))+group('App settings',row('App language','System default','','Language'))+group('Help',row('Help','Connection and device support','','Help'));
+else if(s==='Pairing') html=header('Add device')+group('Nearby devices',row('Pixel','EveryPods is open on this device','','Verify peer'))+foot('Open EveryPods on both devices. Choose the device you want to use with your AirPods.')+action('Device not listed','Pair help');
+else if(s==='Pair help') html=header('Find your device','Pairing')+group('On both devices',row('Turn on Bluetooth','Keep the devices nearby.')+row('Open EveryPods','Leave Connected devices open during pairing.'))+action('Try again','Pairing',true);
+else if(s==='Verify peer') html=header('Pair with Pixel','Pairing')+group('Confirm on both devices','<div class="ep-row"><span class="ep-label">Does this code match?<small>Check the code shown in EveryPods on Pixel.</small></span></div><div class="ep-code">548 219</div>')+action('Codes match','Peer approval',true)+action('Cancel','Devices')+foot('Pair once. Future sessions find this device automatically.');
+else if(s==='Peer approval') html=header('Waiting for Pixel','Verify peer')+group('Finish pairing',row('Confirm on Pixel','Tap Codes match in EveryPods on the other device.'))+action('Preview: Pixel confirms','Paired',true)+action('Cancel','Devices');
+else if(s==='Paired') html=header('Pixel paired')+group('Ready for future sessions',row('Pixel','You can now select a playback mode.'))+action('Choose playback mode','Ready',true);
+else if(s==='Ready'||s==='Stopped') html=header('Pixel')+group('Device',row('AirPods Pro 3','Connected to Pixel','Available'))+action(mode==='wifi'?'Play through Pixel':'Move AirPods here',mode==='wifi'?'Android consent':'Confirm handover',true)+modes()+foot(mode==='wifi'?'This mode is remembered for Pixel. Android asks for audio-capture approval each session.':'Direct playback moves AirPods away from Pixel. Heart-rate monitoring on Pixel will stop.')+(mode==='wifi'?group('Connection',row('Network',networkName,'Available','Network')):'')+foot(s==='Stopped'?'Relay stopped. Xiaomi volume restored. Heart-rate monitoring on Pixel continues.':mode==='wifi'?'Music works best. Video sound may be delayed.':'')+`<details class="ep-detail"><summary class="cursor-interaction">Advanced</summary><p>Capture: All eligible media apps</p><p>Local playback: Muted while relaying</p><button class="ep-small-link cursor-interaction" type="button" data-action="Forget">Forget Pixel</button></details>`;
+else if(s==='Heart rate details') html=header('Heart rate on Pixel','Playing')+group('Heart rate',row(prefs.hr?'128 BPM':'—',prefs.hr?'Sample reading · Updated now':'No recent reading'))+foot('Open Smart features → Heart rate on Pixel to manage monitoring and sharing.');
+else if(s==='Network') html=header('Audio connection','Ready')+group('Available connections',row('Shared Wi-Fi','Use the network both devices have joined.','Selected','Use wifi')+row('Pixel hotspot','Use Pixel’s connection when Wi-Fi is unavailable.','','Hotspot'))+foot('EveryPods checks the local audio link and internet access separately.');
+else if(s==='Hotspot') html=header('Use Pixel hotspot','Network')+group('Connect your devices',row('1. Turn on Pixel hotspot','On Pixel, open hotspot settings and turn it on.')+row('2. Join from Xiaomi','Choose Pixel’s hotspot in Wi-Fi settings.'))+foot('Online media may use Pixel’s mobile data. Your carrier’s data charges apply.')+action('Open Wi-Fi settings','Hotspot OS',true)+action('Use shared Wi-Fi','Use wifi');
+else if(s==='Hotspot OS') html=header('Join Pixel hotspot','Hotspot')+`<div class="ep-system">${icon('wifi')}<h2>Android Wi-Fi settings</h2><p>System step · This preview does not change your network.</p></div>`+action('Preview: devices connected','Use hotspot',true)+action('Cancel','Network');
+else if(s==='Consent') html=header('Start audio relay','Ready')+group('Ready to connect',row('Pixel is ready','AirPods Pro 3 connected',icon('check'))+row('Local audio link',networkName,icon('check')))+foot('Android will ask you to share audio. EveryPods sends eligible media audio to Pixel; it does not send your screen or microphone.')+action('Continue to Android','Android consent',true)+action('Cancel','Ready');
+else if(s==='Android consent') html=header('Approve audio capture','Consent')+`<div class="ep-system">${icon('audio-lines')}<h2>Android capture approval</h2><p>System-controlled dialog · Exact wording varies by Android version. Approval is required for each new session.</p></div>`+action('Preview: approve capture','Playing',true)+action('Preview: cancel','Ready');
+else if(['Playing','Receiver','Reconnecting','AirPods disconnected','Capture ended'].includes(s)){
+const receiver=s==='Receiver',reconnecting=s==='Reconnecting',lost=s==='AirPods disconnected',ended=s==='Capture ended',working=!reconnecting&&!lost&&!ended;
+const title=receiver?'Playing from Xiaomi':reconnecting?'Reconnecting to Pixel':lost?'AirPods disconnected':ended?'Audio sharing ended':'Playing through Pixel';
+const desc=receiver?'AirPods stay connected to this device.':reconnecting?'AirPods stay on Pixel while the audio link recovers.':lost?'Connect AirPods to Pixel to resume.':ended?'Android stopped audio capture. Tap Resume to approve a new session.':'AirPods stay connected to Pixel.';
+html=header(receiver?'Audio relay':'Pixel')+`<div class="ep-hero"><span class="ep-status ${working?'':'ep-warning'}">${icon(working?'audio-lines':'circle-alert')}${working?'Streaming':reconnecting?'Reconnecting': 'Action needed'}</span><h2>${title}</h2><p>${desc}</p>${route()}</div>`+group('Session',row('Audio',working?'Playing eligible media audio':reconnecting?'Playback paused; reconnecting automatically.':'Stopped',working?'Live':'—')+row('Heart rate',lost?'Pixel is no longer receiving samples.':prefs.hr?'Measured on Pixel · Updated now':'No recent reading',prefs.hr&&!lost?'128 BPM':'—')+row('Network',networkName,reconnecting?'Unavailable':'Connected')+row('Internet','Reported by source device','Available'));
+if(working) html+=group('Heart-rate sharing',row('Bluetooth heart-rate sensor','One receiver subscribed',hrShared?'Broadcasting':'Off')+row('TICKR bridge','On Pixel','Bridge active')+row('View heart rate on Pixel','','','Heart rate details'));
+html+=ended?action('Resume','Consent',true):lost?action('Check Pixel connection','Check connection',true):action('Stop relay',receiver?'Receiver stopped':'Stopped',true);
+if(ended||lost) html+=action('Stop relay','Stopped');
+if(!receiver) html+=action('Switch to Bluetooth','Confirm handover');
+html+=foot('Heart-rate monitoring and sharing are controlled separately.')+`<details class="ep-detail"><summary class="cursor-interaction">Advanced and diagnostics</summary><p>Design target: Opus · 48 kHz stereo · 192 kbit/s</p><p>Audio-link measurements appear here when available.</p></details>`;
+}
+else if(s==='Receiver stopped') html=header('Audio relay')+group('Relay stopped',row('AirPods remain connected here','Heart-rate monitoring continues.'))+foot('Start another session from Xiaomi when you want to listen again.');
+else if(s==='Confirm handover') html=header('Switch to Bluetooth',previous)+`<div class="ep-system">${icon('bluetooth')}<h2>Move AirPods to Xiaomi?</h2><p>Wi-Fi audio relay will stop. Heart-rate monitoring and sharing from Pixel will stop while AirPods are connected to Xiaomi.</p></div>`+action('Move AirPods to Xiaomi','Bluetooth connected',true)+action('Keep AirPods on Pixel',previous);
+else if(s==='Bluetooth connected') html=header('Pixel')+group('Bluetooth handover',row('AirPods connected here','Direct audio playback on Xiaomi.'))+group('Heart rate on Pixel',row('Unavailable','AirPods moved to Xiaomi.','—'))+action('Return AirPods to Pixel','Return AirPods',true)+foot('Bluetooth handover is now the remembered playback mode for this peer.');
+else if(s==='Return AirPods') html=header('Return AirPods','Bluetooth connected')+group('Prepare Wi-Fi relay',row('Connect AirPods to Pixel','Returning the AirPods requires a Bluetooth handover before relay can start.'))+action('Preview: handover completes','Return complete',true);
+else if(s==='Check connection') html=header('Connect AirPods','AirPods disconnected')+group('On Pixel',row('Reconnect AirPods','Open the case and connect AirPods in EveryPods.'))+action('Preview: AirPods reconnected','Consent',true);
+else if(s==='Forget') html=header('Forget Pixel','Ready')+group('Remove paired device',row('Pairing will be removed','Pixel will need to be paired again for handover or audio relay.'))+action('Forget Pixel','Pairing',true)+action('Cancel','Ready');
+else html=header(s,'Home')+group(s,row('Existing EveryPods screen','Continue using the current app design.'));
+screen.innerHTML=html;globalThis.lucide?.createIcons({attrs:{width:20,height:20}});
+}
+root.addEventListener('click',event=>{const b=event.target.closest('[data-action]');if(!b)return;let next=b.dataset.action;if(next==='Confirm handover')previous=prefs.screen;if(next==='Use wifi'){network='wifi';next='Ready'}if(next==='Use hotspot'){network='hotspot';next='Android consent'}if(next==='Return complete'){mode='wifi';next='Ready'}if(next==='Bluetooth connected')mode='bluetooth';go(next)});
+root.addEventListener('change',event=>{if(event.target.name==='ep-mode'){mode=event.target.value;render();save()}});
+window.addEventListener('openai:set_globals',event=>{const state=event.detail?.globals?.widgetState?.privateContent;if(state&&allowed.includes(state.screen)){prefs.screen=state.screen;mode=state.mode==='bluetooth'?'bluetooth':'wifi';network=state.network==='hotspot'?'hotspot':'wifi';render()}});
+render();
+if(globalThis.Tweak){const tweak=new Tweak({container:root,onChange:render});tweak.addSelect(prefs,'screen',{label:'Preview screen',options:allowed});tweak.addSlider(prefs,'scale',{label:'Text size',min:100,max:200,step:25,unit:'%'});tweak.addToggle(prefs,'hr',{label:'Fresh heart-rate reading'});}
+})();
+</script>

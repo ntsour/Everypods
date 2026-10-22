@@ -4501,6 +4501,17 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         manualTakeOverAfterReversed: Boolean = false,
         startHeadTrackingAgain: Boolean = false
     ) {
+        if (!manualTakeOverAfterReversed && takingOverFor in setOf("music", "call")) {
+            val connections = io.automated.ventures.everypods.relay.DeviceConnectionStore(this)
+            connections.migrate(CrossDevice.configuredPeers)
+            val holderAllowsHandover = CrossDevice.holders.isEmpty() || (getSharedPreferences("settings", MODE_PRIVATE).getBoolean("cross_device_enabled", true) && CrossDevice.holders.any {
+                connections.has(it, io.automated.ventures.everypods.relay.DeviceConnectionType.BT_HANDOVER)
+            })
+            if (io.automated.ventures.everypods.relay.DeviceConnectionStore.emitting || !holderAllowsHandover) {
+                Log.i(TAG, "Automatic handover skipped: emitting=${io.automated.ventures.everypods.relay.DeviceConnectionStore.emitting} holderAllowsHandover=$holderAllowsHandover holders=${CrossDevice.holders.size}")
+                return
+            }
+        }
         if (takingOverFor == "reverse") {
             aacpManager.sendControlCommand(
                 AACPManager.Companion.ControlCommandIdentifiers.OWNS_CONNECTION.value, 1

@@ -139,27 +139,31 @@ fun NoiseControlSettings(
 
     onModeSelected(noiseControlMode.value, received = true)
 
-    Box(
-        modifier = Modifier
-            .background(if (isDarkTheme) Color(0xFF000000) else Color(0xFFF2F2F7))
-            .padding(horizontal = 16.dp, vertical = 4.dp)
-    ){
-        Text(
-            text = stringResource(R.string.noise_control),
-            style = TextStyle(
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = textColor.copy(alpha = 0.6f),
-                fontFamily = FontFamily(Font(R.font.sf_pro))
+    // Keep the heading and selector in an explicit vertical layout. This
+    // component is also hosted inside a Box when AACP is unavailable; emitting
+    // both children directly there would align them on top of one another.
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Box(
+            modifier = Modifier
+                .background(if (isDarkTheme) Color(0xFF000000) else Color(0xFFF2F2F7))
+                .padding(horizontal = 16.dp, vertical = 4.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.noise_control),
+                style = TextStyle(
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = textColor.copy(alpha = 0.6f),
+                    fontFamily = FontFamily(Font(R.font.sf_pro))
+                )
             )
-        )
-    }
+        }
 
-    BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp)
-    ) {
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp)
+        ) {
         val density = LocalDensity.current
         val buttonCount = if (showOffListeningMode) 4 else 3
         val buttonWidth = maxWidth / buttonCount
@@ -393,6 +397,7 @@ fun NoiseControlSettings(
                     modifier = Modifier.weight(1f)
                 )
             }
+        }
         }
     }
 }

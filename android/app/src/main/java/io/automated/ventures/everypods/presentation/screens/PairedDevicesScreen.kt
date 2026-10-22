@@ -44,6 +44,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.RadioButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -62,6 +63,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
+import io.automated.ventures.everypods.BuildConfig
 import io.automated.ventures.everypods.R
 import io.automated.ventures.everypods.presentation.components.StyledScaffold
 import io.automated.ventures.everypods.presentation.viewmodel.AirPodsViewModel
@@ -160,7 +162,9 @@ fun PairedDevicesScreen(viewModel: AirPodsViewModel, navController: NavControlle
                             isDarkTheme = isDarkTheme,
                             textColor = textColor,
                             onReconnect = { viewModel.reconnectCrossDevicePeer(peer.mac) },
-                            onRemove = { confirmRemoveMac = peer.mac }
+                            onRemove = { confirmRemoveMac = peer.mac },
+                            onPlayback = { navController.navigate("device_playback/${android.net.Uri.encode(peer.mac)}") },
+                            showPlayback = BuildConfig.AUDIO_RELAY_PREVIEW,
                         )
                     }
                 }
@@ -205,6 +209,8 @@ private fun PeerRow(
     textColor: Color,
     onReconnect: () -> Unit,
     onRemove: () -> Unit,
+    onPlayback: () -> Unit,
+    showPlayback: Boolean,
 ) {
     Column {
         Row(
@@ -251,6 +257,11 @@ private fun PeerRow(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 4.dp)
         ) {
+            if (showPlayback) {
+                TextButton(onClick = onPlayback) {
+                    Text(stringResource(R.string.audio_relay_playback))
+                }
+            }
             if (!peer.connected) {
                 TextButton(onClick = onReconnect) {
                     Text(stringResource(R.string.ui_reconnect),

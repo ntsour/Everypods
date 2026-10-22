@@ -219,6 +219,7 @@ fun ConnectionSettings(
     onAutomaticEarDetectionChanged: (Boolean) -> Unit,
     automaticConnectionEnabled: Boolean,
     onAutomaticConnectionChanged: (Boolean) -> Unit,
+    handoverTemporarilyPaused: Boolean = false,
     earDetectionAvailable: Boolean = true,
     lidOpenLastHolderAutoconnect: Boolean = false,
     onLidOpenLastHolderAutoconnectChanged: (Boolean) -> Unit = {},
@@ -232,6 +233,17 @@ fun ConnectionSettings(
             .background(backgroundColor, RoundedCornerShape(28.dp))
             .padding(top = 2.dp)
     ) {
+        if (handoverTemporarilyPaused) {
+            Text(
+                text = stringResource(R.string.audio_relay_auto_takeover_suppressed),
+                style = TextStyle(
+                    fontSize = 13.sp,
+                    fontFamily = FontFamily(Font(R.font.sf_pro)),
+                    color = if (isDarkTheme) Color.White.copy(alpha = 0.62f) else Color.Black.copy(alpha = 0.58f)
+                ),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+        }
         Text(
             text = stringResource(R.string.cross_device_settings_hint),
             style = TextStyle(
@@ -246,9 +258,11 @@ fun ConnectionSettings(
             label = stringResource(R.string.cross_device_handover),
             description = stringResource(R.string.cross_device_handover_description),
             independent = false,
-            checked = crossDeviceEnabled,
+            checked = crossDeviceEnabled && !handoverTemporarilyPaused,
+            enabled = !handoverTemporarilyPaused,
             onCheckedChange = onCrossDeviceChanged
         )
+        if (crossDeviceEnabled) MediaHandoverAccessNotice()
         AnimatedVisibility(
             visible = crossDeviceEnabled,
             enter = expandVertically(),
@@ -346,7 +360,8 @@ fun ConnectionSettings(
             label = stringResource(R.string.lid_open_last_holder_autoconnect),
             description = stringResource(R.string.lid_open_last_holder_autoconnect_description),
             independent = false,
-            checked = lidOpenLastHolderAutoconnect,
+            checked = lidOpenLastHolderAutoconnect && !handoverTemporarilyPaused,
+            enabled = !handoverTemporarilyPaused,
             onCheckedChange = onLidOpenLastHolderAutoconnectChanged
         )
         // Experiment (Option 1 / CrossDevice): Automatic Connection toggle hidden.
@@ -365,6 +380,8 @@ fun CrossDevicePeersInline(
     peers: List<PeerUiInfo>,
     onAddPeer: (String) -> Unit,
     onRemovePeer: (String) -> Unit,
+    onPlayback: (PeerUiInfo) -> Unit = {},
+    showPlayback: Boolean = false,
     emptyMessage: String = stringResource(R.string.connections_empty),
     addLabel: String = stringResource(R.string.add_peer),
 ) {
@@ -468,7 +485,9 @@ fun CrossDevicePeersInline(
                 InlinePeerRow(
                     peer = peer,
                     textColor = textColor,
-                    onRemove = { confirmRemoveMac = peer.mac }
+                    onRemove = { confirmRemoveMac = peer.mac },
+                    onPlayback = { onPlayback(peer) },
+                    showPlayback = showPlayback,
                 )
             }
             TextButton(onClick = { showPicker = true }) {
@@ -490,6 +509,8 @@ private fun InlinePeerRow(
     peer: PeerUiInfo,
     textColor: Color,
     onRemove: () -> Unit,
+    onPlayback: () -> Unit,
+    showPlayback: Boolean,
 ) {
     Row(
         modifier = Modifier
@@ -525,6 +546,11 @@ private fun InlinePeerRow(
                     color = if (peer.connected) Color(0xFF34C759) else Color(0xFF8E8E93)
                 )
             )
+        }
+        if (showPlayback) {
+            TextButton(onClick = onPlayback) {
+                Text(stringResource(R.string.audio_relay_playback), fontSize = 14.sp)
+            }
         }
         TextButton(onClick = onRemove) {
             Text(

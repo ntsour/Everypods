@@ -23,6 +23,7 @@ package io.automated.ventures.everypods.utils
 import android.content.ComponentName
 import android.content.Context
 import android.content.SharedPreferences
+import android.database.ContentObserver
 import android.media.AudioAttributes
 import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
@@ -34,14 +35,29 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.provider.Settings
 import android.util.Log
 import android.view.KeyEvent
 import androidx.annotation.RequiresApi
-import io.automated.ventures.everypods.services.NotificationAnnouncementService
 import io.automated.ventures.everypods.services.ServiceManager
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlin.io.encoding.ExperimentalEncodingApi
 
 object MediaController {
+    /** True while relay audio is being played locally; it must not trigger media takeover. */
+    @Volatile
+    private var relayAudioPlaybackActive: Boolean = false
+
+    fun setRelayAudioPlaybackActive(active: Boolean) {
+        if (relayAudioPlaybackActive == active) return
+        relayAudioPlaybackActive = active
+        onRelayHandoverSuppressionChanged(active, "receiver playback")
+    }
+
+    private val mutableMediaSessionAccess = MutableStateFlow(false)
+    val mediaSessionAccessGranted = mutableMediaSessionAccess.asStateFlow()
+
     private var initialVolume: Int? = null
     private lateinit var audioManager: AudioManager
     var iPausedTheMedia = false
@@ -52,8 +68,17 @@ object MediaController {
 
     private var lastSelfActionAt: Long = 0L
     private const val SELF_ACTION_IGNORE_MS = 800L
-    private const val PLAYBACK_DEBOUNCE_MS = 300L
-    private var lastPlaybackCallbackAt: Long = 0L
+    private const val PLAYBACK_COALESCE_MS = 100L
+    private val startDetector = MediaStartDetector()
+    private var latestPlaybackConfigs: List<AudioPlaybackConfiguration>? = null
+    private var playbackCallbackPending = false
+    private val processLatestPlayback = Runnable {
+        playbackCallbackPending = false
+        processPlaybackConfigs(latestPlaybackConfigs)
+    }
+    private var mediaVerification: Runnable? = null
+    private var mediaDetectionGeneration = 0L
+    private var lastMediaTakeoverRequestAt: Long? = null
     private var lastKnownIsMusicActive: Boolean? = null
 
     private var relativeVolume: Boolean = false
@@ -62,17 +87,6 @@ object MediaController {
 
     private var lastPlayWithReplay: Boolean = false
     private var lastPlayTime: Long = 0L
-
-    // Wall-clock (SystemClock.uptimeMillis) of the most recent moment the
-    // AudioManager reported isMusicActive=true. Used to suppress spurious
-    // takeOver("music") triggers when audio was already playing a moment ago
-    // — a transient dip (notification chime ending, MediaSession internal
-    // state blip, brief audio-focus shift) should NOT be treated like a
-    // fresh "user pressed play" event. A genuine play-after-pause comes
-    // after many seconds of inactivity; anything within ~3 s is noise.
-    @Volatile
-    private var lastMusicActiveAt: Long = 0L
-    private val MUSIC_ACTIVE_RECENT_MS: Long = 3_000L
 
     // Set to the AirPods MAC every time we call takeOver("music"). The
     // AudioDeviceCallback below fires only when an A2DP device with THIS MAC
@@ -201,6 +215,22 @@ object MediaController {
             Log.d("MediaController", "resetMusicActiveState (was: $lastKnownIsMusicActive)")
         }
         lastKnownIsMusicActive = null
+        startDetector.rearm(false)
+    }
+
+    fun onRelayHandoverSuppressionChanged(suppressed: Boolean, reason: String) {
+        val activeAtChange = this::audioManager.isInitialized && audioManager.isMusicActive
+        val reset = Runnable {
+            cancelMediaVerification()
+            handler.removeCallbacks(processLatestPlayback)
+            playbackCallbackPending = false
+            // Baseline current playback, so Stop itself never triggers a Bluetooth takeover.
+            startDetector.rearm(activeAtChange)
+            lastKnownIsMusicActive = activeAtChange
+            lastMediaTakeoverRequestAt = null
+            Log.i("MediaController", "Relay handover suppression=$suppressed reason=$reason; detector baseline active=$activeAtChange")
+        }
+        if (Looper.myLooper() == handler.looper) reset.run() else handler.post(reset)
     }
 
     /** Called when we lose ownership or otherwise want to drop the pending state. */
@@ -267,6 +297,8 @@ object MediaController {
     // hardening, e.g. Pocket Casts with FLAG_NO_MEDIA_PROJECTION). Sessions are addressable
     // because the app already has BIND_NOTIFICATION_LISTENER_SERVICE permission.
     private var mediaSessionManager: MediaSessionManager? = null
+    private var mediaSessionsListener: MediaSessionManager.OnActiveSessionsChangedListener? = null
+    private var mediaListenerComponent: ComponentName? = null
     private val sessionCallbacks = mutableMapOf<android.media.session.MediaController, android.media.session.MediaController.Callback>()
     private val sessionLastState = mutableMapOf<android.media.session.MediaController, Int>()
 
@@ -295,6 +327,7 @@ object MediaController {
 
     fun initialize(audioManager: AudioManager, sharedPreferences: SharedPreferences, context: Context? = null) {
         if (this::audioManager.isInitialized) {
+            if (context != null) refreshMediaSessionMonitoring(context)
             return
         }
         this.audioManager = audioManager
@@ -320,7 +353,7 @@ object MediaController {
 
         sharedPreferences.registerOnSharedPreferenceChangeListener(preferenceChangeListener)
 
-        audioManager.registerAudioPlaybackCallback(cb, null)
+        audioManager.registerAudioPlaybackCallback(cb, handler)
 
         // Listen for audio routing changes. When the AirPods become the actual
         // media output (not just A2DP-profile-connected, but Android has fully
@@ -401,25 +434,46 @@ object MediaController {
         }
 
         // Also subscribe to MediaSessionManager to catch apps that AudioPlaybackCallback misses.
-        if (context != null) initMediaSessions(context)
+        if (context != null) {
+            val app = context.applicationContext
+            app.contentResolver.registerContentObserver(
+                Settings.Secure.getUriFor("enabled_notification_listeners"), false,
+                object : ContentObserver(handler) {
+                    override fun onChange(selfChange: Boolean) = refreshMediaSessionMonitoring(app)
+                },
+            )
+            refreshMediaSessionMonitoring(app)
+        }
     }
 
-    private fun initMediaSessions(context: Context) {
+    fun refreshMediaSessionMonitoring(context: Context, force: Boolean = false) {
+        val app = context.applicationContext
+        if (Looper.myLooper() != handler.looper) {
+            handler.post { refreshMediaSessionMonitoring(app, force) }
+            return
+        }
+        val component = MediaSessionAccess.enabledListener(app)
+        mutableMediaSessionAccess.value = component != null
+        if (!this::audioManager.isInitialized) return
+        if (!force && component == mediaListenerComponent && mediaSessionsListener != null) return
+        detachMediaSessions()
+        if (component == null) {
+            Log.w("MediaController", "Media-session detection unavailable: notification access missing for ${app.packageName}")
+            return
+        }
         try {
-            val msm = context.getSystemService(Context.MEDIA_SESSION_SERVICE) as? MediaSessionManager
+            val msm = app.getSystemService(Context.MEDIA_SESSION_SERVICE) as? MediaSessionManager
             if (msm == null) {
                 Log.w("MediaController", "MediaSessionManager not available")
                 return
             }
             mediaSessionManager = msm
-            val listenerComponent = ComponentName(context, NotificationAnnouncementService::class.java)
-
             val onSessionsChanged = MediaSessionManager.OnActiveSessionsChangedListener { controllers ->
                 if (controllers == null) return@OnActiveSessionsChangedListener
                 Log.d("MediaController", "Active media sessions changed: ${controllers.size}")
                 // Stop tracking sessions that are gone.
-                val current = controllers.toSet()
-                val gone = sessionCallbacks.keys - current
+                val current = controllers.map { it.sessionToken }.toSet()
+                val gone = sessionCallbacks.keys.filter { it.sessionToken !in current }
                 for (g in gone) {
                     runCatching { g.unregisterCallback(sessionCallbacks[g]!!) }
                     sessionCallbacks.remove(g)
@@ -427,19 +481,32 @@ object MediaController {
                 }
                 // Track new sessions.
                 for (ctrl in controllers) {
-                    if (sessionCallbacks.containsKey(ctrl)) continue
+                    if (sessionCallbacks.keys.any { it.sessionToken == ctrl.sessionToken }) continue
                     trackSession(ctrl)
                 }
             }
 
             // Prime with currently active sessions, then subscribe to changes.
-            val initial = runCatching { msm.getActiveSessions(listenerComponent) }.getOrNull().orEmpty()
+            msm.addOnActiveSessionsChangedListener(onSessionsChanged, component, handler)
+            mediaSessionsListener = onSessionsChanged
+            mediaListenerComponent = component
+            val initial = msm.getActiveSessions(component)
             Log.d("MediaController", "Initial active media sessions: ${initial.size}")
             for (ctrl in initial) trackSession(ctrl)
-            msm.addOnActiveSessionsChangedListener(onSessionsChanged, listenerComponent, handler)
-        } catch (t: Throwable) {
+            Log.i("MediaController", "Media-session monitoring ready: ${component.flattenToShortString()}")
+        } catch (t: Exception) {
+            detachMediaSessions()
             Log.w("MediaController", "MediaSession setup failed: ${t.message}")
         }
+    }
+
+    private fun detachMediaSessions() {
+        mediaSessionsListener?.let { listener -> runCatching { mediaSessionManager?.removeOnActiveSessionsChangedListener(listener) } }
+        mediaSessionsListener = null
+        mediaListenerComponent = null
+        sessionCallbacks.forEach { (controller, callback) -> runCatching { controller.unregisterCallback(callback) } }
+        sessionCallbacks.clear()
+        sessionLastState.clear()
     }
 
     private fun trackSession(ctrl: android.media.session.MediaController) {
@@ -455,6 +522,10 @@ object MediaController {
                 sessionLastState[ctrl] = newState
                 Log.d("MediaController", "[session $pkg] state $prev → $newState")
                 if (newState == PlaybackState.STATE_PLAYING && prev != PlaybackState.STATE_PLAYING) {
+                    if (relayAudioPlaybackActive) {
+                        Log.d("MediaController", "Ignoring media-session start during Wi-Fi relay playback")
+                        return
+                    }
                     onSessionStartedPlaying(ctrl)
                 }
             }
@@ -468,216 +539,185 @@ object MediaController {
         ctrl.registerCallback(cb, handler)
         sessionCallbacks[ctrl] = cb
 
-        // If session is already PLAYING when we attach (e.g. app launched before us),
-        // honor it — but ONLY if audio is actually active on this device right now.
-        // A MediaSession can be in STATE_PLAYING globally while audio is routed to a
-        // peer device (e.g. Pocket Casts playing on Pixel while EveryPods is being
-        // restarted on Xiaomi); honoring the initial state in that case would steal
-        // the AirPods from whoever's actually playing. audioManager.isMusicActive
-        // reflects local audio activity and distinguishes the two cases cleanly.
-        if (startState == PlaybackState.STATE_PLAYING) {
-            if (audioManager.isMusicActive) {
-                handler.post { onSessionStartedPlaying(ctrl) }
-            } else {
-                Log.d("MediaController", "Tracking $pkg in STATE_PLAYING but no local music active — skipping initial honor (probably playing on peer)")
-            }
-        }
+        // Record the initial state without manufacturing a Play event when access
+        // is granted or a listener reconnects. Fresh transitions remain actionable.
+    }
+
+    private fun isPlayingLocalMedia(ctrl: android.media.session.MediaController): Boolean {
+        if (ctrl.playbackState?.state != PlaybackState.STATE_PLAYING) return false
+        val info: android.media.session.MediaController.PlaybackInfo? = ctrl.playbackInfo
+        if (info?.playbackType == android.media.session.MediaController.PlaybackInfo.PLAYBACK_TYPE_REMOTE) return false
+        val attrs = info?.audioAttributes ?: return true
+        return isUserMediaPlayback(attrs.usage, attrs.contentType)
     }
 
     private fun onSessionStartedPlaying(ctrl: android.media.session.MediaController) {
-        val pkg = ctrl.packageName ?: "(?)"
-        val usage = ctrl.playbackInfo?.audioAttributes?.usage
-        Log.d("MediaController", "[session $pkg] STATE_PLAYING usage=$usage")
+        if (!isPlayingLocalMedia(ctrl)) {
+            Log.d("MediaController", "Ignoring session start from ${ctrl.packageName}: remote or non-media playback")
+            return
+        }
+        if (!audioManager.isMusicActive) {
+            scheduleMediaVerification(sawMedia = true, session = ctrl)
+            return
+        }
+        // A real PAUSED -> PLAYING transition is stronger than the aggregate
+        // activity baseline, including a quick manual resume after we paused media.
+        requestMediaTakeover("media session ${ctrl.packageName}")
+        startDetector.rearm(true)
+        lastKnownIsMusicActive = true
+    }
 
-        // Same gates the AudioPlaybackCallback path uses.
-        if (usage != null && usage != AudioAttributes.USAGE_MEDIA) {
-            Log.d("MediaController", "  ignoring: usage is not USAGE_MEDIA")
-            return
-        }
+    private fun shouldSuppressAutomaticTakeoverForRelay(): Boolean =
+        io.automated.ventures.everypods.relay.DeviceConnectionStore.emitting
+
+    private fun takeoverBlocked(): Boolean = relayAudioPlaybackActive ||
+        shouldSuppressAutomaticTakeoverForRelay() || AnnouncementCoordinator.isAudiblySpeaking()
+
+    private fun requestMediaTakeover(reason: String) {
         val now = SystemClock.uptimeMillis()
-        if (now - lastSelfActionAt < SELF_ACTION_IGNORE_MS) {
-            Log.d("MediaController", "  ignoring: within self-action window (${now - lastSelfActionAt}ms)")
+        val rejection = when {
+            takeoverBlocked() -> "relay or announcement active"
+            now - lastSelfActionAt < SELF_ACTION_IGNORE_MS -> "recent EveryPods playback action"
+            !audioManager.isMusicActive -> "no local music active"
+            lastMediaTakeoverRequestAt?.let { now - it < 750L } == true -> "duplicate start event"
+            else -> null
+        }
+        if (rejection != null) {
+            Log.i("MediaController", "Media handover skipped: $rejection; trigger=$reason emitting=${shouldSuppressAutomaticTakeoverForRelay()} receiverPlayback=$relayAudioPlaybackActive")
             return
         }
-        if (iPausedTheMedia) {
-            Log.d("MediaController", "  ignoring: iPausedTheMedia=true (we paused this ourselves)")
+        val service = ServiceManager.getService()
+        if (service == null) {
+            Log.w("MediaController", "Media handover skipped: AirPods service unavailable; trigger=$reason")
             return
         }
-        // Recent-activity gate: if music was just playing a moment ago, this
-        // MediaSession state transition is an internal app blip (Pocket Casts
-        // background refresh, notification update, etc.) — not a fresh user
-        // play press. Suppress to prevent spurious sendPlay storms.
-        val sinceMusicActive = now - lastMusicActiveAt
-        if (lastMusicActiveAt != 0L && sinceMusicActive < MUSIC_ACTIVE_RECENT_MS) {
-            Log.d("MediaController", "  ignoring: music was active ${sinceMusicActive}ms ago — likely a session-state blip, not a fresh play press")
+        val changedAt = io.automated.ventures.everypods.services.AirPodsService.lastA2dpStateChangeMs
+        if (changedAt > 0L && System.currentTimeMillis() - changedAt <
+            io.automated.ventures.everypods.services.AirPodsService.A2DP_STATE_FLUX_WINDOW_MS) {
+            Log.i("MediaController", "Media handover skipped: Bluetooth route changing; trigger=$reason")
             return
         }
-        Log.d("MediaController", "  → PROCEEDING: requesting takeOver(\"music\") from MediaSession event")
-        ServiceManager.getService()?.takeOver("music")
+        cancelMediaVerification()
+        lastMediaTakeoverRequestAt = now
+        // The self-action window has elapsed and local media has actually started.
+        // A pause remembered from yielding to a peer must not veto the user's Play.
+        iPausedTheMedia = false
+        Log.i("MediaController", "Media start verified; requesting takeOver(music); trigger=$reason")
+        service.takeOver("music")
+    }
+
+    private fun cancelMediaVerification() {
+        mediaDetectionGeneration++
+        mediaVerification?.let(handler::removeCallbacks)
+        mediaVerification = null
+    }
+
+    /** Bounded follow-up for empty/redacted configs and playback that becomes active later. */
+    private fun scheduleMediaVerification(sawMedia: Boolean, session: android.media.session.MediaController? = null) {
+        if (takeoverBlocked()) return
+        if (mediaVerification != null && session == null) return
+        cancelMediaVerification()
+        val generation = mediaDetectionGeneration
+        val delays = longArrayOf(120L, 250L, 500L)
+        var attempt = 0
+        val verify = object : Runnable {
+            override fun run() {
+                if (generation != mediaDetectionGeneration) return
+                if (takeoverBlocked() || (session != null && !isPlayingLocalMedia(session))) {
+                    cancelMediaVerification()
+                    return
+                }
+                val active = audioManager.isMusicActive
+                val configs = audioManager.activePlaybackConfigurations
+                val hasMedia = configs.any { isUserMediaPlayback(it.audioAttributes.usage, it.audioAttributes.contentType) }
+                val sessionMedia = sessionCallbacks.keys.any(::isPlayingLocalMedia)
+                val evidence = when {
+                    hasMedia || sessionMedia || (sawMedia && configs.isEmpty()) -> MediaPlaybackEvidence.USER_MEDIA
+                    configs.isEmpty() -> MediaPlaybackEvidence.UNKNOWN
+                    else -> MediaPlaybackEvidence.OTHER
+                }
+                val decision = startDetector.observe(active, evidence, blocked = false)
+                lastKnownIsMusicActive = startDetector.active
+                if (decision == MediaStartDecision.REQUEST_HANDOVER) {
+                    requestMediaTakeover("playback verification")
+                    cancelMediaVerification()
+                    return
+                }
+                if (active && evidence != MediaPlaybackEvidence.UNKNOWN) {
+                    cancelMediaVerification()
+                    return
+                }
+                attempt++
+                if (attempt < delays.size) handler.postDelayed(this, delays[attempt])
+                else {
+                    Log.i("MediaController", "Media verification ended: localActive=$active mediaEvidence=$evidence sessionAccess=${mutableMediaSessionAccess.value}")
+                    cancelMediaVerification()
+                }
+            }
+        }
+        mediaVerification = verify
+        handler.postDelayed(verify, delays[0])
+    }
+
+    private fun ignorePlayback(configs: List<AudioPlaybackConfiguration>?): Boolean {
+        if (relayAudioPlaybackActive || AnnouncementCoordinator.isAudiblySpeaking()) return true
+        return !configs.isNullOrEmpty() && configs.all {
+            AnnouncementAudioAttributes.isAnnouncementSpeech(it.audioAttributes.usage, it.audioAttributes.contentType)
+        }
     }
 
     val cb = object : AudioManager.AudioPlaybackCallback() {
-        @RequiresApi(Build.VERSION_CODES.R)
         override fun onPlaybackConfigChanged(configs: MutableList<AudioPlaybackConfiguration>?) {
-            if (AnnouncementCoordinator.isAudiblySpeaking()) {
-                Log.d("MediaController", "Ignoring EveryPods speech in media playback detection")
-                return
-            }
-            // TTS can publish its playback config a moment before its
-            // UtteranceProgressListener reports onStart. Do not let that narrow
-            // race look like a user starting a podcast.
-            val onlyAssistantSpeech = configs?.isNotEmpty() == true && configs.all { config ->
-                config.audioAttributes?.let { attrs ->
-                    AnnouncementAudioAttributes.isAnnouncementSpeech(attrs.usage, attrs.contentType)
-                } == true
-            }
-            if (onlyAssistantSpeech) {
-                Log.d("MediaController", "Ignoring assistant speech playback config")
-                return
-            }
             super.onPlaybackConfigChanged(configs)
-            val now = SystemClock.uptimeMillis()
-            val isActive = audioManager.isMusicActive
-            Log.d("MediaController", "Playback config changed, iPausedTheMedia: $iPausedTheMedia, isActive: $isActive, lastKnownIsMusicActive: $lastKnownIsMusicActive")
-
-            if (!isActive && lastPlayWithReplay && now - lastPlayTime < 2500L) {
-                Log.d("MediaController", "Music paused shortly after play with replay; retrying play")
-                lastPlayWithReplay = false
-                sendPlay()
-                lastKnownIsMusicActive = true
+            if (ignorePlayback(configs)) {
+                cancelMediaVerification()
+                handler.removeCallbacks(processLatestPlayback)
+                playbackCallbackPending = false
                 return
             }
-
-            if (now - lastPlaybackCallbackAt < PLAYBACK_DEBOUNCE_MS) {
-                Log.d("MediaController", "Ignoring playback callback due to debounce (${now - lastPlaybackCallbackAt}ms)")
-                // Don't reset the timer on debounce — otherwise rapid cascading callbacks
-                // (e.g. HyperOS firing 3+ events within 50ms when YouTube starts) keep
-                // resetting the window and the meaningful event never gets processed.
-                return
+            latestPlaybackConfigs = configs?.toList()
+            // Keep the newest snapshot, with a bounded delay from the FIRST event.
+            // Stop/start bursts cannot discard the actual start or starve the drain.
+            if (!playbackCallbackPending) {
+                playbackCallbackPending = true
+                handler.postDelayed(processLatestPlayback, PLAYBACK_COALESCE_MS)
             }
-            lastPlaybackCallbackAt = now
+        }
+    }
 
-            if (now - lastSelfActionAt < SELF_ACTION_IGNORE_MS) {
-                Log.d("MediaController", "Ignoring playback callback because it's likely caused by our own action (${now - lastSelfActionAt}ms since last self-action)")
-                lastKnownIsMusicActive = isActive
-                return
-            }
-
-            Log.d("MediaController", "Configs received: ${configs?.size ?: 0} configurations")
-            // Inspect both usage and contentType. Many apps (Pocket Casts, etc.) leave
-            // contentType=UNKNOWN but always set usage=USAGE_MEDIA for media playback.
-            data class AttrPair(val usage: Int, val contentType: Int)
-            val activeAttrs = configs?.mapNotNull { config ->
-                Log.d("MediaController", "Processing config: ${config}, audioAttributes: ${config.audioAttributes}")
-                config.audioAttributes?.let { attrs ->
-                    Log.d("MediaController", "Config usage=${attrs.usage} contentType=${attrs.contentType}")
-                    AttrPair(attrs.usage, attrs.contentType)
-                }
-            }?.toSet() ?: emptySet()
-
-            Log.d("MediaController", "Active audio attrs: $activeAttrs")
-
-            val hasNewMusicOrMovie = activeAttrs.any { a ->
-                isUserMediaPlayback(a.usage, a.contentType)
-            }
-
-            Log.d("MediaController", "Has new music or movie: $hasNewMusicOrMovie")
-
-            if (configs != null && !iPausedTheMedia) {
-                val localMac = ServiceManager.getService()?.localMac
-                if (!localMac.isNullOrEmpty()) {
-                    ServiceManager.getService()?.aacpManager?.sendMediaInformataion(
-                        localMac,
-                        isActive
-                    )
-                }
-                Log.d("MediaController", "User changed media state themselves; will wait for ear detection pause before auto-play")
-                handler.postDelayed({
-                    userPlayedTheMedia = audioManager.isMusicActive
-                }, 7)
-            }
-
-            // A2DP flux gate: when a peer device performs an A2DP handover, our
-            // own A2DP profile state briefly bounces, which causes the audio system
-            // to fire spurious playback-config callbacks here. The `lastKnownIsMusicActive`
-            // edge-trigger then misfires (resets to false during the disruption, then
-            // sees music active again) and we'd call takeOver(), fighting the peer
-            // for the connection. Skip takeOver while A2DP state is unsettled.
-            val a2dpFluxAgeMs = System.currentTimeMillis() - io.automated.ventures.everypods.services.AirPodsService.lastA2dpStateChangeMs
-            val a2dpInFlux = io.automated.ventures.everypods.services.AirPodsService.lastA2dpStateChangeMs > 0 &&
-                a2dpFluxAgeMs < io.automated.ventures.everypods.services.AirPodsService.A2DP_STATE_FLUX_WINDOW_MS
-
-            // Read the previous freshness value BEFORE we update it below.
-            val sinceMusicActive = now - lastMusicActiveAt
-            val musicRecentlyActive = lastMusicActiveAt != 0L &&
-                sinceMusicActive < MUSIC_ACTIVE_RECENT_MS
-
-            if (isActive && hasNewMusicOrMovie) {
-                if (lastKnownIsMusicActive != true) {
-                    when {
-                        musicRecentlyActive -> Log.d(
-                            "MediaController",
-                            "Music/movie is active but it was already active ${sinceMusicActive}ms ago — transient dip, suppressing takeOver"
-                        )
-                        a2dpInFlux -> Log.d(
-                            "MediaController",
-                            "Music/movie is active BUT A2DP in flux (${a2dpFluxAgeMs}ms since change) — suppressing takeOver, peer is likely taking over"
-                        )
-                        else -> {
-                            Log.d("MediaController", "Music/movie is active; requesting takeOver")
-                            ServiceManager.getService()?.takeOver("music")
-                        }
-                    }
-                }
-            } else if (!isActive && hasNewMusicOrMovie) {
-                // HyperOS quirk: AudioPlaybackCallback fires with media configs before
-                // audioManager.isMusicActive flips to true. Re-check after 500ms.
-                //
-                // The `lastKnownIsMusicActive != true` guard was removed from the
-                // outer condition: when the AirPods autonomously leave Xiaomi
-                // (Apple auto-switch / OS reconnect) and the user later presses
-                // play, `lastKnownIsMusicActive` is stale-true from the last
-                // session and would suppress the re-check. We let the inner
-                // `audioManager.isMusicActive` check at +500 ms be the
-                // source of truth.
-                Log.d("MediaController", "Media config seen but isMusicActive=false; scheduling delayed re-check")
-                handler.postDelayed({
-                    if (audioManager.isMusicActive) {
-                        val fluxAgeMsNow = System.currentTimeMillis() - io.automated.ventures.everypods.services.AirPodsService.lastA2dpStateChangeMs
-                        val inFluxNow = io.automated.ventures.everypods.services.AirPodsService.lastA2dpStateChangeMs > 0 &&
-                            fluxAgeMsNow < io.automated.ventures.everypods.services.AirPodsService.A2DP_STATE_FLUX_WINDOW_MS
-                        // Recent-activity gate: even in the delayed path, suppress if
-                        // music was already active just before this callback.
-                        val nowDelayed = SystemClock.uptimeMillis()
-                        val sinceActive = nowDelayed - lastMusicActiveAt
-                        val recent = lastMusicActiveAt != 0L && sinceActive < MUSIC_ACTIVE_RECENT_MS
-                        when {
-                            recent -> Log.d(
-                                "MediaController",
-                                "Delayed re-check: music now active but was active ${sinceActive}ms ago — transient dip, suppressing takeOver"
-                            )
-                            inFluxNow -> Log.d("MediaController", "Delayed re-check: music active BUT A2DP in flux (${fluxAgeMsNow}ms) — suppressing takeOver")
-                            else -> {
-                                Log.d("MediaController", "Delayed re-check: music now active, requesting takeOver")
-                                ServiceManager.getService()?.takeOver("music")
-                                lastKnownIsMusicActive = true
-                            }
-                        }
-                    } else {
-                        Log.d("MediaController", "Delayed re-check: still not music-active; isMusicActive=${audioManager.isMusicActive}")
-                    }
-                }, 500)
-            }
-
-            lastKnownIsMusicActive = hasNewMusicOrMovie && isActive
-
-            // Track the most recent moment music was observed active. The gates
-            // above used the PREVIOUS value of this; update it now for future
-            // callbacks. Require hasNewMusicOrMovie so that HyperOS's quirky
-            // first-pass callback (isActive=true, configs=[]) doesn't stamp a
-            // stale timestamp that then causes the real media callback ~665ms
-            // later to be suppressed as a "transient dip".
-            if (isActive && hasNewMusicOrMovie) lastMusicActiveAt = now
+    private fun processPlaybackConfigs(configs: List<AudioPlaybackConfiguration>?) {
+        if (ignorePlayback(configs)) return
+        val now = SystemClock.uptimeMillis()
+        val active = audioManager.isMusicActive
+        val evidence = when {
+            configs?.any { isUserMediaPlayback(it.audioAttributes.usage, it.audioAttributes.contentType) } == true -> MediaPlaybackEvidence.USER_MEDIA
+            configs.isNullOrEmpty() && sessionCallbacks.keys.any(::isPlayingLocalMedia) -> MediaPlaybackEvidence.USER_MEDIA
+            configs.isNullOrEmpty() -> MediaPlaybackEvidence.UNKNOWN
+            else -> MediaPlaybackEvidence.OTHER
+        }
+        Log.d("MediaController", "Playback observed: active=$active configurations=${configs?.size ?: 0} evidence=$evidence previousActive=${startDetector.active}")
+        if (!active && lastPlayWithReplay && now - lastPlayTime < 2500L) {
+            lastPlayWithReplay = false
+            sendPlay()
+            startDetector.rearm(true)
+            lastKnownIsMusicActive = true
+            return
+        }
+        val selfAction = now - lastSelfActionAt < SELF_ACTION_IGNORE_MS
+        val decision = startDetector.observe(active, evidence, blocked = takeoverBlocked() || selfAction)
+        lastKnownIsMusicActive = startDetector.active
+        when (decision) {
+            MediaStartDecision.REQUEST_HANDOVER -> requestMediaTakeover("playback callback")
+            MediaStartDecision.VERIFY -> scheduleMediaVerification(evidence == MediaPlaybackEvidence.USER_MEDIA)
+            MediaStartDecision.IGNORE -> if (!active) cancelMediaVerification()
+        }
+        if (active && evidence == MediaPlaybackEvidence.USER_MEDIA && shouldSuppressAutomaticTakeoverForRelay()) {
+            Log.i("MediaController", "Media handover paused: this device is sending Wi-Fi relay audio")
+        }
+        if (configs != null && !iPausedTheMedia) {
+            val localMac = ServiceManager.getService()?.localMac
+            if (!localMac.isNullOrEmpty()) ServiceManager.getService()?.aacpManager?.sendMediaInformataion(localMac, active)
+            handler.postDelayed({ userPlayedTheMedia = audioManager.isMusicActive }, 7)
         }
     }
 

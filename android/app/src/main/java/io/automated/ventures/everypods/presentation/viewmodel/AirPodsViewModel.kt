@@ -700,7 +700,8 @@ class AirPodsViewModel(
             bt?.adapter
         }.getOrNull() ?: return emptyList()
         return CrossDevice.configuredPeers.map { mac ->
-            val name = runCatching { adapter.getRemoteDevice(mac).name }.getOrNull() ?: mac
+            val name = runCatching { adapter.getRemoteDevice(mac).name }.getOrNull()?.takeIf(String::isNotBlank)
+                ?: appContext.getString(io.automated.ventures.everypods.R.string.audio_relay_device_fallback)
             PeerUiInfo(
                 mac = mac,
                 name = name,

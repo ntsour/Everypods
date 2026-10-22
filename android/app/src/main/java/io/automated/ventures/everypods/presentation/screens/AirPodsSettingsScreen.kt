@@ -201,7 +201,7 @@ internal fun searchIndex(context: Context): List<SearchableItem> {
     )
     val englishConfiguration = android.content.res.Configuration(context.resources.configuration).apply { setLocale(Locale.ENGLISH) }
     val englishItems = buildSearchIndex(context.createConfigurationContext(englishConfiguration))
-    return buildSearchIndex(context).mapIndexed { index, item ->
+    val indexed = buildSearchIndex(context).mapIndexed { index, item ->
         val route = canonicalSettingsRoute(item.directRoute)
         val key = if (route.startsWith("category/")) route.substringAfter("category/").substringBefore('?')
             else when (route.substringBefore('?')) {
@@ -212,7 +212,15 @@ internal fun searchIndex(context: Context): List<SearchableItem> {
             category = categoryLabels[key] ?: item.category,
             keywords = item.keywords + categoryAliases[item.categoryKey].orEmpty() + englishItems[index].label)
     }
-
+    return if (io.automated.ventures.everypods.BuildConfig.AUDIO_RELAY_PREVIEW) {
+        indexed + SearchableItem(
+            context.getString(R.string.audio_relay_playback),
+            context.getString(R.string.design_connection),
+            "connection",
+            "category/connection?anchor=connections",
+            keywords = listOf("wifi audio", "play through", "relay", "handover"),
+        )
+    } else indexed
 }
 
 private fun buildSearchIndex(context: Context): List<SearchableItem> = listOf(
@@ -266,7 +274,7 @@ private fun buildSearchIndex(context: Context): List<SearchableItem> = listOf(
     SearchableItem(context.getString(R.string.personalized_volume),      "Audio & Connection", "audio", "category/audio?anchor=personalized_volume", keywords = listOf("adaptive volume", "volume adjust", "environment", "volumen personalizado")),
     SearchableItem(context.getString(R.string.equalizer), "Audio & Connection", "audio", "equalizer_screen", keywords = listOf("Equalizer", "eq", "ecualizador")),
     SearchableItem(context.getString(R.string.cross_device_handover),"Audio & Connection", "audio", "category/audio?anchor=handover", keywords = listOf("cross device", "auto switch", "handover", "other device", "traspaso")),
-    SearchableItem(context.getString(R.string.ui_peer_android_device),      "Audio & Connection", "audio", "paired_devices", keywords = listOf("peer", "other device", "android", "handover", "cross device", "dispositivo android")),
+    SearchableItem(context.getString(R.string.ui_peer_android_device),      "Audio & Connection", "audio", "category/connection?anchor=connections", keywords = listOf("peer", "other device", "android", "handover", "cross device", "dispositivo android")),
     SearchableItem("Ear Detection",            "Audio & Connection", "audio", "category/audio?anchor=ear_detection", keywords = listOf("auto pause", "in ear", "wear detection", "detección de oído")),
     SearchableItem("Disconnect When Not Wearing","Audio & Connection","audio", "category/audio?anchor=disconnect_when_not_wearing", keywords = listOf("auto disconnect", "wear detection", "desconectar al quitar")),
     SearchableItem(context.getString(R.string.ui_microphone_settings),      "Audio & Connection", "audio", "microphone_settings", keywords = listOf("mic", "microphone mode")),
@@ -312,9 +320,9 @@ private fun buildSearchIndex(context: Context): List<SearchableItem> = listOf(
     SearchableItem("Gym Timer Configuration", "Smart Features", "smart", "gym_timer", keywords = listOf("gym timer duration", "countdown timer", "hiit", "temporizador gym")),
     SearchableItem("Gym Timer Announcements", "Smart Features", "smart", "gym_timer", keywords = listOf("timer voice", "gym speech", "anuncios del temporizador")),
     SearchableItem("Gym Gesture Actions", "AirPods Controls", "controls", "gym_press_actions", keywords = listOf("gym stem controls", "gym double press", "acciones de gimnasio")),
-    SearchableItem("Add or Remove Paired Device", "Audio & Connection", "audio", "paired_devices", keywords = listOf("add peer", "remove peer", "connected devices", "añadir dispositivo")),
+    SearchableItem("Add or Remove Paired Device", "Audio & Connection", "audio", "category/connection?anchor=connections", keywords = listOf("add peer", "remove peer", "connected devices", "añadir dispositivo")),
     SearchableItem("Case Open Auto Connect", "Audio & Connection", "audio", "category/audio?anchor=lid_open_autoconnect", keywords = listOf("open case connect", "last device", "case open", "conectar al abrir estuche")),
-    SearchableItem("Selected Handover Peer", "Audio & Connection", "audio", "paired_devices", keywords = listOf("selected device", "peer device", "dispositivo seleccionado")),
+    SearchableItem("Selected Handover Peer", "Audio & Connection", "audio", "category/connection?anchor=connections", keywords = listOf("selected device", "peer device", "dispositivo seleccionado")),
 )
 
 private fun normalizeSearchText(value: String): String = Normalizer
@@ -734,10 +742,9 @@ private fun PeerConnectionWarning(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                stringResource(R.string.peer_connection_warning_title),
-                modifier = Modifier.weight(1f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+                if (offlinePeers.size == 1) stringResource(R.string.peer_connection_warning_title)
+                else stringResource(R.string.peer_connection_warning_title_many, offlinePeers.size),
+                modifier = Modifier.weight(1f).padding(end = 8.dp),
                 style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = warningTitle, fontFamily = SfPro),
             )
             Text(
@@ -796,46 +803,50 @@ private fun ConnectedScreen(
     // with a fixed-height tile grid so everything is reachable.
     val configuration = androidx.compose.ui.platform.LocalConfiguration.current
     val isShortViewport = configuration.screenHeightDp < 480
+    var relayCardVisible by remember { mutableStateOf(false) }
+    val hasOfflineConnectionWarning = state.crossDevicePeers.any { !it.connected }
+    // Warnings and relay status are additive content. Keep the category tiles at
+    // their normal height and let the Home column scroll instead of giving the
+    // tile grid less space when these cards appear.
+    val scrollHome = isShortViewport || hasOfflineConnectionWarning || relayCardVisible
+    val scrollGridHeight = if (isShortViewport) 240.dp else
+        (configuration.screenHeightDp * 0.42f).coerceIn(300f, 420f).dp
     Column(
         modifier = Modifier
             .fillMaxSize()
             .hazeSource(hazeState)
             .padding(horizontal = 16.dp)
             .padding(top = topPadding, bottom = bottomPadding)
-            .then(if (isShortViewport) Modifier.verticalScroll(rememberScrollState()) else Modifier)
+            .then(if (scrollHome) Modifier.verticalScroll(rememberScrollState()) else Modifier)
             .then(if (blockTouches) Modifier.pointerInput(Unit) {
                 awaitPointerEventScope { while (true) { val e = awaitPointerEvent(PointerEventPass.Initial); e.changes.forEach { it.consume() } } }
             } else Modifier),
     ) {
-        // ── Audio-route status ─────────────────────────────────────────────────
-        // Limited-mode devices always render ConnectedScreen even when the audio
-        // isn't routed here — so show an explicit indicator. AACP-capable
-        // devices show "Connected" when AACP is up; otherwise show A2DP or "on
-        // another device" / "not nearby".
+        // Limited-mode devices can render this screen while AirPods are elsewhere.
+        // Keep that actionable status; a successful local connection needs no label.
         val audioHere = state.isLocallyConnected || state.isA2dpConnected
-        val airpodsNearby = state.battery.isNotEmpty()
-        val (statusText, statusDot) = when {
-            audioHere -> "Connected — audio routed here" to Color(0xFF34C759)
-            airpodsNearby -> "AirPods on another device or in the case" to Color(0xFFFF9500)
-            else -> "AirPods not nearby" to Color(0xFF8E8E93)
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Box(
-                modifier = Modifier.size(8.dp)
-                    .background(statusDot, RoundedCornerShape(50))
-            )
-            Text(
-                statusText,
-                style = TextStyle(
-                    fontSize = 13.sp,
-                    fontFamily = SfPro,
-                    color = if (dark) Color.White.copy(0.7f) else Color.Black.copy(0.7f)
+        if (!audioHere) {
+            val airpodsNearby = state.battery.isNotEmpty()
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Box(
+                    modifier = Modifier.size(8.dp).background(
+                        if (airpodsNearby) Color(0xFFFF9500) else Color(0xFF8E8E93),
+                        RoundedCornerShape(50),
+                    ),
                 )
-            )
+                Text(
+                    stringResource(if (airpodsNearby) R.string.airpods_nearby_elsewhere else R.string.airpods_not_nearby),
+                    style = TextStyle(
+                        fontSize = 13.sp,
+                        fontFamily = SfPro,
+                        color = if (dark) Color.White.copy(0.7f) else Color.Black.copy(0.7f),
+                    ),
+                )
+            }
         }
 
         PeerConnectionWarning(
@@ -847,11 +858,22 @@ private fun ConnectedScreen(
             },
         )
 
+        AudioRelayHomeSurface(
+            peers = state.crossDevicePeers,
+            localAirPodsConnected = state.isLocallyConnected || state.isA2dpConnected,
+            navController = navController,
+            modifier = Modifier.padding(top = 8.dp),
+            onContentVisibilityChanged = { relayCardVisible = it },
+        )
+
         // ── Battery ──────────────────────────────────────────────────────────
         BatteryView(
             batteryList = state.battery,
             budsRes = state.instance?.model?.budsRes ?: R.drawable.airpods_pro_2_case,
-            caseRes = state.instance?.model?.caseRes ?: R.drawable.airpods_pro_2_case
+            caseRes = state.instance?.model?.caseRes ?: R.drawable.airpods_pro_2_case,
+            caseControl = if (state.aacpAvailable && state.modelIdentified && capabilities.contains(Capability.HRM)) {
+                { io.automated.ventures.everypods.presentation.components.HeartRateCaseControl(viewModel) }
+            } else null,
         )
 
         // ── Listening Mode ────────────────────────────────────────────────
@@ -894,11 +916,11 @@ private fun ConnectedScreen(
         Spacer(Modifier.height(8.dp))
 
         // ── Tile grid ─────────────────────────────────────────────────────
-        // Tall viewports: fill remaining space via weight. Short viewports: weight
-        // is illegal inside a vertical scroll and would also collapse, so use a
-        // fixed height tall enough for the three rows.
+        // In scroll mode, preserve a useful menu size independently of warning
+        // content. The screen-height proportion follows the normal weight-based
+        // grid size on portrait phones and remains bounded on tablets.
         CategoryTileGrid(
-            modifier = if (isShortViewport) Modifier.fillMaxWidth().height(240.dp) else Modifier.weight(1f),
+            modifier = if (scrollHome) Modifier.fillMaxWidth().height(scrollGridHeight) else Modifier.weight(1f),
             navController = navController,
             dark = dark
         )
@@ -1042,6 +1064,7 @@ private fun DisconnectedScreen(
     val textColor = if (dark) Color.White else Color.Black
     val tapCount  = remember { mutableIntStateOf(0) }
     val lastTap   = remember { mutableLongStateOf(0L) }
+    val handoverTemporarilyPaused by io.automated.ventures.everypods.relay.DeviceConnectionStore.emittingState.collectAsState()
     val peerCount = state.crossDevicePeers.size
     val handoverUnlocked = peerCount >= 1
     // Same gate as before: show reconnect when a saved MAC exists (or a prior
@@ -1179,6 +1202,14 @@ private fun DisconnectedScreen(
             )
         }
 
+        item(key = "audio_relay") {
+            AudioRelayHomeSurface(
+                peers = state.crossDevicePeers,
+                localAirPodsConnected = state.isLocallyConnected || state.isA2dpConnected,
+                navController = navController,
+            )
+        }
+
         // Keep the disconnected hub's connection, handover, finder, and support tools.
         // Their headings and group surfaces follow the shared settings hierarchy.
         item(key = "connections") {
@@ -1187,18 +1218,15 @@ private fun DisconnectedScreen(
             ) {
                 Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(stringResource(R.string.connections_guide), style = TextStyle(fontSize = 13.sp, fontFamily = SfPro, color = textColor.copy(0.55f)))
-                    CrossDevicePeersInline(
-                        peers = state.crossDevicePeers,
-                        onAddPeer = viewModel::addCrossDevicePeer,
-                        onRemovePeer = viewModel::removeCrossDevicePeer,
-                    )
+                    DeviceConnectionsList(viewModel, navController)
                     HorizontalDivider(thickness = 1.dp, color = Color(0x40888888))
                     StyledToggle(
                         label = stringResource(R.string.lid_open_last_holder_autoconnect),
                         description = stringResource(R.string.lid_open_last_holder_autoconnect_description),
-                        checked = state.lidOpenLastHolderAutoconnect,
+                        checked = state.lidOpenLastHolderAutoconnect && !handoverTemporarilyPaused,
                         onCheckedChange = viewModel::setLidOpenLastHolderAutoconnect,
-                        independent = true
+                        independent = true,
+                        enabled = !handoverTemporarilyPaused
                     )
                 }
             }
@@ -1210,32 +1238,36 @@ private fun DisconnectedScreen(
             ) {
                 Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(stringResource(R.string.handover_guide), style = TextStyle(fontSize = 13.sp, fontFamily = SfPro, color = textColor.copy(0.55f)))
+                    if (handoverTemporarilyPaused) {
+                        Text(stringResource(R.string.audio_relay_auto_takeover_suppressed), style = TextStyle(fontSize = 13.sp, fontFamily = SfPro, color = textColor.copy(0.55f)))
+                    }
                     if (!handoverUnlocked) {
                         Text(stringResource(R.string.handover_needs_peer_helper), style = TextStyle(fontSize = 13.sp, fontFamily = SfPro, color = textColor.copy(0.5f)))
                     }
                     StyledToggle(
                         label = stringResource(R.string.cross_device_handover),
                         description = stringResource(R.string.cross_device_handover_description),
-                        checked = state.crossDeviceEnabled,
+                        checked = state.crossDeviceEnabled && !handoverTemporarilyPaused,
                         onCheckedChange = { viewModel.setCrossDeviceEnabled(it) },
                         independent = true,
-                        enabled = handoverUnlocked
+                        enabled = handoverUnlocked && !handoverTemporarilyPaused
                     )
                     StyledToggle(
                         label = stringResource(R.string.takeover_media_start),
                         description = stringResource(R.string.takeover_media_start_desc),
-                        checked = appState.takeoverWhenMediaStart,
+                        checked = appState.takeoverWhenMediaStart && !handoverTemporarilyPaused,
                         onCheckedChange = appSettingsViewModel::setTakeoverWhenMediaStart,
                         independent = true,
-                        enabled = handoverUnlocked
+                        enabled = handoverUnlocked && !handoverTemporarilyPaused
                     )
+                    if (state.crossDeviceEnabled && appState.takeoverWhenMediaStart) io.automated.ventures.everypods.presentation.components.MediaHandoverAccessNotice()
                     StyledToggle(
                         label = stringResource(R.string.takeover_ringing_call),
                         description = stringResource(R.string.takeover_ringing_call_desc),
-                        checked = appState.takeoverWhenRingingCall,
+                        checked = appState.takeoverWhenRingingCall && !handoverTemporarilyPaused,
                         onCheckedChange = appSettingsViewModel::setTakeoverWhenRingingCall,
                         independent = true,
-                        enabled = handoverUnlocked
+                        enabled = handoverUnlocked && !handoverTemporarilyPaused
                     )
                 }
             }
