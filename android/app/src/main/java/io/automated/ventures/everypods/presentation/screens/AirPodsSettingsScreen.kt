@@ -822,35 +822,31 @@ private fun ConnectedScreen(
                 awaitPointerEventScope { while (true) { val e = awaitPointerEvent(PointerEventPass.Initial); e.changes.forEach { it.consume() } } }
             } else Modifier),
     ) {
-        // ── Audio-route status ─────────────────────────────────────────────────
-        // Limited-mode devices always render ConnectedScreen even when the audio
-        // isn't routed here — so show an explicit indicator. AACP-capable
-        // devices show "Connected" when AACP is up; otherwise show A2DP or "on
-        // another device" / "not nearby".
+        // Limited-mode devices can render this screen while AirPods are elsewhere.
+        // Keep that actionable status; a successful local connection needs no label.
         val audioHere = state.isLocallyConnected || state.isA2dpConnected
-        val airpodsNearby = state.battery.isNotEmpty()
-        val (statusText, statusDot) = when {
-            audioHere -> stringResource(R.string.island_connected_text) to Color(0xFF34C759)
-            airpodsNearby -> stringResource(R.string.airpods_nearby_elsewhere) to Color(0xFFFF9500)
-            else -> stringResource(R.string.airpods_not_nearby) to Color(0xFF8E8E93)
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Box(
-                modifier = Modifier.size(8.dp)
-                    .background(statusDot, RoundedCornerShape(50))
-            )
-            Text(
-                statusText,
-                style = TextStyle(
-                    fontSize = 13.sp,
-                    fontFamily = SfPro,
-                    color = if (dark) Color.White.copy(0.7f) else Color.Black.copy(0.7f)
+        if (!audioHere) {
+            val airpodsNearby = state.battery.isNotEmpty()
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Box(
+                    modifier = Modifier.size(8.dp).background(
+                        if (airpodsNearby) Color(0xFFFF9500) else Color(0xFF8E8E93),
+                        RoundedCornerShape(50),
+                    ),
                 )
-            )
+                Text(
+                    stringResource(if (airpodsNearby) R.string.airpods_nearby_elsewhere else R.string.airpods_not_nearby),
+                    style = TextStyle(
+                        fontSize = 13.sp,
+                        fontFamily = SfPro,
+                        color = if (dark) Color.White.copy(0.7f) else Color.Black.copy(0.7f),
+                    ),
+                )
+            }
         }
 
         PeerConnectionWarning(

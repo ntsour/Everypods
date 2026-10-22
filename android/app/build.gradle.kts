@@ -120,10 +120,8 @@ android {
         }
         create("relayPreview") {
             initWith(getByName("debug"))
-            applicationIdSuffix = ".relay"
             versionNameSuffix = "-relay"
             buildConfigField("Boolean", "AUDIO_RELAY_PREVIEW", "true")
-            manifestPlaceholders["appLabel"] = "EveryPods Relay"
             signingConfig = signingConfigs.getByName("debug")
         }
         create("playDebug") {
