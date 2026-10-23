@@ -98,9 +98,10 @@ object LidAutoconnectDiagnostics {
     /** Record a raw log line if it looks lid/conn-related. */
     @Synchronized
     fun recordRawLine(line: String) {
-        if (!isRelevant(line)) return
+        val safeLine = redactIdentifiers(line).take(1_000)
+        if (!isRelevant(safeLine)) return
         val now = System.currentTimeMillis()
-        ring.addLast(RingEntry(now, line))
+        ring.addLast(RingEntry(now, safeLine))
         pruneLocked(now)
     }
 
@@ -133,6 +134,32 @@ object LidAutoconnectDiagnostics {
         recordRawLine(line)
         updateSnapshotFromEvent(event, fields)
     }
+
+    /** Safe lifecycle telemetry for peer/DIRCON recovery; address and payload fields are never admitted. */
+    fun logConnectionEvent(component: String, event: String, fields: Map<String, Any?> = emptyMap()) {
+        val allowed = setOf(
+            "state", "phase", "error", "cause", "attempt", "retryMs", "retryAtElapsedMs",
+            "generation", "protocol", "clients", "subscriptions", "sent", "requests", "queued",
+            "ageMs", "sampleAgeMs", "listener", "decision", "reason",
+        )
+        val line = buildString {
+            append(CONN_MARKER).append(' ').append(component.take(16)).append(" connection ").append(event.take(24))
+            for ((key, value) in fields) {
+                if (key !in allowed || value == null) continue
+                val safe = redactIdentifiers(value.toString())
+                    .filter { it.isLetterOrDigit() || it in "._:-[] " }
+                    .take(128)
+                append(' ').append(key).append('=').append(safe)
+            }
+        }
+        Log.d(TAG, line)
+        recordRawLine(line)
+    }
+
+    private fun redactIdentifiers(value: String): String = value
+        .replace(Regex("(?i)([0-9a-f]{2}:){5}[0-9a-f]{2}"), "[redacted-mac]")
+        .replace(Regex("(?i)\\b[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\\b"), "[redacted-id]")
+        .replace(Regex("(?<![0-9])(?:[0-9]{1,3}\\.){3}[0-9]{1,3}(?![0-9])"), "[redacted-address]")
 
     private fun updateSnapshotFromEvent(event: String, fields: Map<String, Any?>) {
         val s = snapshot

@@ -3,10 +3,10 @@ package io.automated.ventures.everypods.presentation.components
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -16,12 +16,15 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.outlined.Bluetooth
+import androidx.compose.material.icons.outlined.Wifi
 import androidx.compose.material.icons.outlined.FavoriteBorder
-import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -30,10 +33,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -59,6 +59,15 @@ fun HeartRateCaseControl(viewModel: AirPodsViewModel) {
     val ui by viewModel.uiState.collectAsState()
     val session by viewModel.heartRateState.collectAsState()
     val sharing by viewModel.heartRateSharingState.collectAsState()
+    val preferences = remember(context) { context.getSharedPreferences("settings", android.content.Context.MODE_PRIVATE) }
+    var configuredMethod by remember(context) { mutableStateOf(HeartRateSharingPrefs.configuredMethod(context)) }
+    DisposableEffect(preferences) {
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == HeartRateSharingPrefs.METHOD) configuredMethod = HeartRateSharingPrefs.configuredMethod(context)
+        }
+        preferences.registerOnSharedPreferenceChangeListener(listener)
+        onDispose { preferences.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
     var pendingMethod by rememberSaveable { mutableStateOf(HeartRateSharingPrefs.method(context)) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
         if (result.values.all { it }) {
@@ -68,12 +77,19 @@ fun HeartRateCaseControl(viewModel: AirPodsViewModel) {
             Toast.makeText(context, R.string.hrm_share_permission, Toast.LENGTH_LONG).show()
         }
     }
+    val presentation = heartRateCasePresentation(session, sharing, configuredMethod)
     val active = session.running || sharing.active
     val ready = ui.aacpAvailable && ui.isLocallyConnected
-    val bpm = session.bpm.takeIf { session.status == HeartRateStatus.LIVE && !sharing.recovering }
+    val bpm = presentation.bpm
     val failureText = when (sharing.error) {
+        SharingError.WIFI_REQUIRED -> R.string.hrm_share_wifi
+        SharingError.UNSUPPORTED_NETWORK -> R.string.dircon_ipv4_required
+        SharingError.NETWORK_LOST -> R.string.hrm_share_network_lost
+        SharingError.ADVERTISEMENT -> R.string.hrm_share_advertisement
+        SharingError.PORT_IN_USE -> R.string.dircon_port_in_use
         SharingError.WAHOO_UNAVAILABLE -> R.string.hrs_wahoo_missing
-        SharingError.PERMISSION, SharingError.BLUETOOTH_PERMISSION -> R.string.hrm_share_permission
+        SharingError.PERMISSION, SharingError.BLUETOOTH_PERMISSION ->
+            if (pendingMethod == HeartRateSharingMethod.DIRCON) R.string.dircon_permission else R.string.hrm_share_permission
         SharingError.BLUETOOTH_UNSUPPORTED -> R.string.hrm_ble_unsupported
         SharingError.BLUETOOTH_GATT -> R.string.hrm_ble_gatt
         SharingError.BLUETOOTH_ADVERTISING -> R.string.hrm_ble_advertising
@@ -104,29 +120,49 @@ fun HeartRateCaseControl(viewModel: AirPodsViewModel) {
         active -> stringResource(R.string.hrm_waiting)
         else -> stringResource(R.string.hrm_stopped)
     }
-    val action = stringResource(if (active) R.string.hrm_share_stop else R.string.hrs_start_sharing)
+    val action = stringResource(when {
+        active -> R.string.hrm_share_stop
+        configuredMethod == null -> R.string.hrs_start_monitoring
+        else -> R.string.hrs_start_sharing
+    })
     val title = stringResource(R.string.hrs_title)
-    // Case artwork stays white in both themes. Keep the overlay legible on its surface.
-    val ink = Color(0xFF34393C).copy(alpha = if (ready || active) 1f else 0.45f)
-    val liveColor = Color(0xFFC34E58)
-    val broadcastColor = Color(0xFF39764A)
-    val sending = sharing.active && !sharing.recovering && bpm != null &&
-        (sharing.wahooDiagnostic || (sharing.bluetoothPeripheral && sharing.advertised))
+    // The physical case artwork is white in both themes.
+    val ink = Color(0xFF202124)
+    val inactiveColor = Color(0xFF9A9A9A)
+    val liveColor = Color(0xFFE53935)
+    val sharingDescription = presentation.method?.let { method ->
+        val name = stringResource(when (method) {
+            HeartRateSharingMethod.TICKR -> R.string.hrs_tickr
+            HeartRateSharingMethod.BLUETOOTH -> R.string.hrs_bluetooth
+            HeartRateSharingMethod.DIRCON -> R.string.dircon_method
+        })
+        val state = stringResource(if (presentation.sharing) when (method) {
+            HeartRateSharingMethod.TICKR -> R.string.hrs_tickr_sending
+            HeartRateSharingMethod.BLUETOOTH -> R.string.hrs_ble_ready
+            HeartRateSharingMethod.DIRCON -> R.string.dircon_ready
+        } else R.string.hrs_sharing_off)
+        "$name, $state"
+    }
     BoxWithConstraints(
         Modifier.widthIn(min = 48.dp, max = 110.dp).heightIn(min = 48.dp)
             .semantics(mergeDescendants = true) {
                 contentDescription = title
-                stateDescription = status
+                stateDescription = listOfNotNull(status, sharingDescription).joinToString(", ")
             }
             .clickable(enabled = active || ready, role = Role.Button, onClickLabel = action) {
+                val selected = HeartRateSharingPrefs.configuredMethod(context)
                 if (viewModel.heartRateState.value.running || viewModel.heartRateSharingState.value.active) {
                     viewModel.stopHeartRate()
+                } else if (selected == null) {
+                    viewModel.startHeartRate()
                 } else {
-                    pendingMethod = HeartRateSharingPrefs.method(context)
+                    pendingMethod = selected
                     val missing = buildList {
                         add(Manifest.permission.POST_NOTIFICATIONS)
                         add(Manifest.permission.BLUETOOTH_CONNECT)
                         if (pendingMethod == HeartRateSharingMethod.BLUETOOTH) add(Manifest.permission.BLUETOOTH_ADVERTISE)
+                        if (pendingMethod == HeartRateSharingMethod.DIRCON && Build.VERSION.SDK_INT >= 37)
+                            add("android.permission.ACCESS_LOCAL_NETWORK")
                     }.filter { context.checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
                     if (missing.isEmpty()) viewModel.startHeartRateSharing(pendingMethod)
                     else permission.launch(missing.toTypedArray())
@@ -137,20 +173,23 @@ fun HeartRateCaseControl(viewModel: AirPodsViewModel) {
         val largeText = LocalDensity.current.fontScale > 1.3f || maxWidth < 80.dp
         val heart: @Composable () -> Unit = {
             Icon(
-                if (!active && failureText != null) Icons.Outlined.Refresh else Icons.Outlined.FavoriteBorder,
+                if (presentation.monitoring) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                 contentDescription = null,
-                tint = if (bpm != null) liveColor else ink,
-                modifier = Modifier.size(if (active) 16.dp else 21.dp),
+                tint = if (presentation.monitoring) liveColor else inactiveColor,
+                modifier = Modifier.size(if (presentation.monitoring) 16.dp else 21.dp),
             )
         }
         val signal: @Composable () -> Unit = {
-            if (sharing.recovering || (active && bpm == null && session.status != HeartRateStatus.STALE)) {
-                CircularProgressIndicator(Modifier.size(12.dp), color = ink, strokeWidth = 1.dp)
-            } else {
-                BroadcastArcs(if (sending) broadcastColor else ink.copy(alpha = 0.45f))
+            presentation.method?.let { method ->
+                val color = if (presentation.sharing) ink else inactiveColor
+                when (method) {
+                    HeartRateSharingMethod.TICKR -> Text(stringResource(R.string.hrs_tickr_case_symbol), color = color, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    HeartRateSharingMethod.BLUETOOTH -> Icon(Icons.Outlined.Bluetooth, contentDescription = null, tint = color, modifier = Modifier.size(17.dp))
+                    HeartRateSharingMethod.DIRCON -> Icon(Icons.Outlined.Wifi, contentDescription = null, tint = color, modifier = Modifier.size(17.dp))
+                }
             }
         }
-        if (active && largeText) {
+        if (presentation.monitoring && largeText) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Row(horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
                     heart()
@@ -161,23 +200,9 @@ fun HeartRateCaseControl(viewModel: AirPodsViewModel) {
         } else {
             Row(horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
                 heart()
-                if (active) Text(bpm?.toString() ?: "—", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = ink)
+                if (presentation.monitoring) Text(bpm?.toString() ?: "—", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = ink)
                 signal()
             }
-        }
-    }
-}
-
-@Composable
-private fun BroadcastArcs(color: Color) {
-    Canvas(Modifier.size(width = 13.dp, height = 22.dp)) {
-        for (radius in listOf(4.dp, 8.dp, 12.dp)) {
-            val r = radius.toPx()
-            drawArc(
-                color, startAngle = -45f, sweepAngle = 90f, useCenter = false,
-                topLeft = Offset(-r, size.height / 2 - r), size = Size(r * 2, r * 2),
-                style = Stroke(width = 1.2.dp.toPx()),
-            )
         }
     }
 }

@@ -63,7 +63,6 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
-import io.automated.ventures.everypods.BuildConfig
 import io.automated.ventures.everypods.R
 import io.automated.ventures.everypods.presentation.components.StyledScaffold
 import io.automated.ventures.everypods.presentation.viewmodel.AirPodsViewModel
@@ -164,7 +163,7 @@ fun PairedDevicesScreen(viewModel: AirPodsViewModel, navController: NavControlle
                             onReconnect = { viewModel.reconnectCrossDevicePeer(peer.mac) },
                             onRemove = { confirmRemoveMac = peer.mac },
                             onPlayback = { navController.navigate("device_playback/${android.net.Uri.encode(peer.mac)}") },
-                            showPlayback = BuildConfig.AUDIO_RELAY_PREVIEW,
+                            showPlayback = true,
                         )
                     }
                 }

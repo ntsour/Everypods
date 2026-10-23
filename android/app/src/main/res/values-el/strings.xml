@@ -36,7 +36,7 @@
     <string name="disconnected_hero_guide">Αν έχετε ήδη κάνει σύζευξη, πατήστε Επανασύνδεση για να συνδεθείτε.</string>
     <string name="reconnect_to_last">Επανασύνδεση στην τελευταία συσκευή</string>
     <string name="connections_title">Συνδέσεις</string>
-    <string name="connections_guide">Διαχειριστείτε τις συσκευές Android που μοιράζονται αυτά τα AirPods. Απαιτείται για την εναλλαγή συσκευής.</string>
+    <string name="connections_guide">Διαχειριστείτε τις συσκευές Android που μοιράζονται αυτά τα AirPods. Οι συνδέσεις BT απαιτούνται για εναλλαγή συσκευής. Οι συνδέσεις Wi-Fi απαιτούνται για μετάδοση ήχου.</string>
     <string name="connections_empty">Δεν έχουν προστεθεί άλλες συσκευές.</string>
     <string name="add_peer">Προσθήκη συσκευής</string>
     <string name="add_peer_android_device">Προσθήκη συσκευής Android</string>
@@ -52,7 +52,7 @@
     <string name="remove_peer_confirm_message">Να αφαιρεθεί η συσκευή %1$s από τις συνδεδεμένες συσκευές;</string>
     <string name="handover_title">Εναλλαγή συσκευής</string>
     <string name="handover_guide">Όταν είναι ενεργό, αυτό το τηλέφωνο μπορεί να συνδεθεί στα AirPods όταν ξεκινάτε αναπαραγωγή ή λαμβάνετε κλήση. Λειτουργεί μόνο μεταξύ συνδεδεμένων συσκευών.</string>
-    <string name="handover_needs_peer_helper">Προσθέστε άλλη συσκευή στις Συνδέσεις για να χρησιμοποιήσετε την εναλλαγή συσκευής.</string>
+    <string name="handover_needs_peer_helper">Προσθέστε μια σύνδεση εναλλαγής BT στις Συνδέσεις και συνδέστε τη συσκευή για να χρησιμοποιήσετε την εναλλαγή.</string>
     <string name="find_my_airpods_title">Εύρεση AirPods</string>
     <string name="find_my_airpods_guide">Μετακινηθείτε από δωμάτιο σε δωμάτιο και χρησιμοποιήστε την ισχύ του σήματος για να εντοπίσετε τη θήκη.</string>
     <string name="get_help_title">Βοήθεια</string>
@@ -801,7 +801,7 @@
     <string name="audio_relay_network_unavailable">Δεν μπορεί να χρησιμοποιηθεί το επιλεγμένο δίκτυο. Ελέγξτε τις συνδέσεις Wi-Fi ή hotspot και δοκιμάστε ξανά.</string>
     <string name="audio_relay_start">Έναρξη</string>
     <string name="audio_relay_devices">Συσκευές</string>
-    <string name="audio_relay_relay_home_title">Μετάδοση ήχου</string>
+    <string name="audio_relay_relay_home_title">Μετάδοση ήχου μέσω Wi-Fi</string>
     <string name="audio_relay_start_detail">Τα AirPods παραμένουν συνδεδεμένα στο %1$s</string>
     <string name="audio_relay_ready_detail">%1$d συζευγμένες συσκευές σε σύνδεση</string>
     <string name="audio_relay_switch_to_peer">Αλλαγή στο %1$s</string>
@@ -830,7 +830,7 @@
     <string name="connection_type_wifi">Αναμετάδοση Wi-Fi</string>
     <string name="connection_remove_title">Κατάργηση σύνδεσης;</string>
     <string name="connection_remove_wifi">Να καταργηθεί η αναμετάδοση Wi-Fi με το %1$s και στις δύο συσκευές; Κάθε αναμετάδοση μεταξύ τους θα σταματήσει.</string>
-    <string name="connection_remove_bt">Να καταργηθεί η μεταφορά μέσω BT με το %1$s από αυτή τη συσκευή;</string>
+    <string name="connection_remove_bt">Να αφαιρεθεί η εναλλαγή BT με %1$s και στις δύο συσκευές; Η άλλη συσκευή θα ενημερωθεί όταν επανασυνδεθεί.</string>
     <string name="connection_remove_accessibility">Κατάργηση σύνδεσης %1$s με το %2$s</string>
     <string name="connection_pair_android_first">Πρώτα πραγματοποιήστε σύζευξη των συσκευών Android στις ρυθμίσεις Bluetooth.</string>
     <string name="connection_no_airpods_there">Σε σύνδεση · Τα AirPods δεν είναι συνδεδεμένα εκεί</string>
@@ -890,4 +890,24 @@
     <string name="audio_relay_preset_duplicate">Υπάρχει ήδη προρύθμιση με αυτό το όνομα.</string>
     <string name="audio_relay_capture_delivery">Χρόνος παράδοσης λήψης (μέσος): %1$d ms</string>
     <string name="audio_relay_capture_read_peak">Αναμονή ανάγνωσης λήψης (μέγιστη): %1$d ms</string>
+
+    <!-- DIRCON heart-rate sharing -->
+    <string name="dircon_method">Αισθητήρας καρδιακού ρυθμού Wi-Fi (DIRCON)</string>
+    <string name="dircon_hint">Σύνδεσε έναν συμβατό δέκτη στο ίδιο δίκτυο Wi-Fi. Κοινοποιούνται πραγματικές μετρήσεις καρδιακού ρυθμού από τα AirPods. Όλες οι συσκευές αυτού του δικτύου μπορούν να συνδεθούν όσο η κοινοποίηση είναι ενεργή.</string>
+    <string name="dircon_ready">Ο αισθητήρας Wi-Fi είναι διαθέσιμος · αναμονή δέκτη</string>
+    <string name="dircon_connected">Ο δέκτης συνδέθηκε · αναμονή εγγραφής καρδιακού ρυθμού</string>
+    <string name="dircon_subscribed">Ο δέκτης λαμβάνει ζωντανό καρδιακό ρυθμό</string>
+    <string name="dircon_preparing">Προετοιμασία αισθητήρα Wi-Fi…</string>
+    <string name="dircon_permission">Επίτρεψε πρόσβαση στο τοπικό δίκτυο και ειδοποιήσεις για κοινοποίηση καρδιακού ρυθμού.</string>
+    <string name="dircon_diagnostics">Αισθητήρας: %1$s
+Τελικό σημείο: %2$s:%3$d
+Αιτήματα πρωτοκόλλου: %4$d</string>
+    <string name="dircon_port_in_use">Αυτή η θύρα DIRCON χρησιμοποιείται ήδη. Σταμάτησε την άλλη κοινή χρήση καρδιακού ρυθμού και δοκίμασε ξανά.</string>
+    <string name="dircon_ipv4_required">Αυτό το δίκτυο Wi-Fi δεν διαθέτει υποστηριζόμενη τοπική διεύθυνση IPv4. Συνδέσου σε τυπικό δίκτυο Wi-Fi IPv4 και δοκίμασε ξανά.</string>
+    <string name="connection_sync_pending">Αναμονή για την άλλη συσκευή…</string>
+    <string name="connection_bt_removal_pending">Εκκρεμεί η αφαίρεση εναλλαγής BT: %1$s</string>
+    <string name="connection_type_bt_description">Απαιτείται για εναλλαγή μεταξύ συσκευών.</string>
+    <string name="connection_type_wifi_description">Απαιτείται για μετάδοση ήχου μέσω Wi-Fi.</string>
+    <string name="hrs_monitor_only">Μόνο παρακολούθηση (χωρίς κοινοποίηση)</string>
+    <string name="hrs_sharing_off">Η κοινοποίηση είναι ανενεργή</string>
 </resources>

@@ -183,7 +183,7 @@
     <string name="connected_via_bluetooth">通过蓝牙连接</string>
     <string name="connected_via_bluetooth_description">音频和切换工作。高级功能（噪声控制、耳朵检测等）需要 AACP 连接，该连接在此设备上不可用。</string>
     <string name="connections_empty">尚未添加其他手机。</string>
-    <string name="connections_guide">管理共享这些 AirPods 的 Android 手机。需要启用切换。</string>
+    <string name="connections_guide">管理共享这些 AirPods 的 Android 设备。设备切换需要蓝牙连接，音频传输需要 Wi-Fi 连接。</string>
     <string name="connections_title">连接</string>
     <string name="contact">联系方式</string>
     <string name="conversational_awareness_master_description">当您开始讲话时，降低媒体音量（并可选择暂停音乐）。以下选项是必需的。</string>
@@ -215,7 +215,7 @@
     <string name="get_help_title">获取帮助</string>
     <string name="github_issues">GitHub 问题</string>
     <string name="handover_guide">启用后，如果您开始播放媒体或接听电话，此手机可以接听 AirPods。仅适用于连接的设备之间。</string>
-    <string name="handover_needs_peer_helper">在“连接”下添加另一部电话以使用“切换”。</string>
+    <string name="handover_needs_peer_helper">在“连接”中添加蓝牙切换连接，并连接该设备以使用切换功能。</string>
     <string name="handover_title">交接</string>
     <string name="lid_open_last_holder_autoconnect">打开外壳后自动连接（最后一个设备）</string>
     <string name="lid_open_last_holder_autoconnect_description">当您打开保护壳时，只有最后使用 AirPods 的手机会连接。在另一部手机上启动音乐进行切换。即使最后一部手机不在保护壳旁边，也可以连接。</string>
@@ -835,7 +835,7 @@
     <string name="audio_relay_network_unavailable">无法使用所选网络。请检查 Wi-Fi 或热点连接，然后重试。</string>
     <string name="audio_relay_start">开始</string>
     <string name="audio_relay_devices">设备</string>
-    <string name="audio_relay_relay_home_title">音频传输</string>
+    <string name="audio_relay_relay_home_title">Wi-Fi 音频传输</string>
     <string name="audio_relay_start_detail">AirPods 将继续连接到 %1$s</string>
     <string name="audio_relay_ready_detail">%1$d 台已配对设备在线</string>
     <string name="audio_relay_switch_to_peer">切换到 %1$s</string>
@@ -864,7 +864,7 @@
     <string name="connection_type_wifi">Wi-Fi 音频中继</string>
     <string name="connection_remove_title">移除连接？</string>
     <string name="connection_remove_wifi">从两台设备移除与 %1$s 的 Wi-Fi 音频中继连接？两者之间的中继将停止。</string>
-    <string name="connection_remove_bt">从此设备移除与 %1$s 的蓝牙切换连接？</string>
+    <string name="connection_remove_bt">要在两台设备上移除与 %1$s 的蓝牙切换连接吗？另一台设备将在重新连接时更新。</string>
     <string name="connection_remove_accessibility">移除与 %2$s 的 %1$s 连接</string>
     <string name="connection_pair_android_first">请先在蓝牙设置中配对 Android 设备。</string>
     <string name="connection_no_airpods_there">在线 · AirPods 未连接到该设备</string>
@@ -924,4 +924,24 @@
     <string name="audio_relay_preset_duplicate">已存在同名预设。</string>
     <string name="audio_relay_capture_delivery">采集交付时长（平均）：%1$d 毫秒</string>
     <string name="audio_relay_capture_read_peak">采集读取等待（峰值）：%1$d 毫秒</string>
+
+    <!-- DIRCON heart-rate sharing -->
+    <string name="dircon_method">Wi-Fi 心率传感器 (DIRCON)</string>
+    <string name="dircon_hint">将兼容的接收器连接到同一 Wi-Fi 网络。此功能会共享 AirPods 的真实心率读数。共享期间，该网络中的任何设备都可以连接。</string>
+    <string name="dircon_ready">Wi-Fi 传感器已广播 · 正在等待接收器</string>
+    <string name="dircon_connected">接收器已连接 · 正在等待心率订阅</string>
+    <string name="dircon_subscribed">接收器已订阅实时心率</string>
+    <string name="dircon_preparing">正在准备 Wi-Fi 传感器…</string>
+    <string name="dircon_permission">请允许访问本地网络并开启通知，以共享心率。</string>
+    <string name="dircon_diagnostics">传感器：%1$s
+端点：%2$s:%3$d
+协议请求：%4$d</string>
+    <string name="dircon_port_in_use">此 DIRCON 端口已被占用。请停止另一个心率共享会话后重试。</string>
+    <string name="dircon_ipv4_required">此 Wi-Fi 网络没有受支持的本地 IPv4 地址。请连接到常规 IPv4 Wi-Fi 网络后重试。</string>
+    <string name="connection_sync_pending">正在等待另一台设备…</string>
+    <string name="connection_bt_removal_pending">正在等待移除蓝牙切换：%1$s</string>
+    <string name="connection_type_bt_description">在设备之间切换时需要此连接。</string>
+    <string name="connection_type_wifi_description">通过 Wi-Fi 传输音频时需要此连接。</string>
+    <string name="hrs_monitor_only">仅监测（不共享）</string>
+    <string name="hrs_sharing_off">共享已关闭</string>
 </resources>

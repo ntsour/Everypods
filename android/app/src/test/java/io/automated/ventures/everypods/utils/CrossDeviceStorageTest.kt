@@ -81,6 +81,21 @@ class CrossDeviceStorageTest {
     // --- holders / isAvailable tests ---
 
     @Test
+    fun `saved BT peers keep coordination enabled without enabling automatic handover`() {
+        val address = "AA:BB:CC:DD:EE:FF"
+        prefs.edit().putString("cross_device_peers", "[\"$address\"]")
+            .putBoolean("cross_device_enabled", false).commit()
+        io.automated.ventures.everypods.relay.DeviceConnectionStore(context).add(
+            address, io.automated.ventures.everypods.relay.DeviceConnectionType.BT_HANDOVER,
+        )
+        // First setup opts in; the user can then turn automatic handover off.
+        prefs.edit().putBoolean("cross_device_enabled", false).commit()
+        CrossDevice.init(context)
+        assertTrue(CrossDevice.isEnabled)
+        assertFalse(prefs.getBoolean("cross_device_enabled", true))
+    }
+
+    @Test
     fun `isAvailable true adds configured peer to holders`() {
         CrossDevice.configuredPeers = setOf("AA:BB:CC:DD:EE:FF")
 

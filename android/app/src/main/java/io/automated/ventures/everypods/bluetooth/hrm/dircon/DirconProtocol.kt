@@ -68,7 +68,9 @@ object DirconProtocol {
 
     class Decoder {
         private var pending = byteArrayOf()
+        val hasPendingBytes: Boolean get() = pending.isNotEmpty()
         fun feed(bytes: ByteArray): List<Frame> {
+            require(bytes.size <= 64 * 1024) { "input_chunk_too_large" }
             val data = pending + bytes
             pending = byteArrayOf()
             var offset = 0
@@ -83,6 +85,7 @@ object DirconProtocol {
                 offset += 6 + size
             }
             pending = data.copyOfRange(offset, data.size)
+            require(pending.size <= MAX_PAYLOAD + 6) { "incomplete_frame_too_large" }
             return out
         }
     }

@@ -7,8 +7,11 @@ android {
     compileSdk = 37
 
     buildTypes {
-        create("relayPreview") {
+        create("playDebug") {
             matchingFallbacks += listOf("debug")
+        }
+        create("playRelease") {
+            matchingFallbacks += listOf("release")
         }
     }
 

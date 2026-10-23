@@ -189,7 +189,7 @@
     <string name="connected_via_bluetooth">Connecté via Bluetooth</string>
     <string name="connected_via_bluetooth_description">Travail audio et transfert. Les fonctionnalités avancées (contrôle du bruit, détection des oreilles, etc.) nécessitent la connexion AACP, qui n\'est pas disponible sur cet appareil.</string>
     <string name="connections_empty">Aucun autre téléphone ajouté pour l\'instant.</string>
-    <string name="connections_guide">Gérez les téléphones Android qui partagent ces AirPod. Requis pour activer le transfert.</string>
+    <string name="connections_guide">Gérez les appareils Android qui partagent ces AirPods. Les connexions BT sont nécessaires au transfert. Les connexions Wi-Fi sont nécessaires à la transmission audio.</string>
     <string name="connections_title">Connexions</string>
     <string name="contact">Contacter</string>
     <string name="conversational_awareness_master_description">Réduisez le volume multimédia (et éventuellement mettez la musique en pause) lorsque vous commencez à parler. Obligatoire pour les options ci-dessous.</string>
@@ -221,7 +221,7 @@
     <string name="get_help_title">Obtenir de l\'aide</string>
     <string name="github_issues">Problèmes GitHub</string>
     <string name="handover_guide">Lorsqu\'il est activé, ce téléphone peut prendre les AirPod si vous démarrez un média ou recevez un appel. Fonctionne uniquement entre les appareils connectés.</string>
-    <string name="handover_needs_peer_helper">Ajoutez un autre téléphone sous Connexions pour utiliser le transfert.</string>
+    <string name="handover_needs_peer_helper">Ajoutez une connexion de transfert BT dans Connexions et connectez cet appareil pour utiliser le transfert.</string>
     <string name="handover_title">Remise de transfert</string>
     <string name="lid_open_last_holder_autoconnect">Connexion automatique lors de l\'ouverture du boîtier (dernier appareil)</string>
     <string name="lid_open_last_holder_autoconnect_description">Lorsque vous ouvrez le boîtier, seul le dernier téléphone ayant utilisé les AirPods se connecte. Démarrez de la musique sur un autre téléphone pour changer. Le dernier téléphone peut se connecter même s\'il n\'est pas à côté du boîtier.</string>
@@ -836,7 +836,7 @@
     <string name="audio_relay_network_unavailable">Impossible d’utiliser le réseau choisi. Vérifiez les connexions Wi-Fi ou au point d’accès et réessayez.</string>
     <string name="audio_relay_start">Démarrer</string>
     <string name="audio_relay_devices">Appareils</string>
-    <string name="audio_relay_relay_home_title">Transmission audio</string>
+    <string name="audio_relay_relay_home_title">Transmission audio Wi-Fi</string>
     <string name="audio_relay_start_detail">Les AirPods restent connectés à %1$s</string>
     <string name="audio_relay_ready_detail">%1$d appareils associés en ligne</string>
     <string name="audio_relay_switch_to_peer">Passer à %1$s</string>
@@ -865,7 +865,7 @@
     <string name="connection_type_wifi">Relais Wi-Fi</string>
     <string name="connection_remove_title">Supprimer la connexion ?</string>
     <string name="connection_remove_wifi">Supprimer le relais Wi-Fi avec %1$s sur les deux appareils ? Tout relais entre eux sera arrêté.</string>
-    <string name="connection_remove_bt">Supprimer le transfert BT avec %1$s sur cet appareil ?</string>
+    <string name="connection_remove_bt">Supprimer le transfert BT avec %1$s sur les deux appareils ? L’autre appareil sera mis à jour lors de sa reconnexion.</string>
     <string name="connection_remove_accessibility">Supprimer la connexion %1$s avec %2$s</string>
     <string name="connection_pair_android_first">Associez d’abord les appareils Android dans les paramètres Bluetooth.</string>
     <string name="connection_no_airpods_there">En ligne · AirPods non connectés à cet appareil</string>
@@ -925,4 +925,24 @@
     <string name="audio_relay_preset_duplicate">Un préréglage portant ce nom existe déjà.</string>
     <string name="audio_relay_capture_delivery">Âge de la capture à réception (moyenne) : %1$d ms</string>
     <string name="audio_relay_capture_read_peak">Attente de lecture de capture (maximum) : %1$d ms</string>
+
+    <!-- DIRCON heart-rate sharing -->
+    <string name="dircon_method">Capteur de fréquence cardiaque Wi-Fi (DIRCON)</string>
+    <string name="dircon_hint">Connectez un récepteur compatible au même réseau Wi-Fi. Les mesures réelles des AirPods sont partagées. Tout appareil de ce réseau peut se connecter pendant le partage.</string>
+    <string name="dircon_ready">Capteur Wi-Fi annoncé · en attente du récepteur</string>
+    <string name="dircon_connected">Récepteur connecté · en attente de l’abonnement à la fréquence cardiaque</string>
+    <string name="dircon_subscribed">Récepteur abonné à la fréquence cardiaque en direct</string>
+    <string name="dircon_preparing">Préparation du capteur Wi-Fi…</string>
+    <string name="dircon_permission">Autorisez l’accès au réseau local et les notifications pour partager la fréquence cardiaque.</string>
+    <string name="dircon_diagnostics">Capteur : %1$s
+Point de terminaison : %2$s:%3$d
+Requêtes du protocole : %4$d</string>
+    <string name="dircon_port_in_use">Ce port DIRCON est déjà utilisé. Arrêtez l’autre session de partage de la fréquence cardiaque, puis réessayez.</string>
+    <string name="dircon_ipv4_required">Ce réseau Wi-Fi ne possède pas d’adresse IPv4 locale compatible. Connectez-vous à un réseau Wi-Fi IPv4 standard, puis réessayez.</string>
+    <string name="connection_sync_pending">En attente de l’autre appareil…</string>
+    <string name="connection_bt_removal_pending">Suppression du transfert BT en attente : %1$s</string>
+    <string name="connection_type_bt_description">Nécessaire au transfert entre appareils.</string>
+    <string name="connection_type_wifi_description">Nécessaire à la transmission audio Wi-Fi.</string>
+    <string name="hrs_monitor_only">Mesure uniquement (sans partage)</string>
+    <string name="hrs_sharing_off">Partage désactivé</string>
 </resources>

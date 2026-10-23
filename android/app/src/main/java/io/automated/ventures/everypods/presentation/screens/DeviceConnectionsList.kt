@@ -23,7 +23,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
-import io.automated.ventures.everypods.BuildConfig
 import io.automated.ventures.everypods.R
 import io.automated.ventures.everypods.presentation.viewmodel.AirPodsViewModel
 import io.automated.ventures.everypods.presentation.viewmodel.PeerUiInfo
@@ -45,6 +44,14 @@ fun rememberDeviceConnections(peers: List<PeerUiInfo>): List<DeviceConnectionRec
     }
 }
 
+@Composable
+fun rememberHandoverAvailable(peers: List<PeerUiInfo>): Boolean {
+    val records = rememberDeviceConnections(peers)
+    return peers.any { peer ->
+        peer.connected && records.any { it.type == DeviceConnectionType.BT_HANDOVER && !it.pendingSync && it.mac.equals(peer.mac, true) }
+    }
+}
+
 @SuppressLint("MissingPermission")
 @Composable
 fun DeviceConnectionsList(viewModel: AirPodsViewModel, navController: NavController) {
@@ -52,6 +59,7 @@ fun DeviceConnectionsList(viewModel: AirPodsViewModel, navController: NavControl
     val context = LocalContext.current
     val store = remember(context) { DeviceConnectionStore(context) }
     val records = rememberDeviceConnections(state.crossDevicePeers)
+    val pendingHandoverChanges = store.pendingHandoverChanges()
     var showPicker by remember { mutableStateOf(false) }
     var selectedAddress by remember { mutableStateOf<String?>(null) }
     var removing by remember { mutableStateOf<DeviceConnectionRecord?>(null) }
@@ -81,15 +89,20 @@ fun DeviceConnectionsList(viewModel: AirPodsViewModel, navController: NavControl
     selectedAddress?.let { address ->
         AlertDialog(onDismissRequest = { selectedAddress = null }, title = { Text(stringResource(R.string.connection_choose_type)) }, text = {
             Column {
-                DeviceConnectionType.entries.filter { BuildConfig.AUDIO_RELAY_PREVIEW || it == DeviceConnectionType.BT_HANDOVER }.forEach { type ->
+                DeviceConnectionType.entries.forEach { type ->
                     TextButton(onClick = {
                         val existed = store.has(address, type)
                         store.declareNew(address)
-                        if (!existed) store.add(address, type)
+                        if (!existed || type == DeviceConnectionType.BT_HANDOVER) store.add(address, type)
                         viewModel.addCrossDevicePeer(address)
                         selectedAddress = null
                         if (type == DeviceConnectionType.WIFI_RELAY) open(address, type, setup = !existed || !store.authorized(address))
-                    }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(typeLabel(type))) }
+                    }, modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(stringResource(typeLabel(type)))
+                            Text(stringResource(typeDescription(type)), style = MaterialTheme.typography.bodySmall, color = textColor.copy(alpha = .65f))
+                        }
+                    }
                 }
             }
         }, confirmButton = {}, dismissButton = { TextButton(onClick = { selectedAddress = null }) { Text(stringResource(R.string.ui_cancel)) } })
@@ -114,6 +127,7 @@ fun DeviceConnectionsList(viewModel: AirPodsViewModel, navController: NavControl
         AlertDialog(onDismissRequest = { bluetoothDetails = null }, title = { Text(peer.name) }, text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(stringResource(R.string.connection_type_bt))
+                Text(stringResource(R.string.connection_type_bt_description))
                 if (peer.connected) Text(stringResource(R.string.audio_relay_peer_online))
                 else TextButton(onClick = { viewModel.reconnectCrossDevicePeer(peer.mac) }) {
                     Text(stringResource(R.string.ui_reconnect))
@@ -121,7 +135,7 @@ fun DeviceConnectionsList(viewModel: AirPodsViewModel, navController: NavControl
                 Text(stringResource(R.string.audio_relay_mode_bluetooth_desc))
             }
         }, confirmButton = {
-            if (BuildConfig.AUDIO_RELAY_PREVIEW) TextButton(onClick = {
+            TextButton(onClick = {
                 bluetoothDetails = null
                 navController.navigate("device_playback/${android.net.Uri.encode(peer.mac)}?handover=true&type=bt")
             }) { Text(stringResource(R.string.audio_relay_move_airpods_here)) }
@@ -151,7 +165,9 @@ fun DeviceConnectionsList(viewModel: AirPodsViewModel, navController: NavControl
                     ) { Text("−", fontSize = 24.sp) }
                 }
                 Row(Modifier.fillMaxWidth().padding(end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (peer.connected) {
+                    if (record.pendingSync) {
+                        Text(stringResource(R.string.connection_sync_pending), color = textColor.copy(alpha = .65f), fontFamily = SfPro, fontSize = 13.sp)
+                    } else if (peer.connected) {
                         Text(status, color = androidx.compose.ui.graphics.Color(0xFF34C759), fontFamily = SfPro, fontSize = 13.sp)
                     } else {
                         TextButton(
@@ -162,8 +178,13 @@ fun DeviceConnectionsList(viewModel: AirPodsViewModel, navController: NavControl
                     }
                     Text(" — $shortType", color = textColor.copy(alpha = .65f), fontFamily = SfPro, fontSize = 13.sp)
                 }
+                Text(stringResource(typeDescription(record.type)), color = textColor.copy(alpha = .65f), fontFamily = SfPro, fontSize = 13.sp)
             }
             HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = textColor.copy(alpha = .12f))
+        }
+        pendingHandoverChanges.filterValues { !it.enabled }.forEach { (mac, _) ->
+            val name = state.crossDevicePeers.firstOrNull { it.mac.equals(mac, true) }?.name ?: stringResource(R.string.audio_relay_device_fallback)
+            Text(stringResource(R.string.connection_bt_removal_pending, name), color = textColor.copy(alpha = .65f), modifier = Modifier.padding(16.dp), fontFamily = SfPro, fontSize = 13.sp)
         }
         TextButton(onClick = { showPicker = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("+ " + stringResource(R.string.connection_add), fontFamily = SfPro, fontSize = 16.sp) }
     }
@@ -171,4 +192,9 @@ fun DeviceConnectionsList(viewModel: AirPodsViewModel, navController: NavControl
 private fun typeLabel(type: DeviceConnectionType) = when (type) {
     DeviceConnectionType.BT_HANDOVER -> R.string.connection_type_bt
     DeviceConnectionType.WIFI_RELAY -> R.string.connection_type_wifi
+}
+
+private fun typeDescription(type: DeviceConnectionType) = when (type) {
+    DeviceConnectionType.BT_HANDOVER -> R.string.connection_type_bt_description
+    DeviceConnectionType.WIFI_RELAY -> R.string.connection_type_wifi_description
 }

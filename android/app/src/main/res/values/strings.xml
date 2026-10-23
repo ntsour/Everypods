@@ -37,7 +37,7 @@
     <string name="disconnected_hero_guide">Tap Reconnect if you paired before to force connection.</string>
     <string name="reconnect_to_last">Reconnect to last device</string>
     <string name="connections_title">Connections</string>
-    <string name="connections_guide">Manage the Android phones that share these AirPods. Required to enable Handover.</string>
+    <string name="connections_guide">Manage the Android phones that share these AirPods. BT connections are required for handover. Wi-Fi connections are required for audio transmission.</string>
     <string name="connections_empty">No other phones added yet.</string>
     <string name="add_peer">Add device</string>
     <string name="add_peer_android_device">Add Android device</string>
@@ -53,7 +53,7 @@
     <string name="remove_peer_confirm_message">Remove %1$s from connected devices?</string>
     <string name="handover_title">Handover</string>
     <string name="handover_guide">When enabled, this phone can take the AirPods if you start media or get a call. Only works between connected devices.</string>
-    <string name="handover_needs_peer_helper">Add another phone under Connections to use Handover.</string>
+    <string name="handover_needs_peer_helper">Add a BT handover connection under Connections and bring that device online to use Handover.</string>
     <string name="find_my_airpods_title">Find My AirPods</string>
     <string name="find_my_airpods_guide">Walk room to room and use signal strength to locate the case.</string>
     <string name="get_help_title">Get Help</string>
@@ -850,7 +850,7 @@
     <string name="audio_relay_network_unavailable">Cannot use the selected network. Check Wi-Fi or hotspot connections and try again.</string>
     <string name="audio_relay_start">Start</string>
     <string name="audio_relay_devices">Devices</string>
-    <string name="audio_relay_relay_home_title">Audio transmission</string>
+    <string name="audio_relay_relay_home_title">Wi-Fi Audio Transmission</string>
     <string name="audio_relay_start_detail">AirPods stay connected to %1$s</string>
     <string name="audio_relay_ready_detail">%1$d paired devices online</string>
     <string name="audio_relay_sending_to_peer">Sending audio to %1$s</string>
@@ -879,7 +879,7 @@
     <string name="connection_type_wifi">Wi-Fi relay</string>
     <string name="connection_remove_title">Remove connection?</string>
     <string name="connection_remove_wifi">Remove Wi-Fi relay with %1$s on both devices? Any relay session between them will stop.</string>
-    <string name="connection_remove_bt">Remove BT handover with %1$s from this device?</string>
+    <string name="connection_remove_bt">Remove BT handover with %1$s on both devices? The other device will be updated when it reconnects.</string>
     <string name="connection_remove_accessibility">Remove %1$s connection to %2$s</string>
     <string name="connection_pair_android_first">Pair the Android devices in Bluetooth settings first.</string>
     <string name="connection_no_airpods_there">Online · AirPods not connected there</string>
@@ -941,4 +941,25 @@
     <string name="audio_relay_preset_duplicate">A preset with this name already exists.</string>
     <string name="audio_relay_capture_delivery">Capture delivery age (mean): %1$d ms</string>
     <string name="audio_relay_capture_read_peak">Capture read wait (peak): %1$d ms</string>
+
+    <!-- DIRCON heart-rate sharing -->
+    <string name="dircon_method">Wi-Fi heart-rate sensor (DIRCON)</string>
+    <string name="dircon_hint">Connect a compatible receiver on the same Wi-Fi network. This shares real AirPods heart-rate readings. Any device on that network may connect while sharing is on.</string>
+    <string name="dircon_ready">Wi-Fi sensor advertised · waiting for receiver</string>
+    <string name="dircon_connected">Receiver connected · waiting for heart-rate subscription</string>
+    <string name="dircon_subscribed">Receiver subscribed to live heart rate</string>
+    <string name="dircon_preparing">Preparing Wi-Fi sensor…</string>
+    <string name="dircon_permission">Allow local-network and notification permissions to share heart rate.</string>
+    <string name="dircon_diagnostics">Sensor: %1$s
+Endpoint: %2$s:%3$d
+Protocol requests: %4$d</string>
+    <string name="dircon_port_in_use">This DIRCON port is already in use. Stop the other heart-rate sharing session and try again.</string>
+    <string name="dircon_ipv4_required">This Wi-Fi network has no supported local IPv4 address. Connect to a standard IPv4 Wi-Fi network and try again.</string>
+    <string name="connection_sync_pending">Waiting for the other device…</string>
+    <string name="connection_bt_removal_pending">BT handover removal pending: %1$s</string>
+    <string name="connection_type_bt_description">Required for handover between devices.</string>
+    <string name="connection_type_wifi_description">Required for Wi-Fi audio transmission.</string>
+    <string name="hrs_monitor_only">Monitoring only (no sharing)</string>
+    <string name="hrs_sharing_off">Sharing off</string>
+    <string name="hrs_tickr_case_symbol" translatable="false">TKR</string>
 </resources>

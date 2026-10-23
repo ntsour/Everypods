@@ -27,6 +27,9 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <queries>
         <package android:name="com.microsoft.teams" />
@@ -114,6 +117,23 @@
             android:excludeFromRecents="true"
             android:taskAffinity=""
              />
+
+        <service
+            android:name=".relay.RelayQuickSettingsService"
+            android:label="@string/audio_relay_relay_home_title"
+            android:icon="@android:drawable/ic_media_play"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data android:name="android.service.quicksettings.ACTIVE_TILE" android:value="true" />
+        </service>
+        <service
+            android:name=".relay.RelayPreviewService"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice|mediaProjection|mediaPlayback"
+            android:stopWithTask="false" />
 
         <service
             android:name=".services.AirPodsService"

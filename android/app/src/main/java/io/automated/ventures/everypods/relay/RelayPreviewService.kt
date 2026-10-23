@@ -369,6 +369,7 @@ class RelayPreviewService : Service(), RelaySessionApi {
     }
 
     override fun pairPeer(peerMac: String) {
+        if (controller?.state(peerMac)?.stage == RelayPeerSessionController.Stage.VERIFYING) return
         connections.add(peerMac, DeviceConnectionType.WIFI_RELAY)
         val current = mutableState.value
         if (current.role != RelayRole.NONE && current.stage in setOf(RelayStage.CONNECTING, RelayStage.WAITING_FOR_AUDIO, RelayStage.STREAMING, RelayStage.BUFFERING, RelayStage.SUSPENDED)) {

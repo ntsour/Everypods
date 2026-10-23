@@ -103,9 +103,11 @@ import io.automated.ventures.everypods.presentation.viewmodel.AppSettingsViewMod
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppSettingsScreen(
-    navController: NavController, viewModel: AppSettingsViewModel = viewModel()
+    navController: NavController, viewModel: AppSettingsViewModel = viewModel(),
+    crossDevicePeers: List<io.automated.ventures.everypods.presentation.viewmodel.PeerUiInfo> = emptyList()
 ) {
     val context = LocalContext.current
+    val handoverAvailable = rememberHandoverAvailable(crossDevicePeers)
     val scrollState = rememberScrollState()
     val state by viewModel.uiState.collectAsState()
 
@@ -244,10 +246,10 @@ fun AppSettingsScreen(
                     StyledToggle(
                         label = stringResource(R.string.takeover_ringing_call),
                         description = stringResource(R.string.takeover_ringing_call_desc),
-                        checked = state.takeoverWhenRingingCall,
+                        checked = state.takeoverWhenRingingCall && handoverAvailable,
                         onCheckedChange = viewModel::setTakeoverWhenRingingCall,
                         independent = false,
-                        enabled = state.isPremium
+                        enabled = state.isPremium && handoverAvailable
                     )
                     HorizontalDivider(
                         thickness = 1.dp,
@@ -258,10 +260,10 @@ fun AppSettingsScreen(
                     StyledToggle(
                         label = stringResource(R.string.takeover_media_start),
                         description = stringResource(R.string.takeover_media_start_desc),
-                        checked = state.takeoverWhenMediaStart,
+                        checked = state.takeoverWhenMediaStart && handoverAvailable,
                         onCheckedChange = viewModel::setTakeoverWhenMediaStart,
                         independent = false,
-                        enabled = state.isPremium
+                        enabled = state.isPremium && handoverAvailable
                     )
                 }
 

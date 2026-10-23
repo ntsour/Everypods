@@ -2,16 +2,27 @@
 package io.automated.ventures.everypods.bluetooth.hrm
 
 import android.content.Context
+import io.automated.ventures.everypods.BuildConfig
 
-enum class HeartRateSharingMethod { TICKR, BLUETOOTH }
+enum class HeartRateSharingMethod { TICKR, BLUETOOTH, DIRCON }
 
 object HeartRateSharingPrefs {
     const val METHOD = "hr_sharing_method"
     const val GYM_AUTO = "hr_sharing_gym_auto"
     private fun prefs(context: Context) = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+    /** No explicit selection means monitoring only, rather than an implicit broadcast. */
+    fun configuredMethod(context: Context): HeartRateSharingMethod? {
+        val saved = prefs(context).getString(METHOD, null) ?: return null
+        val method = runCatching { HeartRateSharingMethod.valueOf(saved) }.getOrNull() ?: return null
+        return method.takeUnless { it == HeartRateSharingMethod.DIRCON && !BuildConfig.DIRCON_ENABLED }
+    }
+
+    fun clearMethod(context: Context) = prefs(context).edit().remove(METHOD).putBoolean(GYM_AUTO, false).apply()
     fun method(context: Context) = runCatching {
         HeartRateSharingMethod.valueOf(prefs(context).getString(METHOD, "TICKR")!!)
-    }.getOrDefault(HeartRateSharingMethod.TICKR)
+    }.getOrDefault(HeartRateSharingMethod.TICKR).let {
+        if (it == HeartRateSharingMethod.DIRCON && !BuildConfig.DIRCON_ENABLED) HeartRateSharingMethod.TICKR else it
+    }
     fun setMethod(context: Context, method: HeartRateSharingMethod) =
         prefs(context).edit().putString(METHOD, method.name).apply()
     fun gymAuto(context: Context) = prefs(context).getBoolean(GYM_AUTO, false)

@@ -184,7 +184,7 @@
     <string name="connected_via_bluetooth">Bluetooth aracılığıyla bağlanıldı</string>
     <string name="connected_via_bluetooth_description">Ses ve devir teslim işleri. Gelişmiş özellikler (gürültü kontrolü, kulak algılama vb.) bu cihazda bulunmayan AACP bağlantısına ihtiyaç duyar.</string>
     <string name="connections_empty">Henüz başka telefon eklenmedi.</string>
-    <string name="connections_guide">Bu AirPod\'ları paylaşan Android telefonları yönetin. Devir işleminin etkinleştirilmesi için gereklidir.</string>
+    <string name="connections_guide">Bu AirPods’u paylaşan Android cihazları yönetin. Cihazlar arasında geçiş için BT bağlantıları gereklidir. Ses iletimi için Wi-Fi bağlantıları gereklidir.</string>
     <string name="connections_title">Bağlantılar</string>
     <string name="contact">İletişim</string>
     <string name="conversational_awareness_master_description">Konuşmaya başladığınızda medya sesini azaltın (ve isteğe bağlı olarak müziği duraklatın). Aşağıdaki seçenekler için gereklidir.</string>
@@ -216,7 +216,7 @@
     <string name="get_help_title">Yardım Alın</string>
     <string name="github_issues">GitHub Sorunları</string>
     <string name="handover_guide">Etkinleştirildiğinde, medyayı başlatırsanız veya bir çağrı alırsanız bu telefon AirPod\'ları alabilir. Yalnızca bağlı cihazlar arasında çalışır.</string>
-    <string name="handover_needs_peer_helper">Aktarımı kullanmak için Bağlantılar altına başka bir telefon ekleyin.</string>
+    <string name="handover_needs_peer_helper">Aktarımı kullanmak için Bağlantılar altına bir BT aktarım bağlantısı ekleyin ve cihazı çevrimiçi duruma getirin.</string>
     <string name="handover_title">Devir teslim</string>
     <string name="lid_open_last_holder_autoconnect">Kasa açıldığında otomatik bağlantı (son cihaz)</string>
     <string name="lid_open_last_holder_autoconnect_description">Kasayı açtığınızda yalnızca AirPods\'u kullanan son telefon bağlanır. Geçiş yapmak için müziği başka bir telefonda başlatın. Son telefon, kasanın yanında olmasa bile bağlanabilir.</string>
@@ -836,7 +836,7 @@
     <string name="audio_relay_network_unavailable">Seçilen ağ kullanılamıyor. Wi-Fi veya erişim noktası bağlantılarını kontrol edip yeniden deneyin.</string>
     <string name="audio_relay_start">Başlat</string>
     <string name="audio_relay_devices">Cihazlar</string>
-    <string name="audio_relay_relay_home_title">Ses iletimi</string>
+    <string name="audio_relay_relay_home_title">Wi-Fi ses aktarımı</string>
     <string name="audio_relay_start_detail">AirPods %1$s cihazına bağlı kalır</string>
     <string name="audio_relay_ready_detail">%1$d eşlenmiş cihaz çevrimiçi</string>
     <string name="audio_relay_switch_to_peer">%1$s cihazına geç</string>
@@ -865,7 +865,7 @@
     <string name="connection_type_wifi">Wi-Fi ses aktarımı</string>
     <string name="connection_remove_title">Bağlantı kaldırılsın mı?</string>
     <string name="connection_remove_wifi">%1$s ile Wi-Fi ses aktarımı her iki cihazdan kaldırılsın mı? Aralarındaki ses aktarımı durdurulur.</string>
-    <string name="connection_remove_bt">%1$s ile BT aktarımı bu cihazdan kaldırılsın mı?</string>
+    <string name="connection_remove_bt">%1$s ile BT aktarımı her iki cihazdan kaldırılsın mı? Diğer cihaz yeniden bağlandığında güncellenecek.</string>
     <string name="connection_remove_accessibility">%2$s ile %1$s bağlantısını kaldır</string>
     <string name="connection_pair_android_first">Önce Android cihazları Bluetooth ayarlarından eşleştirin.</string>
     <string name="connection_no_airpods_there">Çevrimiçi · AirPods o cihaza bağlı değil</string>
@@ -925,4 +925,24 @@
     <string name="audio_relay_preset_duplicate">Bu ada sahip bir ön ayar zaten var.</string>
     <string name="audio_relay_capture_delivery">Yakalama teslim yaşı (ortalama): %1$d ms</string>
     <string name="audio_relay_capture_read_peak">Yakalama okuma beklemesi (en yüksek): %1$d ms</string>
+
+    <!-- DIRCON heart-rate sharing -->
+    <string name="dircon_method">Wi-Fi kalp atış hızı sensörü (DIRCON)</string>
+    <string name="dircon_hint">Uyumlu bir alıcıyı aynı Wi-Fi ağına bağla. AirPods’tan alınan gerçek kalp atış hızı ölçümleri paylaşılır. Paylaşım açıkken bu ağdaki tüm cihazlar bağlanabilir.</string>
+    <string name="dircon_ready">Wi-Fi sensörü yayınlanıyor · alıcı bekleniyor</string>
+    <string name="dircon_connected">Alıcı bağlandı · kalp atış hızı aboneliği bekleniyor</string>
+    <string name="dircon_subscribed">Alıcı canlı kalp atış hızına abone oldu</string>
+    <string name="dircon_preparing">Wi-Fi sensörü hazırlanıyor…</string>
+    <string name="dircon_permission">Kalp atış hızını paylaşmak için yerel ağ ve bildirim izinlerine izin ver.</string>
+    <string name="dircon_diagnostics">Sensör: %1$s
+Uç nokta: %2$s:%3$d
+Protokol istekleri: %4$d</string>
+    <string name="dircon_port_in_use">Bu DIRCON bağlantı noktası zaten kullanımda. Diğer kalp atış hızı paylaşımını durdurup yeniden dene.</string>
+    <string name="dircon_ipv4_required">Bu Wi-Fi ağında desteklenen bir yerel IPv4 adresi yok. Standart bir IPv4 Wi-Fi ağına bağlanıp yeniden dene.</string>
+    <string name="connection_sync_pending">Diğer cihaz bekleniyor…</string>
+    <string name="connection_bt_removal_pending">BT aktarımı kaldırma işlemi bekliyor: %1$s</string>
+    <string name="connection_type_bt_description">Cihazlar arasında geçiş için gereklidir.</string>
+    <string name="connection_type_wifi_description">Wi-Fi üzerinden ses iletimi için gereklidir.</string>
+    <string name="hrs_monitor_only">Yalnızca ölçüm (paylaşım yok)</string>
+    <string name="hrs_sharing_off">Paylaşım kapalı</string>
 </resources>

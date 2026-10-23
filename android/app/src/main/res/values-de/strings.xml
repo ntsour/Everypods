@@ -66,7 +66,7 @@
     <string name="connected_via_bluetooth">Verbunden über Bluetooth</string>
     <string name="connected_via_bluetooth_description">Audio- und Übergabearbeiten. Für erweiterte Funktionen (Geräuschschutz, Ohrerkennung usw.) ist eine AACP-Verbindung erforderlich, die auf diesem Gerät nicht verfügbar ist.</string>
     <string name="connections_empty">Es wurden noch keine weiteren Telefone hinzugefügt.</string>
-    <string name="connections_guide">Verwalten Sie die Android-Telefone, die diese AirPods gemeinsam nutzen. Erforderlich, um die Übergabe zu ermöglichen.</string>
+    <string name="connections_guide">Verwalten Sie die Android-Geräte, die diese AirPods gemeinsam nutzen. BT-Verbindungen sind für Handover erforderlich. WLAN-Verbindungen sind für die Audioübertragung erforderlich.</string>
     <string name="connections_title">Verbindungen</string>
     <string name="contact">Kontakt</string>
     <string name="conversational_awareness">Konversationsbewusstsein</string>
@@ -118,7 +118,7 @@
     <string name="get_help_title">Holen Sie sich Hilfe</string>
     <string name="github_issues">GitHub-Probleme</string>
     <string name="handover_guide">Wenn diese Option aktiviert ist, kann dieses Telefon die AirPods annehmen, wenn Sie Medien starten oder einen Anruf erhalten. Funktioniert nur zwischen verbundenen Geräten.</string>
-    <string name="handover_needs_peer_helper">Fügen Sie unter Verbindungen ein weiteres Telefon hinzu, um Handover zu verwenden.</string>
+    <string name="handover_needs_peer_helper">Fügen Sie unter Verbindungen eine BT-Handover-Verbindung hinzu und verbinden Sie das Gerät, um Handover zu verwenden.</string>
     <string name="handover_title">Übergabe</string>
     <string name="hang_up">Auflegen</string>
     <string name="head_gestures">Kopfgesten</string>
@@ -835,7 +835,7 @@
     <string name="audio_relay_network_unavailable">Das gewählte Netzwerk ist nicht verfügbar. Prüfe die WLAN- oder Hotspot-Verbindungen und versuche es erneut.</string>
     <string name="audio_relay_start">Starten</string>
     <string name="audio_relay_devices">Geräte</string>
-    <string name="audio_relay_relay_home_title">Audioübertragung</string>
+    <string name="audio_relay_relay_home_title">WLAN-Audioübertragung</string>
     <string name="audio_relay_start_detail">AirPods bleiben mit %1$s verbunden</string>
     <string name="audio_relay_ready_detail">%1$d gekoppelte Geräte online</string>
     <string name="audio_relay_switch_to_peer">Zu %1$s wechseln</string>
@@ -864,7 +864,7 @@
     <string name="connection_type_wifi">WLAN-Weiterleitung</string>
     <string name="connection_remove_title">Verbindung entfernen?</string>
     <string name="connection_remove_wifi">WLAN-Weiterleitung mit %1$s auf beiden Geräten entfernen? Jede Weiterleitung zwischen ihnen wird beendet.</string>
-    <string name="connection_remove_bt">BT-Übergabe mit %1$s von diesem Gerät entfernen?</string>
+    <string name="connection_remove_bt">BT-Handover mit %1$s auf beiden Geräten entfernen? Das andere Gerät wird bei erneuter Verbindung aktualisiert.</string>
     <string name="connection_remove_accessibility">Verbindung über %1$s mit %2$s entfernen</string>
     <string name="connection_pair_android_first">Kopple die Android-Geräte zuerst in den Bluetooth-Einstellungen.</string>
     <string name="connection_no_airpods_there">Online · AirPods dort nicht verbunden</string>
@@ -924,4 +924,24 @@
     <string name="audio_relay_preset_duplicate">Eine Vorgabe mit diesem Namen existiert bereits.</string>
     <string name="audio_relay_capture_delivery">Aufnahmealter bei Übergabe (Mittel): %1$d ms</string>
     <string name="audio_relay_capture_read_peak">Wartezeit beim Lesen (Maximum): %1$d ms</string>
+
+    <!-- DIRCON heart-rate sharing -->
+    <string name="dircon_method">WLAN-Herzfrequenzsensor (DIRCON)</string>
+    <string name="dircon_hint">Verbinde einen kompatiblen Empfänger mit demselben WLAN. Es werden echte Herzfrequenzwerte der AirPods geteilt. Während der Freigabe können sich alle Geräte in diesem Netzwerk verbinden.</string>
+    <string name="dircon_ready">WLAN-Sensor wird angeboten · warte auf Empfänger</string>
+    <string name="dircon_connected">Empfänger verbunden · warte auf Herzfrequenz-Abo</string>
+    <string name="dircon_subscribed">Empfänger empfängt die aktuelle Herzfrequenz</string>
+    <string name="dircon_preparing">WLAN-Sensor wird vorbereitet…</string>
+    <string name="dircon_permission">Erlaube den Zugriff auf das lokale Netzwerk und Mitteilungen, um die Herzfrequenz zu teilen.</string>
+    <string name="dircon_diagnostics">Sensor: %1$s
+Endpunkt: %2$s:%3$d
+Protokollanfragen: %4$d</string>
+    <string name="dircon_port_in_use">Dieser DIRCON-Port wird bereits verwendet. Beende die andere Herzfrequenzfreigabe und versuche es erneut.</string>
+    <string name="dircon_ipv4_required">Dieses WLAN hat keine unterstützte lokale IPv4-Adresse. Verbinde dich mit einem normalen IPv4-WLAN und versuche es erneut.</string>
+    <string name="connection_sync_pending">Warten auf das andere Gerät…</string>
+    <string name="connection_bt_removal_pending">Entfernung von BT-Handover ausstehend: %1$s</string>
+    <string name="connection_type_bt_description">Für Handover zwischen Geräten erforderlich.</string>
+    <string name="connection_type_wifi_description">Für die WLAN-Audioübertragung erforderlich.</string>
+    <string name="hrs_monitor_only">Nur messen (nicht teilen)</string>
+    <string name="hrs_sharing_off">Übertragung aus</string>
 </resources>
