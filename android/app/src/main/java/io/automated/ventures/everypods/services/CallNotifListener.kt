@@ -22,13 +22,16 @@ import android.app.ActivityOptions
 import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
+import android.content.res.Configuration
 import android.content.Intent
+import android.graphics.drawable.Icon
 import android.os.Build
 import android.provider.Settings
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
 import java.util.Locale
+import io.automated.ventures.everypods.R
 
 /**
  * Watches ongoing-call notifications from VoIP apps (Teams, Viber, WhatsApp, ...) and
@@ -186,6 +189,7 @@ class CallNotifListener : NotificationListenerService() {
             "unmute",
             // Spanish
             "activar micrófono", "activar microfono", "dejar de silenciar",
+            "reactivar audio", "reactivar el audio",
             // French
             "réactiver", "reactiver", "activer le micro",
             // German
@@ -251,6 +255,38 @@ class CallNotifListener : NotificationListenerService() {
             "השתק",
         )
 
+        // Semantic metadata and Teams resource entry names are independent of UI locale.
+        internal fun muteStateForAction(semantic: Int, teamsIconName: String?): Boolean? = when {
+            semantic == Notification.Action.SEMANTIC_ACTION_UNMUTE -> true
+            semantic == Notification.Action.SEMANTIC_ACTION_MUTE -> false
+            teamsIconName == "icn_callaction_audio_off" -> true
+            teamsIconName == "icn_callaction_audio" -> false
+            else -> null
+        }
+
+        internal fun readTeamsMuteLabels(
+            teams: Context, packageName: String, tags: Array<String>,
+        ): Map<String, Boolean> {
+            val labels = mutableMapOf<String, Boolean>()
+            for (tag in tags) {
+                val config = Configuration(teams.resources.configuration).apply {
+                    setLocale(Locale.forLanguageTag(tag))
+                }
+                val localized = teams.createConfigurationContext(config).resources
+                for ((name, muted) in listOf(
+                    "notifications_call_mute_title" to false,
+                    "notifications_call_unmute_title" to true,
+                )) {
+                    val id = localized.getIdentifier(name, "string", packageName)
+                    if (id != 0) {
+                        val label = localized.getString(id).trim().lowercase(Locale.ROOT)
+                        labels[label] = muted
+                    }
+                }
+            }
+            return labels
+        }
+
         // ─── Action cache ─────────────────────────────────────────────────────
         @Volatile private var muteAction: Notification.Action? = null
         @Volatile private var unmuteAction: Notification.Action? = null
@@ -285,7 +321,7 @@ class CallNotifListener : NotificationListenerService() {
             private set
 
         /** Called on the main thread whenever the app's in-notification mute state
-         *  flips (not on first detection — only on subsequent changes). */
+         *  is first detected or changes. */
         @Volatile var onMuteStateChanged: ((muted: Boolean) -> Unit)? = null
 
         /** Returns the canonical mute state derived from the active VoIP app's
@@ -422,6 +458,20 @@ class CallNotifListener : NotificationListenerService() {
         return Notification.Action.Builder(/* icon = */ 0, synthLabel, pi).build()
     }
 
+    /** Read Teams' own notification strings, never guessed translations. Android
+     * falls back to Teams' default resources for languages it has not installed. */
+    private fun teamsMuteLabels(packageName: String): Map<String, Boolean> {
+        if (!packageName.startsWith("com.microsoft.teams")) return emptyMap()
+        return try {
+            val teams = createPackageContext(packageName, 0)
+            val tags = resources.getStringArray(R.array.supported_locale_tags)
+            readTeamsMuteLabels(teams, packageName, tags)
+        } catch (e: Exception) {
+            Log.d(TAG, "Teams notification label resources unavailable: ${e.javaClass.simpleName}")
+            emptyMap()
+        }
+    }
+
     private fun handle(sbn: StatusBarNotification) {
         if (sbn.packageName !in WATCHED_PACKAGES) return
         val n = sbn.notification ?: return
@@ -452,9 +502,35 @@ class CallNotifListener : NotificationListenerService() {
         // call notification whose [Unmute, Hang up] actions get walked by
         // position-based tier 2 would mis-cache Unmute as "decline" and Hang up
         // as "answer".
+        val teamsLabels = teamsMuteLabels(sbn.packageName)
         for (a in actions) {
+            val iconName = if (sbn.packageName.startsWith("com.microsoft.teams")) {
+                try {
+                    val icon = a.getIcon()
+                    if (icon?.type == Icon.TYPE_RESOURCE) {
+                        packageManager.getResourcesForApplication(sbn.packageName)
+                            .getResourceEntryName(icon.resId)
+                    } else null
+                } catch (_: Exception) { null }
+            } else null
+            val metadataState = muteStateForAction(a.semanticAction, iconName)
+            Log.d(TAG, "Call action metadata: semantic=${a.semanticAction} icon=$iconName muted=$metadataState")
+            if (metadataState != null) {
+                if (metadataState) foundUnmute = a else foundMute = a
+                continue
+            }
+            if (iconName == "icn_callaction_endcall") {
+                foundHangUp = a
+                continue
+            }
             val title = a.title?.toString().orEmpty().lowercase(Locale.ROOT)
             if (title.isEmpty()) continue
+            val resourceState = teamsLabels[title.trim()]
+            if (resourceState != null) {
+                Log.d(TAG, "Call action matched Teams string resource: muted=$resourceState")
+                if (resourceState) foundUnmute = a else foundMute = a
+                continue
+            }
             // Order matters: unmute before mute (substring trap).
             when {
                 foundUnmute == null && UNMUTE_KEYWORDS.any { title.contains(it) }  -> foundUnmute  = a
@@ -492,7 +568,7 @@ class CallNotifListener : NotificationListenerService() {
             foundMute, foundUnmute, foundHangUp, foundAnswer, foundDecline
         ).count { it != null }
         if (callActionCount == 0) return
-        if (callActionCount < 2 && !tier1Hit) {
+        if (callActionCount < 2 && !tier1Hit && n.category != Notification.CATEGORY_CALL) {
             Log.d(TAG, "Ignoring ${sbn.packageName} notification with only $callActionCount call-related action(s) — likely not a call")
             return
         }
@@ -545,14 +621,9 @@ class CallNotifListener : NotificationListenerService() {
             else -> null
         }
         if (newState != null && newState != muteShownByAppNotif) {
-            val wasKnown = muteShownByAppNotif != null
             muteShownByAppNotif = newState
-            if (wasKnown) {
-                Log.d(TAG, "App-notif mute state changed → $newState (${sbn.packageName})")
-                onMuteStateChanged?.invoke(newState)
-            } else {
-                Log.d(TAG, "App-notif initial mute state detected: $newState (${sbn.packageName})")
-            }
+            Log.d(TAG, "App-notif mute state detected → $newState (${sbn.packageName})")
+            onMuteStateChanged?.invoke(newState)
         }
     }
 

@@ -29,6 +29,9 @@
     <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
 
     <queries>
+        <package android:name="com.microsoft.teams" />
+        <package android:name="com.microsoft.teams.ipphone" />
+        <package android:name="com.microsoft.teams2" />
         <package android:name="com.wahoofitness.fitness" />
         <intent>
             <action android:name="android.intent.action.MAIN" />
