@@ -82,7 +82,10 @@ class RelayPeerSessionController(
         }
 
         override fun onFailure(mac: String?, reason: String) {
-            if (mac != null) publish(mac, PeerState(Stage.FAILED, reason = reason))
+            if (mac != null) {
+                pairingRequested.remove(mac)
+                publish(mac, PeerState(Stage.FAILED, reason = reason))
+            }
             listener.onFailure(mac, reason)
         }
     })
@@ -101,25 +104,32 @@ class RelayPeerSessionController(
         publish(mac, PeerState(Stage.DISCONNECTED))
     }
 
+    @Synchronized
     fun connectForPairing(macAddress: String) {
         val mac = normalize(macAddress)
+        // Opening setup on the responding device must keep the challenge that
+        // is already displayed on the initiating device.
+        if (pairing.containsKey(mac) || !pairingRequested.add(mac)) return
         if (hub.isConnected(mac)) {
+            pairingRequested.remove(mac)
             beginPairing(mac)
         } else {
-            pairingRequested.add(mac)
             publish(mac, PeerState(Stage.CONNECTING))
             hub.connect(mac)
         }
     }
 
+    @Synchronized
     fun connectForSession(macAddress: String) {
         val mac = normalize(macAddress)
+        if (pairing.containsKey(mac) || mac in pairingRequested) return
         require(identity.peerIdForAddress(mac) != null) { "Verify this EveryPods peer before starting relay" }
         publish(mac, PeerState(Stage.CONNECTING))
         if (hub.isConnected(mac)) beginTrustedSession(mac) else hub.connect(mac)
     }
 
     /** The displayed code must match on both devices before the user confirms on each. */
+    @Synchronized
     fun confirmPairing(macAddress: String) {
         val mac = normalize(macAddress)
         val attempt = checkNotNull(pairing[mac]) { "No active pairing verification" }
@@ -135,8 +145,10 @@ class RelayPeerSessionController(
         finishPairingIfConfirmed(attempt)
     }
 
+    @Synchronized
     fun cancelPairing(macAddress: String) {
         val mac = normalize(macAddress)
+        pairingRequested.remove(mac)
         val attempt = pairing.remove(mac) ?: return
         attempt.timeout?.cancel(false)
         attempt.codec?.close()
@@ -150,14 +162,16 @@ class RelayPeerSessionController(
         return hub.send(mac, session.codec.encode(payload))
     }
 
+    @Synchronized
     private fun beginPairing(mac: String) {
+        if (pairing.containsKey(mac)) return
         val attempt = PairAttempt(
             mac = mac,
             initiator = true,
             nonce = identity.newPairingNonce(),
             localPublicKey = identity.localPublicKey(),
         )
-        pairing[mac]?.codec?.close()
+        pairing[mac]?.let { it.timeout?.cancel(false); it.codec?.close() }
         pairing[mac] = attempt
         attempt.timeout = executor.schedule({
             if (pairing.remove(mac, attempt)) {
@@ -175,6 +189,7 @@ class RelayPeerSessionController(
 
     private fun beginResponderPairing(mac: String, peerPublicKey: ByteArray, nonce: ByteArray) {
         validatePublicKey(peerPublicKey)
+        pairingRequested.remove(mac)
         val attempt = PairAttempt(
             mac = mac,
             initiator = false,
@@ -189,7 +204,7 @@ class RelayPeerSessionController(
                 publish(mac, PeerState(Stage.FAILED, reason = "Pairing timed out. Try again."))
             }
         }, PAIRING_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-        pairing[mac]?.codec?.close()
+        pairing[mac]?.let { it.timeout?.cancel(false); it.codec?.close() }
         pairing[mac] = attempt
         if (!hub.send(mac, encodePairHello(attempt.localPublicKey, nonce))) {
             pairing.remove(mac, attempt)
@@ -217,6 +232,7 @@ class RelayPeerSessionController(
         }
     }
 
+    @Synchronized
     private fun receive(mac: String, payload: ByteArray) {
         try {
             when {
@@ -244,13 +260,27 @@ class RelayPeerSessionController(
                 val publicKey = ByteArray(keySize).also(input::get)
                 val nonce = ByteArray(RelayPeerIdentity.NONCE_BYTES).also(input::get)
                 val existing = pairing[mac]
-                if (existing != null && existing.initiator) {
-                    require(existing.nonce.contentEquals(nonce)) { "Pairing challenge does not match" }
+                if (existing != null && existing.initiator && existing.nonce.contentEquals(nonce)) {
+                    // Repeated identities must not reset an encrypted confirmation
+                    // channel or its replay counters after a code is displayed.
+                    if (existing.peerPublicKey != null) {
+                        require(existing.peerPublicKey!!.contentEquals(publicKey)) { "Peer identity changed during pairing" }
+                        return
+                    }
                     existing.peerPublicKey = publicKey
                     configureVerification(existing)
                     publish(mac, PeerState(Stage.VERIFYING, existing.stableId, existing.code))
+                } else if (existing != null && existing.initiator) {
+                    validatePublicKey(publicKey)
+                    // Both users may open setup together. The same identity wins
+                    // on both devices, so they converge on one nonce and code.
+                    if (RelayPairingCollision.keepLocalChallenge(existing.localPublicKey, publicKey)) return
+                    beginResponderPairing(mac, publicKey, nonce)
                 } else if (existing == null) {
                     beginResponderPairing(mac, publicKey, nonce)
+                } else {
+                    require(existing.peerPublicKey!!.contentEquals(publicKey)) { "Peer identity changed during pairing" }
+                    if (!existing.nonce.contentEquals(nonce)) beginResponderPairing(mac, publicKey, nonce)
                 }
             }
             TYPE_SESSION_HELLO -> receiveSessionHello(mac, input)
@@ -329,6 +359,7 @@ class RelayPeerSessionController(
     }
 
     private fun clearPeer(mac: String) {
+        pairingRequested.remove(mac)
         pairing.remove(mac)?.let { it.timeout?.cancel(false); it.codec?.close() }
         sessions.remove(mac)?.codec?.close()
     }

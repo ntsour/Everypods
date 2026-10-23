@@ -802,7 +802,7 @@ fun Main(gymTimerNavigationRequest: Int = 0, heartRateNavigationRequest: Int = 0
                         route = "device_playback/{mac}?start={start}&handover={handover}&setup={setup}&type={type}",
                         arguments = listOf(navArgument("mac") { type = NavType.StringType }, navArgument("start") { type = NavType.BoolType; defaultValue = false }, navArgument("handover") { type = NavType.BoolType; defaultValue = false }, navArgument("setup") { type = NavType.BoolType; defaultValue = false }, navArgument("type") { type = NavType.StringType; defaultValue = "wifi" }),
                     ) { entry ->
-                        if (BuildConfig.AUDIO_RELAY_PREVIEW && airPodsViewModel != null) {
+                        if (airPodsViewModel != null) {
                             val context = androidx.compose.ui.platform.LocalContext.current
                             val mac = android.net.Uri.decode(entry.arguments?.getString("mac").orEmpty())
                             val airPodsState by airPodsViewModel.uiState.collectAsState()

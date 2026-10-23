@@ -817,6 +817,7 @@ private fun AudioContent(state: AirPodsUiState, appState: AppSettingsUiState, vi
 private fun ConnectionContent(state: AirPodsUiState, appState: AppSettingsUiState, viewModel: AirPodsViewModel,
     appSettingsViewModel: AppSettingsViewModel, navController: NavController, dark: Boolean) {
     val context = LocalContext.current
+    val handoverAvailable = rememberHandoverAvailable(state.crossDevicePeers)
     val handoverTemporarilyPaused by io.automated.ventures.everypods.relay.DeviceConnectionStore.emittingState.collectAsState()
     AnchorWrapper("device") { deviceModifier -> SettingsSection(stringResource(R.string.design_device), deviceModifier) {
         MenuNavRow(stringResource(R.string.ui_device_name), dark, subtitle = state.deviceName) { navController.navigate("rename") }
@@ -828,11 +829,12 @@ private fun ConnectionContent(state: AirPodsUiState, appState: AppSettingsUiStat
         DeviceConnectionsList(viewModel, navController)
     } }
     AnchorWrapper("handover") { modifier -> SettingsSection(stringResource(R.string.design_automatic_connection), modifier) {
+        if (!handoverAvailable) Text(stringResource(R.string.handover_needs_peer_helper), style = captionStyle(dark), modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
         if (handoverTemporarilyPaused) {
             Text(stringResource(R.string.audio_relay_auto_takeover_suppressed), style = captionStyle(dark), modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
         }
         StyledToggle(label = stringResource(R.string.cross_device_handover), description = stringResource(R.string.cross_device_handover_description),
-            checked = state.crossDeviceEnabled && !handoverTemporarilyPaused, onCheckedChange = viewModel::setCrossDeviceEnabled, enabled = !handoverTemporarilyPaused)
+            checked = state.crossDeviceEnabled && handoverAvailable && !handoverTemporarilyPaused, onCheckedChange = viewModel::setCrossDeviceEnabled, enabled = handoverAvailable && !handoverTemporarilyPaused)
         MenuDivider()
         AnchorWrapper("lid_open_autoconnect") { rowModifier -> Box(rowModifier) {
             StyledToggle(label = stringResource(R.string.lid_open_last_holder_autoconnect), description = stringResource(R.string.lid_open_last_holder_autoconnect_description),
@@ -840,13 +842,13 @@ private fun ConnectionContent(state: AirPodsUiState, appState: AppSettingsUiStat
         } }
         AnchorWrapper("takeover_ringing") { rowModifier -> Box(rowModifier) {
             StyledToggle(label = stringResource(R.string.takeover_ringing_call), description = stringResource(R.string.takeover_ringing_call_desc),
-                checked = appState.takeoverWhenRingingCall && !handoverTemporarilyPaused, onCheckedChange = appSettingsViewModel::setTakeoverWhenRingingCall, enabled = !handoverTemporarilyPaused)
+                checked = appState.takeoverWhenRingingCall && handoverAvailable && !handoverTemporarilyPaused, onCheckedChange = appSettingsViewModel::setTakeoverWhenRingingCall, enabled = handoverAvailable && !handoverTemporarilyPaused)
         } }
         AnchorWrapper("takeover_media") { rowModifier -> Box(rowModifier) {
             StyledToggle(label = stringResource(R.string.takeover_media_start), description = stringResource(R.string.takeover_media_start_desc),
-                checked = appState.takeoverWhenMediaStart && !handoverTemporarilyPaused, onCheckedChange = appSettingsViewModel::setTakeoverWhenMediaStart, enabled = !handoverTemporarilyPaused)
+                checked = appState.takeoverWhenMediaStart && handoverAvailable && !handoverTemporarilyPaused, onCheckedChange = appSettingsViewModel::setTakeoverWhenMediaStart, enabled = handoverAvailable && !handoverTemporarilyPaused)
         } }
-        if (state.crossDeviceEnabled && appState.takeoverWhenMediaStart) io.automated.ventures.everypods.presentation.components.MediaHandoverAccessNotice()
+        if (handoverAvailable && state.crossDeviceEnabled && appState.takeoverWhenMediaStart) io.automated.ventures.everypods.presentation.components.MediaHandoverAccessNotice()
     } }
     AnchorWrapper("ear_detection") { modifier -> SettingsSection(stringResource(R.string.ear_detection), modifier) {
         StyledToggle(label = stringResource(R.string.ear_detection), checked = state.automaticEarDetectionEnabled,

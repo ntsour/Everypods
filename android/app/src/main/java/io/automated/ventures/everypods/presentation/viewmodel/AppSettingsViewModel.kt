@@ -44,6 +44,12 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
         if (key == "connection_successful") {
             _uiState.update { it.copy(connectionSuccessful = sharedPref.getBoolean(key, false)) }
         }
+        if (key == "takeover_when_media_start") {
+            _uiState.update { it.copy(takeoverWhenMediaStart = sharedPref.getBoolean(key, true)) }
+        }
+        if (key == "takeover_when_ringing_call") {
+            _uiState.update { it.copy(takeoverWhenRingingCall = sharedPref.getBoolean(key, true)) }
+        }
     }
 
 

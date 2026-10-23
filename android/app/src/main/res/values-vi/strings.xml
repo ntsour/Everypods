@@ -184,7 +184,7 @@
     <string name="connected_via_bluetooth">Đã kết nối qua Bluetooth</string>
     <string name="connected_via_bluetooth_description">Công việc âm thanh và chuyển giao. Các tính năng nâng cao (kiểm soát tiếng ồn, phát hiện tai, v.v.) cần có kết nối AACP, hiện không có trên thiết bị này.</string>
     <string name="connections_empty">Chưa có điện thoại nào khác được thêm vào.</string>
-    <string name="connections_guide">Quản lý các điện thoại Android dùng chung các AirPods này. Cần thiết để kích hoạt Chuyển giao.</string>
+    <string name="connections_guide">Quản lý các thiết bị Android dùng chung AirPods này. Cần kết nối BT để chuyển giao giữa các thiết bị. Cần kết nối Wi-Fi để truyền âm thanh.</string>
     <string name="connections_title">Kết nối</string>
     <string name="contact">Liên hệ</string>
     <string name="conversational_awareness_master_description">Giảm âm lượng phương tiện (và tùy ý tạm dừng nhạc) khi bạn bắt đầu nói. Cần thiết cho các tùy chọn bên dưới.</string>
@@ -216,7 +216,7 @@
     <string name="get_help_title">Nhận trợ giúp</string>
     <string name="github_issues">Sự cố GitHub</string>
     <string name="handover_guide">Khi được bật, điện thoại này có thể nhận AirPods nếu bạn bắt đầu nghe nhạc hoặc nhận cuộc gọi. Chỉ hoạt động giữa các thiết bị được kết nối.</string>
-    <string name="handover_needs_peer_helper">Thêm một điện thoại khác trong Kết nối để sử dụng Chuyển giao.</string>
+    <string name="handover_needs_peer_helper">Thêm kết nối chuyển giao BT trong Kết nối và kết nối thiết bị đó để sử dụng Chuyển giao.</string>
     <string name="handover_title">Bàn giao</string>
     <string name="lid_open_last_holder_autoconnect">Tự động kết nối khi mở trường hợp (thiết bị cuối cùng)</string>
     <string name="lid_open_last_holder_autoconnect_description">Khi bạn mở hộp, chỉ điện thoại cuối cùng sử dụng AirPods mới kết nối. Bắt đầu phát nhạc trên điện thoại khác để chuyển đổi. Điện thoại cuối cùng có thể kết nối ngay cả khi nó không ở bên cạnh hộp đựng.</string>
@@ -836,7 +836,7 @@
     <string name="audio_relay_network_unavailable">Không thể sử dụng mạng đã chọn. Kiểm tra kết nối Wi-Fi hoặc điểm phát sóng rồi thử lại.</string>
     <string name="audio_relay_start">Bắt đầu</string>
     <string name="audio_relay_devices">Thiết bị</string>
-    <string name="audio_relay_relay_home_title">Truyền âm thanh</string>
+    <string name="audio_relay_relay_home_title">Truyền âm thanh qua Wi-Fi</string>
     <string name="audio_relay_start_detail">AirPods vẫn kết nối với %1$s</string>
     <string name="audio_relay_ready_detail">%1$d thiết bị đã ghép nối đang trực tuyến</string>
     <string name="audio_relay_switch_to_peer">Chuyển sang %1$s</string>
@@ -865,7 +865,7 @@
     <string name="connection_type_wifi">Chuyển tiếp Wi-Fi</string>
     <string name="connection_remove_title">Xóa kết nối?</string>
     <string name="connection_remove_wifi">Xóa chuyển tiếp Wi-Fi với %1$s trên cả hai thiết bị? Mọi phiên chuyển tiếp giữa chúng sẽ dừng.</string>
-    <string name="connection_remove_bt">Xóa chuyển giao BT với %1$s khỏi thiết bị này?</string>
+    <string name="connection_remove_bt">Xóa chuyển giao BT với %1$s trên cả hai thiết bị? Thiết bị còn lại sẽ được cập nhật khi kết nối lại.</string>
     <string name="connection_remove_accessibility">Xóa kết nối %1$s với %2$s</string>
     <string name="connection_pair_android_first">Trước tiên, hãy ghép nối các thiết bị Android trong phần cài đặt Bluetooth.</string>
     <string name="connection_no_airpods_there">Trực tuyến · AirPods không kết nối ở đó</string>
@@ -925,4 +925,24 @@
     <string name="audio_relay_preset_duplicate">Đã có cấu hình mang tên này.</string>
     <string name="audio_relay_capture_delivery">Độ trễ giao dữ liệu thu (trung bình): %1$d ms</string>
     <string name="audio_relay_capture_read_peak">Thời gian chờ đọc dữ liệu thu (cao nhất): %1$d ms</string>
+
+    <!-- DIRCON heart-rate sharing -->
+    <string name="dircon_method">Cảm biến nhịp tim Wi-Fi (DIRCON)</string>
+    <string name="dircon_hint">Kết nối bộ nhận tương thích vào cùng mạng Wi-Fi. Dữ liệu nhịp tim thực từ AirPods sẽ được chia sẻ. Mọi thiết bị trong mạng này đều có thể kết nối khi đang chia sẻ.</string>
+    <string name="dircon_ready">Cảm biến Wi-Fi đang phát · chờ bộ nhận</string>
+    <string name="dircon_connected">Đã kết nối bộ nhận · chờ đăng ký nhịp tim</string>
+    <string name="dircon_subscribed">Bộ nhận đã đăng ký nhịp tim trực tiếp</string>
+    <string name="dircon_preparing">Đang chuẩn bị cảm biến Wi-Fi…</string>
+    <string name="dircon_permission">Cho phép truy cập mạng cục bộ và thông báo để chia sẻ nhịp tim.</string>
+    <string name="dircon_diagnostics">Cảm biến: %1$s
+Điểm cuối: %2$s:%3$d
+Yêu cầu giao thức: %4$d</string>
+    <string name="dircon_port_in_use">Cổng DIRCON này đang được sử dụng. Hãy dừng phiên chia sẻ nhịp tim khác rồi thử lại.</string>
+    <string name="dircon_ipv4_required">Mạng Wi-Fi này không có địa chỉ IPv4 cục bộ được hỗ trợ. Hãy kết nối với mạng Wi-Fi IPv4 thông thường rồi thử lại.</string>
+    <string name="connection_sync_pending">Đang chờ thiết bị còn lại…</string>
+    <string name="connection_bt_removal_pending">Đang chờ xóa chuyển giao BT: %1$s</string>
+    <string name="connection_type_bt_description">Cần thiết để chuyển giao giữa các thiết bị.</string>
+    <string name="connection_type_wifi_description">Cần thiết để truyền âm thanh qua Wi-Fi.</string>
+    <string name="hrs_monitor_only">Chỉ theo dõi (không chia sẻ)</string>
+    <string name="hrs_sharing_off">Đã tắt chia sẻ</string>
 </resources>

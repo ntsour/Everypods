@@ -644,14 +644,9 @@ class AirPodsViewModel(
     /** Add [mac] to the configured peer set and reconcile live links. */
     @android.annotation.SuppressLint("MissingPermission")
     fun addCrossDevicePeer(mac: String) {
-        val current = CrossDevice.configuredPeers.toMutableSet()
-        if (current.add(mac)) {
-            sharedPreferences.edit {
-                putString("cross_device_peers", org.json.JSONArray(current.toList()).toString())
-                remove("cross_device_peer_mac")
-            }
-            CrossDevice.init(appContext)
-        }
+        io.automated.ventures.everypods.relay.BtHandoverSync.updateMembership(appContext, mac, keep = true)
+        // Adding a capability to an existing peer also needs transport reconciliation.
+        CrossDevice.init(appContext)
     }
 
     /** Remove [mac] from the configured peer set and tear down its RFCOMM link. */
@@ -661,7 +656,7 @@ class AirPodsViewModel(
             sharedPreferences.edit {
                 putString("cross_device_peers", org.json.JSONArray(current.toList()).toString())
             }
-            CrossDeviceClient.stop(mac)
+            CrossDevice.removePeerTransport(mac)
             CrossDevice.configuredPeers = current
         }
     }
@@ -726,7 +721,11 @@ class AirPodsViewModel(
                     android.util.Log.d("AirPodsViewModel",
                         "pollCrossDeviceStatus tick=$tick peers=${peers.map { "${it.name}:connected=${it.connected}:hasPods=${it.hasPods}" }}")
                 }
-                _uiState.update { it.copy(crossDevicePeers = peers, isA2dpConnected = a2dp) }
+                _uiState.update { it.copy(
+                    crossDevicePeers = peers,
+                    isA2dpConnected = a2dp,
+                    crossDeviceEnabled = if (isDemoMode) it.crossDeviceEnabled else sharedPreferences.getBoolean("cross_device_enabled", true),
+                ) }
                 tick++
                 delay(2000)
             }

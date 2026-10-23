@@ -134,7 +134,11 @@ object AudioLeasePrefs {
         leaseHolder: Boolean,
         leaseEverSet: Boolean,
         a2dpOurs: Boolean,
+        peersSynchronized: Boolean = !shared,
+        peerHolding: Boolean = false,
+        reservationGranted: Boolean = false,
     ): Boolean {
+        if (!CrossDeviceReconnectPolicy.mayPassivelyAcquire(shared, peersSynchronized, peerHolding, reservationGranted)) return a2dpOurs
         if (!flagOn) {
             return !shared || a2dpOurs
         }
@@ -156,7 +160,11 @@ object AudioLeasePrefs {
         shared: Boolean,
         leaseHolder: Boolean,
         leaseEverSet: Boolean,
+        peersSynchronized: Boolean = !shared,
+        peerHolding: Boolean = false,
+        reservationGranted: Boolean = false,
     ): Boolean {
+        if (!CrossDeviceReconnectPolicy.mayPassivelyAcquire(shared, peersSynchronized, peerHolding, reservationGranted)) return false
         if (leaseHolder) return true
         if (!shared && !leaseEverSet) return true
         return false

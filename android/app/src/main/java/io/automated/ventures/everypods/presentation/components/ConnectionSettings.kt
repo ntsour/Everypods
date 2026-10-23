@@ -225,6 +225,7 @@ fun ConnectionSettings(
     onLidOpenLastHolderAutoconnectChanged: (Boolean) -> Unit = {},
 ) {
     val isDarkTheme = isSystemInDarkTheme()
+    val handoverAvailable = io.automated.ventures.everypods.presentation.screens.rememberHandoverAvailable(crossDevicePeers)
     val backgroundColor = if (isDarkTheme) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
 
     Column(
@@ -258,11 +259,11 @@ fun ConnectionSettings(
             label = stringResource(R.string.cross_device_handover),
             description = stringResource(R.string.cross_device_handover_description),
             independent = false,
-            checked = crossDeviceEnabled && !handoverTemporarilyPaused,
-            enabled = !handoverTemporarilyPaused,
+            checked = crossDeviceEnabled && handoverAvailable && !handoverTemporarilyPaused,
+            enabled = handoverAvailable && !handoverTemporarilyPaused,
             onCheckedChange = onCrossDeviceChanged
         )
-        if (crossDeviceEnabled) MediaHandoverAccessNotice()
+        if (handoverAvailable && crossDeviceEnabled) MediaHandoverAccessNotice()
         AnimatedVisibility(
             visible = crossDeviceEnabled,
             enter = expandVertically(),

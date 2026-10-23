@@ -184,7 +184,7 @@
     <string name="connected_via_bluetooth">Підключено через Bluetooth</string>
     <string name="connected_via_bluetooth_description">Аудіо та приймальні роботи. Розширені функції (контроль шуму, розпізнавання вуха тощо) потребують підключення AACP, яке недоступне на цьому пристрої.</string>
     <string name="connections_empty">Інших телефонів ще не додано.</string>
-    <string name="connections_guide">Керуйте телефонами Android, які використовують ці AirPods. Необхідно для ввімкнення передачі.</string>
+    <string name="connections_guide">Керуйте пристроями Android, що спільно використовують ці AirPods. З’єднання BT потрібні для передачі між пристроями. З’єднання Wi-Fi потрібні для передавання аудіо.</string>
     <string name="connections_title">Зв\'язки</string>
     <string name="contact">контакт</string>
     <string name="conversational_awareness_master_description">Зменште гучність медіа (і, можливо, призупиніть музику), коли почнете говорити. Необхідний для наведених нижче параметрів.</string>
@@ -216,7 +216,7 @@
     <string name="get_help_title">Отримати допомогу</string>
     <string name="github_issues">Проблеми GitHub</string>
     <string name="handover_guide">Коли ввімкнено, цей телефон може прийняти AirPods, якщо ви запускаєте медіафайл або отримуєте дзвінок. Працює лише між підключеними пристроями.</string>
-    <string name="handover_needs_peer_helper">Додайте інший телефон у розділі «Підключення», щоб використовувати передачу.</string>
+    <string name="handover_needs_peer_helper">Додайте з’єднання передачі BT у розділі «Підключення» та підключіть цей пристрій, щоб використовувати передачу.</string>
     <string name="handover_title">Передача</string>
     <string name="lid_open_last_holder_autoconnect">Автоматичне підключення після відкриття корпусу (останній пристрій)</string>
     <string name="lid_open_last_holder_autoconnect_description">Коли ви відкриваєте футляр, підключається лише останній телефон, на якому використовувалися AirPods. Щоб переключитися, запустіть музику на іншому телефоні. Останній телефон може підключитися, навіть якщо він не поруч із футляром.</string>
@@ -836,7 +836,7 @@
     <string name="audio_relay_network_unavailable">Не вдається використати вибрану мережу. Перевірте з’єднання Wi-Fi або точки доступу та спробуйте знову.</string>
     <string name="audio_relay_start">Почати</string>
     <string name="audio_relay_devices">Пристрої</string>
-    <string name="audio_relay_relay_home_title">Передавання аудіо</string>
+    <string name="audio_relay_relay_home_title">Передавання аудіо через Wi-Fi</string>
     <string name="audio_relay_start_detail">AirPods залишаться підключеними до %1$s</string>
     <string name="audio_relay_ready_detail">У мережі: %1$d спарених пристроїв</string>
     <string name="audio_relay_switch_to_peer">Перемкнутися на %1$s</string>
@@ -865,7 +865,7 @@
     <string name="connection_type_wifi">Ретрансляція Wi-Fi</string>
     <string name="connection_remove_title">Видалити з’єднання?</string>
     <string name="connection_remove_wifi">Видалити ретрансляцію Wi-Fi з %1$s на обох пристроях? Будь-яку ретрансляцію між ними буде зупинено.</string>
-    <string name="connection_remove_bt">Видалити передачу через BT з %1$s на цьому пристрої?</string>
+    <string name="connection_remove_bt">Видалити передачу BT з %1$s на обох пристроях? Інший пристрій буде оновлено після повторного підключення.</string>
     <string name="connection_remove_accessibility">Видалити з’єднання %1$s із %2$s</string>
     <string name="connection_pair_android_first">Спочатку спаруйте пристрої Android у налаштуваннях Bluetooth.</string>
     <string name="connection_no_airpods_there">У мережі · AirPods там не підключені</string>
@@ -925,4 +925,24 @@
     <string name="audio_relay_preset_duplicate">Набір із такою назвою вже існує.</string>
     <string name="audio_relay_capture_delivery">Вік захоплення під час доставки (середній): %1$d мс</string>
     <string name="audio_relay_capture_read_peak">Очікування читання захоплення (максимум): %1$d мс</string>
+
+    <!-- DIRCON heart-rate sharing -->
+    <string name="dircon_method">Wi-Fi датчик пульсу (DIRCON)</string>
+    <string name="dircon_hint">Під’єднай сумісний приймач до тієї самої мережі Wi-Fi. Передаються реальні показники пульсу з AirPods. Поки передавання ввімкнене, до нього можуть під’єднатися всі пристрої в цій мережі.</string>
+    <string name="dircon_ready">Wi-Fi датчик доступний · очікування приймача</string>
+    <string name="dircon_connected">Приймач під’єднано · очікування підписки на пульс</string>
+    <string name="dircon_subscribed">Приймач отримує пульс у реальному часі</string>
+    <string name="dircon_preparing">Підготовка Wi-Fi датчика…</string>
+    <string name="dircon_permission">Дозволь доступ до локальної мережі та сповіщень, щоб передавати пульс.</string>
+    <string name="dircon_diagnostics">Датчик: %1$s
+Кінцева точка: %2$s:%3$d
+Запити протоколу: %4$d</string>
+    <string name="dircon_port_in_use">Цей порт DIRCON уже використовується. Зупини інший сеанс поширення пульсу й повтори спробу.</string>
+    <string name="dircon_ipv4_required">У цій мережі Wi-Fi немає підтримуваної локальної IPv4-адреси. Під’єднайся до звичайної мережі Wi-Fi IPv4 і повтори спробу.</string>
+    <string name="connection_sync_pending">Очікування іншого пристрою…</string>
+    <string name="connection_bt_removal_pending">Очікується видалення передачі BT: %1$s</string>
+    <string name="connection_type_bt_description">Потрібне для передачі між пристроями.</string>
+    <string name="connection_type_wifi_description">Потрібне для передавання аудіо через Wi-Fi.</string>
+    <string name="hrs_monitor_only">Лише моніторинг (без передавання)</string>
+    <string name="hrs_sharing_off">Передавання вимкнено</string>
 </resources>

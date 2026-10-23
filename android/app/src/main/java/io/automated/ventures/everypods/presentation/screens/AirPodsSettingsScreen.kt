@@ -212,15 +212,13 @@ internal fun searchIndex(context: Context): List<SearchableItem> {
             category = categoryLabels[key] ?: item.category,
             keywords = item.keywords + categoryAliases[item.categoryKey].orEmpty() + englishItems[index].label)
     }
-    return if (io.automated.ventures.everypods.BuildConfig.AUDIO_RELAY_PREVIEW) {
-        indexed + SearchableItem(
+    return indexed + SearchableItem(
             context.getString(R.string.audio_relay_playback),
             context.getString(R.string.design_connection),
             "connection",
             "category/connection?anchor=connections",
             keywords = listOf("wifi audio", "play through", "relay", "handover"),
         )
-    } else indexed
 }
 
 private fun buildSearchIndex(context: Context): List<SearchableItem> = listOf(
@@ -248,7 +246,7 @@ private fun buildSearchIndex(context: Context): List<SearchableItem> = listOf(
     SearchableItem(context.getString(R.string.ui_notification_announcements), "Smart Features", "smart", "notification_announcements", keywords = listOf("tts", "read", "speak", "siri")),
     SearchableItem(context.getString(R.string.ui_find_my_case), "Smart Features", "smart", "proximity_finder", keywords = listOf("Find My Case", "Find my Case", "locate", "nearby", "radar", "buscar mi estuche", "encontrar")),
     SearchableItem(context.getString(R.string.ui_head_gestures),            "Smart Features", "smart", "head_tracking", keywords = listOf("nod", "shake", "answer call", "head gestures", "head gesture actions", "gestos de cabeza", "gestos con la cabeza")),
-    SearchableItem(context.getString(R.string.hrs_title), "Smart Features", "smart", "category/smart?anchor=heart_rate", keywords = listOf("heart rate", "heart rate monitor", "bpm", "wahoo", "tickr", "sensor cardíaco", "frecuencia cardíaca", "ritmo cardíaco")),
+    SearchableItem(context.getString(R.string.hrs_title), "Smart Features", "smart", "category/smart?anchor=heart_rate", keywords = listOf("heart rate", "heart rate monitor", "bpm", "wahoo", "tickr", "DIRCON", "Wi-Fi heart rate", "Incyclist", "Zwift", "receiver", "sensor cardíaco", "frecuencia cardíaca", "ritmo cardíaco")),
     SearchableItem(context.getString(R.string.adaptive_audio),           "Smart Features", "smart", "adaptive_audio", keywords = listOf("anc strength", "noise control")),
     SearchableItem(context.getString(R.string.ui_sleep_detection),          "Smart Features", "smart", "category/smart", anchor = "automation", keywords = listOf("auto sleep", "bedtime", "detección de sueño")),
     SearchableItem(context.getString(R.string.ui_optimized_charging),       "Smart Features", "smart", "category/smart", anchor = "automation", keywords = listOf("battery health", "slow charge", "carga optimizada")),
@@ -1065,8 +1063,7 @@ private fun DisconnectedScreen(
     val tapCount  = remember { mutableIntStateOf(0) }
     val lastTap   = remember { mutableLongStateOf(0L) }
     val handoverTemporarilyPaused by io.automated.ventures.everypods.relay.DeviceConnectionStore.emittingState.collectAsState()
-    val peerCount = state.crossDevicePeers.size
-    val handoverUnlocked = peerCount >= 1
+    val handoverUnlocked = rememberHandoverAvailable(state.crossDevicePeers)
     // Same gate as before: show reconnect when a saved MAC exists (or a prior
     // successful connection left one). Subtitle uses the last known AirPods name.
     val showReconnect = state.hasSavedDevice || state.connectionSuccessful
@@ -1247,7 +1244,7 @@ private fun DisconnectedScreen(
                     StyledToggle(
                         label = stringResource(R.string.cross_device_handover),
                         description = stringResource(R.string.cross_device_handover_description),
-                        checked = state.crossDeviceEnabled && !handoverTemporarilyPaused,
+                        checked = state.crossDeviceEnabled && handoverUnlocked && !handoverTemporarilyPaused,
                         onCheckedChange = { viewModel.setCrossDeviceEnabled(it) },
                         independent = true,
                         enabled = handoverUnlocked && !handoverTemporarilyPaused
@@ -1255,16 +1252,16 @@ private fun DisconnectedScreen(
                     StyledToggle(
                         label = stringResource(R.string.takeover_media_start),
                         description = stringResource(R.string.takeover_media_start_desc),
-                        checked = appState.takeoverWhenMediaStart && !handoverTemporarilyPaused,
+                        checked = appState.takeoverWhenMediaStart && handoverUnlocked && !handoverTemporarilyPaused,
                         onCheckedChange = appSettingsViewModel::setTakeoverWhenMediaStart,
                         independent = true,
                         enabled = handoverUnlocked && !handoverTemporarilyPaused
                     )
-                    if (state.crossDeviceEnabled && appState.takeoverWhenMediaStart) io.automated.ventures.everypods.presentation.components.MediaHandoverAccessNotice()
+                    if (handoverUnlocked && state.crossDeviceEnabled && appState.takeoverWhenMediaStart) io.automated.ventures.everypods.presentation.components.MediaHandoverAccessNotice()
                     StyledToggle(
                         label = stringResource(R.string.takeover_ringing_call),
                         description = stringResource(R.string.takeover_ringing_call_desc),
-                        checked = appState.takeoverWhenRingingCall && !handoverTemporarilyPaused,
+                        checked = appState.takeoverWhenRingingCall && handoverUnlocked && !handoverTemporarilyPaused,
                         onCheckedChange = appSettingsViewModel::setTakeoverWhenRingingCall,
                         independent = true,
                         enabled = handoverUnlocked && !handoverTemporarilyPaused

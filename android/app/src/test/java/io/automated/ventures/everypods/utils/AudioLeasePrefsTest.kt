@@ -98,19 +98,19 @@ class AudioLeasePrefsTest {
         assertTrue(
             AudioLeasePrefs.mayProactivelyConnect(
                 flagOn = true, shared = true, leaseHolder = true,
-                leaseEverSet = true, a2dpOurs = false
+                leaseEverSet = true, a2dpOurs = false, peersSynchronized = true, reservationGranted = true,
             )
         )
         assertFalse(
             AudioLeasePrefs.mayProactivelyConnect(
                 flagOn = true, shared = true, leaseHolder = false,
-                leaseEverSet = true, a2dpOurs = false
+                leaseEverSet = true, a2dpOurs = false, peersSynchronized = true,
             )
         )
         assertTrue(
             AudioLeasePrefs.mayProactivelyConnect(
                 flagOn = true, shared = true, leaseHolder = false,
-                leaseEverSet = true, a2dpOurs = true
+                leaseEverSet = true, a2dpOurs = true, peersSynchronized = true,
             )
         )
     }
@@ -142,11 +142,49 @@ class AudioLeasePrefsTest {
         assertFalse(
             AudioLeasePrefs.mayLidAutoGrab(shared = true, leaseHolder = false, leaseEverSet = false)
         )
+        assertFalse(
+            AudioLeasePrefs.mayLidAutoGrab(
+                shared = true, leaseHolder = true, leaseEverSet = true,
+                peersSynchronized = false,
+            ),
+        )
+        assertFalse(
+            AudioLeasePrefs.mayLidAutoGrab(
+                shared = true, leaseHolder = true, leaseEverSet = true,
+                peersSynchronized = true, peerHolding = true,
+            ),
+        )
         assertTrue(
-            AudioLeasePrefs.mayLidAutoGrab(shared = true, leaseHolder = true, leaseEverSet = true)
+            AudioLeasePrefs.mayLidAutoGrab(
+                shared = true, leaseHolder = true, leaseEverSet = true,
+                peersSynchronized = true, reservationGranted = true,
+            )
         )
         assertTrue(
             AudioLeasePrefs.mayLidAutoGrab(shared = false, leaseHolder = false, leaseEverSet = false)
+        )
+    }
+
+    @Test
+    fun `shared proactive grab requires synchronized released peers`() {
+        assertFalse(
+            AudioLeasePrefs.mayProactivelyConnect(
+                flagOn = true, shared = true, leaseHolder = true,
+                leaseEverSet = true, a2dpOurs = false, peersSynchronized = false,
+            ),
+        )
+        assertFalse(
+            AudioLeasePrefs.mayProactivelyConnect(
+                flagOn = true, shared = true, leaseHolder = true,
+                leaseEverSet = true, a2dpOurs = false, peersSynchronized = true,
+                peerHolding = true,
+            ),
+        )
+        assertTrue(
+            AudioLeasePrefs.mayProactivelyConnect(
+                flagOn = true, shared = true, leaseHolder = true,
+                leaseEverSet = true, a2dpOurs = false, peersSynchronized = true, reservationGranted = true,
+            ),
         )
     }
 }

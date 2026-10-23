@@ -47,7 +47,6 @@ import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
 import io.automated.ventures.everypods.presentation.components.RelayInterruptionNotice
 import io.automated.ventures.everypods.presentation.components.relaySuspensionMessage
-import io.automated.ventures.everypods.BuildConfig
 import io.automated.ventures.everypods.R
 import io.automated.ventures.everypods.presentation.components.SettingsGroup
 import io.automated.ventures.everypods.presentation.viewmodel.PeerUiInfo
@@ -67,7 +66,6 @@ fun AudioRelayHomeSurface(
     modifier: Modifier = Modifier,
     onContentVisibilityChanged: (Boolean) -> Unit = {},
 ) {
-    if (!BuildConfig.AUDIO_RELAY_PREVIEW) return
     val context = LocalContext.current
     val connections = rememberDeviceConnections(peers)
     val wifiPeers = peers.filter { peer -> connections.any { it.mac.equals(peer.mac, true) && it.type == DeviceConnectionType.WIFI_RELAY } }
@@ -156,8 +154,10 @@ fun AudioRelayHomeSurface(
         }
     }
     val active = state.stage in setOf(RelayStage.CONNECTING, RelayStage.WAITING_FOR_AUDIO, RelayStage.STREAMING, RelayStage.BUFFERING, RelayStage.SUSPENDED)
+    val incomingVerifications = state.peerVerifications.filterValues { it.stage == RelayStage.VERIFYING }
     val receiverNeedsControls = localAirPodsConnected && (
-        (state.role == RelayRole.RECEIVER && (active || state.reason != null)) || state.pendingSenderMac != null
+        (state.role == RelayRole.RECEIVER && (active || state.reason != null)) || state.pendingSenderMac != null ||
+            incomingVerifications.isNotEmpty()
     )
     val showCard = !localAirPodsConnected || receiverNeedsControls
     androidx.compose.runtime.SideEffect { onContentVisibilityChanged(showCard) }
@@ -183,6 +183,28 @@ fun AudioRelayHomeSurface(
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
+                // An incoming peer pairing is delivered to the service, but the
+                // receiver may be wearing AirPods and therefore normally hides
+                // the idle relay card. Keep the verification code actionable here
+                // so both devices can compare it without navigating elsewhere.
+                incomingVerifications.forEach { (mac, verification) ->
+                    val verificationName = peers.firstOrNull { it.mac.equals(mac, true) }?.name
+                        ?: stringResource(R.string.audio_relay_device_fallback)
+                    Text(stringResource(R.string.audio_relay_verify_heading), color = body, fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.audio_relay_verify_instruction), color = body.copy(alpha = .75f))
+                    Text(verificationName, color = body)
+                    verification.code?.let { code ->
+                        Text(code, fontSize = 28.sp, fontWeight = FontWeight.SemiBold, color = body)
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = { relay?.confirmPairing(mac) }, enabled = verification.code != null) {
+                            Text(stringResource(R.string.audio_relay_verify_confirm))
+                        }
+                        OutlinedButton(onClick = { relay?.cancelPairing(mac) }) {
+                            Text(stringResource(R.string.audio_relay_verify_cancel))
+                        }
+                    }
+                }
                 if (state.pendingSenderMac != null && localAirPodsConnected) {
                     Text(stringResource(R.string.audio_relay_switch_request, pendingName, peerName), color = body)
                     Column {
@@ -252,7 +274,6 @@ fun AudioRelayHomeSurface(
 
 @Composable
 fun AudioRelaySessionStrip(navController: NavController, modifier: Modifier = Modifier) {
-    if (!BuildConfig.AUDIO_RELAY_PREVIEW) return
     val context = LocalContext.current
     var relay by remember { mutableStateOf<RelaySessionApi?>(null) }
     DisposableEffect(context) {

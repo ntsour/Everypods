@@ -22,9 +22,11 @@ package io.automated.ventures.everypods.services
 
 import io.automated.ventures.everypods.bluetooth.hrm.SharingError
 import io.automated.ventures.everypods.bluetooth.hrm.HeartRateSharingState
+import io.automated.ventures.everypods.utils.peer.PeerAudioUse
 import io.automated.ventures.everypods.bluetooth.hrm.HeartRateSharingMethod
 import io.automated.ventures.everypods.bluetooth.hrm.HeartRateSharingPrefs
 import io.automated.ventures.everypods.bluetooth.hrm.HeartRateSharingIntent
+import io.automated.ventures.everypods.bluetooth.hrm.dircon.DirconSessionController
 import io.automated.ventures.everypods.bluetooth.hrm.WahooDiagnosticBridge
 import io.automated.ventures.everypods.bluetooth.hrm.BluetoothHeartRatePeripheral
 import io.automated.ventures.everypods.bluetooth.hrm.BluetoothHrPeripheralError
@@ -35,6 +37,7 @@ import androidx.compose.ui.res.stringResource
 import io.automated.ventures.everypods.utils.CrossDevice
 import io.automated.ventures.everypods.utils.CrossDeviceClient
 import io.automated.ventures.everypods.utils.CrossDevicePackets
+import io.automated.ventures.everypods.utils.CrossDeviceReconnectPolicy
 import io.automated.ventures.everypods.utils.AudioLeasePrefs
 import io.automated.ventures.everypods.utils.LidAutoconnectDiagnostics
 import io.automated.ventures.everypods.utils.LidAutoconnectPolicy
@@ -215,6 +218,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     val heartRateSharingState = mutableHeartRateSharing.asStateFlow()
     @Volatile private var wahooDiagnosticBridge: WahooDiagnosticBridge? = null
     @Volatile private var bluetoothHeartRatePeripheral: BluetoothHeartRatePeripheral? = null
+    @Volatile private var dirconSessionController: DirconSessionController? = null
     private val hrSharingIntent = HeartRateSharingIntent()
     private val hrSharingScope = CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.Main.immediate)
     private var hrRecovery: kotlinx.coroutines.Job? = null
@@ -224,6 +228,16 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     private var hrSharingDevice: String? = null
     private var hrRecoveryDeadline = 0L
     private var heartRateSharingWakeLock: android.os.PowerManager.WakeLock? = null
+
+    /** Publishes one typed view over the independently owned sensor and transport state. */
+    private fun publishHeartRateSharingState(state: HeartRateSharingState) {
+        mutableHeartRateSharing.value = io.automated.ventures.everypods.bluetooth.hrm.HeartRateSharingStateReducer.reconcile(
+            state = state,
+            intentRequested = hrSharingIntent.method != null,
+            sensor = heartRateState.value,
+            sensorRecoveryActive = hrRecovery?.isActive == true,
+        )
+    }
 
     /** Preview lifecycle must not cancel a separately authorized sharing session. */
     fun stopHeartRatePreview() {
@@ -236,6 +250,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             Handler(Looper.getMainLooper()).post { startHeartRateSharing(method, gym) }
             return
         }
+        if (method == HeartRateSharingMethod.DIRCON && !BuildConfig.DIRCON_ENABLED) return
         val gymOwned = gym || (heartRateSharingState.value.active && hrSharingIntent.gymOwned)
         if (heartRateSharingState.value.active) {
             if (hrSharingIntent.method == method) return
@@ -244,12 +259,14 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         if (method == HeartRateSharingMethod.TICKR && runCatching {
                 packageManager.getPackageInfo("com.wahoofitness.fitness", 0)
             }.isFailure) {
-            mutableHeartRateSharing.value = HeartRateSharingState(error = SharingError.WAHOO_UNAVAILABLE)
+            publishHeartRateSharingState(HeartRateSharingState(error = SharingError.WAHOO_UNAVAILABLE))
             return
         }
         if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED ||
-            (method == HeartRateSharingMethod.BLUETOOTH && checkSelfPermission(Manifest.permission.BLUETOOTH_ADVERTISE) != PackageManager.PERMISSION_GRANTED)) {
-            mutableHeartRateSharing.value = HeartRateSharingState(error = SharingError.PERMISSION)
+            (method == HeartRateSharingMethod.BLUETOOTH && checkSelfPermission(Manifest.permission.BLUETOOTH_ADVERTISE) != PackageManager.PERMISSION_GRANTED) ||
+            (method == HeartRateSharingMethod.DIRCON && Build.VERSION.SDK_INT >= 37 &&
+                checkSelfPermission("android.permission.ACCESS_LOCAL_NETWORK") != PackageManager.PERMISSION_GRANTED)) {
+            publishHeartRateSharingState(HeartRateSharingState(error = SharingError.PERMISSION))
             return
         }
         startHeartRate()
@@ -261,27 +278,76 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         try {
             if (method == HeartRateSharingMethod.TICKR) {
                 wahooDiagnosticBridge = WahooDiagnosticBridge(this)
-                mutableHeartRateSharing.value = HeartRateSharingState(active = true, wahooDiagnostic = true)
+                publishHeartRateSharingState(HeartRateSharingState(active = true, wahooDiagnostic = true))
+            } else if (method == HeartRateSharingMethod.DIRCON) {
+                startDirconHeartRateTransport()
             } else {
                 startBluetoothHeartRateTransport()
             }
-            heartRateSharingWakeLock = getSystemService(android.os.PowerManager::class.java)
-                .newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "EveryPods:HeartRateSharing")
-                .apply { setReferenceCounted(false); acquire() }
+            if (method != HeartRateSharingMethod.DIRCON) acquireHeartRateSharingWakeLock()
             showHeartRateSharingNotification()
         } catch (e: Exception) {
             Log.w("EveryPodsHRM", "Sharing start failed: ${e.javaClass.simpleName}")
             stopHeartRate()
-            mutableHeartRateSharing.value = heartRateSharingState.value.copy(
-                error = SharingError.SERVER)
+            publishHeartRateSharingState(heartRateSharingState.value.copy(
+                error = SharingError.SERVER))
         }
+    }
+
+    private fun startDirconHeartRateTransport() {
+        lateinit var controller: DirconSessionController
+        controller = DirconSessionController(
+            context = this,
+            scope = hrSharingScope,
+            changed = { state ->
+                Handler(Looper.getMainLooper()).post {
+                    if (dirconSessionController === controller) {
+                        val previous = heartRateSharingState.value
+                        // Combine independent transport and sensor recovery signals. Do
+                        // not retain the previous rendered flag: that made recovery
+                        // sticky after the listener advertised again or sensor resumed.
+                        val next = state.copy(
+                            recovering = state.recovering || hrRecovery?.isActive == true ||
+                                heartRateState.value.status == io.automated.ventures.everypods.bluetooth.hrm.HeartRateStatus.STALE,
+                        )
+                        publishHeartRateSharingState(next)
+                        if (next.recovering) releaseHeartRateSharingWakeLock()
+                        if (previous.recovering != next.recovering || previous.advertised != next.advertised ||
+                            previous.error != next.error) showHeartRateSharingNotification()
+                    }
+                }
+            },
+            failedPermanently = { error ->
+                Handler(Looper.getMainLooper()).post {
+                    if (dirconSessionController === controller) {
+                        dirconSessionController = null
+                        stopHeartRate(HeartRateFailure.SEND_FAILED)
+                        publishHeartRateSharingState(HeartRateSharingState(error = error))
+                    }
+                }
+            },
+        )
+        dirconSessionController = controller
+        controller.start()
+    }
+
+    private fun acquireHeartRateSharingWakeLock() {
+        if (heartRateSharingWakeLock?.isHeld == true) return
+        heartRateSharingWakeLock = getSystemService(android.os.PowerManager::class.java)
+            .newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "EveryPods:HeartRateSharing")
+            .apply { setReferenceCounted(false); acquire() }
+    }
+
+    private fun releaseHeartRateSharingWakeLock() {
+        heartRateSharingWakeLock?.let { if (it.isHeld) it.release() }
+        heartRateSharingWakeLock = null
     }
 
     private fun startBluetoothHeartRateTransport() {
         lateinit var peripheral: BluetoothHeartRatePeripheral
         peripheral = BluetoothHeartRatePeripheral(this, changed = { state ->
             Handler(Looper.getMainLooper()).post {
-                if (bluetoothHeartRatePeripheral === peripheral) mutableHeartRateSharing.value = HeartRateSharingState(
+                if (bluetoothHeartRatePeripheral === peripheral) publishHeartRateSharingState(HeartRateSharingState(
                     active = hrSharingIntent.method == HeartRateSharingMethod.BLUETOOTH,
                     advertised = state.advertising,
                     name = "EveryPods HR",
@@ -297,7 +363,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                         BluetoothHrPeripheralError.ADVERTISING -> SharingError.BLUETOOTH_ADVERTISING
                         null -> null
                     }
-                )
+                ))
             }
         }, failed = { error ->
             Handler(Looper.getMainLooper()).post {
@@ -307,7 +373,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             }
         })
         bluetoothHeartRatePeripheral = peripheral
-        mutableHeartRateSharing.value = heartRateSharingState.value.copy(active = true, bluetoothPeripheral = true, error = null)
+        publishHeartRateSharingState(heartRateSharingState.value.copy(active = true, bluetoothPeripheral = true, error = null))
         peripheral.start()
     }
 
@@ -321,11 +387,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         }
         if (error == BluetoothHrPeripheralError.PERMISSION || error == BluetoothHrPeripheralError.UNSUPPORTED || hrTransportRetries >= 3) {
             stopHeartRate(HeartRateFailure.SEND_FAILED)
-            mutableHeartRateSharing.value = HeartRateSharingState(error = rendered)
+            publishHeartRateSharingState(HeartRateSharingState(error = rendered))
             return
         }
         hrTransportRetries++
-        mutableHeartRateSharing.value = heartRateSharingState.value.copy(active = true, recovering = true, advertised = false, clients = 0, subscriptions = 0, error = null)
+        publishHeartRateSharingState(heartRateSharingState.value.copy(active = true, recovering = true, advertised = false, clients = 0, subscriptions = 0, error = null))
         showHeartRateSharingNotification()
         hrTransportRecovery?.cancel()
         hrTransportRecovery = hrSharingScope.launch {
@@ -354,7 +420,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             .setContentText(getString(if (heartRateSharingState.value.recovering) R.string.hrs_reconnecting
                 else if (heartRateState.value.status == io.automated.ventures.everypods.bluetooth.hrm.HeartRateStatus.STALE) R.string.hrm_stale
                 else if (heartRateState.value.bpm == null) R.string.hrm_waiting
-                else if (hrSharingIntent.method == HeartRateSharingMethod.TICKR) R.string.hrs_tickr_sending else R.string.hrs_ble_ready)).setContentIntent(open)
+                else if (hrSharingIntent.method == HeartRateSharingMethod.TICKR) R.string.hrs_tickr_sending
+                else if (hrSharingIntent.method == HeartRateSharingMethod.DIRCON) R.string.dircon_ready else R.string.hrs_ble_ready)).setContentIntent(open)
             .setOngoing(true).setOnlyAlertOnce(true)
             .addAction(R.drawable.ic_bluetooth, getString(R.string.hrm_stop), stop).build())
     }
@@ -391,8 +458,12 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 } else {
                     val before = heartRateState.value.status
                     heartRateSession.tick()
-                    if (heartRateState.value.status == io.automated.ventures.everypods.bluetooth.hrm.HeartRateStatus.STALE) {
+                    publishHeartRateSharingState(heartRateSharingState.value)
+                    if (before != io.automated.ventures.everypods.bluetooth.hrm.HeartRateStatus.STALE &&
+                        heartRateState.value.status == io.automated.ventures.everypods.bluetooth.hrm.HeartRateStatus.STALE) {
                         wahooDiagnosticBridge?.clearReading()
+                        dirconSessionController?.clearReading()
+                        if (hrSharingIntent.method == HeartRateSharingMethod.DIRCON) releaseHeartRateSharingWakeLock()
                         if (before != heartRateState.value.status && heartRateSharingState.value.active) showHeartRateSharingNotification()
                     }
                     if (!heartRateState.value.running) stopHeartRate(heartRateState.value.failure)
@@ -409,7 +480,16 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             Handler(Looper.getMainLooper()).post { stopHeartRate(reason, connectionUsable) }
             return
         }
-        if (hrSharingIntent.method != null && reason in setOf(HeartRateFailure.CONNECTION_LOST, HeartRateFailure.NO_DATA)) {
+        stopHeartRateInternal(reason, connectionUsable, allowSensorRecovery = true)
+    }
+
+    private fun stopHeartRateInternal(
+        reason: HeartRateFailure?,
+        connectionUsable: Boolean,
+        allowSensorRecovery: Boolean,
+    ) {
+        if (allowSensorRecovery && hrSharingIntent.method != null &&
+            reason in setOf(HeartRateFailure.CONNECTION_LOST, HeartRateFailure.NO_DATA)) {
             recoverHeartRate(reason!!, connectionUsable)
             return
         }
@@ -425,23 +505,25 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         wahooDiagnosticBridge = null
         bluetoothHeartRatePeripheral?.stop()
         bluetoothHeartRatePeripheral = null
-        mutableHeartRateSharing.value = HeartRateSharingState()
-        heartRateSharingWakeLock?.let { if (it.isHeld) it.release() }
-        heartRateSharingWakeLock = null
+        dirconSessionController?.stop()
+        dirconSessionController = null
+        releaseHeartRateSharingWakeLock()
         getSystemService(NotificationManager::class.java).cancel(731)
         heartRateWatchdog?.cancel()
         heartRateWatchdog = null
         heartRateSession.stop(reason, connectionUsable)
         heartRateDevice = null
+        publishHeartRateSharingState(HeartRateSharingState())
         Log.i("EveryPodsHRM", "Session ${heartRateState.value.status} reason=${heartRateState.value.failure}; ${aacpManager.heartRateDiagnostics()}")
     }
 
     private fun recoverHeartRate(reason: HeartRateFailure, connectionUsable: Boolean) {
         wahooDiagnosticBridge?.clearReading()
+        dirconSessionController?.clearReading()
         heartRateSession.stop(reason, connectionUsable)
         heartRateWatchdog?.cancel()
         heartRateWatchdog = null
-        mutableHeartRateSharing.value = heartRateSharingState.value.copy(recovering = true)
+        publishHeartRateSharingState(heartRateSharingState.value.copy(recovering = true))
         showHeartRateSharingNotification()
         if (hrRecovery?.isActive == true) return
         if (hrRecoveryDeadline == 0L) hrRecoveryDeadline = android.os.SystemClock.elapsedRealtime() + 60_000L
@@ -461,8 +543,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     if (heartRateState.value.running) return@launch
                 }
             }
-            // A terminal reason bypasses recovery and tears down the transport.
-            stopHeartRate(HeartRateFailure.SEND_FAILED, false)
+            // End the retry budget with the original sensor cause; do not recurse
+            // into a second recovery window or replace it with a generic send error.
+            stopHeartRateInternal(reason, false, allowSensorRecovery = false)
         }
     }
 
@@ -597,7 +680,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
         /**
          * Cooldown after a peer-initiated drop (ACL_DISCONNECTED).
-         * While `System.currentTimeMillis() < peerDropCooldownUntilMs`, auto-reconnect
+         * While `SystemClock.elapsedRealtime() < peerDropCooldownUntilMs`, auto-reconnect
          * triggers (BLE listener, ACL_CONNECTED, bonded-devices probe) skip the connect.
          * A *manual* user-initiated connect ignores this gate.
          *
@@ -737,7 +820,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
         /** Debounce for lid-open Option-1 auto-grab (see AudioLeasePrefs). */
         const val LID_AUTOCONNECT_DEBOUNCE_MS: Long = AudioLeasePrefs.LID_AUTOCONNECT_DEBOUNCE_MS
-        @Volatile @JvmStatic var lastLidAutoconnectAttemptMs: Long = 0L
+        @Volatile @JvmStatic var lastLidAutoconnectAttemptElapsedMs: Long = 0L
         @Volatile @JvmStatic var lastA2dpStateChangeMs: Long = 0L
 
         /**
@@ -792,7 +875,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             // BLE ticks from spawning concurrent attempts.
             val mac = sharedPreferences.getString("mac_address", "") ?: ""
             if (!isConnected() && mac.isNotEmpty() && !connectInFlight.get()) {
-                val now = System.currentTimeMillis()
+                val now = SystemClock.elapsedRealtime()
                 val cooldownActive = now < peerDropCooldownUntilMs
                 // Resolve A2DP only if cooldown is clear, to avoid extra IPC.
                 val a2dpOurs = if (!cooldownActive) isA2dpConnectedTo(mac) else false
@@ -851,6 +934,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         override fun onLidStateChanged(
             lidOpen: Boolean,
         ) {
+            lidOpenState = lidOpen
             if (lidOpen) {
                 Log.d(TAG, "Lid opened")
                 LidAutoconnectDiagnostics.logEvent("lid_open")
@@ -893,6 +977,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 Log.d(TAG, "Lid closed")
                 LidAutoconnectDiagnostics.logEvent("lid_closed", mapOf("reason" to "ble_lid_closed"))
                 cancelPendingLidAutoconnect("lid_closed")
+                CrossDevice.cancelPassiveAcquisition()
                 lidOtherOwnerNotifiedForOpen = false
             }
         }
@@ -1224,6 +1309,30 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         )
         Log.d(TAG, "Initializing CrossDevice")
         CrossDevice.init(this@AirPodsService)
+        CrossDevice.setPassiveAcquisitionReadyListener { ready ->
+            Handler(Looper.getMainLooper()).post {
+                val enabled = AudioLeasePrefs.isFeatureEnabled(sharedPreferences)
+                val now = SystemClock.elapsedRealtime()
+                if (now < peerDropCooldownUntilMs || now < lidAutoconnectContentionUntilMs ||
+                    !CrossDevice.authorizePassiveAcquisition(ready, lidOpenState, enabled)) {
+                    LidAutoconnectDiagnostics.logEvent("skip", mapOf("reason" to "passive_grant_expired_or_state_changed"))
+                    CrossDevice.cancelPassiveAcquisition()
+                    return@post
+                }
+                val adapter = getSystemService(BluetoothManager::class.java).adapter
+                val savedDevice = adapter?.bondedDevices?.find { it.address.equals(macAddress, true) }
+                if (savedDevice == null || holdsAirPods()) {
+                    CrossDevice.cancelPassiveAcquisition()
+                    return@post
+                }
+                lastLidAutoconnectAttemptElapsedMs = SystemClock.elapsedRealtime()
+                lidAutoconnectA2dpConnectedAtMs = 0L
+                MediaController.clearAutoPlayForPassiveConnect("distributed_lid_reservation")
+                LidAutoconnectDiagnostics.logEvent("connect_audio_attempt", mapOf("source" to "distributed_reservation"))
+                connectAudio(this@AirPodsService, savedDevice, lidDiagSource = "lid_distributed")
+                scheduleLidA2dpOutcomeWatch(savedDevice)
+            }
+        }
 
         sharedPreferences = getSharedPreferences("settings", MODE_PRIVATE)
         macAddress = sharedPreferences.getString("mac_address", "") ?: ""
@@ -1624,6 +1733,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                         val inFlux = lastA2dpStateChangeMs > 0 && fluxAgeMs < A2DP_STATE_FLUX_WINDOW_MS
                         if (inFlux) {
                             Log.d(TAG, "Battery: case-opened transition but A2DP in flux (${fluxAgeMs}ms) — suppressing connectAudio")
+                        } else if (CrossDevice.isEnabled && CrossDevice.configuredPeers.isNotEmpty()) {
+                            requestSharedPassiveAcquisition("battery_case_open")
                         } else if (!mayProactivelyConnect()) {
                             Log.d(TAG, "Battery: case-opened but shared arrangement and not holding A2DP — not grabbing, wait for user intent")
                         } else {
@@ -2011,15 +2122,29 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                         return
                     }
                     bluetoothHeartRatePeripheral?.publish(bpm)
-                    if (heartRateSharingState.value.recovering && (wahooDiagnosticBridge != null || bluetoothHeartRatePeripheral != null)) {
-                        mutableHeartRateSharing.value = heartRateSharingState.value.copy(recovering = false)
+                    if (hrSharingIntent.method == HeartRateSharingMethod.DIRCON) {
+                        val transport = dirconSessionController?.snapshot()
+                        val hasActiveListener = transport?.transportPhase in setOf(
+                            io.automated.ventures.everypods.bluetooth.hrm.HeartRateTransportPhase.STARTING,
+                            io.automated.ventures.everypods.bluetooth.hrm.HeartRateTransportPhase.DISCOVERABLE,
+                        )
+                        if (transport?.active == true && hasActiveListener &&
+                            heartRateState.value.status == io.automated.ventures.everypods.bluetooth.hrm.HeartRateStatus.LIVE) {
+                            acquireHeartRateSharingWakeLock()
+                        } else {
+                            releaseHeartRateSharingWakeLock()
+                        }
+                    }
+                    dirconSessionController?.publish(bpm)
+                    if (heartRateSharingState.value.recovering && (wahooDiagnosticBridge != null || bluetoothHeartRatePeripheral != null || dirconSessionController != null)) {
+                        publishHeartRateSharingState(heartRateSharingState.value.copy(recovering = false))
                         showHeartRateSharingNotification()
                     }
                     if (heartRateSharingState.value.active && previousStatus != io.automated.ventures.everypods.bluetooth.hrm.HeartRateStatus.LIVE)
                         showHeartRateSharingNotification()
                     hrRecoveryDeadline = 0L
                     wahooDiagnosticBridge?.let { bridge ->
-                        mutableHeartRateSharing.value = heartRateSharingState.value.copy(sent = bridge.sent)
+                        publishHeartRateSharingState(heartRateSharingState.value.copy(sent = bridge.sent))
                     }
                 }
             }
@@ -2381,7 +2506,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             }
 
             if (newInEarData.contains(true) && inEarData == listOf(false, false)) {
-                if (mayProactivelyConnect()) {
+                val shared = CrossDevice.isEnabled && CrossDevice.configuredPeers.isNotEmpty()
+                if (shared) {
+                    requestSharedPassiveAcquisition("ear_in")
+                } else if (mayProactivelyConnect()) {
                     connectAudio(this@AirPodsService, device)
                     justEnabledA2dp = true
                     registerA2dpConnectionReceiver()
@@ -2470,8 +2598,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     )
 
                     if (state == BluetoothProfile.STATE_CONNECTED && previousState != BluetoothProfile.STATE_CONNECTED && device?.address == this@AirPodsService.device?.address) {
-                        val sinceLid = System.currentTimeMillis() - lastLidAutoconnectAttemptMs
-                        if (lastLidAutoconnectAttemptMs > 0L && sinceLid < LID_AUTOCONNECT_DEBOUNCE_MS) {
+                        val sinceLid = SystemClock.elapsedRealtime() - lastLidAutoconnectAttemptElapsedMs
+                        if (lastLidAutoconnectAttemptElapsedMs > 0L && sinceLid < LID_AUTOCONNECT_DEBOUNCE_MS) {
                             Log.d(
                                 "MediaController",
                                 "A2DP connected after lid autoconnect (${sinceLid}ms) — not auto-playing"
@@ -2755,6 +2883,13 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
     override fun onSharedPreferenceChanged(preferences: SharedPreferences?, key: String?) {
         if (preferences == null || key == null) return
+
+        if (key in setOf(
+                AudioLeasePrefs.KEY_LID_OPEN_LAST_HOLDER_AUTOCONNECT,
+                "cross_device_enabled", "cross_device_peers", "cross_device_peer_mac",
+            )) {
+            CrossDevice.cancelPassiveAcquisition()
+        }
 
         when (key) {
             "name" -> config.deviceName = preferences.getString(key, "AirPods") ?: "AirPods"
@@ -3254,6 +3389,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     private val lidAutoconnectHandler = Handler(Looper.getMainLooper())
     /** One soft UX notify per lid-open when we skip because another device holds audio. */
     private var lidOtherOwnerNotifiedForOpen: Boolean = false
+    @Volatile private var lidOpenState: Boolean = false
 
     private data class A2dpOwnerHint(
         /** `peer_cross_device` when CrossDevice.holders is non-empty; else `foreign_or_unknown`. */
@@ -4195,8 +4331,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     state == BluetoothAdapter.STATE_TURNING_OFF ||
                     state == 15
                 if (classicAudioGone) {
+                    CrossDevice.onBluetoothStateChanged(context, enabled = false)
                     clearLocalConnectionForDisabledAdapter(context, state)
                 } else if (state == BluetoothAdapter.STATE_ON) {
+                    CrossDevice.onBluetoothStateChanged(context, enabled = true)
                     // Scan is started once in onCreate and is otherwise sticky-dead after
                     // BT off/on or a failed startScan. Re-arm without requiring force-stop.
                     ServiceManager.getService()?.let { svc ->
@@ -4274,7 +4412,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     val savedMac = context?.getSharedPreferences("settings", MODE_PRIVATE)
                         ?.getString("mac_address", null)
                     if (savedMac != null && bluetoothDevice.address == savedMac) {
-                        val now = System.currentTimeMillis()
+                        val now = SystemClock.elapsedRealtime()
                         // A1 fix: confirmPeerOwnership() clears expectingPeerTakeover early
                         // (when the peer's kAirPodsConnected arrives) and arms the cooldown.
                         // Check the cooldown as a fallback so ACL_DISCONNECTED still recognises
@@ -4321,10 +4459,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                         }
                         if (connectionState == 1) { // BluetoothProfile.STATE_CONNECTED
                             if (action == "android.bluetooth.a2dp.profile.action.CONNECTION_STATE_CHANGED" &&
-                                lastLidAutoconnectAttemptMs > 0L &&
-                                System.currentTimeMillis() - lastLidAutoconnectAttemptMs < 6_000L
+                                lastLidAutoconnectAttemptElapsedMs > 0L &&
+                                SystemClock.elapsedRealtime() - lastLidAutoconnectAttemptElapsedMs < 6_000L
                             ) {
-                                ServiceManager.getService()?.recordLidA2dpConnected(System.currentTimeMillis())
+                                ServiceManager.getService()?.recordLidA2dpConnected(SystemClock.elapsedRealtime())
                             }
                             Log.d(TAG, "Profile connected for AirPods (${bluetoothDevice.address}), firing AIRPODS_CONNECTION_DETECTED")
                             val detectedIntent = Intent(AirPodsNotifications.AIRPODS_CONNECTION_DETECTED)
@@ -4359,8 +4497,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                                         AudioLeasePrefs.claimLease(p, "a2dp_connected")
                                     }
                                     LidAutoconnectDiagnostics.logEvent("a2dp_connected")
-                                    val sinceLid = System.currentTimeMillis() - lastLidAutoconnectAttemptMs
-                                    if (lastLidAutoconnectAttemptMs > 0L && sinceLid < 6_000L) {
+                                    CrossDevice.confirmPassiveAcquisitionIfHeld()
+                                    val sinceLid = SystemClock.elapsedRealtime() - lastLidAutoconnectAttemptElapsedMs
+                                    if (lastLidAutoconnectAttemptElapsedMs > 0L && sinceLid < 6_000L) {
                                         LidAutoconnectDiagnostics.logEvent(
                                             "a2dp_outcome",
                                             mapOf("state" to "connected"),
@@ -4371,7 +4510,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                         } else if (connectionState == 0) { // BluetoothProfile.STATE_DISCONNECTED
                             Log.d(TAG, "Profile disconnected for AirPods (${bluetoothDevice.address})")
                             if (action == "android.bluetooth.a2dp.profile.action.CONNECTION_STATE_CHANGED") {
-                                ServiceManager.getService()?.abortContestedLidAutoconnect(System.currentTimeMillis())
+                                ServiceManager.getService()?.abortContestedLidAutoconnect(SystemClock.elapsedRealtime())
                             }
                             a2dpConnectedToOurMac = false
                             context?.sendBroadcast(
@@ -4501,13 +4640,15 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         manualTakeOverAfterReversed: Boolean = false,
         startHeadTrackingAgain: Boolean = false
     ) {
+        // A user/call/media takeover supersedes any queued passive lid reservation.
+        CrossDevice.cancelPassiveAcquisition()
         if (!manualTakeOverAfterReversed && takingOverFor in setOf("music", "call")) {
             val connections = io.automated.ventures.everypods.relay.DeviceConnectionStore(this)
             connections.migrate(CrossDevice.configuredPeers)
-            val holderAllowsHandover = CrossDevice.holders.isEmpty() || (getSharedPreferences("settings", MODE_PRIVATE).getBoolean("cross_device_enabled", true) && CrossDevice.holders.any {
-                connections.has(it, io.automated.ventures.everypods.relay.DeviceConnectionType.BT_HANDOVER)
-            })
-            if (io.automated.ventures.everypods.relay.DeviceConnectionStore.emitting || !holderAllowsHandover) {
+            val onlineHandoverPeers = connections.onlineHandoverPeers(CrossDevice.configuredPeers.filter(CrossDevice::isConnectedTo))
+            val handoverAvailable = getSharedPreferences("settings", MODE_PRIVATE).getBoolean("cross_device_enabled", true) && onlineHandoverPeers.isNotEmpty()
+            val holderAllowsHandover = CrossDevice.holders.isEmpty() || CrossDevice.holders.any { it.uppercase() in onlineHandoverPeers }
+            if (io.automated.ventures.everypods.relay.DeviceConnectionStore.emitting || !handoverAvailable || !holderAllowsHandover) {
                 Log.i(TAG, "Automatic handover skipped: emitting=${io.automated.ventures.everypods.relay.DeviceConnectionStore.emitting} holderAllowsHandover=$holderAllowsHandover holders=${CrossDevice.holders.size}")
                 return
             }
@@ -4617,9 +4758,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 // never learns it should pause and drop — our connect() silently
                 // no-ops on limited-mode devices that can't force a takeover.
                 if (CrossDevice.isPeerConnected) {
-                    Log.d(TAG, "takeOver: broadcasting REQUEST_DISCONNECT to peers")
-                    CrossDevice.sendRemotePacket(CrossDevicePackets.REQUEST_DISCONNECT.packet)
-                    CrossDeviceClient.sendAll(CrossDevicePackets.REQUEST_DISCONNECT.packet)
+                    Log.d(TAG, "takeOver: sending REQUEST_DISCONNECT to BT handover peers")
+                    val connections = io.automated.ventures.everypods.relay.DeviceConnectionStore(this)
+                    connections.onlineHandoverPeers(CrossDevice.configuredPeers.filter(CrossDevice::isConnectedTo)).forEach { peer ->
+                        CrossDevice.sendTo(peer, CrossDevicePackets.REQUEST_DISCONNECT.packet)
+                    }
                 }
 
                 Log.d(TAG, "takeOver: calling connectAudio()")
@@ -4850,7 +4993,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     ) {
         // Manual user-initiated connects bypass all auto-reconnect gates.
         if (!manual) {
-            val now = System.currentTimeMillis()
+            val now = SystemClock.elapsedRealtime()
             if (now < peerDropCooldownUntilMs) {
                 Log.d(
                     TAG,
@@ -4874,8 +5017,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     "[error=${e.message}]"
                 }
                 val lidPending = pendingLidAutoconnectRunnable != null ||
-                    (lastLidAutoconnectAttemptMs > 0L &&
-                        System.currentTimeMillis() - lastLidAutoconnectAttemptMs < 6_000L)
+                    (lastLidAutoconnectAttemptElapsedMs > 0L &&
+                        SystemClock.elapsedRealtime() - lastLidAutoconnectAttemptElapsedMs < 6_000L)
                 val hint = resolveA2dpOwnerHint()
                 Log.d(
                     TAG,
@@ -5169,14 +5312,14 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 // back their (stale) audio-source field. Without this,
                 // onAudioSourceReceived sees the previous owner's MAC, sends
                 // OWNS_CONNECTION=0, and AirPods drop us → user must press play again.
-                val nowMs = System.currentTimeMillis()
+                val nowMs = SystemClock.elapsedRealtime()
                 val recentTakeover =
                     (nowMs - AirPodsService.lastCrossDeviceTakeoverMs < AirPodsService.CROSS_DEVICE_TAKEOVER_WINDOW_MS) ||
                     (nowMs - AirPodsService.lastMusicTakeoverMs < AirPodsService.MUSIC_TAKEOVER_WINDOW_MS)
                 // A2 fix: if we just yielded AirPods to a peer (cooldown active), do not
                 // re-assert AACP ownership — the socket reconnecting briefly after release
                 // must not be misread as us still owning the AirPods.
-                val yieldingToPeer = nowMs < AirPodsService.peerDropCooldownUntilMs
+                val yieldingToPeer = SystemClock.elapsedRealtime() < AirPodsService.peerDropCooldownUntilMs
                 if (recentTakeover && !yieldingToPeer) {
                     Log.d(TAG, "Asserting AACP ownership after takeover (cold-connect / CrossDevice)")
                     aacpManager.sendControlCommand(
@@ -5221,6 +5364,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     CrossDevice.notifyConnected()
                     Log.d(TAG, "Notified CrossDevice peer: AIRPODS_CONNECTED")
                     AudioLeasePrefs.claimLease(sharedPreferences, "aacp_connected")
+                    CrossDevice.confirmPassiveAcquisitionIfHeld()
                 }
                 setupStemActions()
 
@@ -5287,7 +5431,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             cancelPendingLidAutoconnect("peer_ownership_confirmed")
         }
         if (!expectingPeerTakeover) return
-        peerDropCooldownUntilMs = System.currentTimeMillis() + PEER_DROP_COOLDOWN_MS
+        peerDropCooldownUntilMs = SystemClock.elapsedRealtime() + PEER_DROP_COOLDOWN_MS
         expectingPeerTakeover = false
         takeoverFlagHandler.removeCallbacks(clearExpectingPeerTakeoverRunnable)
         Log.d(TAG, "Peer confirmed ownership via AIRPODS_CONNECTED — cooldown armed proactively")
@@ -5711,6 +5855,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }
 
     override fun onDestroy() {
+        io.automated.ventures.everypods.relay.BtHandoverSync.close()
         stopHeartRate()
         hrSharingScope.cancel()
 
@@ -5853,6 +5998,22 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
      */
     fun isA2dpConnected(): Boolean = isA2dpConnectedTo(macAddress)
 
+    /** Conservative headset-route use snapshot; unknown playback remains UNKNOWN. */
+    fun peerAudioUse(): PeerAudioUse {
+        if (isInCall || isVoIPCallActive) return PeerAudioUse.CALL
+        if (checkSelfPermission(Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
+            return PeerAudioUse.UNKNOWN
+        }
+        if (runCatching {
+                (getSystemService(TELECOM_SERVICE) as android.telecom.TelecomManager).isInCall
+            }.getOrDefault(false)) return PeerAudioUse.CALL
+        if (!isA2dpConnected()) return PeerAudioUse.UNKNOWN
+        return runCatching {
+            val playing = (getSystemService(AUDIO_SERVICE) as AudioManager).isMusicActive
+            if (playing) PeerAudioUse.MEDIA else PeerAudioUse.IDLE
+        }.getOrDefault(PeerAudioUse.UNKNOWN)
+    }
+
     /**
      * True when THIS device currently holds the AirPods by ANY means — the AACP
      * L2CAP socket (full/AACP devices) OR the standard A2DP audio link (limited-mode
@@ -5985,7 +6146,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
     fun abortContestedLidAutoconnect(disconnectedAtMs: Long) {
         if (!LidAutoconnectPolicy.isContestedConnection(
-                lidAttemptAtMs = lastLidAutoconnectAttemptMs,
+                lidAttemptAtMs = lastLidAutoconnectAttemptElapsedMs,
                 a2dpConnectedAtMs = lidAutoconnectA2dpConnectedAtMs,
                 a2dpDisconnectedAtMs = disconnectedAtMs,
             )
@@ -6006,7 +6167,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
     /** Re-check ownership before every delayed passive retry. */
     private fun mayContinueLidAutoconnect(): Boolean {
-        val now = System.currentTimeMillis()
+        val now = SystemClock.elapsedRealtime()
         if (now < lidAutoconnectContentionUntilMs) {
             LidAutoconnectDiagnostics.logEvent(
                 "skip",
@@ -6015,10 +6176,14 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             return false
         }
         val shared = CrossDevice.isEnabled && CrossDevice.configuredPeers.isNotEmpty()
-        if (shared && CrossDevice.isAvailable) {
+        val synchronizedPeers = CrossDevice.hasFreshPeerOwnershipSnapshot()
+        if (!CrossDeviceReconnectPolicy.mayPassivelyAcquire(
+                shared, synchronizedPeers, CrossDevice.isAvailable,
+            )
+        ) {
             LidAutoconnectDiagnostics.logEvent(
                 "skip",
-                mapOf("reason" to "peer_holding_retry"),
+                mapOf("reason" to if (CrossDevice.isAvailable) "peer_holding_retry" else "peer_ownership_unknown"),
             )
             return false
         }
@@ -6181,7 +6346,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         val everSet = AudioLeasePrefs.leaseEverSet(sharedPreferences)
         val macPresent = macAddress.isNotEmpty()
         val now = System.currentTimeMillis()
-        val cooldownLeft = (peerDropCooldownUntilMs - now).coerceAtLeast(0L)
+        val nowElapsed = SystemClock.elapsedRealtime()
+        val cooldownLeft = (peerDropCooldownUntilMs - nowElapsed).coerceAtLeast(0L)
         val fluxAgeMs = if (lastA2dpStateChangeMs > 0) now - lastA2dpStateChangeMs else -1L
         LidAutoconnectDiagnostics.enrichSnapshot(
             featureEnabled = feature,
@@ -6191,7 +6357,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             peerHolding = CrossDevice.isAvailable,
             holders = LidAutoconnectDiagnostics.truncatedHolders(),
             fluxAgeMs = if (fluxAgeMs >= 0) fluxAgeMs else null,
-            cooldownLeftMs = if (now < peerDropCooldownUntilMs) cooldownLeft else 0L,
+            cooldownLeftMs = if (nowElapsed < peerDropCooldownUntilMs) cooldownLeft else 0L,
             macPresent = macPresent,
         )
         LidAutoconnectDiagnostics.logEvent(
@@ -6209,7 +6375,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             LidAutoconnectDiagnostics.logEvent("skip", mapOf("reason" to "no_bonded_mac", "macPresent" to false))
             return
         }
-        if (!mayContinueLidAutoconnect()) return
+        if (!shared && !mayContinueLidAutoconnect()) return
+        if (shared && nowElapsed < lidAutoconnectContentionUntilMs) return
         if (holdsAirPods()) {
             LidAutoconnectDiagnostics.logEvent("skip", mapOf("reason" to "already_holds"))
             return
@@ -6230,11 +6397,16 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             maybeNotifyLidOtherOwner("peer_holding")
             return
         }
-        if (!AudioLeasePrefs.mayLidAutoGrab(shared, holder, everSet)) {
+        val mayGrab = if (shared) holder && everSet else AudioLeasePrefs.mayLidAutoGrab(
+                false, holder, everSet,
+                peersSynchronized = CrossDevice.hasFreshPeerOwnershipSnapshot(),
+                peerHolding = CrossDevice.isAvailable,
+            )
+        if (!mayGrab) {
             LidAutoconnectDiagnostics.logEvent("skip", mapOf("reason" to "not_lease_holder", "holder" to holder))
             return
         }
-        if (now < peerDropCooldownUntilMs) {
+        if (nowElapsed < peerDropCooldownUntilMs) {
             LidAutoconnectDiagnostics.logEvent(
                 "skip",
                 mapOf("reason" to "peer_drop_cooldown", "cooldownLeftMs" to cooldownLeft),
@@ -6250,8 +6422,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             scheduleFluxRecheck(fluxAgeMs)
             return
         }
-        if (lastLidAutoconnectAttemptMs > 0 && (now - lastLidAutoconnectAttemptMs) < LID_AUTOCONNECT_DEBOUNCE_MS) {
-            val debounceLeft = LID_AUTOCONNECT_DEBOUNCE_MS - (now - lastLidAutoconnectAttemptMs)
+        if (lastLidAutoconnectAttemptElapsedMs > 0 && (now - lastLidAutoconnectAttemptElapsedMs) < LID_AUTOCONNECT_DEBOUNCE_MS) {
+            val debounceLeft = LID_AUTOCONNECT_DEBOUNCE_MS - (now - lastLidAutoconnectAttemptElapsedMs)
             LidAutoconnectDiagnostics.logEvent(
                 "skip",
                 mapOf("reason" to "debounce", "debounceLeftMs" to debounceLeft),
@@ -6266,12 +6438,16 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             return
         }
 
+        if (shared) {
+            requestSharedPassiveAcquisition("lid_open")
+            return
+        }
         startLidConnectWithRetries(savedDevice)
     }
 
     /**
      * Shared connect+retry path for a normal lid attempt and for flux_recheck retry.
-     * Debounce: [lastLidAutoconnectAttemptMs] is stamped here so a flux_recheck that
+     * Debounce: [lastLidAutoconnectAttemptElapsedMs] is stamped here so a flux_recheck that
      * fires soon after a skipped attempt is still allowed to connect (the skip never
      * stamped debounce); subsequent accidental double-fires within
      * [LID_AUTOCONNECT_DEBOUNCE_MS] are still gated by the caller before invoking this.
@@ -6280,7 +6456,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     private fun startLidConnectWithRetries(savedDevice: android.bluetooth.BluetoothDevice) {
         if (!mayContinueLidAutoconnect()) return
         val now = System.currentTimeMillis()
-        lastLidAutoconnectAttemptMs = now
+        lastLidAutoconnectAttemptElapsedMs = SystemClock.elapsedRealtime()
         lidAutoconnectA2dpConnectedAtMs = 0L
         // Connect only — do not resume whatever was paused during an earlier handover.
         MediaController.clearAutoPlayForPassiveConnect("lid_autoconnect")
@@ -6326,8 +6502,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
     private fun scheduleLidA2dpOutcomeWatch(device: android.bluetooth.BluetoothDevice) {
         Handler(Looper.getMainLooper()).postDelayed({
-            if (lastLidAutoconnectAttemptMs <= 0L) return@postDelayed
-            val since = System.currentTimeMillis() - lastLidAutoconnectAttemptMs
+            if (lastLidAutoconnectAttemptElapsedMs <= 0L) return@postDelayed
+            val since = SystemClock.elapsedRealtime() - lastLidAutoconnectAttemptElapsedMs
             if (since > 6_500L) return@postDelayed
             if (holdsAirPods()) {
                 LidAutoconnectDiagnostics.logEvent("a2dp_outcome", mapOf("state" to "connected"))
@@ -6403,19 +6579,29 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         }
         val holder = AudioLeasePrefs.isLeaseHolder(sharedPreferences)
         val everSet = AudioLeasePrefs.leaseEverSet(sharedPreferences)
-        if (!AudioLeasePrefs.mayLidAutoGrab(shared, holder, everSet)) {
+        if (!AudioLeasePrefs.mayLidAutoGrab(
+                shared, holder, everSet,
+                peersSynchronized = CrossDevice.hasFreshPeerOwnershipSnapshot(),
+                peerHolding = CrossDevice.isAvailable,
+            )
+        ) {
             LidAutoconnectDiagnostics.logEvent(
                 "flux_recheck",
                 mapOf("result" to "skip_not_lease_holder"),
             )
             return
         }
-        val now = System.currentTimeMillis()
+        val now = SystemClock.elapsedRealtime()
         if (now < peerDropCooldownUntilMs) {
             LidAutoconnectDiagnostics.logEvent(
                 "flux_recheck",
                 mapOf("result" to "skip_peer_drop_cooldown"),
             )
+            return
+        }
+        if (shared) {
+            // A flux retry starts a fresh distributed round; it never reuses a grant.
+            runLidAutoconnectAttempt()
             return
         }
         val bluetoothAdapter = getSystemService(BluetoothManager::class.java).adapter
@@ -6430,7 +6616,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         // Debounce choice: flux_recheck intentionally bypasses the debounce gate —
         // the original attempt was skipped (no connect stamped) so we must be allowed
         // to connect once the flux window clears. startLidConnectWithRetries stamps
-        // lastLidAutoconnectAttemptMs for subsequent lid opens.
+        // lastLidAutoconnectAttemptElapsedMs for subsequent lid opens.
         LidAutoconnectDiagnostics.logEvent("flux_recheck", mapOf("result" to "retry_connect"))
         startLidConnectWithRetries(savedDevice)
     }
@@ -6445,9 +6631,30 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             leaseHolder = AudioLeasePrefs.isLeaseHolder(sharedPreferences),
             leaseEverSet = AudioLeasePrefs.leaseEverSet(sharedPreferences),
             a2dpOurs = a2dpOurs,
+            peersSynchronized = CrossDevice.hasFreshPeerOwnershipSnapshot(),
+            peerHolding = CrossDevice.isAvailable,
         )
         Log.d(TAG, "<LogCollector:Conn> mayProactivelyConnect: isEnabled=${CrossDevice.isEnabled} configuredPeers=${CrossDevice.configuredPeers} shared=$shared a2dpOurs=$a2dpOurs flagOn=$flagOn lease=${AudioLeasePrefs.isLeaseHolder(sharedPreferences)} result=$result")
         return result
+    }
+
+    private fun requestSharedPassiveAcquisition(source: String): Boolean {
+        val enabled = AudioLeasePrefs.isFeatureEnabled(sharedPreferences)
+        val now = SystemClock.elapsedRealtime()
+        if (!lidOpenState || !enabled || now < peerDropCooldownUntilMs ||
+            now < lidAutoconnectContentionUntilMs) return false
+        val eligible = AudioLeasePrefs.isLeaseHolder(sharedPreferences) &&
+            AudioLeasePrefs.leaseEverSet(sharedPreferences)
+        val started = CrossDevice.beginPassiveAcquisition(
+            lastOwnerEligible = eligible,
+            enabled = enabled,
+            lidOpen = lidOpenState,
+        )
+        LidAutoconnectDiagnostics.logEvent("passive_reservation", mapOf(
+            "source" to source,
+            "result" to if (started) "requested" else "not_ready",
+        ))
+        return started
     }
 
     /**

@@ -1,5 +1,10 @@
 package io.automated.ventures.everypods.utils
 
+import android.content.Context
+import androidx.test.core.app.ApplicationProvider
+import io.automated.ventures.everypods.relay.DeviceConnectionStore
+import io.automated.ventures.everypods.relay.DeviceConnectionType
+
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -22,10 +27,19 @@ class CrossDeviceStateTest {
 
     private val aa = "AA:AA:AA:AA:AA:AA"
     private val bb = "BB:BB:BB:BB:BB:BB"
+    private val context get() = ApplicationProvider.getApplicationContext<Context>()
 
     @Before
     fun setUp() {
         CrossDevice.resetForTesting()
+        context.getSharedPreferences("settings", Context.MODE_PRIVATE).edit().clear().commit()
+        DeviceConnectionStore(context).apply {
+            preferences.edit().clear().commit()
+            add(aa, DeviceConnectionType.BT_HANDOVER)
+            add(bb, DeviceConnectionType.BT_HANDOVER)
+            mergeRemoteHandover(aa, handoverState(aa)!!)
+            mergeRemoteHandover(bb, handoverState(bb)!!)
+        }
     }
 
     @After
@@ -92,7 +106,7 @@ class CrossDeviceStateTest {
     fun `ignored REQUEST_HANDOVER with pods in case does not sticky-hold peer`() {
         CrossDevice.inEarOverrideForTesting = false
 
-        CrossDevice.processPacket(CrossDevicePackets.REQUEST_HANDOVER.packet, aa)
+        CrossDevice.processPacket(CrossDevicePackets.REQUEST_HANDOVER.packet, aa, context)
 
         assertFalse(CrossDevice.holders.contains(aa))
         assertTrue(CrossDevice.holders.isEmpty())
@@ -102,7 +116,7 @@ class CrossDeviceStateTest {
     fun `accepted REQUEST_HANDOVER with pod in ear adds peer to holders`() {
         CrossDevice.inEarOverrideForTesting = true
 
-        CrossDevice.processPacket(CrossDevicePackets.REQUEST_HANDOVER.packet, aa)
+        CrossDevice.processPacket(CrossDevicePackets.REQUEST_HANDOVER.packet, aa, context)
 
         assertEquals(setOf(aa), CrossDevice.holders.toSet())
     }
@@ -111,8 +125,29 @@ class CrossDeviceStateTest {
     fun `ignored REQUEST_DISCONNECT with pods in case does not sticky-hold peer`() {
         CrossDevice.inEarOverrideForTesting = false
 
-        CrossDevice.processPacket(CrossDevicePackets.REQUEST_DISCONNECT.packet, bb)
+        CrossDevice.processPacket(CrossDevicePackets.REQUEST_DISCONNECT.packet, bb, context)
 
         assertFalse(CrossDevice.holders.contains(bb))
+    }
+
+    @Test
+    fun `removing BT handover rejects both handover requests while Wi-Fi relay remains`() {
+        CrossDevice.inEarOverrideForTesting = true
+        DeviceConnectionStore(context).apply {
+            add(aa, DeviceConnectionType.WIFI_RELAY, verified = true)
+            remove(aa, DeviceConnectionType.BT_HANDOVER)
+        }
+        CrossDevice.processPacket(CrossDevicePackets.REQUEST_HANDOVER.packet, aa, context)
+        CrossDevice.processPacket(CrossDevicePackets.REQUEST_DISCONNECT.packet, aa, context)
+        assertTrue(CrossDevice.holders.isEmpty())
+        assertTrue(DeviceConnectionStore(context).authorized(aa))
+    }
+
+    @Test
+    fun `disabling handover rejects a saved BT peer request`() {
+        CrossDevice.inEarOverrideForTesting = true
+        context.getSharedPreferences("settings", Context.MODE_PRIVATE).edit().putBoolean("cross_device_enabled", false).commit()
+        CrossDevice.processPacket(CrossDevicePackets.REQUEST_HANDOVER.packet, aa, context)
+        assertTrue(CrossDevice.holders.isEmpty())
     }
 }
