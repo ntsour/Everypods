@@ -2,6 +2,7 @@ package io.automated.ventures.everypods.utils.peer
 
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class PeerOwnershipStoreTest {
@@ -9,6 +10,13 @@ class PeerOwnershipStoreTest {
     private val store = PeerOwnershipStore(ElapsedClock { now }, freshnessMs = 35L)
     private val peers = setOf("AA", "BB", "CC")
     private val headset = "headset-1"
+
+    @Test fun `confirmed disconnected headset is idle but uncertain route or AACP remains unknown`() {
+        assertEquals(PeerAudioUse.IDLE, disconnectedHeadsetAudioUse(true, false))
+        assertEquals(PeerAudioUse.UNKNOWN, disconnectedHeadsetAudioUse(false, false))
+        assertEquals(PeerAudioUse.UNKNOWN, disconnectedHeadsetAudioUse(true, true))
+        assertEquals(PeerAudioUse.UNKNOWN, disconnectedHeadsetAudioUse(false, true))
+    }
 
     @Test
     fun `unknown offline member blocks the whole configured group`() {
