@@ -33,6 +33,31 @@ class DeviceConnectionStoreTest {
         assertEquals(setOf(second), store.onlineHandoverPeers(listOf(first, second.lowercase())))
     }
 
+    @Test fun `acknowledged BT setup permits playback takeover with every peer offline`() {
+        assertFalse(store.allowsAutomaticHandover(listOf(first), emptyList()))
+        store.add(first, DeviceConnectionType.WIFI_RELAY, verified = true)
+        assertFalse(store.allowsAutomaticHandover(listOf(first), emptyList()))
+        store.add(first, DeviceConnectionType.BT_HANDOVER)
+        assertFalse(store.allowsAutomaticHandover(listOf(first), emptyList()))
+        store.mergeRemoteHandover(first, store.handoverState(first)!!)
+        assertTrue(store.onlineHandoverPeers(emptyList()).isEmpty())
+        assertTrue(store.allowsAutomaticHandover(listOf(first.lowercase()), emptyList()))
+        val reloaded = DeviceConnectionStore(ApplicationProvider.getApplicationContext<Context>())
+        assertTrue(reloaded.allowsAutomaticHandover(listOf(first), emptyList()))
+        store.remove(first, DeviceConnectionType.BT_HANDOVER)
+        assertFalse(store.allowsAutomaticHandover(listOf(first), emptyList()))
+    }
+
+    @Test fun `reachable holder still requires a handover capability`() {
+        store.add(first, DeviceConnectionType.BT_HANDOVER)
+        store.mergeRemoteHandover(first, store.handoverState(first)!!)
+        store.add(second, DeviceConnectionType.WIFI_RELAY, verified = true)
+        assertFalse(store.allowsAutomaticHandover(listOf(first, second), listOf(second)))
+        assertTrue(store.allowsAutomaticHandover(listOf(first, second), listOf(first.lowercase())))
+        assertTrue(store.allowsAutomaticHandover(listOf(first, second), emptyList()))
+        assertFalse(store.allowsAutomaticHandover(emptyList(), emptyList()))
+    }
+
     @Test fun `removing BT takes effect immediately while relay authorization remains`() {
         store.add(first, DeviceConnectionType.BT_HANDOVER)
         store.add(first, DeviceConnectionType.WIFI_RELAY, verified = true)

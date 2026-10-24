@@ -846,9 +846,9 @@ private fun ConnectionContent(state: AirPodsUiState, appState: AppSettingsUiStat
         } }
         AnchorWrapper("takeover_media") { rowModifier -> Box(rowModifier) {
             StyledToggle(label = stringResource(R.string.takeover_media_start), description = stringResource(R.string.takeover_media_start_desc),
-                checked = appState.takeoverWhenMediaStart && handoverAvailable && !handoverTemporarilyPaused, onCheckedChange = appSettingsViewModel::setTakeoverWhenMediaStart, enabled = handoverAvailable && !handoverTemporarilyPaused)
+                checked = appState.takeoverWhenMediaStart && !handoverTemporarilyPaused, onCheckedChange = appSettingsViewModel::setTakeoverWhenMediaStart, enabled = !handoverTemporarilyPaused)
         } }
-        if (handoverAvailable && state.crossDeviceEnabled && appState.takeoverWhenMediaStart) io.automated.ventures.everypods.presentation.components.MediaHandoverAccessNotice()
+        if (appState.takeoverWhenMediaStart) io.automated.ventures.everypods.presentation.components.MediaHandoverAccessNotice()
     } }
     AnchorWrapper("ear_detection") { modifier -> SettingsSection(stringResource(R.string.ear_detection), modifier) {
         StyledToggle(label = stringResource(R.string.ear_detection), checked = state.automaticEarDetectionEnabled,

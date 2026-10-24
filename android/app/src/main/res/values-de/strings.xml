@@ -118,7 +118,7 @@
     <string name="get_help_title">Holen Sie sich Hilfe</string>
     <string name="github_issues">GitHub-Probleme</string>
     <string name="handover_guide">Wenn diese Option aktiviert ist, kann dieses Telefon die AirPods annehmen, wenn Sie Medien starten oder einen Anruf erhalten. Funktioniert nur zwischen verbundenen Geräten.</string>
-    <string name="handover_needs_peer_helper">Fügen Sie unter Verbindungen eine BT-Handover-Verbindung hinzu und verbinden Sie das Gerät, um Handover zu verwenden.</string>
+    <string name="handover_needs_peer_helper">Fügen Sie eine BT-Verbindung zur Gerätekoordination hinzu. Die Übernahme beim Wiedergabestart funktioniert auch ohne andere Geräte.</string>
     <string name="handover_title">Übergabe</string>
     <string name="hang_up">Auflegen</string>
     <string name="head_gestures">Kopfgesten</string>

@@ -221,7 +221,7 @@
     <string name="get_help_title">Obtenha ajuda</string>
     <string name="github_issues">Problemas do GitHub</string>
     <string name="handover_guide">Quando ativado, este telefone pode receber AirPods se você iniciar a mídia ou receber uma chamada. Funciona apenas entre dispositivos conectados.</string>
-    <string name="handover_needs_peer_helper">Adicione uma conexão de transferência BT em Conexões e conecte esse dispositivo para usar a transferência.</string>
+    <string name="handover_needs_peer_helper">Adicione uma conexão BT para coordenar os dispositivos. A conexão ao iniciar a reprodução também funciona sem outros dispositivos.</string>
     <string name="handover_title">Transferência</string>
     <string name="lid_open_last_holder_autoconnect">Conexão automática na caixa aberta (último dispositivo)</string>
     <string name="lid_open_last_holder_autoconnect_description">Ao abrir o case, apenas o último telefone que usou os AirPods se conecta. Inicie a música em outro telefone para trocar. O último telefone pode ser conectado mesmo que não esteja próximo ao case.</string>

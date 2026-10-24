@@ -53,7 +53,7 @@
     <string name="remove_peer_confirm_message">Remove %1$s from connected devices?</string>
     <string name="handover_title">Handover</string>
     <string name="handover_guide">When enabled, this phone can take the AirPods if you start media or get a call. Only works between connected devices.</string>
-    <string name="handover_needs_peer_helper">Add a BT handover connection under Connections and bring that device online to use Handover.</string>
+    <string name="handover_needs_peer_helper">Add a BT connection for peer coordination. Playback takeover also works without peers.</string>
     <string name="find_my_airpods_title">Find My AirPods</string>
     <string name="find_my_airpods_guide">Walk room to room and use signal strength to locate the case.</string>
     <string name="get_help_title">Get Help</string>

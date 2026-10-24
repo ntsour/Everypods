@@ -1252,12 +1252,12 @@ private fun DisconnectedScreen(
                     StyledToggle(
                         label = stringResource(R.string.takeover_media_start),
                         description = stringResource(R.string.takeover_media_start_desc),
-                        checked = appState.takeoverWhenMediaStart && handoverUnlocked && !handoverTemporarilyPaused,
+                        checked = appState.takeoverWhenMediaStart && !handoverTemporarilyPaused,
                         onCheckedChange = appSettingsViewModel::setTakeoverWhenMediaStart,
                         independent = true,
-                        enabled = handoverUnlocked && !handoverTemporarilyPaused
+                        enabled = !handoverTemporarilyPaused
                     )
-                    if (handoverUnlocked && state.crossDeviceEnabled && appState.takeoverWhenMediaStart) io.automated.ventures.everypods.presentation.components.MediaHandoverAccessNotice()
+                    if (appState.takeoverWhenMediaStart) io.automated.ventures.everypods.presentation.components.MediaHandoverAccessNotice()
                     StyledToggle(
                         label = stringResource(R.string.takeover_ringing_call),
                         description = stringResource(R.string.takeover_ringing_call_desc),

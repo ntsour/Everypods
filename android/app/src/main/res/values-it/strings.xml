@@ -216,7 +216,7 @@
     <string name="get_help_title">Ottieni aiuto</string>
     <string name="github_issues">Problemi di GitHub</string>
     <string name="handover_guide">Se abilitato, questo telefono può supportare gli AirPods se avvii contenuti multimediali o ricevi una chiamata. Funziona solo tra dispositivi collegati.</string>
-    <string name="handover_needs_peer_helper">Aggiungi una connessione Handover BT in Connessioni e collega il dispositivo per usare Handover.</string>
+    <string name="handover_needs_peer_helper">Aggiungi una connessione BT per coordinare i dispositivi. La connessione all’avvio della riproduzione funziona anche senza altri dispositivi.</string>
     <string name="handover_title">Consegna</string>
     <string name="lid_open_last_holder_autoconnect">Connessione automatica all\'apertura della custodia (ultimo dispositivo)</string>
     <string name="lid_open_last_holder_autoconnect_description">Quando apri la custodia, solo l\'ultimo telefono che ha utilizzato gli AirPods si connette. Avvia la musica su un altro telefono per passare. L\'ultimo telefono potrebbe connettersi anche se non è vicino alla custodia.</string>

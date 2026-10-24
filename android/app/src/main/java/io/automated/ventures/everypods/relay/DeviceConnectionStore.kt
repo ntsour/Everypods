@@ -24,8 +24,16 @@ class DeviceConnectionStore(context: Context) {
 
     fun handoverReady(address: String): Boolean = has(address, DeviceConnectionType.BT_HANDOVER) && !preferences.contains(handoverPendingKey(address))
 
-    fun onlineHandoverPeers(onlineAddresses: Collection<String>): Set<String> = onlineAddresses
+    fun configuredHandoverPeers(addresses: Collection<String>): Set<String> = addresses
         .filter(::handoverReady).map(::mac).toSet()
+
+    fun onlineHandoverPeers(onlineAddresses: Collection<String>): Set<String> = configuredHandoverPeers(onlineAddresses)
+
+    /** Playback/call intent may acquire offline; only reachable holders can require coordination. */
+    fun allowsAutomaticHandover(addresses: Collection<String>, onlineHolders: Collection<String>): Boolean {
+        val eligible = configuredHandoverPeers(addresses)
+        return eligible.isNotEmpty() && (onlineHolders.isEmpty() || onlineHolders.any { mac(it) in eligible })
+    }
 
     /** Run once per legacy peer; an intentionally empty record must never be re-created by migration. */
     fun migrate(addresses: Collection<String>) = synchronized(mutationLock) {

@@ -52,7 +52,7 @@
     <string name="remove_peer_confirm_message">Να αφαιρεθεί η συσκευή %1$s από τις συνδεδεμένες συσκευές;</string>
     <string name="handover_title">Εναλλαγή συσκευής</string>
     <string name="handover_guide">Όταν είναι ενεργό, αυτό το τηλέφωνο μπορεί να συνδεθεί στα AirPods όταν ξεκινάτε αναπαραγωγή ή λαμβάνετε κλήση. Λειτουργεί μόνο μεταξύ συνδεδεμένων συσκευών.</string>
-    <string name="handover_needs_peer_helper">Προσθέστε μια σύνδεση εναλλαγής BT στις Συνδέσεις και συνδέστε τη συσκευή για να χρησιμοποιήσετε την εναλλαγή.</string>
+    <string name="handover_needs_peer_helper">Προσθέστε μια σύνδεση BT για συντονισμό συσκευών. Η σύνδεση κατά την έναρξη αναπαραγωγής λειτουργεί και χωρίς άλλες συσκευές.</string>
     <string name="find_my_airpods_title">Εύρεση AirPods</string>
     <string name="find_my_airpods_guide">Μετακινηθείτε από δωμάτιο σε δωμάτιο και χρησιμοποιήστε την ισχύ του σήματος για να εντοπίσετε τη θήκη.</string>
     <string name="get_help_title">Βοήθεια</string>

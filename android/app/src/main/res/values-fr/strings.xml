@@ -221,7 +221,7 @@
     <string name="get_help_title">Obtenir de l\'aide</string>
     <string name="github_issues">Problèmes GitHub</string>
     <string name="handover_guide">Lorsqu\'il est activé, ce téléphone peut prendre les AirPod si vous démarrez un média ou recevez un appel. Fonctionne uniquement entre les appareils connectés.</string>
-    <string name="handover_needs_peer_helper">Ajoutez une connexion de transfert BT dans Connexions et connectez cet appareil pour utiliser le transfert.</string>
+    <string name="handover_needs_peer_helper">Ajoutez une connexion BT pour coordonner les appareils. La connexion au démarrage de la lecture fonctionne aussi sans autre appareil.</string>
     <string name="handover_title">Remise de transfert</string>
     <string name="lid_open_last_holder_autoconnect">Connexion automatique lors de l\'ouverture du boîtier (dernier appareil)</string>
     <string name="lid_open_last_holder_autoconnect_description">Lorsque vous ouvrez le boîtier, seul le dernier téléphone ayant utilisé les AirPods se connecte. Démarrez de la musique sur un autre téléphone pour changer. Le dernier téléphone peut se connecter même s\'il n\'est pas à côté du boîtier.</string>

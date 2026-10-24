@@ -216,7 +216,7 @@
     <string name="get_help_title">Yardım Alın</string>
     <string name="github_issues">GitHub Sorunları</string>
     <string name="handover_guide">Etkinleştirildiğinde, medyayı başlatırsanız veya bir çağrı alırsanız bu telefon AirPod\'ları alabilir. Yalnızca bağlı cihazlar arasında çalışır.</string>
-    <string name="handover_needs_peer_helper">Aktarımı kullanmak için Bağlantılar altına bir BT aktarım bağlantısı ekleyin ve cihazı çevrimiçi duruma getirin.</string>
+    <string name="handover_needs_peer_helper">Cihazlar arası koordinasyon için bir BT bağlantısı ekleyin. Oynatma başladığında bağlantı, başka cihaz olmadan da çalışır.</string>
     <string name="handover_title">Devir teslim</string>
     <string name="lid_open_last_holder_autoconnect">Kasa açıldığında otomatik bağlantı (son cihaz)</string>
     <string name="lid_open_last_holder_autoconnect_description">Kasayı açtığınızda yalnızca AirPods\'u kullanan son telefon bağlanır. Geçiş yapmak için müziği başka bir telefonda başlatın. Son telefon, kasanın yanında olmasa bile bağlanabilir.</string>

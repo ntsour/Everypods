@@ -216,7 +216,7 @@
     <string name="get_help_title">Отримати допомогу</string>
     <string name="github_issues">Проблеми GitHub</string>
     <string name="handover_guide">Коли ввімкнено, цей телефон може прийняти AirPods, якщо ви запускаєте медіафайл або отримуєте дзвінок. Працює лише між підключеними пристроями.</string>
-    <string name="handover_needs_peer_helper">Додайте з’єднання передачі BT у розділі «Підключення» та підключіть цей пристрій, щоб використовувати передачу.</string>
+    <string name="handover_needs_peer_helper">Додайте з’єднання BT для координації пристроїв. Підключення на початку відтворення працює й без інших пристроїв.</string>
     <string name="handover_title">Передача</string>
     <string name="lid_open_last_holder_autoconnect">Автоматичне підключення після відкриття корпусу (останній пристрій)</string>
     <string name="lid_open_last_holder_autoconnect_description">Коли ви відкриваєте футляр, підключається лише останній телефон, на якому використовувалися AirPods. Щоб переключитися, запустіть музику на іншому телефоні. Останній телефон може підключитися, навіть якщо він не поруч із футляром.</string>

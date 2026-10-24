@@ -215,7 +215,7 @@
     <string name="get_help_title">获取帮助</string>
     <string name="github_issues">GitHub 问题</string>
     <string name="handover_guide">启用后，如果您开始播放媒体或接听电话，此手机可以接听 AirPods。仅适用于连接的设备之间。</string>
-    <string name="handover_needs_peer_helper">在“连接”中添加蓝牙切换连接，并连接该设备以使用切换功能。</string>
+    <string name="handover_needs_peer_helper">添加蓝牙连接以协调设备。播放开始时的自动连接也可在没有对等设备的情况下工作。</string>
     <string name="handover_title">交接</string>
     <string name="lid_open_last_holder_autoconnect">打开外壳后自动连接（最后一个设备）</string>
     <string name="lid_open_last_holder_autoconnect_description">当您打开保护壳时，只有最后使用 AirPods 的手机会连接。在另一部手机上启动音乐进行切换。即使最后一部手机不在保护壳旁边，也可以连接。</string>
