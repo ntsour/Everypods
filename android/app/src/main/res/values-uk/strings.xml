@@ -608,6 +608,7 @@
 <string name="hrm_share_preparing">Підготовка %1$s…</string>
 
 <string name="hrm_share_counts">Приймачі: %1$d · Підписані: %2$d · Надіслано: %3$d</string>
+<string name="hrm_wahoo_broadcast_count">Команди трансляції: %1$d · отримання Wahoo не підтверджено</string>
 
 <string name="hrm_share_explanation">Передає справжні вимірювання через Wi-Fi сумісним програмам. Інші пристрої цієї мережі також можуть підключитися під час передавання. Сумісність із Wahoo експериментальна.</string>
 
@@ -639,6 +640,7 @@
     <string name="hrs_gym_hint">Використовує вибраний метод. Вимкнення режиму тренування зупиняє розпочате ним поширення. Зупинка призупиняє автоматизацію до наступного сеансу.</string>
     <string name="hrs_diagnostics">Діагностика</string>
     <string name="hrs_tickr_sending">Надсилання до Wahoo</string>
+    <string name="hrs_tickr_broadcast_unconfirmed">Трансляція до Wahoo · отримання не підтверджено</string>
     <string name="hrs_ble_ready">Датчик Bluetooth видимий</string>
     <string name="hrs_ble_connected">Приймач підключено</string>
     <string name="hrs_ble_subscribed">Приймач підписався</string>

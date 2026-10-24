@@ -616,6 +616,7 @@
 <string name="hrm_share_preparing">Preparing %1$s…</string>
 
 <string name="hrm_share_counts">Receivers: %1$d · Subscribed: %2$d · Sent: %3$d</string>
+<string name="hrm_wahoo_broadcast_count">Broadcast commands: %1$d · Wahoo receipt unconfirmed</string>
 
 <string name="hrm_share_explanation">Uses Wi-Fi to share real readings with compatible apps. Other devices on this Wi-Fi can also connect while sharing is on. Wahoo compatibility is experimental.</string>
 
@@ -655,6 +656,7 @@
     <string name="hrs_gym_hint">Uses the selected method. Turning Gym mode off stops sharing it started. Stop pauses automation until the next Gym mode session.</string>
     <string name="hrs_diagnostics">Diagnostics</string>
     <string name="hrs_tickr_sending">Sending to Wahoo</string>
+    <string name="hrs_tickr_broadcast_unconfirmed">Broadcasting to Wahoo · receipt unconfirmed</string>
     <string name="hrs_ble_ready">Bluetooth sensor discoverable</string>
     <string name="hrs_ble_connected">Receiver connected</string>
     <string name="hrs_ble_subscribed">Receiver subscribed</string>

@@ -1,4 +1,60 @@
-# Heart-rate sharing release candidate
+# Heart-rate sharing and resilience
+
+## Current implementation (2026-10-24)
+
+This work is based on remote `main` at `122d3e2` (PR #50). TICKR and standard
+BLE remain available; DIRCON is feature-gated by build configuration. The
+historical release-candidate notes below describe the earlier candidate and
+should not be used as evidence of validation for this revision.
+
+Sensor samples are timestamped when parsed. Samples delayed in the app queue
+for five seconds or more, arriving out of order, or belonging to a replaced
+session/socket are discarded before display and before any sharing transport.
+This does not measure time spent buffered inside the AirPods themselves.
+
+A five-second gap clears the displayed BPM; TICKR receives zero once. After
+15 seconds without a sample, or immediately after connection loss, an explicit
+session enters recovery for at most 60 seconds. Writes that restart sensing do
+not finish recovery: only a fresh sample does. Recovery keeps the original
+deadline across successful writes and uses 2/4/8-second capped retry delays.
+It only uses an existing same-AirPods local connection and never takes over
+from another device. Stop, ownership change, device change, service destruction,
+or deadline expiry ends the session.
+
+Monitor-only sessions recover while the app is foregrounded. On
+backgrounding, acquisition stops and intent stays in service memory for at
+most 60 seconds; returning to the app within that window resumes bounded
+recovery to the same AirPods. Navigating away from the Heart rate destination
+ends its monitor-only intent; the Home control remains an app-wide monitor
+control until Stop or background expiry. Activity recreation preserves intent.
+Sharing remains active when the screen is
+left or the app is backgrounded. Process death never restores either intent.
+
+Standard BLE sharing closes its old GATT server when Bluetooth turns off and
+recreates the service/advertiser on return within a bounded 60-second outage.
+Service/advertising setup has a 10-second callback timeout. Three transient
+restart attempts are allowed per failure episode; 30 seconds of continuous
+advertising resets the failure budget. Receiver disconnects do not restart the
+sensor. A reconnecting receiver must subscribe again, and only new samples are
+sent. Confirmed send counts persist across server recreation in one sharing
+session. A missing notification completion does not permit an overlapping send
+to that receiver. Permission failures end sharing cleanly. AirPods disconnect
+broadcasts carry the socket generation observed at the event source; delayed
+events from an older socket cannot clear the replacement connection or its UI
+state.
+
+TICKR has an explicit Reconnect action while active. It zeros the old reading
+and waits for the next real sample before issuing a new pair command. Broadcast
+acceptance is not confirmation that Wahoo displayed the value. Failed zero
+commands retain interrupted-session cleanup. The existing Gym ownership and
+manual-stop rules remain in force through method switches and recovery.
+The Heart Rate screen labels TICKR as an unconfirmed broadcast and reports its
+broadcast-command count separately from BLE's confirmed notification count.
+
+Device validation for this revision is tracked in
+`docs/heart-rate-resilience-validation.md`.
+
+## Historical release-candidate notes (2026-10-17)
 
 Implementation continues in the `codex/librepods-eq-airpods5` worktree. The
 uncommitted Android localization changes from the main checkout are merged here,

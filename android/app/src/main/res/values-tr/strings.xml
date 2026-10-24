@@ -608,6 +608,7 @@
 <string name="hrm_share_preparing">%1$s hazırlanıyor…</string>
 
 <string name="hrm_share_counts">Alıcı: %1$d · Abone: %2$d · Gönderilen: %3$d</string>
+<string name="hrm_wahoo_broadcast_count">Yayın komutları: %1$d · Wahoo alımı doğrulanmadı</string>
 
 <string name="hrm_share_explanation">Gerçek ölçümleri Wi-Fi üzerinden uyumlu uygulamalarla paylaşır. Paylaşım açıkken bu ağdaki diğer cihazlar da bağlanabilir. Wahoo uyumluluğu deneyseldir.</string>
 
@@ -639,6 +640,7 @@
     <string name="hrs_gym_hint">Seçilen yöntemi kullanır. Spor modunu kapatmak başlattığı paylaşımı durdurur. Durdur, sonraki oturuma kadar otomasyonu duraklatır.</string>
     <string name="hrs_diagnostics">Tanılama</string>
     <string name="hrs_tickr_sending">Wahoo’ya gönderiliyor</string>
+    <string name="hrs_tickr_broadcast_unconfirmed">Wahoo yayını · alındı onaylanmadı</string>
     <string name="hrs_ble_ready">Bluetooth sensörü bulunabilir</string>
     <string name="hrs_ble_connected">Alıcı bağlandı</string>
     <string name="hrs_ble_subscribed">Alıcı abone oldu</string>

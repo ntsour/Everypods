@@ -607,6 +607,7 @@
 <string name="hrm_share_preparing">%1$s wird vorbereitet…</string>
 
 <string name="hrm_share_counts">Empfänger: %1$d · Abonniert: %2$d · Gesendet: %3$d</string>
+<string name="hrm_wahoo_broadcast_count">Übertragungsbefehle: %1$d · Empfang durch Wahoo unbestätigt</string>
 
 <string name="hrm_share_explanation">Teilt echte Messwerte über WLAN mit kompatiblen Apps. Andere Geräte in diesem WLAN können sich während der Freigabe ebenfalls verbinden. Die Wahoo-Kompatibilität ist experimentell.</string>
 
@@ -638,6 +639,7 @@
     <string name="hrs_gym_hint">Verwendet die gewählte Methode. Ausschalten des Trainingsmodus beendet die dadurch gestartete Freigabe. Stoppen pausiert die Automatik bis zur nächsten Sitzung.</string>
     <string name="hrs_diagnostics">Diagnose</string>
     <string name="hrs_tickr_sending">Wird an Wahoo gesendet</string>
+    <string name="hrs_tickr_broadcast_unconfirmed">Wahoo-Übertragung · Empfang nicht bestätigt</string>
     <string name="hrs_ble_ready">Bluetooth-Sensor sichtbar</string>
     <string name="hrs_ble_connected">Empfänger verbunden</string>
     <string name="hrs_ble_subscribed">Empfänger abonniert</string>

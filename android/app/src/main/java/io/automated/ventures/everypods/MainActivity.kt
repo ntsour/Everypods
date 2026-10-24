@@ -658,7 +658,7 @@ fun Main(gymTimerNavigationRequest: Int = 0, heartRateNavigationRequest: Int = 0
                         if (airPodsViewModel != null) HeadTrackingScreen(airPodsViewModel, navController)
                     }
                     composable("heart_rate_screen") {
-                        if (airPodsViewModel != null) io.automated.ventures.everypods.presentation.screens.HeartRateScreen(airPodsViewModel)
+                        if (airPodsViewModel != null) io.automated.ventures.everypods.presentation.screens.HeartRateScreen(airPodsViewModel, navController)
                     }
                     composable("accessibility") {
                         if (airPodsViewModel != null) CategoryScreen(airPodsViewModel, viewModel(), navController, "controls", "controls_configuration")

@@ -608,6 +608,7 @@
 <string name="hrm_share_preparing">Préparation de %1$s…</string>
 
 <string name="hrm_share_counts">Récepteurs : %1$d · Abonnés : %2$d · Envoyés : %3$d</string>
+<string name="hrm_wahoo_broadcast_count">Commandes diffusées : %1$d · réception Wahoo non confirmée</string>
 
 <string name="hrm_share_explanation">Partage les mesures réelles par Wi-Fi avec les apps compatibles. Les autres appareils de ce réseau peuvent aussi se connecter pendant le partage. La compatibilité Wahoo est expérimentale.</string>
 
@@ -639,6 +640,7 @@
     <string name="hrs_gym_hint">Utilise la méthode choisie. Désactiver le mode sport arrête le partage qu’il a lancé. Arrêter suspend l’automatisation jusqu’à la prochaine session.</string>
     <string name="hrs_diagnostics">Diagnostic</string>
     <string name="hrs_tickr_sending">Envoi vers Wahoo</string>
+    <string name="hrs_tickr_broadcast_unconfirmed">Diffusion vers Wahoo · réception non confirmée</string>
     <string name="hrs_ble_ready">Capteur Bluetooth détectable</string>
     <string name="hrs_ble_connected">Récepteur connecté</string>
     <string name="hrs_ble_subscribed">Récepteur abonné</string>

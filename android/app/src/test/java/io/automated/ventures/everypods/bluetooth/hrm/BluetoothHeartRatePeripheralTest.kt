@@ -4,6 +4,7 @@ import android.app.Application
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCharacteristic
+import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothGattServer
 import android.bluetooth.BluetoothGattServerCallback
 import android.bluetooth.BluetoothManager
@@ -16,7 +17,9 @@ import org.junit.Assert.assertFalse
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import java.time.Duration
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], application = Application::class)
@@ -77,5 +80,57 @@ class BluetoothHeartRatePeripheralTest {
         )
         callback.onDescriptorReadRequest(device, 7, 0, descriptor)
         verify(exactly = 0) { server.sendResponse(any(), any(), any(), any(), any()) }
+    }
+
+    @Test fun `only pending successful notifications count and repeated failures drop receiver`() {
+        val (peripheral, callback) = peripheral()
+        val measurement = BluetoothGattCharacteristic(
+            BluetoothHeartRatePeripheral.HEART_RATE_MEASUREMENT,
+            BluetoothGattCharacteristic.PROPERTY_NOTIFY, 0
+        )
+        val descriptor = BluetoothGattDescriptor(
+            BluetoothHeartRatePeripheral.CLIENT_CONFIGURATION,
+            BluetoothGattDescriptor.PERMISSION_WRITE
+        )
+        measurement.addDescriptor(descriptor)
+        BluetoothHeartRatePeripheral::class.java.getDeclaredField("measurement").apply {
+            isAccessible = true
+            set(peripheral, measurement)
+        }
+        callback.onDescriptorWriteRequest(device, 1, descriptor, false, true, 0,
+            BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
+        callback.onNotificationSent(device, BluetoothGatt.GATT_SUCCESS)
+        assertEquals(0L, states.last().sent)
+        repeat(3) {
+            peripheral.publish(75)
+            callback.onNotificationSent(device, BluetoothGatt.GATT_FAILURE)
+        }
+        verify(exactly = 1) { server.cancelConnection(device) }
+        assertEquals(0, states.last().subscribed)
+        peripheral.publish(76)
+        verify(exactly = 3) { server.notifyCharacteristicChanged(device, any(), false, any<ByteArray>()) }
+    }
+
+    @Test fun `missing completion times out without a second sample`() {
+        val (peripheral, callback) = peripheral()
+        val measurement = BluetoothGattCharacteristic(
+            BluetoothHeartRatePeripheral.HEART_RATE_MEASUREMENT,
+            BluetoothGattCharacteristic.PROPERTY_NOTIFY, 0
+        )
+        val descriptor = BluetoothGattDescriptor(
+            BluetoothHeartRatePeripheral.CLIENT_CONFIGURATION,
+            BluetoothGattDescriptor.PERMISSION_WRITE
+        )
+        measurement.addDescriptor(descriptor)
+        BluetoothHeartRatePeripheral::class.java.getDeclaredField("measurement").apply {
+            isAccessible = true
+            set(peripheral, measurement)
+        }
+        callback.onDescriptorWriteRequest(device, 1, descriptor, false, true, 0,
+            BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
+        peripheral.publish(75)
+        shadowOf(android.os.Looper.getMainLooper()).idleFor(Duration.ofSeconds(5))
+        verify(exactly = 1) { server.cancelConnection(device) }
+        assertEquals(0, states.last().subscribed)
     }
 }

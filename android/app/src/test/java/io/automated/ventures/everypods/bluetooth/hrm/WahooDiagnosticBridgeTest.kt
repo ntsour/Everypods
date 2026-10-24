@@ -27,4 +27,19 @@ class WahooDiagnosticBridgeTest {
         assertEquals(0, broadcasts.last().getIntExtra("value", -1))
         assertFalse(broadcasts.any { it.action!!.contains("UNPAIR") })
     }
+
+    @Test fun `reconnect clears Wahoo then pairs only after a new reading`() {
+        val application = ApplicationProvider.getApplicationContext<Application>()
+        val bridge = WahooDiagnosticBridge(application)
+        assertTrue(bridge.publish(70))
+        assertTrue(bridge.reconnect())
+        val before = shadowOf(application).broadcastIntents
+        assertEquals(3, before.size)
+        assertEquals(0, before.last().getIntExtra("value", -1))
+        assertTrue(bridge.publish(71))
+        val after = shadowOf(application).broadcastIntents
+        assertEquals(5, after.size)
+        assertEquals(71, after[3].getIntExtra("value", -1))
+        assertTrue(after[4].action!!.endsWith("PAIR_SIM"))
+    }
 }

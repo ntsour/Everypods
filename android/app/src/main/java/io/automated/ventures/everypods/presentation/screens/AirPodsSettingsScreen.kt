@@ -459,6 +459,22 @@ fun AirPodsSettingsScreen(
 ) {
     val state    by viewModel.uiState.collectAsState()
     val appState by appSettingsViewModel.uiState.collectAsState()
+    // Peer UI can outlive one ViewModel's cached poll snapshot while the
+    // process-level client/server link changes. Read the shared transport state
+    // for this visible screen so an offline-peer warning cannot disappear with
+    // a stale UI snapshot.
+    var liveCrossDevicePeers by remember(viewModel) {
+        mutableStateOf(viewModel.currentCrossDevicePeers())
+    }
+    LaunchedEffect(viewModel) {
+        while (true) {
+            liveCrossDevicePeers = viewModel.currentCrossDevicePeers()
+            delay(1_000)
+        }
+    }
+    val screenState = remember(state, liveCrossDevicePeers) {
+        state.copy(crossDevicePeers = liveCrossDevicePeers)
+    }
     val dark     = isSystemInDarkTheme()
     val context  = LocalContext.current
     val closeSearchDescription = stringResource(R.string.ui_close)
@@ -628,7 +644,7 @@ fun AirPodsSettingsScreen(
             // A2DP is enough to classify the device as connected. Keep limited-mode
             // devices on this screen too; AACP-only controls explain their own availability.
             ConnectedScreen(
-                state = state, appState = appState,
+                state = screenState, appState = appState,
                 viewModel = viewModel, appSettingsViewModel = appSettingsViewModel,
                 navController = navController, sharedPrefs = sharedPreferences,
                 topPadding = topPadding, bottomPadding = bottomPadding,
@@ -637,7 +653,7 @@ fun AirPodsSettingsScreen(
             )
         } else {
             DisconnectedScreen(
-                state = state, viewModel = viewModel,
+                state = screenState, viewModel = viewModel,
                 appSettingsViewModel = appSettingsViewModel,
                 navController = navController,
                 topPadding = topPadding, bottomPadding = bottomPadding,

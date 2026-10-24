@@ -21,6 +21,10 @@ class WahooHeartRateRelay(private val setValue: (Int) -> Unit, private val pair:
         setValue(0)
         zeroed = true
     }
+    /** Receiver was restarted; pair again only after the next genuine sample. */
+    @Synchronized fun resetPairing() {
+        if (!stopped) paired = false
+    }
     @Synchronized fun stop() {
         if (stopped) return
         // Always send zero, even if a stale-reading reset already did so.

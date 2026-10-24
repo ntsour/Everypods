@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.navigation.NavController
 import io.automated.ventures.everypods.R
 import io.automated.ventures.everypods.bluetooth.hrm.*
 import io.automated.ventures.everypods.bluetooth.hrm.SharingError
@@ -39,7 +40,7 @@ import java.text.DateFormat
 import java.util.Date
 
 @Composable
-fun HeartRateScreen(viewModel: AirPodsViewModel) {
+fun HeartRateScreen(viewModel: AirPodsViewModel, navController: NavController) {
     val ui by viewModel.uiState.collectAsState()
     val session by viewModel.heartRateState.collectAsState()
     val sharing by viewModel.heartRateSharingState.collectAsState()
@@ -88,20 +89,30 @@ fun HeartRateScreen(viewModel: AirPodsViewModel) {
     }
     val supported = ui.modelIdentified && ui.instance?.model?.capabilities?.contains(Capability.HRM) == true
     val owner = LocalLifecycleOwner.current
-    DisposableEffect(viewModel, owner) {
+    DisposableEffect(viewModel, owner, navController) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_STOP) viewModel.stopHeartRatePreview()
+            when (event) {
+                Lifecycle.Event.ON_START -> viewModel.resumeHeartRatePreview()
+                Lifecycle.Event.ON_STOP -> if (navController.currentDestination?.route == "heart_rate_screen")
+                    viewModel.suspendHeartRatePreview() else viewModel.endHeartRatePreview()
+                else -> Unit
+            }
         }
         owner.lifecycle.addObserver(observer)
-        onDispose { owner.lifecycle.removeObserver(observer); viewModel.stopHeartRatePreview() }
+        if (owner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED) &&
+            navController.currentDestination?.route == "heart_rate_screen") viewModel.resumeHeartRatePreview()
+        onDispose {
+            owner.lifecycle.removeObserver(observer)
+            if (navController.currentDestination?.route != "heart_rate_screen") viewModel.endHeartRatePreview()
+        }
     }
     StyledScaffold(title = stringResource(R.string.hrs_title)) { top, _, bottom ->
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Spacer(Modifier.height(top))
-            if (!ui.aacpAvailable) {
+            if (!ui.aacpAvailable && !session.running && session.status != HeartRateStatus.RECOVERING && !sharing.active) {
                 Text(stringResource(R.string.requires_aacp_message), fontSize = 16.sp)
-            } else if (!supported) {
+            } else if (!supported && !session.running && session.status != HeartRateStatus.RECOVERING && !sharing.active) {
                 SettingsGroup {
                     Text(
                         stringResource(if (ui.modelIdentified) R.string.hrm_unsupported else R.string.hrs_identifying),
@@ -127,12 +138,13 @@ fun HeartRateScreen(viewModel: AirPodsViewModel) {
                             fontSize = 48.sp, fontWeight = FontWeight.Medium,
                             fontFamily = FontFamily(Font(R.font.sf_pro)))
                         if (!sharing.active) {
+                            val monitoring = session.running || session.status == HeartRateStatus.RECOVERING
                             Button(
-                                onClick = { if (session.running) viewModel.stopHeartRate() else viewModel.startHeartRate() },
-                                enabled = session.running || ui.isLocallyConnected,
+                                onClick = { if (monitoring) viewModel.stopHeartRate() else viewModel.startHeartRate() },
+                                enabled = monitoring || ui.isLocallyConnected,
                                 modifier = Modifier.heightIn(min = 48.dp),
                             ) {
-                                Text(stringResource(if (session.running) R.string.hrm_stop else R.string.hrs_start_monitoring))
+                                Text(stringResource(if (monitoring) R.string.hrm_stop else R.string.hrs_start_monitoring))
                             }
                         }
                         Text(stringResource(if (sharing.recovering) R.string.hrs_reconnecting else when (session.status) {
@@ -140,13 +152,14 @@ fun HeartRateScreen(viewModel: AirPodsViewModel) {
                             HeartRateStatus.WAITING -> R.string.hrm_waiting
                             HeartRateStatus.LIVE -> R.string.hrm_live
                             HeartRateStatus.STALE -> R.string.hrm_stale
+                            HeartRateStatus.RECOVERING -> R.string.hrs_reconnecting
                             HeartRateStatus.ERROR -> R.string.hrm_error
                         }), fontSize = 13.sp)
                         if (session.bpm != null) session.sampleTimeMillis?.let {
                             Text(stringResource(R.string.hrm_updated, DateFormat.getTimeInstance(DateFormat.MEDIUM).format(Date(it))),
                                 fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        if (failure != null && !sharing.recovering) Text(
+                        if (failure != null && !sharing.recovering && session.status != HeartRateStatus.RECOVERING) Text(
                             stringResource(failure), fontSize = 13.sp, color = MaterialTheme.colorScheme.error)
                     }
                 }
@@ -154,12 +167,9 @@ fun HeartRateScreen(viewModel: AirPodsViewModel) {
                 SettingsGroup {
                     Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(Modifier.fillMaxWidth().clickable(role = Role.RadioButton) {
-                            val wasSharing = sharing.active
-                            val wasMonitoring = session.running
-                            if (wasSharing) viewModel.stopHeartRate()
+                            if (sharing.active) viewModel.switchHeartRateToMonitorOnly()
                             HeartRateSharingPrefs.clearMethod(context)
                             denied = false
-                            if (wasSharing && wasMonitoring) viewModel.startHeartRate()
                         }, verticalAlignment = Alignment.CenterVertically) {
                             RadioButton(selected = configuredMethod == null, onClick = null)
                             Text(stringResource(R.string.hrs_monitor_only), fontSize = 16.sp, modifier = Modifier.padding(start = 4.dp))
@@ -190,7 +200,7 @@ fun HeartRateScreen(viewModel: AirPodsViewModel) {
                             sharing.recovering -> R.string.hrs_reconnecting
                             session.status == HeartRateStatus.STALE -> R.string.hrm_stale
                             session.bpm == null -> R.string.hrm_waiting
-                            sharing.wahooDiagnostic -> R.string.hrs_tickr_sending
+                            sharing.wahooDiagnostic -> R.string.hrs_tickr_broadcast_unconfirmed
                             method == HeartRateSharingMethod.DIRCON && sharing.subscriptions > 0 -> R.string.dircon_subscribed
                             method == HeartRateSharingMethod.DIRCON && sharing.clients > 0 -> R.string.dircon_connected
                             method == HeartRateSharingMethod.DIRCON && sharing.advertised -> R.string.dircon_ready
@@ -200,6 +210,11 @@ fun HeartRateScreen(viewModel: AirPodsViewModel) {
                             sharing.advertised -> R.string.hrs_ble_ready
                             else -> R.string.hrm_ble_preparing
                         }), fontSize = 13.sp)
+                        if (sharing.active && sharing.wahooDiagnostic) {
+                            TextButton(onClick = { viewModel.reconnectWahooHeartRate() }) {
+                                Text(stringResource(R.string.ui_reconnect))
+                            }
+                        }
                         val error = when (sharing.error) {
                             SharingError.WIFI_REQUIRED -> R.string.hrm_share_wifi
                             SharingError.UNSUPPORTED_NETWORK -> R.string.dircon_ipv4_required
@@ -242,7 +257,11 @@ fun HeartRateScreen(viewModel: AirPodsViewModel) {
                 TextButton(onClick = { diagnostics = !diagnostics }) { Text(stringResource(R.string.hrs_diagnostics)) }
                 if (diagnostics) SettingsGroup {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(stringResource(R.string.hrm_share_counts, sharing.clients, sharing.subscriptions, sharing.sent), fontSize = 13.sp)
+                        if (sharing.wahooDiagnostic) {
+                            Text(stringResource(R.string.hrm_wahoo_broadcast_count, sharing.sent), fontSize = 13.sp)
+                        } else {
+                            Text(stringResource(R.string.hrm_share_counts, sharing.clients, sharing.subscriptions, sharing.sent), fontSize = 13.sp)
+                        }
                         if (method == HeartRateSharingMethod.DIRCON) {
                             Text(stringResource(R.string.dircon_diagnostics, sharing.name, sharing.address, sharing.port, sharing.requests), fontSize = 13.sp)
                         }

@@ -73,6 +73,17 @@ class HeartRateSessionTest {
         assertEquals(listOf(84 to 1_000_000), commands)
     }
 
+    @Test fun `queued old and out of order readings never revive or regress BPM`() {
+        assertTrue(start())
+        now = 5_100L
+        assertFalse(session.sample(81, arrivedAtElapsedMs = 100L))
+        assertNull(session.state.value.bpm)
+        assertTrue(session.sample(82, arrivedAtElapsedMs = 5_099L))
+        assertEquals(82, session.state.value.bpm)
+        assertFalse(session.sample(83, arrivedAtElapsedMs = 5_098L))
+        assertEquals(82, session.state.value.bpm)
+    }
+
     @Test fun `write failures and device changes clear values and require explicit restart`() {
         writesSucceed = false
         assertFalse(start())
@@ -85,5 +96,29 @@ class HeartRateSessionTest {
         assertNull(session.state.value.bpm)
         session.sample(100)
         assertNull(session.state.value.bpm)
+    }
+
+    @Test fun `command exceptions fail closed and stop still clears state`() {
+        val broken = HeartRateSession({ now }, { now }) { _, interval ->
+            if (interval == 0) throw SecurityException("permission revoked")
+            true
+        }
+        assertTrue(broken.start(true, true, true, "9A348"))
+        broken.sample(72)
+        broken.stop()
+        assertEquals(HeartRateFailure.SEND_FAILED, broken.state.value.failure)
+        assertNull(broken.state.value.bpm)
+    }
+
+    @Test fun `recovery clears BPM and requires a new start before samples`() {
+        assertTrue(start())
+        session.sample(72)
+        session.stop(HeartRateFailure.CONNECTION_LOST, connectionUsable = false)
+        session.markRecovering()
+        assertEquals(HeartRateStatus.RECOVERING, session.state.value.status)
+        assertNull(session.state.value.bpm)
+        assertFalse(session.sample(73))
+        assertTrue(start())
+        assertEquals(HeartRateStatus.WAITING, session.state.value.status)
     }
 }

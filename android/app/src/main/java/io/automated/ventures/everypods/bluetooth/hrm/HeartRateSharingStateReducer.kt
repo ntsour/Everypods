@@ -10,7 +10,7 @@ object HeartRateSharingStateReducer {
         sensorRecoveryActive: Boolean = false,
     ): HeartRateSharingState {
         val sensorPhase = when {
-            sensorRecoveryActive || (intentRequested && sensor.failure in setOf(
+            sensorRecoveryActive || sensor.status == HeartRateStatus.RECOVERING || (intentRequested && sensor.failure in setOf(
                 HeartRateFailure.NO_DATA, HeartRateFailure.CONNECTION_LOST,
             )) -> HeartRateSensorPhase.RECOVERING
             sensor.failure == HeartRateFailure.NOT_OWNER -> HeartRateSensorPhase.NOT_OWNER

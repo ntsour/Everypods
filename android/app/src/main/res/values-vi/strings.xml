@@ -608,6 +608,7 @@
 <string name="hrm_share_preparing">Đang chuẩn bị %1$s…</string>
 
 <string name="hrm_share_counts">Thiết bị nhận: %1$d · Đăng ký: %2$d · Đã gửi: %3$d</string>
+<string name="hrm_wahoo_broadcast_count">Lệnh phát: %1$d · chưa xác nhận Wahoo đã nhận</string>
 
 <string name="hrm_share_explanation">Chia sẻ số đo thực qua Wi-Fi với ứng dụng tương thích. Thiết bị khác trên mạng này cũng có thể kết nối khi chia sẻ bật. Tương thích Wahoo đang thử nghiệm.</string>
 
@@ -639,6 +640,7 @@
     <string name="hrs_gym_hint">Dùng phương thức đã chọn. Tắt chế độ gym sẽ dừng chia sẻ do chế độ này khởi động. Dừng sẽ tạm ngưng tự động hóa đến phiên tiếp theo.</string>
     <string name="hrs_diagnostics">Chẩn đoán</string>
     <string name="hrs_tickr_sending">Đang gửi đến Wahoo</string>
+    <string name="hrs_tickr_broadcast_unconfirmed">Đang phát đến Wahoo · chưa xác nhận đã nhận</string>
     <string name="hrs_ble_ready">Có thể tìm thấy cảm biến Bluetooth</string>
     <string name="hrs_ble_connected">Bộ nhận đã kết nối</string>
     <string name="hrs_ble_subscribed">Bộ nhận đã đăng ký</string>
