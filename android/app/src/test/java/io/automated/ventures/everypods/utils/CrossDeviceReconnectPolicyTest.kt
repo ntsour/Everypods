@@ -5,6 +5,14 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CrossDeviceReconnectPolicyTest {
+    @Test fun `offline recovery requires last holder and no reachable or holding peer`() {
+        for (holder in listOf(false, true)) for (ever in listOf(false, true))
+            for (reachable in listOf(false, true)) for (holding in listOf(false, true)) {
+                org.junit.Assert.assertEquals(holder && ever && !reachable && !holding,
+                    CrossDeviceReconnectPolicy.mayRecoverOfflineLastHolder(holder, ever, reachable, holding))
+            }
+    }
+
     @Test
     fun `passive peer recovery is blocked while local audio is connected`() {
         assertFalse(
