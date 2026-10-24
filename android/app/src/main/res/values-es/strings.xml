@@ -221,7 +221,7 @@
     <string name="get_help_title">Obtener ayuda</string>
     <string name="github_issues">Incidencias en GitHub</string>
     <string name="handover_guide">Si activas esta opción, este teléfono puede conectarse a los AirPods cuando reproduzcas audio o recibas una llamada. Solo funciona entre dispositivos conectados.</string>
-    <string name="handover_needs_peer_helper">Añade una conexión de transferencia BT en Conexiones y conecta ese dispositivo para usar la transferencia.</string>
+    <string name="handover_needs_peer_helper">Añade una conexión BT para coordinar los dispositivos. La conexión al iniciar la reproducción también funciona sin otros dispositivos.</string>
     <string name="handover_title">Transferencia</string>
     <string name="lid_open_last_holder_autoconnect">Conexión automática al abrir el estuche</string>
     <string name="lid_open_last_holder_autoconnect_description">Cuando abres el estuche, solo se conecta el último teléfono que usó los AirPods. Inicie música en otro teléfono para cambiar. Es posible que el último teléfono se conecte incluso si no está al lado de la carcasa.</string>

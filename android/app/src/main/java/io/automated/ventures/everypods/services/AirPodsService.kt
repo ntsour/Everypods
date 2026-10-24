@@ -4645,11 +4645,14 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         if (!manualTakeOverAfterReversed && takingOverFor in setOf("music", "call")) {
             val connections = io.automated.ventures.everypods.relay.DeviceConnectionStore(this)
             connections.migrate(CrossDevice.configuredPeers)
-            val onlineHandoverPeers = connections.onlineHandoverPeers(CrossDevice.configuredPeers.filter(CrossDevice::isConnectedTo))
-            val handoverAvailable = getSharedPreferences("settings", MODE_PRIVATE).getBoolean("cross_device_enabled", true) && onlineHandoverPeers.isNotEmpty()
-            val holderAllowsHandover = CrossDevice.holders.isEmpty() || CrossDevice.holders.any { it.uppercase() in onlineHandoverPeers }
-            if (io.automated.ventures.everypods.relay.DeviceConnectionStore.emitting || !handoverAvailable || !holderAllowsHandover) {
-                Log.i(TAG, "Automatic handover skipped: emitting=${io.automated.ventures.everypods.relay.DeviceConnectionStore.emitting} holderAllowsHandover=$holderAllowsHandover holders=${CrossDevice.holders.size}")
+            // Local Play is an independent connection intent, even with no saved peers
+            // or cross-device coordination disabled. Reachable peers are still asked
+            // to release below; the media preference and route/ear checks still apply.
+            val handoverAvailable = takingOverFor == "music" ||
+                (getSharedPreferences("settings", MODE_PRIVATE).getBoolean("cross_device_enabled", true) &&
+                    connections.allowsAutomaticHandover(CrossDevice.configuredPeers, CrossDevice.holders.filter(CrossDevice::isConnectedTo)))
+            if (io.automated.ventures.everypods.relay.DeviceConnectionStore.emitting || !handoverAvailable) {
+                Log.i(TAG, "Automatic handover skipped: emitting=${io.automated.ventures.everypods.relay.DeviceConnectionStore.emitting} handoverAvailable=$handoverAvailable holders=${CrossDevice.holders.size}")
                 return
             }
         }

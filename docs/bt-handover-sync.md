@@ -40,7 +40,13 @@ Existing entries from older builds remain usable; simply connecting does not
 advertise them as new setup requests.
 
 The UI shows pending setup/removal. Newly added BT entries do not authorize handover
-until acknowledged. At least one saved, acknowledged BT peer must also be online.
+until acknowledged. Peer coordination and call takeover require a saved, acknowledged BT peer,
+but it need not be online. Playback takeover is independent of peer setup and
+the cross-device coordination switch: local playback can connect the saved
+AirPods with zero peers, using its own playback takeover preference. Reachable
+BT handover peers are still asked to release before connecting. Only reachable
+holders participate in the call-takeover holder-capability check. Passive lid-open
+acquisition still requires the existing ownership/reservation checks.
 Removing BT preserves Wi-Fi relay and vice versa. Removing the final capability
 closes that peer's normal coordination transports and removes active peer membership;
 the setup endpoint and durable deletion record allow later synchronization or re-add.

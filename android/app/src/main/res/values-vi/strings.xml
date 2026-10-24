@@ -216,7 +216,7 @@
     <string name="get_help_title">Nhận trợ giúp</string>
     <string name="github_issues">Sự cố GitHub</string>
     <string name="handover_guide">Khi được bật, điện thoại này có thể nhận AirPods nếu bạn bắt đầu nghe nhạc hoặc nhận cuộc gọi. Chỉ hoạt động giữa các thiết bị được kết nối.</string>
-    <string name="handover_needs_peer_helper">Thêm kết nối chuyển giao BT trong Kết nối và kết nối thiết bị đó để sử dụng Chuyển giao.</string>
+    <string name="handover_needs_peer_helper">Thêm kết nối BT để phối hợp giữa các thiết bị. Kết nối khi bắt đầu phát vẫn hoạt động khi không có thiết bị ngang hàng.</string>
     <string name="handover_title">Bàn giao</string>
     <string name="lid_open_last_holder_autoconnect">Tự động kết nối khi mở trường hợp (thiết bị cuối cùng)</string>
     <string name="lid_open_last_holder_autoconnect_description">Khi bạn mở hộp, chỉ điện thoại cuối cùng sử dụng AirPods mới kết nối. Bắt đầu phát nhạc trên điện thoại khác để chuyển đổi. Điện thoại cuối cùng có thể kết nối ngay cả khi nó không ở bên cạnh hộp đựng.</string>

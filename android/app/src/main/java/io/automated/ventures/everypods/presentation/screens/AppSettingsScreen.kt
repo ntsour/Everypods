@@ -260,10 +260,10 @@ fun AppSettingsScreen(
                     StyledToggle(
                         label = stringResource(R.string.takeover_media_start),
                         description = stringResource(R.string.takeover_media_start_desc),
-                        checked = state.takeoverWhenMediaStart && handoverAvailable,
+                        checked = state.takeoverWhenMediaStart,
                         onCheckedChange = viewModel::setTakeoverWhenMediaStart,
                         independent = false,
-                        enabled = state.isPremium && handoverAvailable
+                        enabled = state.isPremium
                     )
                 }
 

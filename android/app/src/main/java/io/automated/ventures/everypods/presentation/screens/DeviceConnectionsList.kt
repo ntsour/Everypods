@@ -47,9 +47,7 @@ fun rememberDeviceConnections(peers: List<PeerUiInfo>): List<DeviceConnectionRec
 @Composable
 fun rememberHandoverAvailable(peers: List<PeerUiInfo>): Boolean {
     val records = rememberDeviceConnections(peers)
-    return peers.any { peer ->
-        peer.connected && records.any { it.type == DeviceConnectionType.BT_HANDOVER && !it.pendingSync && it.mac.equals(peer.mac, true) }
-    }
+    return records.any { it.type == DeviceConnectionType.BT_HANDOVER && !it.pendingSync }
 }
 
 @SuppressLint("MissingPermission")
