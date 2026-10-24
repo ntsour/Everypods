@@ -242,6 +242,15 @@ class AACPManager {
     @Synchronized fun heartRateDiagnostics(): String =
         "buddy=$buddyPackets samples=$heartRatePackets acknowledgments=$sensorAcknowledgments rejected=$sensorRejections"
 
+    @Synchronized fun resetHeartRateConnection() {
+        buddyFrames.reset()
+        heartRateSequence = 0
+        heartRatePackets = 0
+        buddyPackets = 0
+        sensorAcknowledgments = 0
+        sensorRejections = 0
+    }
+
     @Synchronized fun sendHeartRateCommand(service: Int, intervalMicros: Int): Boolean {
         val sequence = heartRateSequence
         heartRateSequence = (heartRateSequence + 1) and Int.MAX_VALUE
@@ -251,7 +260,7 @@ class AACPManager {
     }
 
     interface PacketCallback {
-        fun onHeartRateSample(bpm: Int) {}
+        fun onHeartRateSample(bpm: Int, arrivedAtElapsedMs: Long) {}
         fun onSensorDisconnected() {}
 
         fun onBatteryInfoReceived(batteryInfo: ByteArray)
@@ -541,7 +550,7 @@ class AACPManager {
                         // Enable only for an explicitly requested local device validation.
                         if (Log.isLoggable(HRM_TAG, Log.VERBOSE))
                             Log.v(HRM_TAG, "sample bpm=${result.bpm}")
-                        callback?.onHeartRateSample(result.bpm)
+                        callback?.onHeartRateSample(result.bpm, android.os.SystemClock.elapsedRealtime())
                         return
                     }
                     is HeartRateProtocol.Result.Rejected -> {
@@ -1339,12 +1348,7 @@ class AACPManager {
     }
 
     fun disconnected() {
-        buddyFrames.reset()
-        heartRateSequence = 0
-        heartRatePackets = 0
-        buddyPackets = 0
-        sensorAcknowledgments = 0
-        sensorRejections = 0
+        resetHeartRateConnection()
         callback?.onSensorDisconnected()
         Log.d(TAG, "Disconnected, clearing state")
         controlCommandStatusList.clear()

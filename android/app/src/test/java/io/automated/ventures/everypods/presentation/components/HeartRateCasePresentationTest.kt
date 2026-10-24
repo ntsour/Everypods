@@ -45,8 +45,9 @@ class HeartRateCasePresentationTest {
         HeartRateStatus.entries.filter { it != HeartRateStatus.LIVE }.forEach { status ->
             val state = heartRateCasePresentation(live.copy(status = status), ready(HeartRateSharingMethod.TICKR), null)
             assertNull(state.bpm)
-            assertEquals(status == HeartRateStatus.WAITING || status == HeartRateStatus.STALE, state.monitoring)
-            if (!state.monitoring) assertFalse(state.sharing)
+            assertEquals(status == HeartRateStatus.WAITING || status == HeartRateStatus.STALE ||
+                status == HeartRateStatus.RECOVERING, state.monitoring)
+            assertFalse(state.sharing)
         }
     }
 

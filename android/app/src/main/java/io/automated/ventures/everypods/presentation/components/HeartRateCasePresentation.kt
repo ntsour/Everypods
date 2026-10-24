@@ -26,9 +26,9 @@ internal fun heartRateCasePresentation(
         else -> configuredMethod
     }
     return HeartRateCasePresentation(
-        monitoring = sensor.running,
+        monitoring = sensor.running || sensor.status == HeartRateStatus.RECOVERING,
         method = method,
-        sharing = sensor.running && transport.active && !transport.recovering && transport.error == null &&
+        sharing = sensor.status == HeartRateStatus.LIVE && transport.active && !transport.recovering && transport.error == null &&
             (transport.wahooDiagnostic || transport.advertised),
         bpm = sensor.bpm.takeIf { sensor.running && sensor.status == HeartRateStatus.LIVE },
     )

@@ -203,6 +203,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     var airpodsInstance: AirPodsInstance? = null
     private var disconnectedBecauseReversed = false
     private var heartRateDevice: String? = null
+    private var heartRateSocket: BluetoothSocket? = null
     private var heartRateWatchdog: kotlinx.coroutines.Job? = null
     private val heartRateSession = HeartRateSession(
         elapsed = { SystemClock.elapsedRealtime() },
@@ -222,27 +223,104 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     private val hrSharingIntent = HeartRateSharingIntent()
     private val hrSharingScope = CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.Main.immediate)
     private var hrRecovery: kotlinx.coroutines.Job? = null
+    private var hrRecoveryCause: HeartRateFailure? = null
     private var hrTransportRecovery: kotlinx.coroutines.Job? = null
-    private var hrTransportRetries = 0
+    private var hrTransportSetupTimeout: kotlinx.coroutines.Job? = null
+    private var hrTransportStability: kotlinx.coroutines.Job? = null
+    private var hrTransportDeadlineWatchdog: kotlinx.coroutines.Job? = null
+    private val hrTransportContinuity = io.automated.ventures.everypods.bluetooth.hrm.HeartRateTransportContinuity {
+        SystemClock.elapsedRealtime()
+    }
+    private var hrBleSentBase = 0L
+    private var hrBluetoothAdapterOn = true
     @Volatile private var hrGeneration = 0L
     private var hrSharingDevice: String? = null
-    private var hrRecoveryDeadline = 0L
+    private val hrMonitor = io.automated.ventures.everypods.bluetooth.hrm.HeartRateMonitorWindow {
+        SystemClock.elapsedRealtime()
+    }
+    private var hrMonitorGraceJob: kotlinx.coroutines.Job? = null
+    private val hrProcessObserver = object : androidx.lifecycle.DefaultLifecycleObserver {
+        override fun onStop(owner: androidx.lifecycle.LifecycleOwner) = suspendHeartRatePreview()
+        override fun onStart(owner: androidx.lifecycle.LifecycleOwner) = resumeHeartRatePreview()
+    }
+    private val hrSensorContinuity = io.automated.ventures.everypods.bluetooth.hrm.HeartRateContinuity {
+        SystemClock.elapsedRealtime()
+    }
     private var heartRateSharingWakeLock: android.os.PowerManager.WakeLock? = null
 
     /** Publishes one typed view over the independently owned sensor and transport state. */
     private fun publishHeartRateSharingState(state: HeartRateSharingState) {
+        val transportRecovering = when (hrSharingIntent.method) {
+            HeartRateSharingMethod.BLUETOOTH -> hrTransportContinuity.recovering
+            HeartRateSharingMethod.DIRCON -> dirconSessionController?.snapshot()?.recovering == true
+            HeartRateSharingMethod.TICKR, null -> false
+        }
+        val composed = state.copy(recovering = hrSensorContinuity.recovering || transportRecovering)
         mutableHeartRateSharing.value = io.automated.ventures.everypods.bluetooth.hrm.HeartRateSharingStateReducer.reconcile(
-            state = state,
+            state = composed,
             intentRequested = hrSharingIntent.method != null,
             sensor = heartRateState.value,
             sensorRecoveryActive = hrRecovery?.isActive == true,
         )
     }
 
-    /** Preview lifecycle must not cancel a separately authorized sharing session. */
-    fun stopHeartRatePreview() {
-        if (!heartRateSharingState.value.active) stopHeartRate(heartRateState.value.failure)
+    /** Backgrounding suspends monitor-only acquisition; sharing remains independent. */
+    fun suspendHeartRatePreview() {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            Handler(Looper.getMainLooper()).post { suspendHeartRatePreview() }
+            return
+        }
+        if (hrSharingIntent.method != null || !hrMonitor.suspend()) return
+        hrSensorContinuity.beginOutage()
+        hrGeneration++
+        hrRecovery?.cancel()
+        hrRecovery = null
+        heartRateWatchdog?.cancel()
+        heartRateWatchdog = null
+        heartRateSession.stop(connectionUsable = BluetoothConnectionManager.getCurrentSocket()?.isConnected == true)
+        heartRateSession.markRecovering()
+        hrMonitorGraceJob?.cancel()
+        hrMonitorGraceJob = hrSharingScope.launch {
+            val deadline = minOf(
+                hrMonitor.deadline ?: Long.MAX_VALUE,
+                hrSensorContinuity.deadline ?: Long.MAX_VALUE,
+            )
+            delay((deadline - SystemClock.elapsedRealtime()).coerceAtLeast(0L))
+            if (hrMonitor.suspended && (hrMonitor.expired() || hrSensorContinuity.expired()))
+                endHeartRatePreview()
+        }
     }
+
+    fun resumeHeartRatePreview() {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            Handler(Looper.getMainLooper()).post { resumeHeartRatePreview() }
+            return
+        }
+        if (!hrMonitor.requested || !hrMonitor.suspended || hrSharingIntent.method != null) return
+        if (hrMonitor.expired() || hrSensorContinuity.expired()) {
+            endHeartRatePreview()
+            return
+        }
+        hrMonitorGraceJob?.cancel()
+        hrMonitorGraceJob = null
+        if (!hrMonitor.canResume(device?.address)) {
+            stopHeartRate(HeartRateFailure.DEVICE_CHANGED, false)
+            return
+        }
+        hrMonitor.resume()
+        recoverHeartRate(HeartRateFailure.CONNECTION_LOST, false)
+    }
+
+    fun endHeartRatePreview() {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            Handler(Looper.getMainLooper()).post { endHeartRatePreview() }
+            return
+        }
+        if (hrSharingIntent.method == null && hrMonitor.requested) stopHeartRate()
+    }
+
+    /** Kept for existing callers; navigation should use endHeartRatePreview. */
+    fun stopHeartRatePreview() = endHeartRatePreview()
 
     @SuppressLint("WakelockTimeout") // Explicit sharing session; Stop/error/disconnect/onDestroy release it.
     fun startHeartRateSharing(method: HeartRateSharingMethod, gym: Boolean = false) {
@@ -252,29 +330,34 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         }
         if (method == HeartRateSharingMethod.DIRCON && !BuildConfig.DIRCON_ENABLED) return
         val gymOwned = gym || (heartRateSharingState.value.active && hrSharingIntent.gymOwned)
-        if (heartRateSharingState.value.active) {
-            if (hrSharingIntent.method == method) return
-            stopHeartRate()
-        }
+        if (heartRateSharingState.value.active && hrSharingIntent.method == method) return
         if (method == HeartRateSharingMethod.TICKR && runCatching {
                 packageManager.getPackageInfo("com.wahoofitness.fitness", 0)
             }.isFailure) {
-            publishHeartRateSharingState(HeartRateSharingState(error = SharingError.WAHOO_UNAVAILABLE))
+            publishHeartRateSharingState(heartRateSharingState.value.copy(error = SharingError.WAHOO_UNAVAILABLE))
             return
         }
         if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED ||
             (method == HeartRateSharingMethod.BLUETOOTH && checkSelfPermission(Manifest.permission.BLUETOOTH_ADVERTISE) != PackageManager.PERMISSION_GRANTED) ||
             (method == HeartRateSharingMethod.DIRCON && Build.VERSION.SDK_INT >= 37 &&
                 checkSelfPermission("android.permission.ACCESS_LOCAL_NETWORK") != PackageManager.PERMISSION_GRANTED)) {
-            publishHeartRateSharingState(HeartRateSharingState(error = SharingError.PERMISSION))
+            publishHeartRateSharingState(heartRateSharingState.value.copy(error = SharingError.PERMISSION))
             return
         }
-        startHeartRate()
+        if (heartRateSharingState.value.active) {
+            switchHeartRateSharingTransport(method, gymOwned)
+            return
+        }
+        startHeartRate(forSharing = true)
         if (!heartRateState.value.running) return
+        hrMonitor.clear()
+        hrMonitorGraceJob?.cancel()
+        hrMonitorGraceJob = null
         hrSharingIntent.start(method, gymOwned)
         hrSharingDevice = device?.address
-        hrRecoveryDeadline = 0L
-        hrTransportRetries = 0
+        hrSensorContinuity.clear()
+        hrTransportContinuity.clear()
+        hrBleSentBase = 0L
         try {
             if (method == HeartRateSharingMethod.TICKR) {
                 wahooDiagnosticBridge = WahooDiagnosticBridge(this)
@@ -292,6 +375,70 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             publishHeartRateSharingState(heartRateSharingState.value.copy(
                 error = SharingError.SERVER))
         }
+    }
+
+    /** Method switches preserve the sensor request, including a pending recovery. */
+    private fun switchHeartRateSharingTransport(method: HeartRateSharingMethod, gymOwned: Boolean) {
+        stopHeartRateTransportOnly()
+        hrSharingIntent.start(method, gymOwned)
+        try {
+            when (method) {
+                HeartRateSharingMethod.TICKR -> {
+                    wahooDiagnosticBridge = WahooDiagnosticBridge(this)
+                    publishHeartRateSharingState(HeartRateSharingState(active = true, wahooDiagnostic = true))
+                }
+                HeartRateSharingMethod.BLUETOOTH -> startBluetoothHeartRateTransport()
+                HeartRateSharingMethod.DIRCON -> startDirconHeartRateTransport()
+            }
+            if (method != HeartRateSharingMethod.DIRCON) acquireHeartRateSharingWakeLock()
+            showHeartRateSharingNotification()
+        } catch (e: Exception) {
+            Log.w("EveryPodsHRM", "Sharing method switch failed", e)
+            stopHeartRate(HeartRateFailure.SEND_FAILED)
+            publishHeartRateSharingState(HeartRateSharingState(error = SharingError.SERVER))
+        }
+    }
+
+    /** Selecting Monitor only keeps the current sensor and its outage deadline. */
+    fun switchHeartRateToMonitorOnly() {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            Handler(Looper.getMainLooper()).post { switchHeartRateToMonitorOnly() }
+            return
+        }
+        if (hrSharingIntent.method == null) return
+        val target = hrSharingDevice
+        stopHeartRateTransportOnly()
+        hrSharingIntent.stop(manual = false)
+        hrSharingDevice = null
+        hrMonitor.start(target)
+        getSystemService(NotificationManager::class.java).cancel(731)
+        publishHeartRateSharingState(HeartRateSharingState())
+    }
+
+    private fun stopHeartRateTransportOnly() {
+        hrTransportRecovery?.cancel()
+        hrTransportRecovery = null
+        hrTransportSetupTimeout?.cancel()
+        hrTransportSetupTimeout = null
+        hrTransportStability?.cancel()
+        hrTransportStability = null
+        hrTransportDeadlineWatchdog?.cancel()
+        hrTransportDeadlineWatchdog = null
+        hrTransportContinuity.clear()
+        hrBleSentBase = 0L
+        runCatching { wahooDiagnosticBridge?.stop() }
+            .onFailure { Log.w("EveryPodsHRM", "TICKR cleanup during switch failed", it) }
+        wahooDiagnosticBridge = null
+        val oldPeripheral = bluetoothHeartRatePeripheral
+        bluetoothHeartRatePeripheral = null
+        runCatching { oldPeripheral?.stop() }
+            .onFailure { Log.w("EveryPodsHRM", "BLE cleanup during switch failed", it) }
+        val oldDircon = dirconSessionController
+        dirconSessionController = null
+        runCatching { oldDircon?.stop() }
+            .onFailure { Log.w("EveryPodsHRM", "DIRCON cleanup during switch failed", it) }
+        runCatching { releaseHeartRateSharingWakeLock() }
+            .onFailure { Log.w("EveryPodsHRM", "Wake lock cleanup during switch failed", it) }
     }
 
     private fun startDirconHeartRateTransport() {
@@ -344,18 +491,46 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }
 
     private fun startBluetoothHeartRateTransport() {
+        if (hrSharingIntent.method != HeartRateSharingMethod.BLUETOOTH) return
+        if (!hrBluetoothAdapterOn) {
+            hrTransportContinuity.beginOutage()
+            watchBluetoothHeartRateDeadline()
+            publishHeartRateSharingState(heartRateSharingState.value.copy(
+                active = true, advertised = false, clients = 0, subscriptions = 0,
+                bluetoothPeripheral = true,
+            ))
+            showHeartRateSharingNotification()
+            return
+        }
         lateinit var peripheral: BluetoothHeartRatePeripheral
         peripheral = BluetoothHeartRatePeripheral(this, changed = { state ->
             Handler(Looper.getMainLooper()).post {
-                if (bluetoothHeartRatePeripheral === peripheral) publishHeartRateSharingState(HeartRateSharingState(
+                if (bluetoothHeartRatePeripheral === peripheral) {
+                    val before = heartRateSharingState.value
+                    if (state.advertising) {
+                        hrTransportSetupTimeout?.cancel()
+                        hrTransportSetupTimeout = null
+                        if (hrTransportContinuity.recovering && hrTransportStability == null) {
+                            hrTransportContinuity.ready()
+                            hrTransportStability?.cancel()
+                            hrTransportStability = hrSharingScope.launch {
+                                delay(30_000)
+                                if (bluetoothHeartRatePeripheral === peripheral) {
+                                    hrTransportContinuity.stable()
+                                    publishHeartRateSharingState(heartRateSharingState.value)
+                                }
+                                hrTransportStability = null
+                            }
+                        }
+                    }
+                    publishHeartRateSharingState(HeartRateSharingState(
                     active = hrSharingIntent.method == HeartRateSharingMethod.BLUETOOTH,
                     advertised = state.advertising,
                     name = "EveryPods HR",
                     clients = state.connected,
                     subscriptions = state.subscribed,
-                    sent = state.sent,
+                    sent = hrBleSentBase + state.sent,
                     bluetoothPeripheral = true,
-                    recovering = heartRateSharingState.value.recovering,
                     error = when (state.error) {
                         BluetoothHrPeripheralError.UNSUPPORTED -> SharingError.BLUETOOTH_UNSUPPORTED
                         BluetoothHrPeripheralError.PERMISSION -> SharingError.BLUETOOTH_PERMISSION
@@ -363,7 +538,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                         BluetoothHrPeripheralError.ADVERTISING -> SharingError.BLUETOOTH_ADVERTISING
                         null -> null
                     }
-                ))
+                    ))
+                    val after = heartRateSharingState.value
+                    if (before.advertised != after.advertised || before.recovering != after.recovering ||
+                        before.error != after.error) showHeartRateSharingNotification()
+                }
             }
         }, failed = { error ->
             Handler(Looper.getMainLooper()).post {
@@ -375,32 +554,98 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         bluetoothHeartRatePeripheral = peripheral
         publishHeartRateSharingState(heartRateSharingState.value.copy(active = true, bluetoothPeripheral = true, error = null))
         peripheral.start()
+        hrTransportSetupTimeout?.cancel()
+        hrTransportSetupTimeout = hrSharingScope.launch {
+            delay(10_000)
+            if (bluetoothHeartRatePeripheral === peripheral && !heartRateSharingState.value.advertised)
+                retryBluetoothHeartRate(BluetoothHrPeripheralError.SERVICE)
+        }
     }
 
     private fun retryBluetoothHeartRate(error: BluetoothHrPeripheralError) {
+        val previous = bluetoothHeartRatePeripheral
         bluetoothHeartRatePeripheral = null // Invalidate delayed callbacks from the failed server.
+        hrBleSentBase += previous?.confirmedSent ?: 0L
+        previous?.stop()
+        hrTransportSetupTimeout?.cancel()
+        hrTransportSetupTimeout = null
+        hrTransportStability?.cancel()
+        hrTransportStability = null
         val rendered = when (error) {
             BluetoothHrPeripheralError.UNSUPPORTED -> SharingError.BLUETOOTH_UNSUPPORTED
             BluetoothHrPeripheralError.PERMISSION -> SharingError.BLUETOOTH_PERMISSION
             BluetoothHrPeripheralError.GATT_SERVER, BluetoothHrPeripheralError.SERVICE -> SharingError.BLUETOOTH_GATT
             BluetoothHrPeripheralError.ADVERTISING -> SharingError.BLUETOOTH_ADVERTISING
         }
-        if (error == BluetoothHrPeripheralError.PERMISSION || error == BluetoothHrPeripheralError.UNSUPPORTED || hrTransportRetries >= 3) {
+        if (error == BluetoothHrPeripheralError.PERMISSION || error == BluetoothHrPeripheralError.UNSUPPORTED) {
             stopHeartRate(HeartRateFailure.SEND_FAILED)
             publishHeartRateSharingState(HeartRateSharingState(error = rendered))
             return
         }
-        hrTransportRetries++
+        val retryDelay = hrTransportContinuity.nextFailureDelay()
+        if (hrTransportContinuity.exhausted()) {
+            stopHeartRate(HeartRateFailure.SEND_FAILED)
+            publishHeartRateSharingState(HeartRateSharingState(error = rendered))
+            return
+        }
+        watchBluetoothHeartRateDeadline()
         publishHeartRateSharingState(heartRateSharingState.value.copy(active = true, recovering = true, advertised = false, clients = 0, subscriptions = 0, error = null))
         showHeartRateSharingNotification()
         hrTransportRecovery?.cancel()
         hrTransportRecovery = hrSharingScope.launch {
-            delay(2_000L * hrTransportRetries)
-            if (hrSharingIntent.method == HeartRateSharingMethod.BLUETOOTH) {
+            delay(retryDelay)
+            if (hrTransportContinuity.expired()) {
+                stopHeartRate(HeartRateFailure.SEND_FAILED)
+                publishHeartRateSharingState(HeartRateSharingState(error = rendered))
+            } else if (hrSharingIntent.method == HeartRateSharingMethod.BLUETOOTH && hrBluetoothAdapterOn) {
                 runCatching { startBluetoothHeartRateTransport() }.onFailure {
                     stopHeartRate(HeartRateFailure.SEND_FAILED)
                 }
             }
+        }
+    }
+
+    private fun watchBluetoothHeartRateDeadline() {
+        if (hrTransportDeadlineWatchdog?.isActive == true) return
+        hrTransportDeadlineWatchdog = hrSharingScope.launch {
+            while (hrSharingIntent.method == HeartRateSharingMethod.BLUETOOTH) {
+                delay(500)
+                if (hrTransportContinuity.expired() && hrTransportContinuity.recovering) {
+                    stopHeartRate(HeartRateFailure.SEND_FAILED, false)
+                    publishHeartRateSharingState(HeartRateSharingState(error = SharingError.BLUETOOTH_GATT))
+                    break
+                }
+            }
+        }
+    }
+
+    /** Called by the adapter receiver even when OEMs omit ACL disconnect. */
+    fun onHeartRateBluetoothAdapterChanged(enabled: Boolean) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            Handler(Looper.getMainLooper()).post { onHeartRateBluetoothAdapterChanged(enabled) }
+            return
+        }
+        hrBluetoothAdapterOn = enabled
+        if (!enabled && heartRateState.value.running)
+            stopHeartRate(HeartRateFailure.CONNECTION_LOST, connectionUsable = false)
+        if (hrSharingIntent.method != HeartRateSharingMethod.BLUETOOTH) return
+        if (!enabled) {
+            hrTransportContinuity.beginOutage()
+            hrTransportRecovery?.cancel()
+            hrTransportSetupTimeout?.cancel()
+            hrTransportStability?.cancel()
+            val old = bluetoothHeartRatePeripheral
+            bluetoothHeartRatePeripheral = null
+            hrBleSentBase += old?.confirmedSent ?: 0L
+            old?.stop()
+            watchBluetoothHeartRateDeadline()
+            publishHeartRateSharingState(heartRateSharingState.value.copy(advertised = false, clients = 0, subscriptions = 0))
+            showHeartRateSharingNotification()
+        } else if (hrTransportContinuity.expired()) {
+            stopHeartRate(HeartRateFailure.SEND_FAILED, false)
+            publishHeartRateSharingState(HeartRateSharingState(error = SharingError.BLUETOOTH_GATT))
+        } else if (bluetoothHeartRatePeripheral == null) {
+            startBluetoothHeartRateTransport()
         }
     }
 
@@ -426,14 +671,15 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             .addAction(R.drawable.ic_bluetooth, getString(R.string.hrm_stop), stop).build())
     }
 
-    fun startHeartRate() {
+    fun startHeartRate(forSharing: Boolean = false) {
         if (Looper.myLooper() != Looper.getMainLooper()) {
-            Handler(Looper.getMainLooper()).post { startHeartRate() }
+            Handler(Looper.getMainLooper()).post { startHeartRate(forSharing) }
             return
         }
         if (heartRateState.value.running) return
         hrGeneration++
-        val connected = BluetoothConnectionManager.getCurrentSocket()?.isConnected == true
+        val currentHrSocket = BluetoothConnectionManager.getCurrentSocket()
+        val connected = currentHrSocket?.isConnected == true && device?.address != null
         val supported = io.automated.ventures.everypods.utils.isAacpCapable() &&
             airpodsInstance?.model?.capabilities?.contains(
                 io.automated.ventures.everypods.data.Capability.HRM) == true
@@ -442,16 +688,22 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         heartRateDevice = device?.address
         if (!heartRateSession.start(supported, connected, aacpManager.owns || isA2dpConnected(), firmware)) {
             heartRateDevice = null
+            heartRateSocket = null
             Log.i("EveryPodsHRM", "Start rejected: ${heartRateState.value.failure}")
             return
         }
+        heartRateSocket = currentHrSocket
+        if (!forSharing && hrSharingIntent.method == null) {
+            hrMonitor.start(heartRateDevice)
+        }
         heartRateWatchdog?.cancel()
-        heartRateWatchdog = CoroutineScope(Dispatchers.Main).launch {
+        heartRateWatchdog = hrSharingScope.launch {
             while (heartRateState.value.running) {
                 delay(500)
                 if (device?.address != null && heartRateDevice != device?.address) {
                     stopHeartRate(HeartRateFailure.DEVICE_CHANGED, false)
-                } else if (device == null || BluetoothConnectionManager.getCurrentSocket()?.isConnected != true) {
+                } else if (device == null || BluetoothConnectionManager.getCurrentSocket() !== heartRateSocket ||
+                    heartRateSocket?.isConnected != true) {
                     stopHeartRate(HeartRateFailure.CONNECTION_LOST, false)
                 } else if (!aacpManager.owns && !isA2dpConnected()) {
                     stopHeartRate(HeartRateFailure.NOT_OWNER)
@@ -487,8 +739,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         reason: HeartRateFailure?,
         connectionUsable: Boolean,
         allowSensorRecovery: Boolean,
+        manualStop: Boolean = reason == null,
     ) {
-        if (allowSensorRecovery && hrSharingIntent.method != null &&
+        if (allowSensorRecovery && (hrSharingIntent.method != null || (hrMonitor.requested && !hrMonitor.suspended)) &&
             reason in setOf(HeartRateFailure.CONNECTION_LOST, HeartRateFailure.NO_DATA)) {
             recoverHeartRate(reason!!, connectionUsable)
             return
@@ -496,57 +749,90 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         hrGeneration++
         hrTransportRecovery?.cancel()
         hrTransportRecovery = null
+        hrTransportSetupTimeout?.cancel()
+        hrTransportSetupTimeout = null
+        hrTransportStability?.cancel()
+        hrTransportStability = null
+        hrTransportDeadlineWatchdog?.cancel()
+        hrTransportDeadlineWatchdog = null
+        hrTransportContinuity.clear()
+        hrBleSentBase = 0L
         hrRecovery?.cancel()
         hrRecovery = null
-        hrSharingIntent.stop(manual = reason == null)
+        hrRecoveryCause = null
+        hrSharingIntent.stop(manual = manualStop)
         hrSharingDevice = null
-        hrRecoveryDeadline = 0L
-        wahooDiagnosticBridge?.stop()
+        hrMonitor.clear()
+        hrMonitorGraceJob?.cancel()
+        hrMonitorGraceJob = null
+        hrSensorContinuity.clear()
+        runCatching { wahooDiagnosticBridge?.stop() }
+            .onFailure { Log.w("EveryPodsHRM", "TICKR cleanup failed", it) }
         wahooDiagnosticBridge = null
-        bluetoothHeartRatePeripheral?.stop()
+        runCatching { bluetoothHeartRatePeripheral?.stop() }
+            .onFailure { Log.w("EveryPodsHRM", "BLE cleanup failed", it) }
         bluetoothHeartRatePeripheral = null
-        dirconSessionController?.stop()
+        runCatching { dirconSessionController?.stop() }
+            .onFailure { Log.w("EveryPodsHRM", "DIRCON cleanup failed", it) }
         dirconSessionController = null
-        releaseHeartRateSharingWakeLock()
-        getSystemService(NotificationManager::class.java).cancel(731)
+        runCatching { releaseHeartRateSharingWakeLock() }
+            .onFailure { Log.w("EveryPodsHRM", "Wake lock cleanup failed", it) }
+        runCatching { getSystemService(NotificationManager::class.java).cancel(731) }
+            .onFailure { Log.w("EveryPodsHRM", "Notification cleanup failed", it) }
         heartRateWatchdog?.cancel()
         heartRateWatchdog = null
         heartRateSession.stop(reason, connectionUsable)
         heartRateDevice = null
+        heartRateSocket = null
         publishHeartRateSharingState(HeartRateSharingState())
         Log.i("EveryPodsHRM", "Session ${heartRateState.value.status} reason=${heartRateState.value.failure}; ${aacpManager.heartRateDiagnostics()}")
     }
 
     private fun recoverHeartRate(reason: HeartRateFailure, connectionUsable: Boolean) {
+        hrSensorContinuity.beginOutage()
+        if (hrRecoveryCause == null) hrRecoveryCause = reason
         wahooDiagnosticBridge?.clearReading()
         dirconSessionController?.clearReading()
         heartRateSession.stop(reason, connectionUsable)
+        heartRateSocket = null
+        heartRateSession.markRecovering()
         heartRateWatchdog?.cancel()
         heartRateWatchdog = null
         publishHeartRateSharingState(heartRateSharingState.value.copy(recovering = true))
-        showHeartRateSharingNotification()
+        if (hrSharingIntent.method != null) showHeartRateSharingNotification()
         if (hrRecovery?.isActive == true) return
-        if (hrRecoveryDeadline == 0L) hrRecoveryDeadline = android.os.SystemClock.elapsedRealtime() + 60_000L
         hrRecovery = hrSharingScope.launch {
-            var backoff = 2_000L
-            while (hrSharingIntent.method != null && android.os.SystemClock.elapsedRealtime() < hrRecoveryDeadline) {
-                delay(backoff)
-                backoff = (backoff * 2).coerceAtMost(8_000L)
-                if (device?.address != null && device?.address != hrSharingDevice) {
+            while (hrSharingIntent.method != null || (hrMonitor.requested && !hrMonitor.suspended)) {
+                if (hrSensorContinuity.expired()) break
+                val target = hrSharingDevice ?: hrMonitor.target
+                if (device?.address != null && device?.address != target) {
                     stopHeartRate(HeartRateFailure.DEVICE_CHANGED, false)
                     return@launch
                 }
+                // A command write is not a recovered session. Wait for a real
+                // measurement while retaining the original absolute deadline.
+                if (heartRateState.value.running) {
+                    delay(500)
+                    continue
+                }
+                delay(hrSensorContinuity.nextDelay())
+                if (hrSensorContinuity.expired()) break
                 // Recovery uses an existing local connection and never requests takeover.
-                if (device?.address == hrSharingDevice && BluetoothConnectionManager.getCurrentSocket()?.isConnected == true &&
+                if (device?.address == target && BluetoothConnectionManager.getCurrentSocket()?.isConnected == true &&
                     (aacpManager.owns || isA2dpConnected())) {
-                    startHeartRate()
-                    if (heartRateState.value.running) return@launch
+                    startHeartRate(forSharing = hrSharingIntent.method != null)
+                    if (heartRateState.value.running) hrSensorContinuity.commandAccepted()
                 }
             }
             // End the retry budget with the original sensor cause; do not recurse
             // into a second recovery window or replace it with a generic send error.
-            stopHeartRateInternal(reason, false, allowSensorRecovery = false)
+            stopHeartRateInternal(hrRecoveryCause ?: reason, false, allowSensorRecovery = false)
         }
+    }
+
+    fun reconnectWahooHeartRate(): Boolean {
+        if (hrSharingIntent.method != HeartRateSharingMethod.TICKR) return false
+        return wahooDiagnosticBridge?.reconnect() == true
     }
 
     private fun onGymHeartRateChanged(enabled: Boolean) {
@@ -665,6 +951,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     private lateinit var socket: BluetoothSocket
 
     companion object {
+        const val EXTRA_CONNECTION_GENERATION = "io.automated.ventures.everypods.extra.CONNECTION_GENERATION"
         private const val ACTION_TOGGLE_GYM_MODE = "io.automated.ventures.everypods.TOGGLE_GYM_MODE"
         private const val ACTION_CONNECT_LAST_DEVICE = "io.automated.ventures.everypods.CONNECT_LAST_DEVICE"
         private const val GYM_MODE_NOTIFICATION_REQUEST_CODE = 73
@@ -673,6 +960,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         private const val GYM_TIMER_NOTIFICATION_REQUEST_CODE = 74
         private const val GYM_TIMER_NOTIFICATION_CHANNEL = "gym_timer_lock_screen"
         private const val GYM_TIMER_PAUSED_VISIBILITY_MS = 60_000L
+
+        private fun disconnectedIntent(generation: Long) =
+            Intent(AirPodsNotifications.AIRPODS_DISCONNECTED)
+                .putExtra(EXTRA_CONNECTION_GENERATION, generation)
 
         init {
             System.loadLibrary("bluetooth_socket")
@@ -851,11 +1142,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 putBoolean("connection_successful", false)
             }
             io.automated.ventures.everypods.utils.MediaController.resetMusicActiveState()
-            context.sendBroadcast(
-                Intent(AirPodsNotifications.AIRPODS_DISCONNECTED).apply {
-                    `package` = context.packageName
-                }
-            )
+            context.sendBroadcast(disconnectedIntent(
+                io.automated.ventures.everypods.bluetooth.BluetoothConnectionManager.connectionGeneration()
+            ).apply { `package` = context.packageName })
         }
     }
 
@@ -1067,7 +1356,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     @SuppressLint("MissingPermission", "UnspecifiedRegisterReceiverFlag", "HardwareIds")
     override fun onCreate() {
         super.onCreate()
+        androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.addObserver(hrProcessObserver)
         WahooDiagnosticBridge.resetInterruptedSession(this)
+        getSystemService(NotificationManager::class.java).cancel(731)
         Log.i(
             StartupGate.TAG,
             "service onCreate pid=${android.os.Process.myPid()} btConnect=${
@@ -1509,15 +1800,17 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 //                    }
 
                 } else if (intent?.action == AirPodsNotifications.AIRPODS_DISCONNECTED) {
+                    val generation = intent.getLongExtra(EXTRA_CONNECTION_GENERATION, -1L)
+                    if (generation < 0L || !BluetoothConnectionManager.isCurrentConnectionGeneration(generation)) {
+                        Log.d(TAG, "Ignoring stale/unscoped disconnect event generation=$generation current=${BluetoothConnectionManager.connectionGeneration()}")
+                        return
+                    }
                     device = null
                     popupShown = false
                     updateNotificationContent(false)
-                    // Close + clear the leaked socket from the previous connection so the
-                    // next connect attempt starts from a clean slate.
-                    if (this@AirPodsService::socket.isInitialized) {
-                        try { socket.close() } catch (_: Exception) {}
-                    }
-                    io.automated.ventures.everypods.bluetooth.BluetoothConnectionManager.clearCurrentConnection()
+                    // Clear only the connection whose generation was captured when the
+                    // disconnect source observed it; a queued old event cannot close a new socket.
+                    if (!BluetoothConnectionManager.clearCurrentConnectionIfGeneration(generation)) return
                     io.automated.ventures.everypods.bluetooth.BluetoothConnectionManager.publishState(
                         io.automated.ventures.everypods.bluetooth.connection.ConnectionState.Idle
                     )
@@ -2102,11 +2395,14 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     })
             }
 
-            override fun onHeartRateSample(bpm: Int) {
+            override fun onHeartRateSample(bpm: Int, arrivedAtElapsedMs: Long) {
                 if (Looper.myLooper() != Looper.getMainLooper()) {
                     val generation = hrGeneration
+                    val sourceSocket = BluetoothConnectionManager.getCurrentSocket()
                     Handler(Looper.getMainLooper()).post {
-                        if (generation == hrGeneration) onHeartRateSample(bpm)
+                        if (generation == hrGeneration &&
+                            sourceSocket === BluetoothConnectionManager.getCurrentSocket())
+                            onHeartRateSample(bpm, arrivedAtElapsedMs)
                     }
                     return
                 }
@@ -2114,9 +2410,22 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     if (heartRateState.value.running) stopHeartRate(HeartRateFailure.DEVICE_CHANGED, false)
                     return
                 }
+                if (heartRateState.value.running && heartRateSocket !== BluetoothConnectionManager.getCurrentSocket()) {
+                    stopHeartRate(HeartRateFailure.CONNECTION_LOST, false)
+                    return
+                }
+                if (hrSensorContinuity.expired()) {
+                    stopHeartRateInternal(hrRecoveryCause ?: HeartRateFailure.NO_DATA,
+                        connectionUsable = false, allowSensorRecovery = false)
+                    return
+                }
                 val previousStatus = heartRateState.value.status
-                heartRateSession.sample(bpm)
-                if (heartRateState.value.running) {
+                if (heartRateSession.sample(bpm, arrivedAtElapsedMs)) {
+                    hrSensorContinuity.sampleAccepted()
+                    hrRecoveryCause = null
+                    hrRecovery?.cancel()
+                    hrRecovery = null
+                    publishHeartRateSharingState(heartRateSharingState.value)
                     if (wahooDiagnosticBridge?.publish(bpm) == false) {
                         stopHeartRate(HeartRateFailure.SEND_FAILED)
                         return
@@ -2137,12 +2446,13 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     }
                     dirconSessionController?.publish(bpm)
                     if (heartRateSharingState.value.recovering && (wahooDiagnosticBridge != null || bluetoothHeartRatePeripheral != null || dirconSessionController != null)) {
-                        publishHeartRateSharingState(heartRateSharingState.value.copy(recovering = false))
+                        publishHeartRateSharingState(heartRateSharingState.value.copy(
+                            recovering = dirconSessionController?.snapshot()?.recovering == true,
+                        ))
                         showHeartRateSharingNotification()
                     }
                     if (heartRateSharingState.value.active && previousStatus != io.automated.ventures.everypods.bluetooth.hrm.HeartRateStatus.LIVE)
                         showHeartRateSharingNotification()
-                    hrRecoveryDeadline = 0L
                     wahooDiagnosticBridge?.let { bridge ->
                         publishHeartRateSharingState(heartRateSharingState.value.copy(sent = bridge.sent))
                     }
@@ -2150,7 +2460,14 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             }
 
             override fun onSensorDisconnected() {
-                if (heartRateState.value.running) stopHeartRate(HeartRateFailure.CONNECTION_LOST, false)
+                val generation = hrGeneration
+                val sourceSocket = BluetoothConnectionManager.getCurrentSocket()
+                Handler(Looper.getMainLooper()).post {
+                    if (generation == hrGeneration &&
+                        sourceSocket === BluetoothConnectionManager.getCurrentSocket() &&
+                        heartRateState.value.running)
+                        stopHeartRate(HeartRateFailure.CONNECTION_LOST, false)
+                }
             }
 
             override fun onCustomEqReceived(customEq: CustomEq) {
@@ -4332,12 +4649,14 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     state == 15
                 if (classicAudioGone) {
                     CrossDevice.onBluetoothStateChanged(context, enabled = false)
+                    ServiceManager.getService()?.onHeartRateBluetoothAdapterChanged(false)
                     clearLocalConnectionForDisabledAdapter(context, state)
                 } else if (state == BluetoothAdapter.STATE_ON) {
                     CrossDevice.onBluetoothStateChanged(context, enabled = true)
                     // Scan is started once in onCreate and is otherwise sticky-dead after
                     // BT off/on or a failed startScan. Re-arm without requiring force-stop.
                     ServiceManager.getService()?.let { svc ->
+                        svc.onHeartRateBluetoothAdapterChanged(true)
                         svc.ensureBleScanning("bt_state_on", force = true)
                         svc.ensureA2dpProxyBound("bt_state_on")
                     }
@@ -4435,11 +4754,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                         // auto-switch, OS reconnect, range loss).
                         io.automated.ventures.everypods.utils.MediaController.resetMusicActiveState()
                         a2dpConnectedToOurMac = false
-                        context.sendBroadcast(
-                            Intent(AirPodsNotifications.AIRPODS_DISCONNECTED).apply {
-                                `package` = context.packageName
-                            }
-                        )
+                        context.sendBroadcast(disconnectedIntent(
+                            BluetoothConnectionManager.connectionGeneration()
+                        ).apply { `package` = context.packageName })
                     }
                 } else if (action == "android.bluetooth.a2dp.profile.action.CONNECTION_STATE_CHANGED" ||
                     action == "android.bluetooth.headset.profile.action.CONNECTION_STATE_CHANGED") {
@@ -4513,11 +4830,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                                 ServiceManager.getService()?.abortContestedLidAutoconnect(SystemClock.elapsedRealtime())
                             }
                             a2dpConnectedToOurMac = false
-                            context?.sendBroadcast(
-                                Intent(AirPodsNotifications.AIRPODS_DISCONNECTED).apply {
-                                    `package` = context?.packageName
-                                }
-                            )
+                            context?.let { appContext ->
+                                appContext.sendBroadcast(disconnectedIntent(
+                                    BluetoothConnectionManager.connectionGeneration()
+                                ).apply { `package` = appContext.packageName })
+                            }
                         }
                     }
                 } else if (action == "android.bluetooth.a2dp.profile.action.PLAYING_STATE_CHANGED") {
@@ -5175,10 +5492,16 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         try {
             this@AirPodsService.device = device
 
-            BluetoothConnectionManager.setCurrentConnection(socket, device)
-            BluetoothConnectionManager.publishState(
-                io.automated.ventures.everypods.bluetooth.connection.ConnectionState.Handshaking(attemptId)
-            )
+            val myConnectionGeneration = synchronized(BluetoothConnectionManager) {
+                val generation = BluetoothConnectionManager.setCurrentConnection(socket, device)
+                aacpManager.resetHeartRateConnection()
+                BluetoothConnectionManager.publishState(
+                    io.automated.ventures.everypods.bluetooth.connection.ConnectionState.Handshaking(attemptId)
+                )
+                generation
+            }
+            if (heartRateState.value.running && heartRateSocket !== socket)
+                stopHeartRate(HeartRateFailure.CONNECTION_LOST, connectionUsable = false)
 
             // Create AirPodsInstance from stored config if available
             if (airpodsInstance == null && config.airpodsModelNumber.isNotEmpty()) {
@@ -5232,6 +5555,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                             val buffer = ByteArray(1024)
                             val bytesRead = mySocket.inputStream.read(buffer)
                             if (bytesRead > 0) {
+                                if (BluetoothConnectionManager.getCurrentSocket() !== mySocket) break
                                 lastBytesAtMs = System.currentTimeMillis()
                                 val data = buffer.copyOfRange(0, bytesRead)
                                 // Keep health sensor payloads out of general packet logs/broadcasts.
@@ -5248,7 +5572,13 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                                     sharedPreferences.getString("name", device.name),
                                     batteryNotification.getBattery()
                                 )
-                                aacpManager.receivePacket(data)
+                                val acceptedForCurrent = synchronized(BluetoothConnectionManager) {
+                                    if (BluetoothConnectionManager.getCurrentSocket() !== mySocket) false else {
+                                        aacpManager.receivePacket(data)
+                                        true
+                                    }
+                                }
+                                if (!acceptedForCurrent) break
                                 if (rawTraceAllowed && !isHeadTrackingData(data)) {
                                     Log.d("AirPodsData", "Data received: $formattedHex")
                                     logPacket(data, "AirPods")
@@ -5280,12 +5610,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     )
                     try { mySocket.close() } catch (_: Exception) {}
                     readJob.join() // socket closed → read loop unblocks and exits
-                    if (BluetoothConnectionManager.getCurrentSocket() === mySocket) {
-                        BluetoothConnectionManager.clearCurrentConnection()
-                    }
-                    sendBroadcast(Intent(AirPodsNotifications.AIRPODS_DISCONNECTED).apply {
-                        setPackage(packageName)
-                    })
+                    val failedCurrent = BluetoothConnectionManager.clearCurrentConnectionIfGeneration(myConnectionGeneration)
+                    if (failedCurrent) sendBroadcast(disconnectedIntent(myConnectionGeneration).apply { setPackage(packageName) })
                     return@launch
                 }
 
@@ -5381,20 +5707,23 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 readJob.join()
 
                 Log.d(TAG, "<LogCollector:Conn> [Conn-#$attemptId] read loop exited, cleaning up")
-                // Reset battery-transition tracker so next session starts fresh.
-                lastBothCharging = null
-                BluetoothConnectionManager.publishState(
-                    io.automated.ventures.everypods.bluetooth.connection.ConnectionState.Idle
-                )
                 try { mySocket.close() } catch (_: Exception) {}
-                if (BluetoothConnectionManager.getCurrentSocket() === mySocket) {
-                    BluetoothConnectionManager.clearCurrentConnection()
+                val endedCurrent = synchronized(BluetoothConnectionManager) {
+                    if (!BluetoothConnectionManager.clearCurrentConnectionIfGeneration(myConnectionGeneration)) false else {
+                        // Cleanup belongs only to this connection. An old read loop
+                        // must not reset the manager used by a newer socket.
+                        lastBothCharging = null
+                        BluetoothConnectionManager.publishState(
+                            io.automated.ventures.everypods.bluetooth.connection.ConnectionState.Idle
+                        )
+                        aacpManager.disconnected()
+                        true
+                    }
                 }
-                aacpManager.disconnected()
-                updateNotificationContent(false)
-                sendBroadcast(Intent(AirPodsNotifications.AIRPODS_DISCONNECTED).apply {
-                    setPackage(packageName)
-                })
+                if (endedCurrent) {
+                    updateNotificationContent(false)
+                    sendBroadcast(disconnectedIntent(myConnectionGeneration).apply { setPackage(packageName) })
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -5525,13 +5854,21 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
     fun disconnectAirPods() {
         if (!this::socket.isInitialized) return
-        socket.close()
+        val closingSocket = socket
+        val closingGeneration = BluetoothConnectionManager.connectionGeneration()
+        closingSocket.close()
 //        isConnectedLocally = false
-        aacpManager.disconnected()
-        updateNotificationContent(false)
-        sendBroadcast(Intent(AirPodsNotifications.AIRPODS_DISCONNECTED).apply {
-            setPackage(packageName)
-        })
+        val closedCurrent = synchronized(BluetoothConnectionManager) {
+            if (BluetoothConnectionManager.getCurrentSocket() !== closingSocket ||
+                !BluetoothConnectionManager.clearCurrentConnectionIfGeneration(closingGeneration)) false else {
+                aacpManager.disconnected()
+                true
+            }
+        }
+        if (closedCurrent) {
+            updateNotificationContent(false)
+            sendBroadcast(disconnectedIntent(closingGeneration).apply { setPackage(packageName) })
+        }
 
         val bluetoothAdapter = getSystemService(BluetoothManager::class.java).adapter
         if (checkSelfPermission("android.permission.BLUETOOTH_PRIVILEGED") == PackageManager.PERMISSION_GRANTED){
@@ -5858,6 +6195,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }
 
     override fun onDestroy() {
+        androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.removeObserver(hrProcessObserver)
         io.automated.ventures.everypods.relay.BtHandoverSync.close()
         stopHeartRate()
         hrSharingScope.cancel()

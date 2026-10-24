@@ -41,25 +41,41 @@ object BluetoothConnectionManager {
 
     private var currentSocket: BluetoothSocket? = null
     private var currentDevice: BluetoothDevice? = null
+    /** Increments for every installed socket; disconnect broadcasts carry this token. */
+    private var currentConnectionGeneration = 0L
 
     private val _state = MutableStateFlow<ConnectionState>(ConnectionState.Idle)
     val state: StateFlow<ConnectionState> = _state.asStateFlow()
 
     @Volatile private var engineRef: ConnectionEngine? = null
 
-    fun setCurrentConnection(socket: BluetoothSocket, device: BluetoothDevice) {
+    @Synchronized fun setCurrentConnection(socket: BluetoothSocket, device: BluetoothDevice): Long {
         currentSocket = socket
         currentDevice = device
+        currentConnectionGeneration++
         Log.d(TAG, "Current connection set to device: ${device.address}")
+        return currentConnectionGeneration
     }
 
-    fun clearCurrentConnection() {
+    @Synchronized fun clearCurrentConnection() {
         try { currentSocket?.close() } catch (_: Exception) {}
         currentSocket = null
         currentDevice = null
     }
 
-    fun getCurrentSocket(): BluetoothSocket? = currentSocket
+    @Synchronized fun getCurrentSocket(): BluetoothSocket? = currentSocket
+
+    @Synchronized fun connectionGeneration(): Long = currentConnectionGeneration
+
+    @Synchronized fun isCurrentConnectionGeneration(generation: Long): Boolean =
+        currentConnectionGeneration == generation
+
+    /** A delayed OS disconnect event may clear only the socket that was current when it fired. */
+    @Synchronized fun clearCurrentConnectionIfGeneration(generation: Long): Boolean {
+        if (currentConnectionGeneration != generation) return false
+        clearCurrentConnection()
+        return true
+    }
 
     fun bindEngine(engine: ConnectionEngine) {
         engineRef = engine

@@ -33,6 +33,16 @@ class HeartRateSharingTest {
         relay.stop()
         assertEquals(listOf(0), values)
     }
+    @Test fun `receiver reconnect waits for a fresh sample before pairing again`() {
+        val commands = mutableListOf<String>()
+        val relay = WahooHeartRateRelay({ commands += "value:$it" }, { commands += "pair" })
+        relay.publish(70)
+        relay.clearReading()
+        relay.resetPairing()
+        assertEquals(listOf("value:70", "pair", "value:0"), commands)
+        relay.publish(71)
+        assertEquals(listOf("value:70", "pair", "value:0", "value:71", "pair"), commands)
+    }
     @Test fun `failed initial value cannot pair or count a sample`() {
         val relay = WahooHeartRateRelay({ error("send failed") }, { fail("Must not pair") })
         runCatching { relay.publish(80) }

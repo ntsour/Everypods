@@ -22,7 +22,15 @@ class WahooDiagnosticBridge(context: Context) {
         relay.publish(bpm)
         }
     }
-    fun clearReading() = attempt { relay.clearReading() }
+    fun clearReading() = attempt {
+        relay.clearReading()
+        prefs.edit().remove("wahoo_reset_pending").apply()
+    }
+    fun reconnect(): Boolean {
+        if (stopped || !clearReading()) return false
+        relay.resetPairing()
+        return true
+    }
     fun stop() = attempt {
         relay.stop()
         stopped = true

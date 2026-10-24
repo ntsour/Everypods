@@ -585,6 +585,7 @@
     <string name="hrm_share_advertised">Ορατό ως %1$s</string>
     <string name="hrm_share_preparing">Προετοιμασία %1$s…</string>
     <string name="hrm_share_counts">Δέκτες: %1$d · Με εγγραφή: %2$d · Απεσταλμένα: %3$d</string>
+    <string name="hrm_wahoo_broadcast_count">Εντολές εκπομπής: %1$d · η λήψη από το Wahoo δεν επιβεβαιώνεται</string>
     <string name="hrm_share_explanation">Χρησιμοποιεί Wi-Fi για κοινοποίηση πραγματικών μετρήσεων σε συμβατές εφαρμογές. Άλλες συσκευές στο ίδιο Wi-Fi μπορούν επίσης να συνδεθούν όσο είναι ενεργή η κοινοποίηση. Η συμβατότητα με το Wahoo είναι πειραματική.</string>
     <string name="hrm_share_hint">Η κοινοποίηση συνεχίζεται όταν φύγετε από αυτή την οθόνη. Διακόψτε την εδώ ή από την ειδοποίηση.</string>
     <string name="hrm_share_notification">Κοινοποίηση καρδιακών παλμών από τα AirPods. Πατήστε Διακοπή για λήξη της συνεδρίας.</string>
@@ -610,6 +611,7 @@
     <string name="hrs_gym_hint">Χρησιμοποιεί την επιλεγμένη μέθοδο. Όταν απενεργοποιείτε τη λειτουργία γυμναστικής, σταματά η κοινοποίηση που ξεκίνησε από αυτήν. Η Διακοπή αναστέλλει την αυτόματη κοινοποίηση μέχρι την επόμενη συνεδρία γυμναστικής.</string>
     <string name="hrs_diagnostics">Διαγνωστικά</string>
     <string name="hrs_tickr_sending">Αποστολή στο Wahoo</string>
+    <string name="hrs_tickr_broadcast_unconfirmed">Εκπομπή προς Wahoo · χωρίς επιβεβαίωση λήψης</string>
     <string name="hrs_ble_ready">Ο αισθητήρας Bluetooth είναι ορατός</string>
     <string name="hrs_ble_connected">Ο δέκτης συνδέθηκε</string>
     <string name="hrs_ble_subscribed">Ο δέκτης εγγράφηκε για μετρήσεις</string>

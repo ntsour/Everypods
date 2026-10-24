@@ -607,6 +607,7 @@
 <string name="hrm_share_preparing">正在准备 %1$s…</string>
 
 <string name="hrm_share_counts">接收端：%1$d · 已订阅：%2$d · 已发送：%3$d</string>
+<string name="hrm_wahoo_broadcast_count">广播命令：%1$d · 未确认 Wahoo 已接收</string>
 
 <string name="hrm_share_explanation">通过 Wi-Fi 向兼容应用共享真实读数。共享开启时，同一网络的其他设备也可连接。Wahoo 兼容性尚处于实验阶段。</string>
 
@@ -638,6 +639,7 @@
     <string name="hrs_gym_hint">使用所选方式。关闭健身模式会停止由其启动的共享。手动停止后，自动共享暂停至下一次健身模式会话。</string>
     <string name="hrs_diagnostics">诊断</string>
     <string name="hrs_tickr_sending">正在发送至 Wahoo</string>
+    <string name="hrs_tickr_broadcast_unconfirmed">正在广播至 Wahoo · 未确认接收</string>
     <string name="hrs_ble_ready">蓝牙传感器可被发现</string>
     <string name="hrs_ble_connected">接收端已连接</string>
     <string name="hrs_ble_subscribed">接收端已订阅</string>

@@ -78,7 +78,7 @@ fun HeartRateCaseControl(viewModel: AirPodsViewModel) {
         }
     }
     val presentation = heartRateCasePresentation(session, sharing, configuredMethod)
-    val active = session.running || sharing.active
+    val active = session.running || session.status == HeartRateStatus.RECOVERING || sharing.active
     val ready = ui.aacpAvailable && ui.isLocallyConnected
     val bpm = presentation.bpm
     val failureText = when (sharing.error) {
@@ -111,7 +111,7 @@ fun HeartRateCaseControl(viewModel: AirPodsViewModel) {
         }
     }
     val status = when {
-        sharing.recovering -> stringResource(R.string.hrs_reconnecting)
+        sharing.recovering || session.status == HeartRateStatus.RECOVERING -> stringResource(R.string.hrs_reconnecting)
         failureText != null -> stringResource(failureText)
         !ui.aacpAvailable -> stringResource(R.string.requires_aacp_message)
         !ready && !active -> stringResource(R.string.hrm_connection)
@@ -151,7 +151,9 @@ fun HeartRateCaseControl(viewModel: AirPodsViewModel) {
             }
             .clickable(enabled = active || ready, role = Role.Button, onClickLabel = action) {
                 val selected = HeartRateSharingPrefs.configuredMethod(context)
-                if (viewModel.heartRateState.value.running || viewModel.heartRateSharingState.value.active) {
+                if (viewModel.heartRateState.value.running ||
+                    viewModel.heartRateState.value.status == HeartRateStatus.RECOVERING ||
+                    viewModel.heartRateSharingState.value.active) {
                     viewModel.stopHeartRate()
                 } else if (selected == null) {
                     viewModel.startHeartRate()

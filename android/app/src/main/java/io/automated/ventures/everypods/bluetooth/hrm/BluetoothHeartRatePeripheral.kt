@@ -47,8 +47,10 @@ class BluetoothHeartRatePeripheral(
     @Volatile private var stopped = false
     private val subscriptions = ConcurrentHashMap.newKeySet<BluetoothDevice>()
     private val pendingNotifications = ConcurrentHashMap<BluetoothDevice, Long>()
+    private val deliveryFailures = ConcurrentHashMap<BluetoothDevice, Int>()
     private val connected = ConcurrentHashMap.newKeySet<BluetoothDevice>()
     @Volatile private var state = BluetoothHrPeripheralState()
+    val confirmedSent: Long get() = state.sent
     private lateinit var measurement: BluetoothGattCharacteristic
     private lateinit var bodyLocation: BluetoothGattCharacteristic
     private lateinit var deviceInformationService: BluetoothGattService
@@ -89,12 +91,14 @@ class BluetoothHeartRatePeripheral(
                 addCharacteristic(readOnlyString(MODEL_NUMBER))
             }
 
-        server = manager.openGattServer(app, gattCallback)
+        server = try { manager.openGattServer(app, gattCallback) }
+        catch (_: SecurityException) { return fail(BluetoothHrPeripheralError.PERMISSION) }
         if (server == null) return fail(BluetoothHrPeripheralError.GATT_SERVER)
         advertiser = adapter.bluetoothLeAdvertiser
         update { it.copy(active = true) }
-        if (!server!!.addService(heartRateService))
-            fail(BluetoothHrPeripheralError.SERVICE)
+        try {
+            if (server?.addService(heartRateService) != true) fail(BluetoothHrPeripheralError.SERVICE)
+        } catch (_: SecurityException) { fail(BluetoothHrPeripheralError.PERMISSION) }
     }
 
     private fun readOnlyString(uuid: UUID) = BluetoothGattCharacteristic(
@@ -144,8 +148,10 @@ class BluetoothHeartRatePeripheral(
             if (stopped) return
             if (status != BluetoothGatt.GATT_SUCCESS) return fail(BluetoothHrPeripheralError.SERVICE)
             when (service.uuid) {
-                HEART_RATE_SERVICE -> if (server?.addService(deviceInformationService) != true)
-                    fail(BluetoothHrPeripheralError.SERVICE)
+                HEART_RATE_SERVICE -> try {
+                    if (server?.addService(deviceInformationService) != true)
+                        fail(BluetoothHrPeripheralError.SERVICE)
+                } catch (_: SecurityException) { fail(BluetoothHrPeripheralError.PERMISSION) }
                 DEVICE_INFO_SERVICE -> beginAdvertising()
             }
         }
@@ -158,6 +164,7 @@ class BluetoothHeartRatePeripheral(
                 connected.remove(device)
                 subscriptions.remove(device)
                 pendingNotifications.remove(device)
+                deliveryFailures.remove(device)
             }
             update { it.copy(connected = connected.size, subscribed = subscriptions.size) }
             Log.i(TAG, "BLE client state=$newState status=$status clients=${connected.size}")
@@ -185,7 +192,11 @@ class BluetoothHeartRatePeripheral(
             connected.add(device)
             when {
                 value.contentEquals(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE) -> subscriptions.add(device)
-                value.contentEquals(BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE) -> subscriptions.remove(device)
+                value.contentEquals(BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE) -> {
+                    subscriptions.remove(device)
+                    pendingNotifications.remove(device)
+                    deliveryFailures.remove(device)
+                }
                 else -> {
                     if (responseNeeded) sendResponse(device, requestId, BluetoothGatt.GATT_REQUEST_NOT_SUPPORTED, offset, null)
                     return
@@ -197,8 +208,11 @@ class BluetoothHeartRatePeripheral(
         }
 
         override fun onNotificationSent(device: BluetoothDevice, status: Int) {
-            pendingNotifications.remove(device)
-            if (status == BluetoothGatt.GATT_SUCCESS) update { it.copy(sent = it.sent + 1) }
+            if (stopped || pendingNotifications.remove(device) == null) return
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                deliveryFailures.remove(device)
+                update { it.copy(sent = it.sent + 1) }
+            } else deliveryFailed(device)
         }
 
         override fun onCharacteristicReadRequest(device: BluetoothDevice, requestId: Int, offset: Int, characteristic: BluetoothGattCharacteristic) {
@@ -234,6 +248,22 @@ class BluetoothHeartRatePeripheral(
     }
 
     @SuppressLint("MissingPermission")
+    private fun dropReceiver(device: BluetoothDevice) {
+        pendingNotifications.remove(device)
+        subscriptions.remove(device)
+        deliveryFailures.remove(device)
+        connected.remove(device)
+        try { server?.cancelConnection(device) }
+        catch (_: SecurityException) { fail(BluetoothHrPeripheralError.PERMISSION) }
+        update { it.copy(connected = connected.size, subscribed = subscriptions.size) }
+    }
+
+    private fun deliveryFailed(device: BluetoothDevice) {
+        val failures = deliveryFailures.merge(device, 1, Int::plus) ?: 1
+        if (failures >= 3) dropReceiver(device)
+    }
+
+    @SuppressLint("MissingPermission")
     fun publish(bpm: Int) {
         if (stopped || bpm !in 1..255) return
         val payload = byteArrayOf(0, bpm.toByte()) // uint8 BPM, no optional fields.
@@ -243,20 +273,39 @@ class BluetoothHeartRatePeripheral(
             val previous = pendingNotifications.putIfAbsent(device, now)
             if (previous != null) {
                 if (now - previous < 5_000) return@forEach
-                pendingNotifications[device] = now
+                // Android supplies no notification ID in the completion callback.
+                // Never overlap an expired send with a new one on the same link.
+                dropReceiver(device)
+                return@forEach
             }
-            val status = runCatching {
+            val status = try {
                 server?.notifyCharacteristicChanged(device, measurement, false, payload)
                     ?: android.bluetooth.BluetoothStatusCodes.ERROR_PROFILE_SERVICE_NOT_BOUND
-            }.getOrElse { android.bluetooth.BluetoothStatusCodes.ERROR_UNKNOWN }
+            } catch (_: SecurityException) {
+                pendingNotifications.remove(device)
+                fail(BluetoothHrPeripheralError.PERMISSION)
+                return
+            } catch (e: Exception) {
+                Log.w(TAG, "HR notification exception: ${e.javaClass.simpleName}")
+                android.bluetooth.BluetoothStatusCodes.ERROR_UNKNOWN
+            }
             if (status != android.bluetooth.BluetoothStatusCodes.SUCCESS) {
                 pendingNotifications.remove(device)
                 Log.w(TAG, "HR notification rejected status=$status")
+                if (status == android.bluetooth.BluetoothStatusCodes.ERROR_PROFILE_SERVICE_NOT_BOUND)
+                    fail(BluetoothHrPeripheralError.GATT_SERVER)
+                else deliveryFailed(device)
+            } else {
+                // Silence after a successful enqueue must not hold this receiver
+                // in an in-flight state until another sensor sample happens.
+                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                    if (!stopped && pendingNotifications.remove(device, now)) dropReceiver(device)
+                }, 5_000L)
             }
         }
     }
 
-    private fun fail(error: BluetoothHrPeripheralError) {
+    @Synchronized private fun fail(error: BluetoothHrPeripheralError) {
         if (stopped) return
         state = state.copy(active = false, advertising = false, error = error)
         changed(state)
@@ -273,6 +322,7 @@ class BluetoothHeartRatePeripheral(
         runCatching { server?.clearServices(); server?.close() }
         server = null
         pendingNotifications.clear()
+        deliveryFailures.clear()
         subscriptions.clear()
         connected.clear()
         state = state.copy(active = false, advertising = false, connected = 0, subscribed = 0)

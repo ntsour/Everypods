@@ -39,6 +39,7 @@ import kotlinx.coroutines.launch
 import io.automated.ventures.everypods.billing.BillingManager
 import io.automated.ventures.everypods.bluetooth.AACPManager
 import io.automated.ventures.everypods.bluetooth.AACPManager.Companion.ControlCommandIdentifiers
+import io.automated.ventures.everypods.bluetooth.BluetoothConnectionManager
 import io.automated.ventures.everypods.data.AirPodsInstance
 import io.automated.ventures.everypods.data.AirPodsModels
 import io.automated.ventures.everypods.data.AirPodsNotifications
@@ -146,6 +147,11 @@ class AirPodsViewModel(
     val heartRateSharingState = service.heartRateSharingState
     fun startHeartRateSharing(method: io.automated.ventures.everypods.bluetooth.hrm.HeartRateSharingMethod) = service.startHeartRateSharing(method)
     fun stopHeartRatePreview() = service.stopHeartRatePreview()
+    fun suspendHeartRatePreview() = service.suspendHeartRatePreview()
+    fun resumeHeartRatePreview() = service.resumeHeartRatePreview()
+    fun endHeartRatePreview() = service.endHeartRatePreview()
+    fun reconnectWahooHeartRate() = service.reconnectWahooHeartRate()
+    fun switchHeartRateToMonitorOnly() = service.switchHeartRateToMonitorOnly()
     val heartRateState = service.heartRateState
     fun startHeartRate() = service.startHeartRate()
     fun stopHeartRate() = service.stopHeartRate()
@@ -244,6 +250,10 @@ class AirPodsViewModel(
         broadcastReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 val action = intent?.action ?: return
+                if (action == AirPodsNotifications.AIRPODS_DISCONNECTED) {
+                    val generation = intent.getLongExtra(AirPodsService.EXTRA_CONNECTION_GENERATION, -1L)
+                    if (generation < 0L || !BluetoothConnectionManager.isCurrentConnectionGeneration(generation)) return
+                }
                 if (!isDemoMode) when (action) {
                     AirPodsNotifications.AIRPODS_L2CAP_CONNECTED -> {
                         loadName()
@@ -705,6 +715,9 @@ class AirPodsViewModel(
             )
         }
     }
+
+    /** Reads the authoritative live peer links for screens that must never render a stale snapshot. */
+    fun currentCrossDevicePeers(): List<PeerUiInfo> = buildPeerList()
 
     private fun pollCrossDeviceStatus() {
         android.util.Log.d("AirPodsViewModel", "pollCrossDeviceStatus started (scope=$viewModelScope)")
