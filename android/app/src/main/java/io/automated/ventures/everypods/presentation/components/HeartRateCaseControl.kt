@@ -1,9 +1,6 @@
 /* Copyright (C) 2026 EveryPods contributors. GPL-3.0. */
 package io.automated.ventures.everypods.presentation.components
 
-import android.Manifest
-import android.content.pm.PackageManager
-import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -45,6 +42,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.automated.ventures.everypods.R
+import io.automated.ventures.everypods.automation.HeartRateSource
+import io.automated.ventures.everypods.automation.HrStartDecision
 import io.automated.ventures.everypods.bluetooth.hrm.HeartRateFailure
 import io.automated.ventures.everypods.bluetooth.hrm.HeartRateSharingMethod
 import io.automated.ventures.everypods.bluetooth.hrm.HeartRateSharingPrefs
@@ -71,8 +70,8 @@ fun HeartRateCaseControl(viewModel: AirPodsViewModel) {
     var pendingMethod by rememberSaveable { mutableStateOf(HeartRateSharingPrefs.method(context)) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
         if (result.values.all { it }) {
-            // The service rechecks capability, ownership and the current AACP connection.
-            viewModel.startHeartRateSharing(pendingMethod)
+            // Re-run the shared start step: it rechecks selection, running state and permissions.
+            viewModel.ensureHeartRateStarted(HeartRateSource.CASE_SHORTCUT)
         } else {
             Toast.makeText(context, R.string.hrm_share_permission, Toast.LENGTH_LONG).show()
         }
@@ -150,24 +149,20 @@ fun HeartRateCaseControl(viewModel: AirPodsViewModel) {
                 stateDescription = listOfNotNull(status, sharingDescription).joinToString(", ")
             }
             .clickable(enabled = active || ready, role = Role.Button, onClickLabel = action) {
-                val selected = HeartRateSharingPrefs.configuredMethod(context)
                 if (viewModel.heartRateState.value.running ||
                     viewModel.heartRateState.value.status == HeartRateStatus.RECOVERING ||
                     viewModel.heartRateSharingState.value.active) {
-                    viewModel.stopHeartRate()
-                } else if (selected == null) {
-                    viewModel.startHeartRate()
-                } else {
-                    pendingMethod = selected
-                    val missing = buildList {
-                        add(Manifest.permission.POST_NOTIFICATIONS)
-                        add(Manifest.permission.BLUETOOTH_CONNECT)
-                        if (pendingMethod == HeartRateSharingMethod.BLUETOOTH) add(Manifest.permission.BLUETOOTH_ADVERTISE)
-                        if (pendingMethod == HeartRateSharingMethod.DIRCON && Build.VERSION.SDK_INT >= 37)
-                            add("android.permission.ACCESS_LOCAL_NETWORK")
-                    }.filter { context.checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
-                    if (missing.isEmpty()) viewModel.startHeartRateSharing(pendingMethod)
-                    else permission.launch(missing.toTypedArray())
+                    // The shortcut is a toggle; only this manual tap ever stops.
+                    viewModel.stopHeartRate(HeartRateSource.CASE_SHORTCUT)
+                } else when (val decision = viewModel.ensureHeartRateStarted(HeartRateSource.CASE_SHORTCUT)) {
+                    // Manual tap with no sharing selection keeps the existing monitoring-only
+                    // start; the automation treats NoneSelected as "start nothing".
+                    HrStartDecision.NoneSelected -> viewModel.startHeartRate(HeartRateSource.CASE_SHORTCUT)
+                    is HrStartDecision.NeedsPermission -> {
+                        pendingMethod = decision.method
+                        permission.launch(decision.permissions.toTypedArray())
+                    }
+                    else -> Unit
                 }
             },
         contentAlignment = Alignment.Center,
