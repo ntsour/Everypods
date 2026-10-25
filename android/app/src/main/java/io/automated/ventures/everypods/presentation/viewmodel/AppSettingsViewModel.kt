@@ -148,7 +148,7 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
     fun setHeadTrackingEnabled(enabled: Boolean) {
         sharedPreferences.edit { putBoolean("head_tracking_enabled", enabled) }
         _uiState.update { it.copy(headTrackingEnabled = enabled) }
-        if (!enabled) ServiceManager.getService()?.stopHeadTracking()
+        if (!enabled) ServiceManager.getService()?.stopDiagnosticHeadTracking()
     }
 
     fun setUseAlternateHeadTrackingPackets(enabled: Boolean) {

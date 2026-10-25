@@ -652,7 +652,7 @@ private fun SmartContent(state: AirPodsUiState, viewModel: AirPodsViewModel, nav
         SettingsSection(stringResource(R.string.ui_gym_mode), modifier) {
             var enabled by remember { mutableStateOf(GymModePrefs.isEnabled(context)) }
             StyledToggle(label = stringResource(R.string.ui_gym_mode),
-                description = stringResource(R.string.ui_alternate_stem_actions_for_wor), checked = enabled,
+                description = stringResource(R.string.ui_gym_mode_head_gesture_actions), checked = enabled,
                 onCheckedChange = { enabled = it; GymModePrefs.setEnabled(context, it) })
             MenuNavRow(stringResource(R.string.ui_gym_timer), dark) { navController.navigate("gym_timer") }
             MenuNavRow(stringResource(R.string.ui_configure_gym_press_actions), dark) { navController.navigate("gym_press_actions") }

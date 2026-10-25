@@ -1023,4 +1023,8 @@ Solicitudes del protocolo: %4$d</string>
     <string name="gym_perm_continue">Continuar</string>
     <string name="gym_perm_not_now">Ahora no</string>
     <string name="gym_auto_while_using">La ubicación solo está permitida mientras usas la aplicación. La automatización del gimnasio necesita «Permitir todo el tiempo» para funcionar en segundo plano.</string>
+    <string name="ui_stop_spoken_announcements">Detener anuncios hablados</string>
+    <string name="ui_horizontal_gesture_stops_announcement">Mueve la cabeza de izquierda a derecha mientras se reproduce un anuncio para detenerlo.</string>
+    <string name="ui_gym_mode_head_gesture_actions">Con los gestos de cabeza activados, asiente para iniciar, pausar o reanudar el temporizador y mueve la cabeza de lado a lado para restablecerlo. Los gestos de llamada entrante y de anuncios tienen prioridad.</string>
+    <string name="ui_control_gym_timer">Controlar el temporizador de gimnasio</string>
 </resources>

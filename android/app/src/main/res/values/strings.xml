@@ -1038,4 +1038,8 @@ Protocol requests: %4$d</string>
     <string name="gym_perm_continue">Continue</string>
     <string name="gym_perm_not_now">Not now</string>
     <string name="gym_auto_while_using">Location is only allowed while using the app. Gym automation needs “Allow all the time” to work in the background.</string>
+    <string name="ui_stop_spoken_announcements">Stop spoken announcements</string>
+    <string name="ui_horizontal_gesture_stops_announcement">Shake your head left to right while EveryPods is speaking to stop the announcement.</string>
+    <string name="ui_gym_mode_head_gesture_actions">With Head Gestures enabled, nod to start, pause, or resume the timer and shake your head left to right to reset it. Incoming-call and spoken-announcement gestures take priority.</string>
+    <string name="ui_control_gym_timer">Control Gym timer</string>
 </resources>

@@ -3,6 +3,7 @@ package io.automated.ventures.everypods.utils
 import android.content.Context
 import android.util.Log
 import java.util.ArrayDeque
+import java.util.concurrent.CopyOnWriteArraySet
 
 /**
  * The one place EveryPods schedules spoken feedback.  It deliberately keeps at
@@ -11,6 +12,7 @@ import java.util.ArrayDeque
  */
 object AnnouncementCoordinator {
     private const val TAG = "AnnouncementCoordinator"
+    private val speechStartListeners = CopyOnWriteArraySet<() -> Unit>()
 
     enum class Priority(val rank: Int) {
         TIMER_PROGRESS(0),
@@ -146,7 +148,22 @@ object AnnouncementCoordinator {
     /** Prevent media-route recovery from treating EveryPods' own speech as new music. */
     fun onSpeechAudibleStarted() {
         MediaController.cancelRouteRecoveryForAnnouncement()
+        speechStartListeners.forEach { listener ->
+            runCatching(listener).onFailure { Log.w(TAG, "Speech-start listener failed", it) }
+        }
     }
+
+    fun addSpeechStartListener(listener: () -> Unit) {
+        speechStartListeners.add(listener)
+    }
+
+    fun removeSpeechStartListener(listener: () -> Unit) {
+        speechStartListeners.remove(listener)
+    }
+
+    /** True while an AnnouncementCoordinator request is currently audible. */
+    fun isManagedAnnouncementAudible(): Boolean =
+        synchronized(this) { active != null } && isAudiblySpeaking()
 }
 
 /** Keeps the locale used to format generated speech attached to queued utterances. */

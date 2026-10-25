@@ -1021,4 +1021,8 @@
     <string name="gym_perm_continue">繼續</string>
     <string name="gym_perm_not_now">以後再說</string>
     <string name="gym_auto_while_using">僅在使用應用程式時允許存取位置。健身房自動化需要「一律允許」才能在背景運作。</string>
+    <string name="ui_stop_spoken_announcements">停止語音播報</string>
+    <string name="ui_horizontal_gesture_stops_announcement">EveryPods 播報時左右搖頭即可停止播報。</string>
+    <string name="ui_gym_mode_head_gesture_actions">啟用頭部手勢後，點頭可啟動、暫停或繼續計時器，左右搖頭可重設計時器。來電和語音播報手勢會優先處理。</string>
+    <string name="ui_control_gym_timer">控制健身計時器</string>
 </resources>

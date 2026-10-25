@@ -1020,4 +1020,8 @@ Protokollanfragen: %4$d</string>
     <string name="gym_perm_continue">Weiter</string>
     <string name="gym_perm_not_now">Nicht jetzt</string>
     <string name="gym_auto_while_using">Standort ist nur während der App-Nutzung erlaubt. Die Gym-Automatik braucht „Immer zulassen“, um im Hintergrund zu funktionieren.</string>
+    <string name="ui_stop_spoken_announcements">Gesprochene Ansagen stoppen</string>
+    <string name="ui_horizontal_gesture_stops_announcement">Schüttle den Kopf während einer Ansage von links nach rechts, um sie zu stoppen.</string>
+    <string name="ui_gym_mode_head_gesture_actions">Wenn Kopfgesten aktiviert sind, starte, pausiere oder setze den Timer mit einem Nicken fort und setze ihn mit einer Links-rechts-Bewegung zurück. Gesten für eingehende Anrufe und Ansagen haben Vorrang.</string>
+    <string name="ui_control_gym_timer">Gym-Timer steuern</string>
 </resources>

@@ -228,6 +228,22 @@ fun HeadTrackingScreen(
                     description = stringResource(R.string.ui_shake_your_head_during_an_acti)
                 )
 
+                StyledToggle(
+                    label = stringResource(R.string.ui_stop_spoken_announcements),
+                    checked = state.headGesturesStopAnnouncement,
+                    onCheckedChange = { viewModel.setHeadGesturesStopAnnouncement(it) },
+                    enabled = state.headGesturesEnabled && (state.isPremium || state.headGesturesStopAnnouncement) && state.aacpAvailable,
+                    description = stringResource(R.string.ui_horizontal_gesture_stops_announcement)
+                )
+
+                StyledToggle(
+                    label = stringResource(R.string.ui_control_gym_timer),
+                    checked = state.headGesturesGymTimer,
+                    onCheckedChange = { viewModel.setHeadGesturesGymTimer(it) },
+                    enabled = state.headGesturesEnabled && (state.isPremium || state.headGesturesGymTimer) && state.aacpAvailable,
+                    description = stringResource(R.string.ui_gym_mode_head_gesture_actions)
+                )
+
 
                 }
                 SettingsExpansionHeader(

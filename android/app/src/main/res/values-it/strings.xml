@@ -1021,4 +1021,8 @@ Richieste protocollo: %4$d</string>
     <string name="gym_perm_continue">Continua</string>
     <string name="gym_perm_not_now">Non ora</string>
     <string name="gym_auto_while_using">La posizione è consentita solo mentre usi l’app. L’automazione palestra richiede «Consenti sempre» per funzionare in background.</string>
+    <string name="ui_stop_spoken_announcements">Interrompi gli annunci vocali</string>
+    <string name="ui_horizontal_gesture_stops_announcement">Scuoti la testa da sinistra a destra mentre viene riprodotto un annuncio per interromperlo.</string>
+    <string name="ui_gym_mode_head_gesture_actions">Con i gesti della testa attivi, annuisci per avviare, mettere in pausa o riprendere il timer e scuoti la testa da sinistra a destra per azzerarlo. I gesti per le chiamate in arrivo e per gli annunci hanno la priorità.</string>
+    <string name="ui_control_gym_timer">Controlla il timer palestra</string>
 </resources>
