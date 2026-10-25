@@ -986,4 +986,7 @@
     <string name="gym_perm_continue">Συνέχεια</string>
     <string name="gym_perm_not_now">Όχι τώρα</string>
     <string name="gym_auto_while_using">Η τοποθεσία επιτρέπεται μόνο κατά τη χρήση της εφαρμογής. Ο αυτοματισμός γυμναστηρίου χρειάζεται «Να επιτρέπεται πάντα» για να λειτουργεί στο παρασκήνιο.</string>
+    <string name="ui_stop_spoken_announcements">Διακοπή εκφωνήσεων</string>
+    <string name="ui_horizontal_gesture_stops_announcement">Κούνησε το κεφάλι αριστερά και δεξιά ενώ ακούγεται μια εκφώνηση για να τη σταματήσεις.</string>
+    <string name="ui_gym_mode_head_gesture_actions">Με ενεργές τις χειρονομίες κεφαλής, γνέψε καταφατικά για να ξεκινήσεις ή να συνεχίσεις το χρονόμετρο και κούνησε το κεφάλι αριστερά-δεξιά για επαναφορά. Οι χειρονομίες εισερχόμενης κλήσης και εκφώνησης έχουν προτεραιότητα.</string>
 </resources>
