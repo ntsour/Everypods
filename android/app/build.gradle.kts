@@ -235,6 +235,7 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 
     implementation(libs.play.services.location)
+    implementation(libs.osmdroid.android)
     testImplementation("junit:junit:4.13.2")
     testImplementation("io.mockk:mockk:1.13.16")
     testImplementation("org.robolectric:robolectric:4.14")

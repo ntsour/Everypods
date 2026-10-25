@@ -989,4 +989,10 @@ Protokollanfragen: %4$d</string>
     <string name="gym_perm_bg_desc">Optional. Wird nur für die Gym-Standortautomatik verwendet, um zu erkennen, wann du deine gespeicherte Gym-Zone betrittst oder verlässt. Der Standort bleibt auf diesem Telefon, es wird kein Verlauf gespeichert. Du kannst das überspringen.</string>
     <string name="gym_perm_bg_step1">Schritt 1 von 2: genauen Standort erlauben.</string>
     <string name="gym_perm_bg_step2">Schritt 2 von 2: Öffne in den Einstellungen Berechtigungen, dann Standort, und wähle „Immer zulassen“.</string>
+    <string name="gym_map_open">Auf Karte wählen</string>
+    <string name="gym_map_hide">Karte ausblenden</string>
+    <string name="gym_map_hint">Tippe auf die Karte, um die Gym-Markierung zu setzen. Der Kreis zeigt den aktuellen Radius. Kartenkacheln kommen von OpenStreetMap, das nur den angezeigten Kartenausschnitt sieht, nie deine gespeicherte Zone. Keine Standortberechtigung nötig.</string>
+    <string name="gym_map_use_center">Kartenmitte verwenden</string>
+    <string name="gym_map_save">Markierten Ort speichern</string>
+    <string name="gym_map_offline">Die Karte konnte nicht geladen werden. Du kannst weiterhin Koordinaten eingeben oder deinen aktuellen Standort verwenden.</string>
 </resources>

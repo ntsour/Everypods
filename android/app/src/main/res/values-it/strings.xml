@@ -990,4 +990,10 @@ Richieste protocollo: %4$d</string>
     <string name="gym_perm_bg_desc">Facoltativa. Usata solo per l\'automazione posizione palestra, per rilevare quando arrivi o lasci la zona salvata. La posizione resta su questo telefono e non viene conservata alcuna cronologia. Puoi saltare questo passaggio.</string>
     <string name="gym_perm_bg_step1">Passaggio 1 di 2: consenti la posizione precisa.</string>
     <string name="gym_perm_bg_step2">Passaggio 2 di 2: nelle impostazioni apri Autorizzazioni, poi Posizione, e scegli «Consenti sempre».</string>
+    <string name="gym_map_open">Scegli sulla mappa</string>
+    <string name="gym_map_hide">Nascondi mappa</string>
+    <string name="gym_map_hint">Tocca la mappa per posizionare il segnaposto della palestra. Il cerchio mostra il raggio attuale. Le tessere arrivano da OpenStreetMap, che vede solo l\'area visualizzata, mai la zona salvata. Non serve l\'autorizzazione alla posizione.</string>
+    <string name="gym_map_use_center">Usa il centro della mappa</string>
+    <string name="gym_map_save">Salva posizione del segnaposto</string>
+    <string name="gym_map_offline">Impossibile caricare la mappa. Puoi comunque inserire le coordinate o usare la posizione attuale.</string>
 </resources>

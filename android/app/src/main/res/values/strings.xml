@@ -1007,4 +1007,10 @@ Protocol requests: %4$d</string>
     <string name="gym_perm_bg_desc">Optional. Used only for the Gym location automation, to detect when you arrive at or leave your saved gym zone. The location stays on this phone and no history is kept. You can skip this.</string>
     <string name="gym_perm_bg_step1">Step 1 of 2: allow precise location.</string>
     <string name="gym_perm_bg_step2">Step 2 of 2: in settings, open Permissions, then Location, and choose “Allow all the time”.</string>
+    <string name="gym_map_open">Pick on map</string>
+    <string name="gym_map_hide">Hide map</string>
+    <string name="gym_map_hint">Tap the map to place the gym pin. The circle shows the current radius. Map tiles come from OpenStreetMap, which only sees the map area you view, never your saved zone. No location permission is needed.</string>
+    <string name="gym_map_use_center">Use map center</string>
+    <string name="gym_map_save">Save pinned location</string>
+    <string name="gym_map_offline">Map tiles could not be loaded. You can still type coordinates or use your current location.</string>
 </resources>

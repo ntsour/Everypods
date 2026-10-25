@@ -990,4 +990,10 @@ Requêtes du protocole : %4$d</string>
     <string name="gym_perm_bg_desc">Facultatif. Utilisée uniquement pour l\'automatisation de localisation de la salle de sport, afin de détecter votre arrivée dans la zone enregistrée ou votre départ. La position reste sur ce téléphone et aucun historique n\'est conservé. Vous pouvez ignorer cette étape.</string>
     <string name="gym_perm_bg_step1">Étape 1 sur 2 : autorisez la position exacte.</string>
     <string name="gym_perm_bg_step2">Étape 2 sur 2 : dans les paramètres, ouvrez Autorisations, puis Position, et choisissez « Toujours autoriser ».</string>
+    <string name="gym_map_open">Choisir sur la carte</string>
+    <string name="gym_map_hide">Masquer la carte</string>
+    <string name="gym_map_hint">Touchez la carte pour placer l\'épingle de la salle. Le cercle montre le rayon actuel. Les tuiles viennent d\'OpenStreetMap, qui ne voit que la zone affichée, jamais votre zone enregistrée. Aucune autorisation de localisation n\'est nécessaire.</string>
+    <string name="gym_map_use_center">Utiliser le centre de la carte</string>
+    <string name="gym_map_save">Enregistrer l\'épingle</string>
+    <string name="gym_map_offline">Impossible de charger la carte. Vous pouvez saisir des coordonnées ou utiliser votre position actuelle.</string>
 </resources>

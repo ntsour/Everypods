@@ -71,6 +71,7 @@ fun GymAutomationScreen() {
     var latText by remember { mutableStateOf(rule.latitude?.toString().orEmpty()) }
     var lonText by remember { mutableStateOf(rule.longitude?.toString().orEmpty()) }
     var message by remember { mutableStateOf<Int?>(null) }
+    var showMap by remember { mutableStateOf(false) }
     var fine by remember { mutableStateOf(false) }
     var background by remember { mutableStateOf(false) }
     val status by GymAutomationCoordinator.status.collectAsState()
@@ -150,6 +151,14 @@ fun GymAutomationScreen() {
                         }
                         .addOnFailureListener { message = R.string.gym_auto_fix_failed }
                 }) { Text(stringResource(R.string.gym_auto_use_current)) }
+                // The map (and its tile requests) exists only while the user has it open.
+                OutlinedButton(modifier = Modifier.padding(horizontal = 16.dp), onClick = { showMap = !showMap }) {
+                    Text(stringResource(if (showMap) R.string.gym_map_hide else R.string.gym_map_open))
+                }
+                if (showMap) GymMapPicker(rule.latitude, rule.longitude, rule.radiusMeters) { lat, lon ->
+                    latText = lat.toString(); lonText = lon.toString()
+                    save(rule.copy(latitude = lat, longitude = lon)); message = null
+                }
                 OutlinedTextField(latText, { latText = it }, label = { Text(stringResource(R.string.gym_auto_latitude)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
                 OutlinedTextField(lonText, { lonText = it }, label = { Text(stringResource(R.string.gym_auto_longitude)) },

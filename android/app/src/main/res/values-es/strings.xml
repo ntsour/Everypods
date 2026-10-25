@@ -992,4 +992,10 @@ Solicitudes del protocolo: %4$d</string>
     <string name="gym_perm_bg_desc">Opcional. Solo se usa para la automatización de ubicación del gimnasio, para detectar cuándo llegas o sales de la zona guardada. La ubicación se queda en este teléfono y no se guarda historial. Puedes omitirlo.</string>
     <string name="gym_perm_bg_step1">Paso 1 de 2: permite la ubicación precisa.</string>
     <string name="gym_perm_bg_step2">Paso 2 de 2: en ajustes, abre Permisos, luego Ubicación, y elige «Permitir siempre».</string>
+    <string name="gym_map_open">Elegir en el mapa</string>
+    <string name="gym_map_hide">Ocultar mapa</string>
+    <string name="gym_map_hint">Toca el mapa para colocar el pin del gimnasio. El círculo muestra el radio actual. Los mosaicos del mapa vienen de OpenStreetMap, que solo ve la zona que miras, nunca tu zona guardada. No se necesita permiso de ubicación.</string>
+    <string name="gym_map_use_center">Usar el centro del mapa</string>
+    <string name="gym_map_save">Guardar ubicación del pin</string>
+    <string name="gym_map_offline">No se pudo cargar el mapa. Puedes escribir las coordenadas o usar tu ubicación actual.</string>
 </resources>

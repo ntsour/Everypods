@@ -81,3 +81,14 @@ re-checks on resume.
 | P4 | Grant (two-step) | Tap Grant → allow precise → row shows "Step 2 of 2" → tap Grant → App info opens → Permissions → Location → "Allow all the time" → back | Row shows ✓ within ~1 s. Gym automation editor shows the toggle enabled-able (no background hint). |
 | P5 | Revoke and return | With ✓, system Settings → app → Location → "Allow only while using" (or "Don't allow") → back to app | Permissions row returns to step 2 (or step 1). Gym editor on resume shows hint again; geofences are re-synced (`EveryPodsGymAuto` logs removal). The rule is not silently re-requested. |
 | P6 | Sync | Grant from the Gym editor, then open Permissions (or vice versa) | Both show the same state without restarting the app. |
+
+## Map picker cases
+
+| # | Case | Steps | Expected |
+|---|------|-------|----------|
+| M1 | No permission | Revoke all location → Gym automation → Pick on map | Map loads; tap places pin + circle; Save pinned location stores coordinates (fields update). No permission dialog. |
+| M2 | Radius live | Map open with pin → tap radius presets | Circle resizes immediately. |
+| M3 | Use map center | Pan map → Use map center | Pin moves to centre. |
+| M4 | Offline | Airplane mode → Pick on map | "Map tiles could not be loaded…" shown; typed coordinates and Use current location (with GPS) still work. |
+| M5 | No idle network | Close map; leave app; trigger debug arrive/exit | No tile requests (`adb logcat -s OsmDroid` silent); geofence logs unchanged. |
+| M6 | Attribution | Map open | "© OpenStreetMap contributors" visible. |

@@ -989,4 +989,10 @@
     <string name="gym_perm_bg_desc">可选。仅用于健身房位置自动化，用于检测您何时到达或离开已保存的区域。位置仅保存在此手机上，不保留任何历史记录。您可以跳过。</string>
     <string name="gym_perm_bg_step1">第 1 步（共 2 步）：允许精确位置。</string>
     <string name="gym_perm_bg_step2">第 2 步（共 2 步）：在设置中打开“权限”，然后打开“位置信息”，选择“始终允许”。</string>
+    <string name="gym_map_open">在地图上选择</string>
+    <string name="gym_map_hide">隐藏地图</string>
+    <string name="gym_map_hint">点按地图放置健身房图钉。圆圈表示当前半径。地图图块来自 OpenStreetMap，它只能看到您浏览的区域，看不到您保存的区域。无需位置权限。</string>
+    <string name="gym_map_use_center">使用地图中心</string>
+    <string name="gym_map_save">保存图钉位置</string>
+    <string name="gym_map_offline">无法加载地图。您仍可输入坐标或使用当前位置。</string>
 </resources>

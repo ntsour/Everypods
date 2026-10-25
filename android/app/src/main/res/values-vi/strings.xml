@@ -990,4 +990,10 @@ Yêu cầu giao thức: %4$d</string>
     <string name="gym_perm_bg_desc">Không bắt buộc. Chỉ dùng cho tính năng tự động hóa vị trí phòng gym, để phát hiện khi bạn đến hoặc rời vùng đã lưu. Vị trí chỉ lưu trên điện thoại này và không lưu lịch sử. Bạn có thể bỏ qua.</string>
     <string name="gym_perm_bg_step1">Bước 1/2: cho phép vị trí chính xác.</string>
     <string name="gym_perm_bg_step2">Bước 2/2: trong cài đặt, mở Quyền, sau đó Vị trí, và chọn “Luôn cho phép”.</string>
+    <string name="gym_map_open">Chọn trên bản đồ</string>
+    <string name="gym_map_hide">Ẩn bản đồ</string>
+    <string name="gym_map_hint">Chạm vào bản đồ để đặt ghim phòng gym. Vòng tròn hiển thị bán kính hiện tại. Ô bản đồ lấy từ OpenStreetMap, chỉ thấy vùng bạn đang xem, không bao giờ thấy vùng đã lưu. Không cần quyền vị trí.</string>
+    <string name="gym_map_use_center">Dùng tâm bản đồ</string>
+    <string name="gym_map_save">Lưu vị trí ghim</string>
+    <string name="gym_map_offline">Không thể tải bản đồ. Bạn vẫn có thể nhập tọa độ hoặc dùng vị trí hiện tại.</string>
 </resources>

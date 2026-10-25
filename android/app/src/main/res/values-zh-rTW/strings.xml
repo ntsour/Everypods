@@ -990,4 +990,10 @@
     <string name="gym_perm_bg_desc">選用。僅用於健身房位置自動化，以偵測您何時抵達或離開已儲存的區域。位置只會保存在這支手機上，不會保留任何記錄。您可以略過。</string>
     <string name="gym_perm_bg_step1">第 1 步（共 2 步）：允許精確位置。</string>
     <string name="gym_perm_bg_step2">第 2 步（共 2 步）：在設定中開啟「權限」，再開啟「位置資訊」，並選擇「一律允許」。</string>
+    <string name="gym_map_open">在地圖上選擇</string>
+    <string name="gym_map_hide">隱藏地圖</string>
+    <string name="gym_map_hint">輕觸地圖放置健身房圖釘。圓圈表示目前半徑。地圖圖塊來自 OpenStreetMap，它只會看到您瀏覽的區域，不會看到您儲存的區域。不需要位置權限。</string>
+    <string name="gym_map_use_center">使用地圖中心</string>
+    <string name="gym_map_save">儲存圖釘位置</string>
+    <string name="gym_map_offline">無法載入地圖。您仍可輸入座標或使用目前位置。</string>
 </resources>
