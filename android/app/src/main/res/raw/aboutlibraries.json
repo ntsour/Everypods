@@ -3080,6 +3080,21 @@
             ]
         },
         {
+            "uniqueId": "com.google.android.gms:play-services-location",
+            "artifactVersion": "21.4.0",
+            "name": "play-services-location",
+            "description": "",
+            "developers": [
+                
+            ],
+            "licenses": [
+                "ASDKL"
+            ],
+            "funding": [
+                
+            ]
+        },
+        {
             "uniqueId": "com.google.android.material:material",
             "funding": [
                 
@@ -4506,6 +4521,42 @@
             "licenses": [
                 "Apache-2.0"
             ]
+        },
+        {
+            "uniqueId": "org.osmdroid:osmdroid-android",
+            "artifactVersion": "6.1.20",
+            "name": "osmdroid-android",
+            "description": "An Android library to display OpenStreetMap views.",
+            "website": "https://github.com/osmdroid/osmdroid",
+            "developers": [
+                {
+                    "name": "kurtzmarc"
+                },
+                {
+                    "name": "Neil Boyd"
+                },
+                {
+                    "name": "Alex O'Ree"
+                },
+                {
+                    "name": "Matt Kergall"
+                }
+            ],
+            "organization": {
+                "name": "org.osmdroid",
+                "url": "https://github.com/osmdroid/"
+            },
+            "scm": {
+                "connection": "scm:git:git@github.com:osmdroid/osmdroid.git",
+                "developerConnection": "scm:git:git@github.com:osmdroid/osmdroid.git",
+                "url": "https://github.com/osmdroid/osmdroid"
+            },
+            "licenses": [
+                "Apache-2.0"
+            ],
+            "funding": [
+                
+            ]
         }
     ],
     "licenses": {
@@ -4516,6 +4567,13 @@
             "url": "https://spdx.org/licenses/Apache-2.0.html",
             "spdxId": "Apache-2.0",
             "name": "Apache License 2.0"
+        },
+        "ASDKL": {
+            "name": "Android Software Development Kit License",
+            "url": "https://developer.android.com/studio/terms.html",
+            "internalHash": "ASDKL",
+            "spdxId": "ASDKL",
+            "hash": "ASDKL"
         }
     }
 }

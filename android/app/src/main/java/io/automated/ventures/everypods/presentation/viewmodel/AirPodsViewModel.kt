@@ -145,16 +145,30 @@ class AirPodsViewModel(
     )
     val uiState: StateFlow<AirPodsUiState> = _uiState
     val heartRateSharingState = service.heartRateSharingState
-    fun startHeartRateSharing(method: io.automated.ventures.everypods.bluetooth.hrm.HeartRateSharingMethod) = service.startHeartRateSharing(method)
+    fun startHeartRateSharing(
+        method: io.automated.ventures.everypods.bluetooth.hrm.HeartRateSharingMethod,
+        source: io.automated.ventures.everypods.automation.HeartRateSource =
+            io.automated.ventures.everypods.automation.HeartRateSource.HEART_RATE_SCREEN,
+    ) = service.startHeartRateSharingFrom(method, source)
+    /** Shared shortcut start step (see AirPodsService.ensureHeartRateStarted). */
+    fun ensureHeartRateStarted(source: io.automated.ventures.everypods.automation.HeartRateSource) =
+        service.ensureHeartRateStarted(source)
     fun stopHeartRatePreview() = service.stopHeartRatePreview()
     fun suspendHeartRatePreview() = service.suspendHeartRatePreview()
     fun resumeHeartRatePreview() = service.resumeHeartRatePreview()
     fun endHeartRatePreview() = service.endHeartRatePreview()
     fun reconnectWahooHeartRate() = service.reconnectWahooHeartRate()
-    fun switchHeartRateToMonitorOnly() = service.switchHeartRateToMonitorOnly()
+    fun switchHeartRateToMonitorOnly() = service.switchHeartRateToMonitorOnlyFrom(
+        io.automated.ventures.everypods.automation.HeartRateSource.HEART_RATE_SCREEN)
     val heartRateState = service.heartRateState
-    fun startHeartRate() = service.startHeartRate()
-    fun stopHeartRate() = service.stopHeartRate()
+    fun startHeartRate(
+        source: io.automated.ventures.everypods.automation.HeartRateSource =
+            io.automated.ventures.everypods.automation.HeartRateSource.HEART_RATE_SCREEN,
+    ) = service.startHeartRateFrom(source)
+    fun stopHeartRate(
+        source: io.automated.ventures.everypods.automation.HeartRateSource =
+            io.automated.ventures.everypods.automation.HeartRateSource.HEART_RATE_SCREEN,
+    ) = service.stopHeartRateFrom(source)
 
 
     private fun computeAacpAvailable(): Boolean =

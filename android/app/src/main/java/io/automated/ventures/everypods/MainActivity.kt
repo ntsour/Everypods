@@ -851,6 +851,9 @@ fun Main(gymTimerNavigationRequest: Int = 0, heartRateNavigationRequest: Int = 0
                     composable("gym_timer") {
                         GymTimerScreen()
                     }
+                    composable("gym_automation") {
+                        io.automated.ventures.everypods.presentation.screens.GymAutomationScreen()
+                    }
                 }
 
                 val isRelayHome = currentDestination == "settings"
