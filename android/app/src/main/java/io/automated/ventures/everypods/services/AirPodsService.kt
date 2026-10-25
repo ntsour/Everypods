@@ -955,6 +955,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         var headGesturesMuteCall: Boolean = true,
         // Horizontal head shakes stop an audible EveryPods announcement.
         var headGesturesStopAnnouncement: Boolean = true,
+        var headGesturesGymTimer: Boolean = true,
         var disconnectWhenNotWearing: Boolean = false,
         var conversationalAwarenessVolume: Int = 43,
         var qsClickBehavior: String = "cycle",
@@ -1548,7 +1549,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     handleActiveCall()
                 } else if (!active && !isInCall && !isVoIPCallActive) {
                     handleIncomingCallOnceConnected = false
-                    if (!sharedPreferences.getBoolean("head_tracking_enabled", false)) stopHeadTracking()
+                    activeCallGestureLoopRunning = false
+                    startContextGestureDetection()
+                    if (!contextGestureDetection && !sharedPreferences.getBoolean("head_tracking_enabled", false)) stopHeadTracking()
                 }
             }
         }
@@ -1581,11 +1584,13 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             config.headGesturesAnswerCall = false
             config.headGesturesMuteCall = false
             config.headGesturesStopAnnouncement = false
+            config.headGesturesGymTimer = false
             sharedPreferences.edit {
                 putBoolean("head_gestures_enabled", false)
                 putBoolean("head_gestures_answer_call", false)
                 putBoolean("head_gestures_mute_call", false)
                 putBoolean("head_gestures_stop_announcement", false)
+                putBoolean("head_gestures_gym_timer", false)
             }
             Log.d(TAG, "Head gestures disabled as device is running Android 9 or below")
         }
@@ -1826,6 +1831,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
                     TelephonyManager.CALL_STATE_IDLE -> {
                         Log.d(TAG, "Call state: IDLE")
+                        stopContextGestureDetection()
                         isInCall = false
                         isCallRinging = false
                         stopIncomingCallGestureDetection()
@@ -1834,6 +1840,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                         activeCallGestureLoopRunning = false
                         stopMutedReminder()
                         setupStemActions()
+                        startContextGestureDetection()
                     }
                 }
             }
@@ -1881,6 +1888,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     setupStemActions()
                     if (CallNotifListener.isVoipNotifRinging) handleIncomingCall()
                 }
+                startContextGestureDetection()
             }
         }
         // Catch a VoIP call already in progress when the listener registered
@@ -2693,18 +2701,20 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
     private fun startContextGestureDetection() {
         if (!config.headGesturesEnabled || isInAnyCall()) return
-        if (!config.gymModeEnabled &&
+        if (!(config.gymModeEnabled && config.headGesturesGymTimer) &&
             !(config.headGesturesStopAnnouncement && AnnouncementCoordinator.isManagedAnnouncementAudible())
         ) return
         if (contextGestureMonitorJob?.isActive == true) return
 
+        val generation = ++contextGestureGeneration
         contextGestureDetection = true
+        Log.d(TAG, "Context gesture detection starting: generation=$generation gym=${config.gymModeEnabled}")
         contextGestureMonitorJob = CoroutineScope(Dispatchers.Main).launch {
             initGestureDetector()
             gestureDetector?.stopDetection(doNotStop = true)
             try {
-                while (isActive && config.headGesturesEnabled &&
-                    (config.gymModeEnabled || (config.headGesturesStopAnnouncement &&
+                while (isActive && generation == contextGestureGeneration && config.headGesturesEnabled &&
+                    ((config.gymModeEnabled && config.headGesturesGymTimer) || (config.headGesturesStopAnnouncement &&
                         AnnouncementCoordinator.isManagedAnnouncementAudible()))
                 ) {
                     val detector = gestureDetector ?: break
@@ -2719,10 +2729,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                                         Log.d(TAG, "Horizontal head gesture: stopping spoken announcement")
                                         stopAnnouncement()
                                     }
-                                } else if (config.gymModeEnabled) {
+                                } else if (config.gymModeEnabled && config.headGesturesGymTimer) {
                                     if (verticalNod) {
-                                        Log.d(TAG, "Gym Mode head gesture: vertical nod starts timer")
-                                        GymTimer.start()
+                                        Log.d(TAG, "Gym Mode head gesture: vertical nod toggles timer start/pause")
+                                        GymTimer.startStop()
                                     } else {
                                         Log.d(TAG, "Gym Mode head gesture: horizontal shake resets timer")
                                         GymTimer.reset()
@@ -2734,7 +2744,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     delay(50)
                 }
             } finally {
-                if (contextGestureDetection) {
+                if (generation == contextGestureGeneration) {
                     contextGestureDetection = false
                     contextGestureMonitorJob = null
                     if (!incomingCallGestureDetection && !activeCallGestureLoopRunning) {
@@ -2747,6 +2757,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
     private fun stopContextGestureDetection() {
         val wasMonitoringContext = contextGestureDetection
+        ++contextGestureGeneration
         contextGestureDetection = false
         contextGestureMonitorJob?.cancel()
         contextGestureMonitorJob = null
@@ -3202,6 +3213,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             headGesturesAnswerCall = sharedPreferences.getBoolean("head_gestures_answer_call", true),
             headGesturesMuteCall = sharedPreferences.getBoolean("head_gestures_mute_call", true),
             headGesturesStopAnnouncement = sharedPreferences.getBoolean("head_gestures_stop_announcement", true),
+            headGesturesGymTimer = sharedPreferences.getBoolean("head_gestures_gym_timer", true),
             disconnectWhenNotWearing = sharedPreferences.getBoolean(
                 "disconnect_when_not_wearing", false
             ),
@@ -3465,6 +3477,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 stopContextGestureDetection()
                 if (config.headGesturesEnabled) startContextGestureDetection()
             }
+            "head_gestures_gym_timer" -> {
+                config.headGesturesGymTimer = preferences.getBoolean(key, true)
+                stopContextGestureDetection()
+                if (config.headGesturesEnabled) startContextGestureDetection()
+            }
             "disconnect_when_not_wearing" -> config.disconnectWhenNotWearing =
                 preferences.getBoolean(key, false)
 
@@ -3655,8 +3672,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
     private var gestureDetector: GestureDetector? = null
     private var contextGestureMonitorJob: Job? = null
+    private var contextGestureGeneration = 0L
     @Volatile private var contextGestureDetection = false
-    private val announcementSpeechStartListener: () -> Unit = { startContextGestureDetection() }
+    private val announcementSpeechStartListener: () -> Unit = {
+        Handler(Looper.getMainLooper()).post { startContextGestureDetection() }
+    }
     private var isInCall = false
     private var isCallRinging = false
     private var isVoIPCallActive = false
@@ -4346,10 +4366,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }
 
     fun handleIncomingCall() {
-        stopContextGestureDetection()
         if (isInCall || (isVoIPCallActive && !CallNotifListener.isVoipNotifRinging) || incomingCallGestureDetection ||
             (!isCallRinging && !CallNotifListener.isVoipNotifRinging)
         ) return
+        stopContextGestureDetection()
         if (config.headGesturesEnabled && config.headGesturesAnswerCall) {
             initGestureDetector()
             // Replace a test-screen detector's callback with the incoming call's
@@ -6053,15 +6073,19 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     aacpManager.sendHijackRequest(localMac)
                 }
                 val headTrackingEnabled = sharedPreferences.getBoolean("head_tracking_enabled", false)
-                if (!handleIncomingCallOnceConnected && headTrackingEnabled) startHeadTracking()
-                else if (!handleIncomingCallOnceConnected) stopHeadTracking()
-                else handleIncomingCall()
+                if (handleIncomingCallOnceConnected && (isCallRinging || CallNotifListener.isVoipNotifRinging)) {
+                    handleIncomingCall()
+                } else {
+                    handleIncomingCallOnceConnected = false
+                    if (headTrackingEnabled || gestureMotionRequired()) startHeadTracking()
+                    else stopHeadTracking()
+                }
                 Handler(Looper.getMainLooper()).postDelayed({
                     aacpManager.sendPacket(aacpManager.createHandshakePacket())
                     aacpManager.sendSetFeatureFlagsPacket()
                     aacpManager.sendNotificationRequest()
                     aacpManager.sendRequestProximityKeys(AACPManager.Companion.ProximityKeyType.IRK.value)
-                    if (!handleIncomingCallOnceConnected && headTrackingEnabled) stopHeadTracking()
+                    if (!handleIncomingCallOnceConnected && headTrackingEnabled && !gestureMotionRequired()) stopHeadTracking()
                 }, 5000)
 
                 sendBroadcast(
@@ -6666,6 +6690,13 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }
 
     var isHeadTrackingActive = false
+
+    private fun gestureMotionRequired(): Boolean =
+        contextGestureDetection || incomingCallGestureDetection || activeCallGestureLoopRunning
+
+    fun stopDiagnosticHeadTracking() {
+        if (!gestureMotionRequired()) stopHeadTracking()
+    }
 
     fun startHeadTracking() {
         isHeadTrackingActive = true

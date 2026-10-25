@@ -90,6 +90,7 @@ data class AirPodsUiState(
     val headGesturesAnswerCall: Boolean = true,
     val headGesturesMuteCall: Boolean = true,
     val headGesturesStopAnnouncement: Boolean = true,
+    val headGesturesGymTimer: Boolean = true,
 
     val eqData: FloatArray = floatArrayOf(),
 
@@ -481,6 +482,7 @@ class AirPodsViewModel(
         val headGesturesAnswerCall = sharedPreferences.getBoolean("head_gestures_answer_call", true)
         val headGesturesMuteCall = sharedPreferences.getBoolean("head_gestures_mute_call", true)
         val headGesturesStopAnnouncement = sharedPreferences.getBoolean("head_gestures_stop_announcement", true)
+        val headGesturesGymTimer = sharedPreferences.getBoolean("head_gestures_gym_timer", true)
         val leftAction = StemAction.fromStringOrDefault(
             sharedPreferences.getString("left_long_press_action", null),
             io.automated.ventures.everypods.data.StemPressDefaults.LEFT_LONG.name
@@ -504,6 +506,7 @@ class AirPodsViewModel(
                 headGesturesAnswerCall = headGesturesAnswerCall,
                 headGesturesMuteCall = headGesturesMuteCall,
                 headGesturesStopAnnouncement = headGesturesStopAnnouncement,
+                headGesturesGymTimer = headGesturesGymTimer,
                 leftAction = leftAction,
                 rightAction = rightAction,
                 dynamicEndOfCharge = dynamicEndOfCharge,
@@ -546,6 +549,11 @@ class AirPodsViewModel(
         _uiState.update {
             it.copy(headGesturesStopAnnouncement = enabled)
         }
+    }
+
+    fun setHeadGesturesGymTimer(enabled: Boolean) {
+        sharedPreferences.edit { putBoolean("head_gestures_gym_timer", enabled) }
+        _uiState.update { it.copy(headGesturesGymTimer = enabled) }
     }
 
     fun setDynamicEndOfCharge(enabled: Boolean) {
@@ -617,7 +625,7 @@ class AirPodsViewModel(
     }
 
     fun stopHeadTracking() {
-        service.stopHeadTracking()
+        service.stopDiagnosticHeadTracking()
         _uiState.update { it.copy(headTrackingActive = false) }
     }
 

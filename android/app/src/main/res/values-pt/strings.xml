@@ -1023,5 +1023,6 @@ Pedidos do protocolo: %4$d</string>
     <string name="gym_auto_while_using">A localização só é permitida enquanto usa a app. A automação do ginásio precisa de «Permitir sempre» para funcionar em segundo plano.</string>
     <string name="ui_stop_spoken_announcements">Parar anúncios falados</string>
     <string name="ui_horizontal_gesture_stops_announcement">Balance a cabeça de um lado para o outro enquanto um anúncio está sendo reproduzido para pará-lo.</string>
-    <string name="ui_gym_mode_head_gesture_actions">Com os gestos de cabeça ativados, acene para iniciar ou retomar o temporizador e balance a cabeça de um lado para o outro para o reiniciar. Os gestos de chamada recebida e de anúncio têm prioridade.</string>
+    <string name="ui_gym_mode_head_gesture_actions">Com os gestos de cabeça ativados, acene para iniciar, pausar ou retomar o temporizador e balance a cabeça de um lado para o outro para o reiniciar. Os gestos de chamada recebida e de anúncio têm prioridade.</string>
+    <string name="ui_control_gym_timer">Controlar o temporizador de ginásio</string>
 </resources>

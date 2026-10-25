@@ -1023,5 +1023,6 @@ Requêtes du protocole : %4$d</string>
     <string name="gym_auto_while_using">La localisation n’est autorisée que pendant l’utilisation de l’application. L’automatisation a besoin de « Toujours autoriser » pour fonctionner en arrière-plan.</string>
     <string name="ui_stop_spoken_announcements">Arrêter les annonces vocales</string>
     <string name="ui_horizontal_gesture_stops_announcement">Secouez la tête de gauche à droite pendant une annonce pour l’arrêter.</string>
-    <string name="ui_gym_mode_head_gesture_actions">Lorsque les gestes de la tête sont activés, hochez la tête pour démarrer ou reprendre le minuteur, et secouez-la de gauche à droite pour le réinitialiser. Les gestes d’appel entrant et d’annonce sont prioritaires.</string>
+    <string name="ui_gym_mode_head_gesture_actions">Lorsque les gestes de la tête sont activés, hochez la tête pour démarrer, mettre en pause ou reprendre le minuteur, et secouez-la de gauche à droite pour le réinitialiser. Les gestes d’appel entrant et d’annonce sont prioritaires.</string>
+    <string name="ui_control_gym_timer">Contrôler le minuteur de sport</string>
 </resources>
