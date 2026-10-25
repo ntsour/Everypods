@@ -53,6 +53,7 @@ import io.automated.ventures.everypods.automation.GymAutomationRepository
 import io.automated.ventures.everypods.automation.GymAutomationRule
 import io.automated.ventures.everypods.automation.GymAutomationStatus
 import io.automated.ventures.everypods.automation.GymGeofenceRegistrar
+import io.automated.ventures.everypods.automation.GymLocationPermission
 import io.automated.ventures.everypods.bluetooth.hrm.HeartRateSharingMethod
 import io.automated.ventures.everypods.bluetooth.hrm.HeartRateSharingPrefs
 import io.automated.ventures.everypods.presentation.components.StyledScaffold
@@ -77,8 +78,9 @@ fun GymAutomationScreen() {
     val cancel = remember { CancellationTokenSource() }
 
     fun recheck() {
-        fine = context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        background = GymGeofenceRegistrar.hasPermissions(context)
+        val step = GymLocationPermission.step(context)
+        fine = step != GymLocationPermission.Step.NEED_PRECISE
+        background = step == GymLocationPermission.Step.GRANTED
         GymAutomationCoordinator.refreshStatus(context)
     }
     fun save(next: GymAutomationRule) {
@@ -93,9 +95,9 @@ fun GymAutomationScreen() {
         lifecycle.addObserver(observer)
         onDispose { lifecycle.removeObserver(observer); cancel.cancel() }
     }
-    val locationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
+    val requestLocation = rememberGymLocationPermissionAction { granted ->
         recheck()
-        if (result[Manifest.permission.ACCESS_FINE_LOCATION] != true) message = R.string.gym_auto_permission_denied
+        if (!granted) message = R.string.gym_auto_permission_denied
     }
 
     StyledScaffold(title = stringResource(R.string.gym_auto_title)) { topPadding, hazeState, _ ->
@@ -121,15 +123,12 @@ fun GymAutomationScreen() {
             }
             SettingsSection(stringResource(R.string.gym_auto_permissions)) {
                 Text(stringResource(R.string.gym_auto_disclosure), style = bodyStyle(dark), modifier = Modifier.padding(16.dp))
-                if (!fine) Button(modifier = Modifier.padding(horizontal = 16.dp), onClick = {
-                    locationPermission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
-                }) { Text(stringResource(R.string.gym_auto_grant_precise)) }
+                if (!fine) Button(modifier = Modifier.padding(horizontal = 16.dp), onClick = requestLocation) {
+                    Text(stringResource(R.string.gym_auto_grant_precise))
+                }
                 else if (!background) {
                     Text(stringResource(R.string.gym_auto_background_hint), style = bodyStyle(dark), modifier = Modifier.padding(horizontal = 16.dp))
-                    Button(modifier = Modifier.padding(16.dp), onClick = {
-                        context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                            Uri.fromParts("package", context.packageName, null)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                    }) { Text(stringResource(R.string.gym_auto_grant_background)) }
+                    Button(modifier = Modifier.padding(16.dp), onClick = requestLocation) { Text(stringResource(R.string.gym_auto_grant_background)) }
                 }
             }
             SettingsSection(stringResource(R.string.gym_auto_location)) {

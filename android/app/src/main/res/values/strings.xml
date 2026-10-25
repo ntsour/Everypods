@@ -1003,4 +1003,8 @@ Protocol requests: %4$d</string>
     <string name="gym_auto_status_unavailable">Location unavailable</string>
     <string name="gym_auto_resume">Resume for this visit</string>
     <string name="gym_auto_stop">Stop for this visit</string>
+    <string name="gym_perm_bg_title">Background location (optional)</string>
+    <string name="gym_perm_bg_desc">Optional. Used only for the Gym location automation, to detect when you arrive at or leave your saved gym zone. The location stays on this phone and no history is kept. You can skip this.</string>
+    <string name="gym_perm_bg_step1">Step 1 of 2: allow precise location.</string>
+    <string name="gym_perm_bg_step2">Step 2 of 2: in settings, open Permissions, then Location, and choose “Allow all the time”.</string>
 </resources>

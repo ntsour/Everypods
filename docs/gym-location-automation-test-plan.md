@@ -64,3 +64,20 @@ adb logcat -s EveryPodsGymAuto EveryPodsHRM AirPodsService
 | 18 | Xiaomi | Repeat 1, 5, 6, 12 with MIUI battery restrictions default and “No restrictions” | Record delays/failures |
 
 Simulated transitions prove wiring and decisions, not real detection or fresh BPM; a physical gym visit stays outstanding.
+
+## Permission entry cases (Permissions screen)
+
+The optional "Background location (optional)" row lives in the **Special access** group of the
+Permissions screen. The same screen is the first-run onboarding step and Settings > Permissions,
+so both places show the same row. The row and the Gym automation editor both read
+`GymLocationPermission.step()`. The Permissions screen polls once per second, and the editor
+re-checks on resume.
+
+| # | Case | Steps | Expected |
+|---|------|-------|----------|
+| P1 | First-run entry | Fresh install (or clear onboarding) → onboarding Permissions screen | Row shown under Special access with explanation + "Step 1 of 2". **Continue** works without granting it; onboarding completes. Nothing is requested until the row's Grant is tapped. |
+| P2 | In-app entry | Settings → Permissions | Same row, same status as the Gym automation editor. |
+| P3 | Deny | Tap Grant → deny precise location | Row stays "Grant", step 1 text. Tap again → dialog again; if Android no longer shows it, App info opens instead. Rest of app unaffected. |
+| P4 | Grant (two-step) | Tap Grant → allow precise → row shows "Step 2 of 2" → tap Grant → App info opens → Permissions → Location → "Allow all the time" → back | Row shows ✓ within ~1 s. Gym automation editor shows the toggle enabled-able (no background hint). |
+| P5 | Revoke and return | With ✓, system Settings → app → Location → "Allow only while using" (or "Don't allow") → back to app | Permissions row returns to step 2 (or step 1). Gym editor on resume shows hint again; geofences are re-synced (`EveryPodsGymAuto` logs removal). The rule is not silently re-requested. |
+| P6 | Sync | Grant from the Gym editor, then open Permissions (or vice versa) | Both show the same state without restarting the app. |

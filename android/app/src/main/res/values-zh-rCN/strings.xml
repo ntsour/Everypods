@@ -985,4 +985,8 @@
     <string name="gym_auto_status_unavailable">位置信息不可用</string>
     <string name="gym_auto_resume">本次到访恢复</string>
     <string name="gym_auto_stop">本次到访停止</string>
+    <string name="gym_perm_bg_title">后台位置（可选）</string>
+    <string name="gym_perm_bg_desc">可选。仅用于健身房位置自动化，用于检测您何时到达或离开已保存的区域。位置仅保存在此手机上，不保留任何历史记录。您可以跳过。</string>
+    <string name="gym_perm_bg_step1">第 1 步（共 2 步）：允许精确位置。</string>
+    <string name="gym_perm_bg_step2">第 2 步（共 2 步）：在设置中打开“权限”，然后打开“位置信息”，选择“始终允许”。</string>
 </resources>

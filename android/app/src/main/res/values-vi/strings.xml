@@ -986,4 +986,8 @@ Yêu cầu giao thức: %4$d</string>
     <string name="gym_auto_status_unavailable">Không có vị trí</string>
     <string name="gym_auto_resume">Tiếp tục cho lần đến này</string>
     <string name="gym_auto_stop">Dừng cho lần đến này</string>
+    <string name="gym_perm_bg_title">Vị trí trong nền (không bắt buộc)</string>
+    <string name="gym_perm_bg_desc">Không bắt buộc. Chỉ dùng cho tính năng tự động hóa vị trí phòng gym, để phát hiện khi bạn đến hoặc rời vùng đã lưu. Vị trí chỉ lưu trên điện thoại này và không lưu lịch sử. Bạn có thể bỏ qua.</string>
+    <string name="gym_perm_bg_step1">Bước 1/2: cho phép vị trí chính xác.</string>
+    <string name="gym_perm_bg_step2">Bước 2/2: trong cài đặt, mở Quyền, sau đó Vị trí, và chọn “Luôn cho phép”.</string>
 </resources>

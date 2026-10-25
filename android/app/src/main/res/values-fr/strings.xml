@@ -986,4 +986,8 @@ Requêtes du protocole : %4$d</string>
     <string name="gym_auto_status_unavailable">Position indisponible</string>
     <string name="gym_auto_resume">Reprendre pour cette visite</string>
     <string name="gym_auto_stop">Arrêter pour cette visite</string>
+    <string name="gym_perm_bg_title">Localisation en arrière-plan (facultatif)</string>
+    <string name="gym_perm_bg_desc">Facultatif. Utilisée uniquement pour l\'automatisation de localisation de la salle de sport, afin de détecter votre arrivée dans la zone enregistrée ou votre départ. La position reste sur ce téléphone et aucun historique n\'est conservé. Vous pouvez ignorer cette étape.</string>
+    <string name="gym_perm_bg_step1">Étape 1 sur 2 : autorisez la position exacte.</string>
+    <string name="gym_perm_bg_step2">Étape 2 sur 2 : dans les paramètres, ouvrez Autorisations, puis Position, et choisissez « Toujours autoriser ».</string>
 </resources>

@@ -988,4 +988,8 @@ Solicitudes del protocolo: %4$d</string>
     <string name="gym_auto_status_unavailable">Ubicación no disponible</string>
     <string name="gym_auto_resume">Reanudar en esta visita</string>
     <string name="gym_auto_stop">Detener en esta visita</string>
+    <string name="gym_perm_bg_title">Ubicación en segundo plano (opcional)</string>
+    <string name="gym_perm_bg_desc">Opcional. Solo se usa para la automatización de ubicación del gimnasio, para detectar cuándo llegas o sales de la zona guardada. La ubicación se queda en este teléfono y no se guarda historial. Puedes omitirlo.</string>
+    <string name="gym_perm_bg_step1">Paso 1 de 2: permite la ubicación precisa.</string>
+    <string name="gym_perm_bg_step2">Paso 2 de 2: en ajustes, abre Permisos, luego Ubicación, y elige «Permitir siempre».</string>
 </resources>

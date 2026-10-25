@@ -986,4 +986,8 @@ Pedidos do protocolo: %4$d</string>
     <string name="gym_auto_status_unavailable">Localização indisponível</string>
     <string name="gym_auto_resume">Retomar nesta visita</string>
     <string name="gym_auto_stop">Parar nesta visita</string>
+    <string name="gym_perm_bg_title">Localização em segundo plano (opcional)</string>
+    <string name="gym_perm_bg_desc">Opcional. Usada apenas na automação de localização do ginásio, para detetar quando chega ou sai da zona guardada. A localização fica neste telemóvel e não é mantido histórico. Pode ignorar.</string>
+    <string name="gym_perm_bg_step1">Passo 1 de 2: permita a localização precisa.</string>
+    <string name="gym_perm_bg_step2">Passo 2 de 2: nas definições, abra Permissões, depois Localização, e escolha «Permitir sempre».</string>
 </resources>

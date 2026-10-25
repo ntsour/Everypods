@@ -986,4 +986,8 @@ Richieste protocollo: %4$d</string>
     <string name="gym_auto_status_unavailable">Posizione non disponibile</string>
     <string name="gym_auto_resume">Riprendi per questa visita</string>
     <string name="gym_auto_stop">Interrompi per questa visita</string>
+    <string name="gym_perm_bg_title">Posizione in background (facoltativa)</string>
+    <string name="gym_perm_bg_desc">Facoltativa. Usata solo per l\'automazione posizione palestra, per rilevare quando arrivi o lasci la zona salvata. La posizione resta su questo telefono e non viene conservata alcuna cronologia. Puoi saltare questo passaggio.</string>
+    <string name="gym_perm_bg_step1">Passaggio 1 di 2: consenti la posizione precisa.</string>
+    <string name="gym_perm_bg_step2">Passaggio 2 di 2: nelle impostazioni apri Autorizzazioni, poi Posizione, e scegli «Consenti sempre».</string>
 </resources>

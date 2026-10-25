@@ -986,4 +986,8 @@
     <string name="gym_auto_status_unavailable">Геодані недоступні</string>
     <string name="gym_auto_resume">Відновити для цього візиту</string>
     <string name="gym_auto_stop">Зупинити для цього візиту</string>
+    <string name="gym_perm_bg_title">Геодані у фоні (необовʼязково)</string>
+    <string name="gym_perm_bg_desc">Необовʼязково. Використовується лише для автоматизації за місцем спортзалу, щоб визначати, коли ви прибуваєте до збереженої зони або залишаєте її. Місце зберігається лише на цьому телефоні, історія не ведеться. Можна пропустити.</string>
+    <string name="gym_perm_bg_step1">Крок 1 з 2: дозвольте точні геодані.</string>
+    <string name="gym_perm_bg_step2">Крок 2 з 2: у налаштуваннях відкрийте Дозволи, потім Геодані, і виберіть «Дозволяти завжди».</string>
 </resources>

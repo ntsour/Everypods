@@ -986,4 +986,8 @@
     <string name="gym_auto_status_unavailable">無法使用位置資訊</string>
     <string name="gym_auto_resume">本次造訪繼續</string>
     <string name="gym_auto_stop">本次造訪停止</string>
+    <string name="gym_perm_bg_title">背景位置（選用）</string>
+    <string name="gym_perm_bg_desc">選用。僅用於健身房位置自動化，以偵測您何時抵達或離開已儲存的區域。位置只會保存在這支手機上，不會保留任何記錄。您可以略過。</string>
+    <string name="gym_perm_bg_step1">第 1 步（共 2 步）：允許精確位置。</string>
+    <string name="gym_perm_bg_step2">第 2 步（共 2 步）：在設定中開啟「權限」，再開啟「位置資訊」，並選擇「一律允許」。</string>
 </resources>
