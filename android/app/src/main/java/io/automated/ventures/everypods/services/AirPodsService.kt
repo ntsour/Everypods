@@ -109,6 +109,12 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import io.automated.ventures.everypods.BuildConfig
+import io.automated.ventures.everypods.automation.GymAutomationCoordinator
+import io.automated.ventures.everypods.automation.HeartRateOwnerStore
+import io.automated.ventures.everypods.automation.HeartRateSource
+import io.automated.ventures.everypods.automation.HeartRateStartPlanner
+import io.automated.ventures.everypods.automation.HrOwnerRecord
+import io.automated.ventures.everypods.automation.HrStartDecision
 import io.automated.ventures.everypods.EXTRA_OPEN_GYM_TIMER
 import io.automated.ventures.everypods.GymTimerLockScreenActivity
 import io.automated.ventures.everypods.MainActivity
@@ -727,32 +733,97 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         Log.i("EveryPodsHRM", "Session waiting; firmware=$firmware service=${heartRateState.value.serviceId}")
     }
 
-    fun stopHeartRate(reason: HeartRateFailure? = null, connectionUsable: Boolean = true) {
+    fun stopHeartRate(
+        reason: HeartRateFailure? = null,
+        connectionUsable: Boolean = true,
+        source: HeartRateSource = HeartRateSource.SYSTEM,
+    ) {
         if (Looper.myLooper() != Looper.getMainLooper()) {
-            Handler(Looper.getMainLooper()).post { stopHeartRate(reason, connectionUsable) }
+            Handler(Looper.getMainLooper()).post { stopHeartRate(reason, connectionUsable, source) }
             return
         }
-        val wasActive = heartRateState.value.running || heartRateSharingState.value.active ||
-            heartRateState.value.status == io.automated.ventures.everypods.bluetooth.hrm.HeartRateStatus.RECOVERING
+        val wasActive = heartRateActiveNow()
         stopHeartRateInternal(reason, connectionUsable, allowSensorRecovery = true)
-        // A user/command stop (not a failure) suppresses the gym rule's HR for this visit.
-        if (wasActive && reason == null && gymAutomationAttached) {
-            io.automated.ventures.everypods.automation.GymAutomationCoordinator.onHeartRateStopped(this)
+        // A failure may enter bounded sensor recovery: ownership survives until it really ends.
+        if (wasActive && !heartRateActiveNow()) HeartRateOwnerStore.write(this, null)
+        // Only a deliberate user stop suppresses the gym rule's HR for this visit; the
+        // automation's own stop, Gym Mode cleanup and failures are not user overrides.
+        if (wasActive && reason == null && source.isUserStop && gymAutomationAttached) {
+            GymAutomationCoordinator.onHeartRateStopped(this)
         }
+    }
+
+    fun stopHeartRateFrom(source: HeartRateSource) = stopHeartRate(source = source)
+
+    private fun heartRateActiveNow() = heartRateState.value.running || heartRateSharingState.value.active ||
+        heartRateState.value.status == io.automated.ventures.everypods.bluetooth.hrm.HeartRateStatus.RECOVERING
+
+    private fun hrBootId(): String = Settings.Global.getInt(contentResolver, Settings.Global.BOOT_COUNT, -1).toString()
+
+    /** Records [source] as the owner of the session that is live now (no-op if the start was rejected). */
+    private fun recordHeartRateOwner(source: HeartRateSource) {
+        if (heartRateActiveNow()) {
+            HeartRateOwnerStore.write(this, HrOwnerRecord(source, hrBootId(), System.currentTimeMillis()))
+        }
+    }
+
+    fun heartRateOwner(): HeartRateSource? =
+        HrOwnerRecord.liveOwner(HeartRateOwnerStore.read(this), heartRateActiveNow(), hrBootId())
+
+    /**
+     * The one shared "start heart rate like the case shortcut" step: starts only the
+     * explicitly selected sharing method, never picks one, and leaves a running
+     * session untouched. Permission UI stays with the caller (none for background).
+     * Must run on the main thread.
+     */
+    fun ensureHeartRateStarted(source: HeartRateSource): HrStartDecision {
+        val decision = HeartRateStartPlanner.decide(
+            active = heartRateActiveNow(),
+            selected = HeartRateSharingPrefs.configuredMethod(this),
+            dirconEnabled = BuildConfig.DIRCON_ENABLED,
+            sdkInt = Build.VERSION.SDK_INT,
+        ) { checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED }
+        if (decision is HrStartDecision.Start) startHeartRateSharingFrom(decision.method, source)
+        Log.i("EveryPodsHRM", "ensureStarted source=$source decision=${decision.javaClass.simpleName}")
+        return decision
+    }
+
+    fun startHeartRateSharingFrom(method: HeartRateSharingMethod, source: HeartRateSource) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            Handler(Looper.getMainLooper()).post { startHeartRateSharingFrom(method, source) }
+            return
+        }
+        startHeartRateSharing(method, gym = source == HeartRateSource.AUTOMATION || source == HeartRateSource.GYM_MODE)
+        recordHeartRateOwner(source)
+    }
+
+    fun startHeartRateFrom(source: HeartRateSource) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            Handler(Looper.getMainLooper()).post { startHeartRateFrom(source) }
+            return
+        }
+        startHeartRate()
+        recordHeartRateOwner(source)
+    }
+
+    fun switchHeartRateToMonitorOnlyFrom(source: HeartRateSource) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            Handler(Looper.getMainLooper()).post { switchHeartRateToMonitorOnlyFrom(source) }
+            return
+        }
+        switchHeartRateToMonitorOnly()
+        recordHeartRateOwner(source)
     }
 
     @Volatile private var gymAutomationAttached = false
     private val gymAutomationHost = object : io.automated.ventures.everypods.automation.GymAutomationHost {
         override fun airPodsReady() = isConnected() && io.automated.ventures.everypods.utils.isAacpCapable()
-        override fun heartRateActive() = heartRateState.value.running || heartRateSharingState.value.active ||
-            heartRateState.value.status == io.automated.ventures.everypods.bluetooth.hrm.HeartRateStatus.RECOVERING
-        override fun startHeartRateLikeShortcut(method: HeartRateSharingMethod) {
-            if (heartRateActive()) return
-            // The case shortcut's start path for an explicit selection; the service
-            // rechecks Wahoo/permission/capability/ownership and publishes failures.
-            startHeartRateSharing(method, gym = true)
-        }
-        override fun stopHeartRateFromAutomation() = stopHeartRate()
+        override fun heartRateActive() = heartRateActiveNow()
+        override fun heartRateOwner() = this@AirPodsService.heartRateOwner()
+        // Same shared step as the case shortcut; the service still rechecks Wahoo,
+        // capability and ownership and publishes failures.
+        override fun ensureHeartRateStarted() = ensureHeartRateStarted(HeartRateSource.AUTOMATION)
+        override fun stopHeartRateFromAutomation() = stopHeartRate(source = HeartRateSource.AUTOMATION)
     }
 
     private fun stopHeartRateInternal(
@@ -858,13 +929,13 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     private fun onGymHeartRateChanged(enabled: Boolean) {
         val wasGymOwned = hrSharingIntent.gymOwned
         if (!enabled) {
-            if (wasGymOwned) stopHeartRate()
+            if (wasGymOwned) stopHeartRate(source = HeartRateSource.GYM_MODE)
             hrSharingIntent.gymChanged(false)
         } else if (!io.automated.ventures.everypods.automation.GymAutomationCoordinator.writingGym &&
             // Location-origin Gym Mode: the rule alone decides HR (shortcut semantics).
             HeartRateSharingPrefs.gymAuto(this) && !hrSharingIntent.suppressedForGym &&
             !heartRateSharingState.value.active) {
-            startHeartRateSharing(HeartRateSharingPrefs.method(this), gym = true)
+            startHeartRateSharingFrom(HeartRateSharingPrefs.method(this), HeartRateSource.GYM_MODE)
         }
     }
 
@@ -3342,7 +3413,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
             HeartRateSharingPrefs.GYM_AUTO -> {
                 if (!HeartRateSharingPrefs.gymAuto(this)) {
-                    if (hrSharingIntent.gymOwned) stopHeartRate()
+                    if (hrSharingIntent.gymOwned) stopHeartRate(source = HeartRateSource.GYM_MODE)
                 } else onGymHeartRateChanged(config.gymModeEnabled)
             }
 
@@ -4925,7 +4996,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             takeOver("music", manualTakeOverAfterReversed = true)
         }
 
-        if (intent?.action == "io.automated.ventures.everypods.STOP_HR_SHARING") stopHeartRate()
+        if (intent?.action == "io.automated.ventures.everypods.STOP_HR_SHARING") stopHeartRate(source = HeartRateSource.NOTIFICATION)
 
         if (intent?.action == ACTION_TOGGLE_GYM_MODE) {
             GymModePrefs.setEnabled(this, !GymModePrefs.isEnabled(this))

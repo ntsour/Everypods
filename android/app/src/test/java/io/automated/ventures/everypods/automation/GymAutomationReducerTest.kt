@@ -12,7 +12,8 @@ class GymAutomationReducerTest {
         now: Long = 1_000, boot: String = "b1", ready: Boolean = true, gymOn: Boolean = false,
         hrActive: Boolean = false, method: String? = "BLUETOOTH", hrAction: Boolean = true,
         restore: Boolean = true, enabled: Boolean = true, revision: Long = 1,
-    ) = Snapshot(now, boot, enabled, revision, hrAction, restore, ready, gymOn, hrActive, method)
+        owner: HeartRateSource? = if (hrActive) HeartRateSource.AUTOMATION else null,
+    ) = Snapshot(now, boot, enabled, revision, hrAction, restore, ready, gymOn, hrActive, method, owner)
 
     private fun arrive(j: Journal = Journal(ruleRevision = 1), s: Snapshot = snap()) =
         GymAutomationReducer.reduce(j, Event.Arrived(1, "v1"), s)
@@ -178,5 +179,97 @@ class GymAutomationReducerTest {
         val off = GymAutomationReducer.reduce(r.journal, Event.RuleChanged, snap(enabled = false, gymOn = true, hrActive = true))
         assertEquals(listOf(Effect.StopHr, Effect.DisableGym), off.effects)
         assertEquals(null, off.journal.visitId)
+    }
+
+    // --- HR ownership by entry point ---
+
+    @Test fun manualRestartTakesOverOwnershipSoDepartureLeavesHr() {
+        val r = arrive()
+        assertTrue(r.journal.ownsHr)
+        // User stopped and restarted from the case shortcut (or switched transport).
+        val rec = GymAutomationReducer.reduce(r.journal, Event.Reconcile,
+            snap(gymOn = true, hrActive = true, owner = HeartRateSource.CASE_SHORTCUT))
+        assertFalse(rec.journal.ownsHr)
+        val left = depart(rec.journal, snap(gymOn = true, hrActive = true, owner = HeartRateSource.CASE_SHORTCUT))
+        assertEquals(listOf(Effect.DisableGym), left.effects)
+    }
+
+    @Test fun departureNeverStopsHrOwnedByAnotherEntryPoint() {
+        val r = arrive()
+        // Even if the journal was not reconciled yet, a foreign live owner blocks StopHr.
+        val left = depart(r.journal, snap(gymOn = true, hrActive = true, owner = HeartRateSource.HEART_RATE_SCREEN))
+        assertFalse(left.effects.contains(Effect.StopHr))
+    }
+
+    @Test fun ownerRecordFromRecoveryKeepsOwnership() {
+        val r = arrive()
+        val rec = GymAutomationReducer.reduce(r.journal, Event.Reconcile,
+            snap(gymOn = true, hrActive = true, owner = HeartRateSource.AUTOMATION))
+        assertTrue(rec.journal.ownsHr)
+    }
+
+    // --- Bounded reconnect presence fix ---
+
+    @Test fun needsFixOnlyWhenReadyAndPresenceUnknown() {
+        assertTrue(GymAutomationReducer.needsPresenceFix(Journal(), snap()))
+        assertFalse(GymAutomationReducer.needsPresenceFix(Journal(), snap(ready = false)))
+        assertFalse(GymAutomationReducer.needsPresenceFix(Journal(), snap(enabled = false)))
+        assertFalse(GymAutomationReducer.needsPresenceFix(Journal(presence = Presence.INSIDE), snap()))
+        assertFalse(GymAutomationReducer.needsPresenceFix(Journal(presence = Presence.OUTSIDE), snap()))
+        assertFalse(GymAutomationReducer.needsPresenceFix(Journal(departureDeadline = 5), snap()))
+    }
+
+    @Test fun insideFixWithoutVisitStartsOneVisitOnce() {
+        val r = GymAutomationReducer.reduce(Journal(), Event.PresenceFix(1, Presence.INSIDE, "f1"), snap())
+        assertEquals(Presence.INSIDE, r.journal.presence)
+        assertEquals(listOf(Effect.EnableGym, Effect.StartHr("BLUETOOTH")), r.effects)
+        val again = GymAutomationReducer.reduce(r.journal, Event.PresenceFix(1, Presence.INSIDE, "f2"),
+            snap(gymOn = true, hrActive = true))
+        assertTrue(again.effects.isEmpty())
+        val dwell = GymAutomationReducer.reduce(r.journal, Event.Arrived(1, "v9"), snap(gymOn = true, hrActive = true))
+        assertTrue(dwell.effects.isEmpty())
+    }
+
+    @Test fun insideFixAfterProcessDeathNeverReplaysHrOrClearsSuppression() {
+        val active = arrive().journal.copy(presence = Presence.UNKNOWN)
+        val cold = GymAutomationReducer.reduce(active, Event.ColdStart, snap(boot = "b2", gymOn = true))
+        val fix = GymAutomationReducer.reduce(cold.journal, Event.PresenceFix(1, Presence.INSIDE, "f"),
+            snap(boot = "b2", gymOn = true))
+        assertEquals(Presence.INSIDE, fix.journal.presence)
+        assertEquals("v1", fix.journal.visitId)
+        assertTrue(fix.journal.hrSuppressed)
+        assertTrue(fix.effects.isEmpty())
+    }
+
+    @Test fun outsideFixForRememberedVisitUsesTheGracePeriod() {
+        val j = arrive().journal.copy(presence = Presence.UNKNOWN)
+        val r = GymAutomationReducer.reduce(j, Event.PresenceFix(1, Presence.OUTSIDE, "f"), snap(now = 10, gymOn = true, hrActive = true))
+        assertEquals(listOf(Effect.ScheduleGraceCheck(10 + DEPARTURE_GRACE_MS)), r.effects)
+        val back = GymAutomationReducer.reduce(r.journal, Event.Arrived(1, "v2"), snap(now = 20, gymOn = true, hrActive = true))
+        assertEquals(listOf(Effect.CancelGraceCheck), back.effects)
+        assertEquals("v1", back.journal.visitId)
+    }
+
+    @Test fun outsideFixWithoutVisitOnlyRecordsPresence() {
+        val r = GymAutomationReducer.reduce(Journal(), Event.PresenceFix(1, Presence.OUTSIDE, "f"), snap())
+        assertEquals(Presence.OUTSIDE, r.journal.presence)
+        assertTrue(r.effects.isEmpty())
+        assertFalse(GymAutomationReducer.needsPresenceFix(r.journal, snap()))
+    }
+
+    @Test fun ambiguousOrStaleFixChangesNothing() {
+        val j = arrive().journal.copy(presence = Presence.UNKNOWN)
+        val r = GymAutomationReducer.reduce(j, Event.PresenceFix(1, Presence.UNKNOWN, "f"), snap(gymOn = true))
+        assertEquals(j, r.journal)
+        assertTrue(r.effects.isEmpty())
+        val old = GymAutomationReducer.reduce(j, Event.PresenceFix(0, Presence.OUTSIDE, "f"), snap(gymOn = true))
+        assertTrue(old.effects.isEmpty())
+    }
+
+    @Test fun fixNeverOverridesKnownPresence() {
+        val inside = arrive().journal
+        val r = GymAutomationReducer.reduce(inside, Event.PresenceFix(1, Presence.OUTSIDE, "f"), snap(gymOn = true))
+        assertTrue(r.effects.isEmpty())
+        assertEquals(inside, r.journal)
     }
 }

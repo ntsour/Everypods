@@ -92,3 +92,19 @@ re-checks on resume.
 | M4 | Offline | Airplane mode → Pick on map | "Map tiles could not be loaded…" shown; typed coordinates and Use current location (with GPS) still work. |
 | M5 | No idle network | Close map; leave app; trigger debug arrive/exit | No tile requests (`adb logcat -s OsmDroid` silent); geofence logs unchanged. |
 | M6 | Attribution | Map open | "© OpenStreetMap contributors" visible. |
+
+## Correctness cases (HR ownership, shared start, reconnect fix)
+
+Logcat: `adb logcat -s EveryPodsGymAuto EveryPodsHRM` (`ensureStarted source=… decision=…`, `presence fix=…`).
+
+| # | Case | Steps | Expected |
+|---|------|-------|----------|
+| C1 | Shortcut parity | With a sharing method selected and HR off, tap the case-art heart; separately trigger `arrive` | Both log `ensureStarted … decision=Start` and start the same method. With HR already running, `arrive` logs `AlreadyRunning` and HR keeps running |
+| C2 | No selection | Clear the sharing selection; `arrive` | Gym on, `decision=NoneSelected`, no HR. Tapping the case heart still starts monitoring only (unchanged manual behaviour) |
+| C3 | Missing permission | Revoke Nearby devices / notifications for the app, selected method set; `arrive` | No HR, no permission dialog from background; `decision=NeedsPermission`; Gym Mode still on |
+| C4 | Manual takeover | After case 1, stop HR on the case art and start it again (or switch transport in Heart rate settings); then `exit` + 3 min | Gym Mode restored; the manually (re)started HR keeps running |
+| C5 | Stops that are not overrides | After case 1, `exit` + 3 min (rule stops HR) then `arrive` again | HR starts again on the new visit (the rule's own stop and the Gym-off cleanup do not count as a manual stop) |
+| C6 | Notification stop | After case 1, stop HR from the HR notification | Same as case 10: no HR restart in this visit |
+| C7 | Reconnect fix, inside | Rule enabled, standing inside the zone, presence unknown (fresh install of the rule, or after reboot); connect AirPods | One `presence fix=INSIDE` within ~15 s, then Gym on once. After reboot with a suppressed visit, suppression is kept and HR is not replayed |
+| C8 | Reconnect fix, outside / poor fix | Same with AirPods connected well outside the zone; repeat indoors with weak GPS | `presence fix=OUTSIDE` (nothing applied) or `UNKNOWN` (nothing changes). Reconnecting again within 2 min triggers no second fix |
+| C9 | Process death during a visit | After case 1, `am kill`, reopen, reconnect AirPods | No HR restart; Gym Mode kept; "Resume for this visit" restarts HR via the shared step |
