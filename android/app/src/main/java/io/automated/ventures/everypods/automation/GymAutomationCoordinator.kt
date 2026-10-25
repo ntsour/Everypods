@@ -7,19 +7,21 @@ import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
-import io.automated.ventures.everypods.bluetooth.hrm.HeartRateSharingMethod
 import io.automated.ventures.everypods.bluetooth.hrm.HeartRateSharingPrefs
 import io.automated.ventures.everypods.utils.GymModePrefs
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.util.UUID
 
 /** Implemented by AirPodsService: the existing Gym Mode / heart-rate code paths. */
 interface GymAutomationHost {
     fun airPodsReady(): Boolean
     fun heartRateActive(): Boolean
-    /** Same service command the case-art shortcut uses for an explicit selection. */
-    fun startHeartRateLikeShortcut(method: HeartRateSharingMethod)
+    /** Live owner of the running session, from the persisted owner record. */
+    fun heartRateOwner(): HeartRateSource?
+    /** The shared case-shortcut start step (AirPodsService.ensureHeartRateStarted). */
+    fun ensureHeartRateStarted(): HrStartDecision
     fun stopHeartRateFromAutomation()
 }
 
@@ -44,7 +46,10 @@ object GymAutomationCoordinator {
     /** True while the coordinator itself writes gym_mode_enabled (not a user override). */
     @Volatile var writingGym = false
         private set
-    @Volatile private var stoppingHr = false
+    private var running = false
+    private val pending = ArrayDeque<Event>()
+    private var fixInFlight = false
+    private var lastFixAt: Long? = null
 
     private val mutableStatus = MutableStateFlow(GymAutomationStatus.OFF)
     val status: StateFlow<GymAutomationStatus> = mutableStatus.asStateFlow()
@@ -58,7 +63,7 @@ object GymAutomationCoordinator {
     fun detach(h: GymAutomationHost) = onMain { if (host === h) host = null }
 
     /** Called by the service when the user (not this coordinator) stops heart rate. */
-    fun onHeartRateStopped(ctx: Context) { if (!stoppingHr) dispatch(ctx, Event.ManualHrStop) }
+    fun onHeartRateStopped(ctx: Context) = dispatch(ctx, Event.ManualHrStop)
 
     /** Called from the gym_mode_enabled listener. */
     fun onGymModeChanged(ctx: Context, enabled: Boolean) {
@@ -68,11 +73,20 @@ object GymAutomationCoordinator {
     fun dispatch(ctx: Context, event: Event) = onMain {
         val c = ctx.applicationContext
         appCtx = c
-        if (!coldStarted) {
-            coldStarted = true
-            if (event != Event.ColdStart) run(c, Event.ColdStart)
+        // Effects can re-enter (preference listeners, service callbacks). Queue them so
+        // every event reduces against the journal the previous one persisted.
+        if (running) { pending.addLast(event); return@onMain }
+        running = true
+        try {
+            if (!coldStarted) {
+                coldStarted = true
+                if (event != Event.ColdStart) run(c, Event.ColdStart)
+            }
+            run(c, event)
+            while (pending.isNotEmpty()) run(c, pending.removeFirst())
+        } finally {
+            running = false
         }
-        run(c, event)
     }
 
     private fun run(ctx: Context, event: Event) {
@@ -90,6 +104,7 @@ object GymAutomationCoordinator {
             gymOn = GymModePrefs.isEnabled(ctx),
             hrActive = h?.heartRateActive() == true,
             hrSelectedMethod = HeartRateSharingPrefs.configuredMethod(ctx)?.name,
+            hrOwner = h?.heartRateOwner(),
         )
         val result = GymAutomationReducer.reduce(journal, event, snapshot)
         if (result.journal != journal) GymAutomationRepository.saveJournal(ctx, result.journal)
@@ -97,23 +112,52 @@ object GymAutomationCoordinator {
             Log.i(TAG, "event=${event.javaClass.simpleName} presence=${result.journal.presence} " +
                 "effects=${result.effects.map { it.javaClass.simpleName }} ready=${snapshot.airPodsReady}")
         }
-        result.effects.forEach { execute(ctx, it) }
-        mutableStatus.value = statusOf(rule, result.journal, h)
+        var journalNow = result.journal
+        result.effects.forEach { effect ->
+            if (!execute(ctx, effect) && effect is Effect.StartHr && journalNow.ownsHr) {
+                // Not started (already running, no selection, permission, rejected): own nothing.
+                journalNow = journalNow.copy(ownsHr = false)
+                GymAutomationRepository.saveJournal(ctx, journalNow)
+            }
+        }
+        mutableStatus.value = statusOf(rule, journalNow, h)
+        maybeRequestPresenceFix(ctx, rule, journalNow, snapshot)
     }
 
-    private fun execute(ctx: Context, effect: Effect) {
+    /** Bounded: one fix in flight, cooldown between fixes, 15 s cap, never a loop. */
+    private fun maybeRequestPresenceFix(ctx: Context, rule: GymAutomationRule, j: Journal, s: Snapshot) {
+        if (!GymAutomationReducer.needsPresenceFix(j, s) || !rule.hasLocation) return
+        if (!GymGeofenceRegistrar.hasPermissions(ctx)) return
+        if (!PresenceEvidence.canRequest(s.now, lastFixAt, fixInFlight)) return
+        fixInFlight = true
+        lastFixAt = s.now
+        GymPresenceFix.request(ctx, rule) { presence ->
+            onMain {
+                fixInFlight = false
+                Log.i(TAG, "presence fix=$presence")
+                dispatch(ctx, Event.PresenceFix(rule.revision, presence, UUID.randomUUID().toString()))
+            }
+        }
+    }
+
+    /** Returns false only when a StartHr did not leave an automation-owned session running. */
+    private fun execute(ctx: Context, effect: Effect): Boolean {
         when (effect) {
             Effect.EnableGym -> writeGym(ctx, true)
             Effect.DisableGym -> writeGym(ctx, false)
-            is Effect.StartHr -> runCatching { HeartRateSharingMethod.valueOf(effect.method) }.getOrNull()
-                ?.let { host?.startHeartRateLikeShortcut(it) }
-            Effect.StopHr -> { stoppingHr = true; try { host?.stopHeartRateFromAutomation() } finally { stoppingHr = false } }
+            is Effect.StartHr -> {
+                val h = host ?: return false
+                val decision = h.ensureHeartRateStarted()
+                return decision is HrStartDecision.Start && h.heartRateOwner() == HeartRateSource.AUTOMATION
+            }
+            Effect.StopHr -> host?.stopHeartRateFromAutomation()
             is Effect.ScheduleGraceCheck -> {
                 main.removeCallbacks(graceRunnable)
                 main.postDelayed(graceRunnable, (effect.atElapsed - SystemClock.elapsedRealtime()).coerceAtLeast(0))
             }
             Effect.CancelGraceCheck -> main.removeCallbacks(graceRunnable)
         }
+        return true
     }
 
     private fun writeGym(ctx: Context, on: Boolean) {

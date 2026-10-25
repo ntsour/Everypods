@@ -49,6 +49,8 @@ data class Snapshot(
     val hrActive: Boolean,
     /** Explicit sharing selection from HeartRateSharingPrefs.configuredMethod(); null means none. */
     val hrSelectedMethod: String?,
+    /** Live owner of the running heart-rate session (persisted by the service), else null. */
+    val hrOwner: HeartRateSource? = null,
 )
 
 sealed interface Event {
@@ -66,6 +68,11 @@ sealed interface Event {
     data object ManualHrStop : Event
     /** "Resume for this visit": clears suppression and reruns readiness. */
     data object ResumeVisit : Event
+    /**
+     * Result of one bounded current-location fix taken on reconnect/restart while presence
+     * was UNKNOWN. [presence] is UNKNOWN when the fix was stale, inaccurate or missing.
+     */
+    data class PresenceFix(val revision: Long, val presence: Presence, val visitId: String) : Event
     /** Process start; journal restored from storage. */
     data object ColdStart : Event
     /** Rule edited/disabled/deleted. */
@@ -85,6 +92,10 @@ data class Result(val journal: Journal, val effects: List<Effect>)
 
 object GymAutomationReducer {
     const val DEPARTURE_GRACE_MS = 3 * 60_000L
+
+    /** Reconnect/restart with unknown presence: ask for one bounded current-location fix. */
+    fun needsPresenceFix(j: Journal, s: Snapshot): Boolean =
+        s.ruleEnabled && s.airPodsReady && j.presence == Presence.UNKNOWN && j.departureDeadline == null
 
     fun reduce(j: Journal, e: Event, s: Snapshot): Result {
         val fx = mutableListOf<Effect>()
@@ -125,9 +136,38 @@ object GymAutomationReducer {
                 if (n.departureDeadline != null) fx += Effect.CancelGraceCheck
                 n = n.copy(locationUnavailable = true, departureDeadline = null)
             }
+            is Event.PresenceFix -> {
+                if (!s.ruleEnabled || e.revision != s.ruleRevision) return Result(j, emptyList())
+                // Only resolves UNKNOWN presence; OS transitions stay authoritative otherwise.
+                if (n.presence != Presence.UNKNOWN || n.departureDeadline != null) return Result(j, emptyList())
+                when (e.presence) {
+                    Presence.UNKNOWN -> return Result(j, emptyList()) // ambiguous stays unknown
+                    Presence.INSIDE -> {
+                        n = if (n.visitId != null) {
+                            // Remembered visit confirmed: keep its suppression and applied flag (no replay).
+                            n.copy(presence = Presence.INSIDE, locationUnavailable = false, bootId = s.bootId)
+                        } else {
+                            Journal(ruleRevision = s.ruleRevision, presence = Presence.INSIDE, visitId = e.visitId, bootId = s.bootId)
+                        }
+                        n = apply(n, s, fx)
+                    }
+                    Presence.OUTSIDE -> {
+                        if (n.visitId != null) {
+                            // Confirmed outside the outer boundary: same 3-minute grace as an EXIT.
+                            val at = s.now + DEPARTURE_GRACE_MS
+                            n = n.copy(departureDeadline = at, locationUnavailable = false, bootId = s.bootId)
+                            fx += Effect.ScheduleGraceCheck(at)
+                        } else {
+                            n = n.copy(presence = Presence.OUTSIDE, locationUnavailable = false, bootId = s.bootId)
+                        }
+                    }
+                }
+            }
             Event.Reconcile -> {
                 if (!s.ruleEnabled) return Result(j, emptyList())
-                if (n.ownsHr && !s.hrActive) n = n.copy(ownsHr = false)
+                // Ownership ends when the session ends or another entry point took it over
+                // (manual restart, transport switch, monitoring-only switch).
+                if (n.ownsHr && (!s.hrActive || s.hrOwner != HeartRateSource.AUTOMATION)) n = n.copy(ownsHr = false)
                 if (n.presence == Presence.INSIDE) n = apply(n, s, fx)
             }
             Event.ManualGymOff -> {
@@ -190,7 +230,7 @@ object GymAutomationReducer {
 
     private fun depart(j: Journal, s: Snapshot, fx: MutableList<Effect>): Journal {
         if (s.restoreOnExit) {
-            if (j.ownsHr && s.hrActive) fx += Effect.StopHr
+            if (j.ownsHr && s.hrActive && s.hrOwner == HeartRateSource.AUTOMATION) fx += Effect.StopHr
             if (j.ownsGym && !j.gymWasOn && s.gymOn) fx += Effect.DisableGym
         }
         return Journal(ruleRevision = j.ruleRevision, presence = Presence.OUTSIDE, bootId = s.bootId)
