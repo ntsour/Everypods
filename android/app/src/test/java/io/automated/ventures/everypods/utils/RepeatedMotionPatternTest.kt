@@ -20,9 +20,12 @@ class RepeatedMotionPatternTest {
         assertFalse(RepeatedMotionPattern.accepts(pattern(1)))
     }
 
-    @Test fun `two repetitions must span at least eight tenths of a second`() {
-        assertFalse(RepeatedMotionPattern.accepts(pattern(5)))
-        assertTrue(RepeatedMotionPattern.accepts(pattern(7)))
+    @Test fun `two repetitions can be completed in six tenths of a second`() {
+        assertTrue(RepeatedMotionPattern.accepts(pattern(5)))
+    }
+
+    @Test fun `movement shorter than half a second is still rejected`() {
+        assertFalse(RepeatedMotionPattern.accepts(pattern(3)))
     }
 
     @Test fun `unrelated movements spaced too far apart do not combine into a gesture`() {
