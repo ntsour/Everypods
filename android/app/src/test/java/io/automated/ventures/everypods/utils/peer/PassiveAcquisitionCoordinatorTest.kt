@@ -13,6 +13,17 @@ class PassiveAcquisitionCoordinatorTest {
                        ownership: PeerOwnership = PeerOwnership.RELEASED) =
         PassiveAcquisitionCoordinator.PeerStatus(id, session, 3, 2, true, headsetId, ownership, PeerAudioUse.IDLE)
 
+    @Test fun `released peer must be idle and uncertain or active audio cannot grant acquisition`() {
+        for (use in PeerAudioUse.values()) {
+            val coordinator = PassiveAcquisitionCoordinator(a, Clock())
+            val peer = status(b, "sess-b").copy(audioUse = use)
+            val result = coordinator.begin(headset, "sess-a", setOf(a, b),
+                true, true, true, true, 4, mapOf(b to peer))
+            assertEquals("audio use $use", use == PeerAudioUse.IDLE,
+                result is PassiveAcquisitionCoordinator.Event.Request)
+        }
+    }
+
     @Test fun `requester waits for full grant and start ack quorum before connect`() {
         val clock = Clock()
         val coordinator = PassiveAcquisitionCoordinator(a, clock) { "00000000-0000-4000-8000-000000000010" }

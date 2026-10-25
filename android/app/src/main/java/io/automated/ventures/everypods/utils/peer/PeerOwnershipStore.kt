@@ -9,6 +9,10 @@ fun interface ElapsedClock {
 enum class PeerOwnership { UNKNOWN, HELD, RELEASED }
 enum class PeerAudioUse { UNKNOWN, IDLE, MEDIA, CALL }
 
+/** Absence of a route is idle only when the profile query positively confirms it. */
+fun disconnectedHeadsetAudioUse(profileDisconnected: Boolean, aacpConnected: Boolean): PeerAudioUse =
+    if (profileDisconnected && !aacpConnected) PeerAudioUse.IDLE else PeerAudioUse.UNKNOWN
+
 data class PeerObservation(
     val peerId: String,
     val headsetId: String?,

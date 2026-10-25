@@ -277,6 +277,10 @@ object CrossDevice {
 
     /** Start a short-lived, all-peer grant round for one current lid-open intent. */
     fun beginPassiveAcquisition(lastOwnerEligible: Boolean, enabled: Boolean, lidOpen: Boolean): Boolean {
+        fun blocked(reason: String): Boolean {
+            Log.d(TAG, "passive acquisition blocked reason=$reason")
+            return false
+        }
         val service = ServiceManager.getService() ?: return false
         val targetAddress = service.macAddress.takeIf { it.isNotBlank() } ?: return false
         val snapshot = runCatching { localSnapshot() }.getOrNull() ?: return false
@@ -291,12 +295,13 @@ object CrossDevice {
             // evidence resolves the asynchronous OS attempt.
             cancelPassiveAcquisition()
         }
-        val membersByMac = configuredInstallationIds() ?: return false
+        val membersByMac = configuredInstallationIds() ?: return blocked("peer_identity_missing")
         val localId = installationId ?: return false
         val membership = membersByMac.values.toSet() + localId
         if (membership.size != configuredPeers.size + 1) return false
-        val peers = passivePeerStatuses(headsetId, membersByMac) ?: return false
+        val peers = passivePeerStatuses(headsetId, membersByMac) ?: return blocked("peer_snapshot_or_session_missing")
         val localOwnership = snapshot["ownership"] as? String
+        Log.d(TAG, "passive acquisition local=$localOwnership peers=${peers.values}")
         val frames = passiveAcquisitionProtocol?.begin(
             headsetId = headsetId,
             membership = membership,
@@ -307,10 +312,15 @@ object CrossDevice {
             localSnapshotRevision = snapshot["revision"] as? Long ?: return false,
             peers = peers,
         ).orEmpty()
-        if (frames.isEmpty()) return false
+        if (frames.isEmpty()) return blocked("coordinator_rejected_or_unavailable")
         sendV2ToConfiguredPeers(PeerV2Message.encode(PeerV2Frame.Type.SNAPSHOT, snapshot))
         dispatchAcquisitionFrames(frames)
         return true
+    }
+
+    fun refreshPassiveOwnership() {
+        sendV2ToConfiguredPeers(PeerV2Message.encode(PeerV2Frame.Type.PING,
+            mapOf("nonce" to java.util.UUID.randomUUID().toString())))
     }
 
     fun cancelPassiveAcquisition() {
@@ -383,6 +393,7 @@ object CrossDevice {
         val frame = PeerV2Message.encode(type, fields)
         val result = passiveAcquisitionProtocol?.receive(remoteId, remoteSessionId, frame,
             localStatus, membership, currentRevisions) ?: return
+        Log.d(TAG, "passive acquisition received=$type replies=${result.replies.map { PeerV2Message.decode(it).let { message -> message.type to message.fields["reason"] } }} ready=${result.readyToConnect != null}")
         dispatchAcquisitionFrames(result.replies)
         result.readyToConnect?.let { passiveAcquisitionReady?.invoke(it) }
     }
@@ -424,8 +435,14 @@ object CrossDevice {
         val observations = peerOwnershipStore.observations()
         val result = linkedMapOf<String, PassiveAcquisitionCoordinator.PeerStatus>()
         membersByMac.forEach { (mac, id) ->
-            val observation = observations[mac] ?: return null
-            if (v2ReadySessions[mac] != observation.sessionId) return null
+            val observation = observations[mac] ?: run {
+                Log.d(TAG, "passive acquisition missing snapshot peer=$mac")
+                return null
+            }
+            if (v2ReadySessions[mac] != observation.sessionId) {
+                Log.d(TAG, "passive acquisition session not ready peer=$mac")
+                return null
+            }
             result[id] = PassiveAcquisitionCoordinator.PeerStatus(
                 id, observation.sessionId, observation.revision, 2, true, observation.headsetId,
                 observation.ownership, observation.audioUse,
@@ -699,6 +716,7 @@ object CrossDevice {
                         }
                         PeerV2Frame.Type.PING -> {
                             val snapshot = localSnapshot()
+                            queueV2Frame(outbound, PeerV2Message.encode(PeerV2Frame.Type.SNAPSHOT, snapshot))
                             queueV2Frame(outbound, PeerV2Message.encode(PeerV2Frame.Type.PONG, mapOf(
                                 "nonce" to message.fields.getValue("nonce"), "snapshot" to snapshot,
                             )))
@@ -808,6 +826,12 @@ object CrossDevice {
             snapshot["revision"] as? Long ?: return false, ownership, audioUse,
         )
         if (!accepted) return false
+        val localHeadset = ServiceManager.getService()?.macAddress?.takeIf { it.isNotBlank() }
+            ?.let { PeerIdentityStore.headsetIdFromAddress(it) }
+        if (localHeadset != null && snapshot["headsetId"] == localHeadset) {
+            if (ownership == PeerOwnership.RELEASED) holders.removeIf { it.equals(address, true) }
+            if (ownership == PeerOwnership.HELD) holders.add(address.uppercase())
+        }
         val acquisition = snapshot["acquisition"] as? Map<*, *>
         val requestId = acquisition?.get("requestId") as? String
         val requesterId = acquisition?.get("requesterId") as? String

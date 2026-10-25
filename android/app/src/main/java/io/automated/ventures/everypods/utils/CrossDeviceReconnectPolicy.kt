@@ -29,6 +29,11 @@ object CrossDeviceReconnectPolicy {
         reachabilityProbeRequested: Boolean = false,
     ): Boolean = !localAirPodsConnected || manualAttemptRequested || reachabilityProbeRequested
 
+    /** Only the remembered holder may recover without any reachable peers. */
+    fun mayRecoverOfflineLastHolder(leaseHolder: Boolean, leaseEverSet: Boolean,
+                                   anyPeerReachable: Boolean, peerHolding: Boolean): Boolean =
+        leaseHolder && leaseEverSet && !anyPeerReachable && !peerHolding
+
     /** Shared passive acquisition additionally needs a live distributed reservation. */
     fun mayPassivelyAcquire(
         shared: Boolean,
