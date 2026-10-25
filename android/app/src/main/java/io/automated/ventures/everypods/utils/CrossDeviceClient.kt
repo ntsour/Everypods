@@ -524,7 +524,10 @@ object CrossDeviceClient {
                         }
                         PeerV2Frame.Type.PING -> {
                             val nonce = message.fields["nonce"] as String
-                            val payload = mapOf("nonce" to nonce, "snapshot" to CrossDevice.currentV2Snapshot())
+                            // Also publish an authoritative snapshot for explicit refresh pings.
+                            val currentSnapshot = CrossDevice.currentV2Snapshot()
+                            check(queue.trySend(PeerV2Message.encode(PeerV2Frame.Type.SNAPSHOT, currentSnapshot).encode()).isSuccess) { "v2_writer_unavailable" }
+                            val payload = mapOf("nonce" to nonce, "snapshot" to currentSnapshot)
                             check(queue.trySend(PeerV2Message.encode(PeerV2Frame.Type.PONG, payload).encode()).isSuccess) { "v2_writer_unavailable" }
                         }
                         PeerV2Frame.Type.PONG -> {
