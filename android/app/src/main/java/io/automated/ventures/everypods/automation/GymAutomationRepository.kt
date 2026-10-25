@@ -114,6 +114,20 @@ object GymAutomationRepository {
             else candidate.copy(revision = old.revision)
     }
 
+    /**
+     * Calls [onChange] with the freshly decoded rule whenever it is written (by the UI, the
+     * coordinator or the debug hook). Returns the unsubscribe action. The listener is held
+     * strongly here because SharedPreferences only keeps a weak reference.
+     */
+    fun observeRule(ctx: Context, onChange: (GymAutomationRule) -> Unit): () -> Unit {
+        val p = prefs(ctx)
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { sp, key ->
+            if (key == KEY_RULE || key == null) onChange(decodeRule(sp.getString(KEY_RULE, null)))
+        }
+        p.registerOnSharedPreferenceChangeListener(listener)
+        return { p.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
+
     fun journal(ctx: Context): Journal = migrateJournal(decodeJournal(prefs(ctx).getString(KEY_JOURNAL, null)), rule(ctx))
     fun saveJournal(ctx: Context, j: Journal) { prefs(ctx).edit().putString(KEY_JOURNAL, encodeJournal(j)).commit() }
 

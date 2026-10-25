@@ -10,6 +10,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.Shadows.shadowOf
+import android.os.Looper
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
@@ -95,5 +97,19 @@ class GymAutomationRepositoryTest {
             insideZones = mapOf("a" to 2L, "b" to 5L))
         GymAutomationRepository.saveJournal(ctx, j)
         assertEquals(j, GymAutomationRepository.journal(ctx))
+    }
+
+    @Test fun observeRuleReportsExternalWritesUntilUnsubscribed() {
+        GymAutomationRepository.saveRule(ctx, GymAutomationRule())
+        val seen = mutableListOf<GymAutomationRule>()
+        val stop = GymAutomationRepository.observeRule(ctx) { seen += it }
+        val saved = GymAutomationRepository.saveRule(ctx, GymAutomationRepository.rule(ctx).copy(zones = listOf(zone("ext"))))
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(saved, seen.last())
+        stop()
+        val count = seen.size
+        GymAutomationRepository.saveRule(ctx, saved.copy(zones = emptyList()))
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(count, seen.size)
     }
 }

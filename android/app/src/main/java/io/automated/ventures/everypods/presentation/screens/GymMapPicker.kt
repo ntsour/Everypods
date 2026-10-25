@@ -4,8 +4,16 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import android.graphics.Outline
 import android.view.MotionEvent
+import android.view.View
+import android.view.ViewOutlineProvider
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -94,6 +102,12 @@ fun GymMapPicker(
 
     DisposableEffect(mapView) {
         mapView.setTileSource(TileSourceFactory.MAPNIK)
+        val radiusPx = MAP_CORNER_DP * context.resources.displayMetrics.density
+        mapView.outlineProvider = object : ViewOutlineProvider() {
+            override fun getOutline(view: View, outline: Outline) = outline.setRoundRect(0, 0, view.width, view.height, radiusPx)
+        }
+        mapView.clipToOutline = true
+        mapView.clipChildren = true
         mapView.setMultiTouchControls(true)
         mapView.zoomController.setVisibility(CustomZoomButtonsController.Visibility.SHOW_AND_FADEOUT)
         mapView.minZoomLevel = GymMapMath.MIN_ZOOM; mapView.maxZoomLevel = GymMapMath.MAX_ZOOM
@@ -153,13 +167,20 @@ fun GymMapPicker(
 
     Column {
         Text(stringResource(R.string.gym_map_pin_hint), modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-        AndroidView(factory = { mapView }, update = { redraw() },
-            modifier = Modifier.fillMaxWidth().height(320.dp).padding(horizontal = 16.dp))
+        // osmdroid pans by scrolling its own canvas; Compose draws the View without clipping
+        // to its bounds, so tiles leaked over neighbouring content. Clip the container to the
+        // rounded shape (Compose side) and the MapView to its outline (View side).
+        val shape = RoundedCornerShape(MAP_CORNER_DP.dp)
+        Box(Modifier.padding(horizontal = 16.dp).fillMaxWidth().height(320.dp)
+            .graphicsLayer { this.shape = shape; clip = true }.clip(shape)) {
+            AndroidView(factory = { mapView }, update = { redraw() }, modifier = Modifier.fillMaxSize())
+        }
         if (tilesFailed) Text(stringResource(R.string.gym_map_offline), modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
     }
 }
 
 private const val SETTLE_MS = 700L
+private const val MAP_CORNER_DP = 12
 
 /** OSM tile policy: identify the app, cache tiles; keep everything in app-private cache. */
 private fun configureOsmdroid(ctx: Context) {

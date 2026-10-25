@@ -7,6 +7,11 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material3.Icon
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -109,6 +114,11 @@ fun GymAutomationScreen() {
         val observer = LifecycleEventObserver { _, e -> if (e == Lifecycle.Event.ON_RESUME) { recheck(); GymGeofenceRegistrar.sync(context) } }
         lifecycle.addObserver(observer)
         onDispose { lifecycle.removeObserver(observer) }
+    }
+    // Live: zones/settings written elsewhere (coordinator, debug hook) show up immediately.
+    DisposableEffect(context) {
+        val stop = GymAutomationRepository.observeRule(context) { rule = it }
+        onDispose { stop() }
     }
     val requestLocation = rememberGymLocationPermissionAction { granted ->
         recheck()
@@ -291,9 +301,14 @@ private fun ZoneEditor(
 
 @Composable
 private fun ZoneRow(name: String, summary: String, dark: Boolean, onClick: () -> Unit) {
-    Column(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp)) {
-        Text(name, style = bodyStyle(dark).copy(fontWeight = FontWeight.SemiBold))
-        Text(summary, style = bodyStyle(dark))
+    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(name, style = bodyStyle(dark).copy(fontWeight = FontWeight.SemiBold))
+            Text(summary, style = bodyStyle(dark))
+        }
+        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = stringResource(R.string.gym_zone_edit),
+            tint = bodyStyle(dark).color)
     }
 }
 
