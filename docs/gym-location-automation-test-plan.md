@@ -81,3 +81,19 @@ re-checks on resume.
 | P4 | Grant (two-step) | Tap Grant → allow precise → row shows "Step 2 of 2" → tap Grant → App info opens → Permissions → Location → "Allow all the time" → back | Row shows ✓ within ~1 s. Gym automation editor shows the toggle enabled-able (no background hint). |
 | P5 | Revoke and return | With ✓, system Settings → app → Location → "Allow only while using" (or "Don't allow") → back to app | Permissions row returns to step 2 (or step 1). Gym editor on resume shows hint again; geofences are re-synced (`EveryPodsGymAuto` logs removal). The rule is not silently re-requested. |
 | P6 | Sync | Grant from the Gym editor, then open Permissions (or vice versa) | Both show the same state without restarting the app. |
+
+## Correctness cases (HR ownership, shared start, reconnect fix)
+
+Logcat: `adb logcat -s EveryPodsGymAuto EveryPodsHRM` (`ensureStarted source=… decision=…`, `presence fix=…`).
+
+| # | Case | Steps | Expected |
+|---|------|-------|----------|
+| C1 | Shortcut parity | With a sharing method selected and HR off, tap the case-art heart; separately trigger `arrive` | Both log `ensureStarted … decision=Start` and start the same method. With HR already running, `arrive` logs `AlreadyRunning` and HR keeps running |
+| C2 | No selection | Clear the sharing selection; `arrive` | Gym on, `decision=NoneSelected`, no HR. Tapping the case heart still starts monitoring only (unchanged manual behaviour) |
+| C3 | Missing permission | Revoke Nearby devices / notifications for the app, selected method set; `arrive` | No HR, no permission dialog from background; `decision=NeedsPermission`; Gym Mode still on |
+| C4 | Manual takeover | After case 1, stop HR on the case art and start it again (or switch transport in Heart rate settings); then `exit` + 3 min | Gym Mode restored; the manually (re)started HR keeps running |
+| C5 | Stops that are not overrides | After case 1, `exit` + 3 min (rule stops HR) then `arrive` again | HR starts again on the new visit (the rule's own stop and the Gym-off cleanup do not count as a manual stop) |
+| C6 | Notification stop | After case 1, stop HR from the HR notification | Same as case 10: no HR restart in this visit |
+| C7 | Reconnect fix, inside | Rule enabled, standing inside the zone, presence unknown (fresh install of the rule, or after reboot); connect AirPods | One `presence fix=INSIDE` within ~15 s, then Gym on once. After reboot with a suppressed visit, suppression is kept and HR is not replayed |
+| C8 | Reconnect fix, outside / poor fix | Same with AirPods connected well outside the zone; repeat indoors with weak GPS | `presence fix=OUTSIDE` (nothing applied) or `UNKNOWN` (nothing changes). Reconnecting again within 2 min triggers no second fix |
+| C9 | Process death during a visit | After case 1, `am kill`, reopen, reconnect AirPods | No HR restart; Gym Mode kept; "Resume for this visit" restarts HR via the shared step |
