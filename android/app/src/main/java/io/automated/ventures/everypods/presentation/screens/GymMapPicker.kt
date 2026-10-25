@@ -6,12 +6,9 @@ import android.os.Handler
 import android.os.Looper
 import android.view.MotionEvent
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -19,33 +16,40 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.foundation.layout.Arrangement
 import io.automated.ventures.everypods.BuildConfig
 import io.automated.ventures.everypods.R
 import io.automated.ventures.everypods.automation.GymMapMath
 import org.osmdroid.config.Configuration
-import org.osmdroid.events.MapEventsReceiver
+import org.osmdroid.events.MapListener
+import org.osmdroid.events.ScrollEvent
+import org.osmdroid.events.ZoomEvent
 import org.osmdroid.tileprovider.MapTileProviderBase
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.CustomZoomButtonsController
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.CopyrightOverlay
-import org.osmdroid.views.overlay.MapEventsOverlay
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polygon
 import java.io.File
 
+/** A programmatic "move the map here" request; [key] makes repeated requests distinct. */
+data class GymMapMove(val latitude: Double, val longitude: Double, val key: Long = System.nanoTime())
+
 /**
- * OpenStreetMap picker for the gym zone centre. Only composed when the user opens it, so
- * no tile request happens otherwise. Needs no location permission and never sends the
- * picked or saved point anywhere: tile servers only see which tiles are viewed.
+ * OpenStreetMap editor for one gym zone. The pin is fixed at the map centre: panning the
+ * map moves the zone. [onCenterChanged] reports live (for the coordinates text) and
+ * [onCenterSettled] fires once the map has been still for [SETTLE_MS], which is when the
+ * caller persists and re-registers geofences. Only composed while a zone is being edited,
+ * so no tile request happens otherwise. Needs no location permission; tile servers only
+ * see which tiles are viewed, never the saved zone.
  */
 @SuppressLint("ClickableViewAccessibility")
 @Composable
@@ -53,27 +57,40 @@ fun GymMapPicker(
     initialLat: Double?,
     initialLon: Double?,
     radiusMeters: Int,
-    onPick: (Double, Double) -> Unit,
+    move: GymMapMove?,
+    onCenterChanged: (Double, Double) -> Unit,
+    onCenterSettled: (Double, Double) -> Unit,
 ) {
     val context = LocalContext.current
-    var pin by remember { mutableStateOf(if (initialLat != null && initialLon != null) GeoPoint(initialLat, initialLon) else null) }
     var tilesFailed by remember { mutableStateOf(false) }
+    val changed by rememberUpdatedState(onCenterChanged)
+    val settled by rememberUpdatedState(onCenterSettled)
+    val radius by rememberUpdatedState(radiusMeters)
     val mapView = remember { configureOsmdroid(context); MapView(context) }
     val marker = remember { Marker(mapView).apply { setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM); setInfoWindow(null) } }
     val circle = remember { Polygon(mapView).apply {
         fillPaint.color = 0x330A84FF; outlinePaint.color = 0xFF0A84FF.toInt(); outlinePaint.strokeWidth = 4f; setInfoWindow(null)
     } }
+    val handler = remember { Handler(Looper.getMainLooper()) }
+    // Only user gestures and explicit move requests may change the zone; the initial
+    // camera placement must never persist anything (e.g. a new zone without a position).
+    val armed = remember { booleanArrayOf(false) }
 
+    fun center(): GeoPoint {
+        val c = mapView.mapCenter
+        return GeoPoint(GymMapMath.clampLatitude(c.latitude), GymMapMath.wrapLongitude(c.longitude))
+    }
     fun redraw() {
-        val p = pin
-        mapView.overlays.remove(marker); mapView.overlays.remove(circle)
-        if (p != null) {
-            marker.position = p
-            circle.points = Polygon.pointsAsCircle(p, radiusMeters.toDouble())
-            mapView.overlays.add(circle); mapView.overlays.add(marker)
-        }
+        val p = center()
+        marker.position = p
+        circle.points = Polygon.pointsAsCircle(p, radius.toDouble())
+        if (!mapView.overlays.contains(circle)) mapView.overlays.add(circle)
+        if (!mapView.overlays.contains(marker)) mapView.overlays.add(marker)
         mapView.invalidate()
     }
+    val settle = remember { Runnable {
+        if (armed[0]) { val (lat, lon) = center().let { GymMapMath.normalize(it.latitude, it.longitude) }; settled(lat, lon) }
+    } }
 
     DisposableEffect(mapView) {
         mapView.setTileSource(TileSourceFactory.MAPNIK)
@@ -82,60 +99,67 @@ fun GymMapPicker(
         mapView.minZoomLevel = GymMapMath.MIN_ZOOM; mapView.maxZoomLevel = GymMapMath.MAX_ZOOM
         mapView.isVerticalMapRepetitionEnabled = false
         mapView.overlays.add(CopyrightOverlay(context))
-        mapView.overlays.add(0, MapEventsOverlay(object : MapEventsReceiver {
-            override fun singleTapConfirmedHelper(p: GeoPoint): Boolean { pin = GeoPoint(p.latitude, GymMapMath.wrapLongitude(p.longitude)); redraw(); return true }
-            override fun longPressHelper(p: GeoPoint) = singleTapConfirmedHelper(p)
-        }))
+        mapView.addMapListener(object : MapListener {
+            override fun onScroll(event: ScrollEvent?): Boolean {
+                redraw()
+                if (armed[0]) {
+                    val c = center(); changed(c.latitude, c.longitude)
+                    handler.removeCallbacks(settle); handler.postDelayed(settle, SETTLE_MS)
+                }
+                return false
+            }
+            override fun onZoom(event: ZoomEvent?): Boolean { redraw(); return false }
+        })
         // Report tile failures (offline, server refusal) so the user knows to use other inputs.
         mapView.tileProvider.tileRequestCompleteHandlers.add(Handler(Looper.getMainLooper()) { msg ->
             if (msg.what == MapTileProviderBase.MAPTILE_FAIL_ID) tilesFailed = true
             else if (msg.what == MapTileProviderBase.MAPTILE_SUCCESS_ID) tilesFailed = false
             false
         })
-        // Keep the parent scroll from stealing pans/pinches.
+        // Keep the parent scroll from stealing pans/pinches; a touch arms persistence.
         mapView.setOnTouchListener { v, e ->
-            if (e.actionMasked == MotionEvent.ACTION_DOWN) v.parent?.requestDisallowInterceptTouchEvent(true)
+            if (e.actionMasked == MotionEvent.ACTION_DOWN) { armed[0] = true; v.parent?.requestDisallowInterceptTouchEvent(true) }
             false
         }
-        val start = pin
         mapView.post {
             val side = minOf(mapView.width, mapView.height).takeIf { it > 0 } ?: 800
-            if (start != null) {
-                mapView.controller.setZoom(GymMapMath.zoomForRadius(radiusMeters, start.latitude, side, context.resources.displayMetrics.density))
-                mapView.controller.setCenter(start)
+            if (initialLat != null && initialLon != null) {
+                mapView.controller.setZoom(GymMapMath.zoomForRadius(radius, initialLat, side, context.resources.displayMetrics.density))
+                mapView.controller.setCenter(GeoPoint(initialLat, initialLon))
             } else {
                 mapView.controller.setZoom(GymMapMath.MIN_ZOOM)
                 mapView.controller.setCenter(GeoPoint(30.0, 0.0))
             }
+            redraw()
         }
         mapView.onResume()
-        onDispose { mapView.onPause(); mapView.onDetach() }
+        onDispose {
+            // Flush a pending settle so a pan right before leaving is not lost.
+            if (handler.hasCallbacks(settle)) { handler.removeCallbacks(settle); settle.run() }
+            mapView.onPause(); mapView.onDetach()
+        }
     }
 
-    // Keep the pin in sync when the zone changes elsewhere (current location, typed coordinates).
-    LaunchedEffect(initialLat, initialLon) {
-        if (initialLat != null && initialLon != null && (pin?.latitude != initialLat || pin?.longitude != initialLon)) {
-            pin = GeoPoint(initialLat, initialLon)
-            mapView.controller.animateTo(pin)
+    // Explicit moves (current location, typed coordinates) persist like a pan.
+    LaunchedEffect(move) {
+        val m = move ?: return@LaunchedEffect
+        armed[0] = true
+        val side = minOf(mapView.width, mapView.height).takeIf { it > 0 } ?: 800
+        if (mapView.zoomLevelDouble < 12.0) {
+            mapView.controller.setZoom(GymMapMath.zoomForRadius(radius, m.latitude, side, context.resources.displayMetrics.density))
         }
+        mapView.controller.setCenter(GeoPoint(m.latitude, m.longitude))
     }
 
     Column {
-        Text(stringResource(R.string.gym_map_hint), modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+        Text(stringResource(R.string.gym_map_pin_hint), modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
         AndroidView(factory = { mapView }, update = { redraw() },
             modifier = Modifier.fillMaxWidth().height(320.dp).padding(horizontal = 16.dp))
         if (tilesFailed) Text(stringResource(R.string.gym_map_offline), modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-        Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = {
-                val c = mapView.mapCenter
-                pin = GeoPoint(GymMapMath.clampLatitude(c.latitude), GymMapMath.wrapLongitude(c.longitude)); redraw()
-            }) { Text(stringResource(R.string.gym_map_use_center)) }
-            Button(enabled = pin != null, onClick = {
-                pin?.let { val (lat, lon) = GymMapMath.normalize(it.latitude, it.longitude); onPick(lat, lon) }
-            }) { Text(stringResource(R.string.gym_map_save)) }
-        }
     }
 }
+
+private const val SETTLE_MS = 700L
 
 /** OSM tile policy: identify the app, cache tiles; keep everything in app-private cache. */
 private fun configureOsmdroid(ctx: Context) {
