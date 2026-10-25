@@ -32,7 +32,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -60,6 +59,9 @@ import io.automated.ventures.everypods.automation.GymAutomationStatus
 import io.automated.ventures.everypods.automation.GymGeofenceRegistrar
 import io.automated.ventures.everypods.automation.GymLocationPermission
 import io.automated.ventures.everypods.automation.GymZone
+import io.automated.ventures.everypods.automation.GymRadiusSliderState
+import io.automated.ventures.everypods.automation.GymZoneEdits
+import androidx.compose.runtime.rememberUpdatedState
 import io.automated.ventures.everypods.bluetooth.hrm.HeartRateSharingMethod
 import io.automated.ventures.everypods.bluetooth.hrm.HeartRateSharingPrefs
 import io.automated.ventures.everypods.presentation.components.SettingsSection
@@ -105,8 +107,6 @@ fun GymAutomationScreen() {
             GymGeofenceRegistrar.sync(context)
         }
     }
-    fun updateZone(id: String, change: (GymZone) -> GymZone) =
-        update { r -> r.copy(zones = r.zones.map { if (it.id == id) change(it) else it }) }
 
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(lifecycle) {
@@ -137,8 +137,9 @@ fun GymAutomationScreen() {
                 val index = rule.zones.indexOf(editing)
                 ZoneEditor(
                     zone = editing, displayName = zoneDisplayName(editing, index), fine = fine, dark = dark,
+                    start = GymZoneEdits.startPosition(null, rule),
                     onBack = { editingId = null },
-                    onUpdate = { change -> updateZone(editing.id, change) },
+                    onEdit = { change -> update(change) },
                     onRemove = {
                         update { r -> r.copy(zones = r.zones.filterNot { it.id == editing.id }) }
                         editingId = null
@@ -213,8 +214,9 @@ private fun ZoneEditor(
     displayName: String,
     fine: Boolean,
     dark: Boolean,
+    start: Pair<Double, Double>,
     onBack: () -> Unit,
-    onUpdate: ((GymZone) -> GymZone) -> Unit,
+    onEdit: ((GymAutomationRule) -> GymAutomationRule) -> Unit,
     onRemove: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -224,16 +226,50 @@ private fun ZoneEditor(
     var lonText by remember(zone.id) { mutableStateOf(zone.longitude?.let(::coord).orEmpty()) }
     var typed by remember(zone.id) { mutableStateOf(false) }
     var move by remember(zone.id) { mutableStateOf<GymMapMove?>(null) }
-    var radius by remember(zone.id) { mutableFloatStateOf(zone.radiusMeters.toFloat()) }
+    val slider = remember(zone.id) { GymRadiusSliderState(zone.radiusMeters) }
+    // What this editor last wrote or accepted from the store, so our own echoes are ignored
+    // and changes made elsewhere (debug hook, another screen) show up live.
+    var savedName by remember(zone.id) { mutableStateOf(zone.name) }
+    var savedPos by remember(zone.id) { mutableStateOf(zone.latitude to zone.longitude) }
+    val latestZone by rememberUpdatedState(zone)
+    val id = zone.id
     var note by remember(zone.id) { mutableStateOf<Int?>(null) }
     var confirmRemove by remember { mutableStateOf(false) }
     val cancel = remember { CancellationTokenSource() }
     DisposableEffect(Unit) { onDispose { cancel.cancel() } }
-    val step = GymAutomationRule.normalizeRadius(radius)
+    val step = slider.meters
 
-    // Debounced, always-persistent edits: no save button anywhere.
-    LaunchedEffect(zone.id, name) { if (name != zone.name) { delay(500); onUpdate { it.copy(name = name) } } }
-    LaunchedEffect(zone.id, step) { if (step != zone.radiusMeters) { delay(400); onUpdate { it.copy(radiusMeters = step) } } }
+    // Debounced, always-persistent edits: no save button anywhere. Each write changes only
+    // its own field of the latest stored zone.
+    LaunchedEffect(id, name) {
+        val target = name.trim().take(60)
+        if (target != savedName) { delay(500); savedName = target; onEdit { GymZoneEdits.withName(it, id, name) } }
+    }
+    LaunchedEffect(id, step) {
+        val target = slider.pendingWrite() ?: return@LaunchedEffect
+        delay(400); slider.markPersisted(target); onEdit { GymZoneEdits.withRadius(it, id, target) }
+    }
+    // Live updates from elsewhere.
+    LaunchedEffect(id, zone.radiusMeters) { slider.onStored(zone.radiusMeters) }
+    LaunchedEffect(id, zone.name) { if (zone.name != savedName) { savedName = zone.name; name = zone.name } }
+    LaunchedEffect(id, zone.latitude, zone.longitude) {
+        val la = zone.latitude; val lo = zone.longitude
+        if ((la to lo) != savedPos) {
+            savedPos = la to lo
+            if (la != null && lo != null) {
+                center = la to lo; latText = coord(la); lonText = coord(lo); typed = false
+                move = GymMapMove(la, lo, persist = false)
+            }
+        }
+    }
+    // A zone without a position opens near the current location when one is cached.
+    LaunchedEffect(id) {
+        if (!zone.hasLocation && fine) runCatching {
+            LocationServices.getFusedLocationProviderClient(context).lastLocation.addOnSuccessListener { loc ->
+                if (loc != null && !latestZone.hasLocation) move = GymMapMove(loc.latitude, loc.longitude, persist = false)
+            }
+        }
+    }
     LaunchedEffect(zone.id, latText, lonText, typed) {
         if (!typed) return@LaunchedEffect
         delay(800)
@@ -251,9 +287,15 @@ private fun ZoneEditor(
             center?.let { (la, lo) -> stringResource(R.string.gym_zone_pin_at, coord(la), coord(lo)) }
                 ?: stringResource(R.string.gym_zone_no_position),
             style = bodyStyle(dark), modifier = Modifier.padding(horizontal = 16.dp))
-        GymMapPicker(zone.latitude, zone.longitude, step, move,
+        GymMapPicker(zone.latitude ?: start.first, zone.longitude ?: start.second, step, move,
+            startIsZone = zone.hasLocation,
             onCenterChanged = { la, lo -> center = la to lo; if (!typed) { latText = coord(la); lonText = coord(lo) } },
-            onCenterSettled = { la, lo -> onUpdate { it.copy(latitude = la, longitude = lo) } },
+            onCenterSettled = { la, lo ->
+                if (GymZoneEdits.shouldPersistCenter(true, latestZone, la, lo)) {
+                    savedPos = la to lo
+                    onEdit { GymZoneEdits.withPosition(it, id, la, lo) }
+                }
+            },
         )
         GymButton(stringResource(R.string.gym_auto_use_current), enabled = fine) {
             LocationServices.getFusedLocationProviderClient(context)
@@ -277,8 +319,8 @@ private fun ZoneEditor(
     }
     StyledSlider(
         label = stringResource(R.string.gym_auto_radius, step),
-        value = radius,
-        onValueChange = { radius = GymAutomationRule.normalizeRadius(it).toFloat() },
+        value = slider.raw,
+        onValueChange = slider::onValueChange,
         valueRange = GymAutomationRule.MIN_RADIUS_M.toFloat()..GymAutomationRule.MAX_RADIUS_M.toFloat(),
         startLabel = stringResource(R.string.gym_auto_radius_value, GymAutomationRule.MIN_RADIUS_M),
         endLabel = stringResource(R.string.gym_auto_radius_value, GymAutomationRule.MAX_RADIUS_M),

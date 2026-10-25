@@ -49,7 +49,7 @@ import org.osmdroid.views.overlay.Polygon
 import java.io.File
 
 /** A programmatic "move the map here" request; [key] makes repeated requests distinct. */
-data class GymMapMove(val latitude: Double, val longitude: Double, val key: Long = System.nanoTime())
+data class GymMapMove(val latitude: Double, val longitude: Double, val persist: Boolean = true, val key: Long = System.nanoTime())
 
 /**
  * OpenStreetMap editor for one gym zone. The pin is fixed at the map centre: panning the
@@ -62,10 +62,11 @@ data class GymMapMove(val latitude: Double, val longitude: Double, val key: Long
 @SuppressLint("ClickableViewAccessibility")
 @Composable
 fun GymMapPicker(
-    initialLat: Double?,
-    initialLon: Double?,
+    initialLat: Double,
+    initialLon: Double,
     radiusMeters: Int,
     move: GymMapMove?,
+    startIsZone: Boolean,
     onCenterChanged: (Double, Double) -> Unit,
     onCenterSettled: (Double, Double) -> Unit,
 ) {
@@ -112,6 +113,8 @@ fun GymMapPicker(
         mapView.zoomController.setVisibility(CustomZoomButtonsController.Visibility.SHOW_AND_FADEOUT)
         mapView.minZoomLevel = GymMapMath.MIN_ZOOM; mapView.maxZoomLevel = GymMapMath.MAX_ZOOM
         mapView.isVerticalMapRepetitionEnabled = false
+        // Never pan past the Web Mercator edge (a hard fling used to reach Antarctica).
+        mapView.setScrollableAreaLimitLatitude(GymMapMath.MAX_LAT, -GymMapMath.MAX_LAT, 0)
         mapView.overlays.add(CopyrightOverlay(context))
         mapView.addMapListener(object : MapListener {
             override fun onScroll(event: ScrollEvent?): Boolean {
@@ -131,19 +134,25 @@ fun GymMapPicker(
             false
         })
         // Keep the parent scroll from stealing pans/pinches; a touch arms persistence.
+        // Only a real drag arms persistence: a tap (or a touch left over from opening the
+        // editor) must never save the camera position.
+        val slop = android.view.ViewConfiguration.get(context).scaledTouchSlop
+        val down = floatArrayOf(0f, 0f)
         mapView.setOnTouchListener { v, e ->
-            if (e.actionMasked == MotionEvent.ACTION_DOWN) { armed[0] = true; v.parent?.requestDisallowInterceptTouchEvent(true) }
+            when (e.actionMasked) {
+                MotionEvent.ACTION_DOWN -> { down[0] = e.x; down[1] = e.y; v.parent?.requestDisallowInterceptTouchEvent(true) }
+                MotionEvent.ACTION_MOVE -> {
+                    v.parent?.requestDisallowInterceptTouchEvent(true)
+                    if (e.pointerCount > 1 || Math.hypot((e.x - down[0]).toDouble(), (e.y - down[1]).toDouble()) > slop) armed[0] = true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> v.parent?.requestDisallowInterceptTouchEvent(false)
+            }
             false
         }
         mapView.post {
             val side = minOf(mapView.width, mapView.height).takeIf { it > 0 } ?: 800
-            if (initialLat != null && initialLon != null) {
-                mapView.controller.setZoom(GymMapMath.zoomForRadius(radius, initialLat, side, context.resources.displayMetrics.density))
-                mapView.controller.setCenter(GeoPoint(initialLat, initialLon))
-            } else {
-                mapView.controller.setZoom(GymMapMath.MIN_ZOOM)
-                mapView.controller.setCenter(GeoPoint(30.0, 0.0))
-            }
+            mapView.controller.setZoom(if (startIsZone) GymMapMath.zoomForRadius(radius, initialLat, side, context.resources.displayMetrics.density) else 13.0)
+            mapView.controller.setCenter(GeoPoint(GymMapMath.clampLatitude(initialLat), initialLon))
             redraw()
         }
         mapView.onResume()
@@ -157,12 +166,12 @@ fun GymMapPicker(
     // Explicit moves (current location, typed coordinates) persist like a pan.
     LaunchedEffect(move) {
         val m = move ?: return@LaunchedEffect
-        armed[0] = true
+        if (m.persist) armed[0] = true else handler.removeCallbacks(settle)
         val side = minOf(mapView.width, mapView.height).takeIf { it > 0 } ?: 800
         if (mapView.zoomLevelDouble < 12.0) {
             mapView.controller.setZoom(GymMapMath.zoomForRadius(radius, m.latitude, side, context.resources.displayMetrics.density))
         }
-        mapView.controller.setCenter(GeoPoint(m.latitude, m.longitude))
+        mapView.controller.setCenter(GeoPoint(GymMapMath.clampLatitude(m.latitude), m.longitude))
     }
 
     Column {
