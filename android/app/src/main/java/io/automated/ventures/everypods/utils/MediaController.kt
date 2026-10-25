@@ -299,6 +299,7 @@ object MediaController {
     private var mediaSessionManager: MediaSessionManager? = null
     private var mediaSessionsListener: MediaSessionManager.OnActiveSessionsChangedListener? = null
     private var mediaListenerComponent: ComponentName? = null
+    private var appPackageName: String? = null
     private val sessionCallbacks = mutableMapOf<android.media.session.MediaController, android.media.session.MediaController.Callback>()
     private val sessionLastState = mutableMapOf<android.media.session.MediaController, Int>()
 
@@ -452,6 +453,7 @@ object MediaController {
             handler.post { refreshMediaSessionMonitoring(app, force) }
             return
         }
+        appPackageName = app.packageName
         val component = MediaSessionAccess.enabledListener(app)
         mutableMediaSessionAccess.value = component != null
         if (!this::audioManager.isInitialized) return
@@ -513,6 +515,7 @@ object MediaController {
         val pkg = ctrl.packageName
         val startState = ctrl.playbackState?.state ?: PlaybackState.STATE_NONE
         sessionLastState[ctrl] = startState
+        if (startState == PlaybackState.STATE_PLAYING) lastPlayingSessionPackage = pkg
         Log.d("MediaController", "Tracking media session: $pkg initialState=$startState")
 
         val cb = object : android.media.session.MediaController.Callback() {
@@ -522,6 +525,7 @@ object MediaController {
                 sessionLastState[ctrl] = newState
                 Log.d("MediaController", "[session $pkg] state $prev → $newState")
                 if (newState == PlaybackState.STATE_PLAYING && prev != PlaybackState.STATE_PLAYING) {
+                    lastPlayingSessionPackage = pkg
                     if (relayAudioPlaybackActive) {
                         Log.d("MediaController", "Ignoring media-session start during Wi-Fi relay playback")
                         return
@@ -730,17 +734,94 @@ object MediaController {
     fun sendPlayPause() {
         val wasActive = audioManager.isMusicActive
         Log.d("MediaController", "Sending play/pause toggle (wasActive=$wasActive)")
+        if (!wasActive && tryDirectSessionResume("play/pause")) {
+            lastSelfActionAt = SystemClock.uptimeMillis()
+            iPausedTheMedia = false
+            return
+        }
+        dispatchPlayPauseKey()
+        lastSelfActionAt = SystemClock.uptimeMillis()
+        // If music was active, this press paused it → remember so auto-resume on ear-in works.
+        // If music was not active, this press is a play → clear the pause flag.
+        iPausedTheMedia = wasActive
+        if (wasActive) userPlayedTheMedia = false
+    }
+
+    /** Package of the session most recently seen PLAYING (preferred resume target). */
+    @Volatile
+    private var lastPlayingSessionPackage: String? = null
+
+    private fun dispatchPlayPauseKey() {
         audioManager.dispatchMediaKeyEvent(
             KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)
         )
         audioManager.dispatchMediaKeyEvent(
             KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)
         )
-        lastSelfActionAt = SystemClock.uptimeMillis()
-        // If music was active, this press paused it → remember so auto-resume on ear-in works.
-        // If music was not active, this press is a play → clear the pause flag.
-        iPausedTheMedia = wasActive
-        if (wasActive) userPlayedTheMedia = false
+    }
+
+    /**
+     * Android may have no media-button session ("Media button session is null"), so a
+     * generic key goes nowhere. Resume the best paused session directly instead.
+     * Returns true when a direct play() was issued (a verification fallback is scheduled).
+     */
+    private fun tryDirectSessionResume(reason: String): Boolean {
+        val msm = mediaSessionManager
+        val component = mediaListenerComponent
+        val controllers = if (msm != null && component != null) {
+            runCatching { msm.getActiveSessions(component) }.getOrElse {
+                Log.i("MediaController", "Stem resume: getActiveSessions failed (${it.message}); using media key")
+                emptyList()
+            }
+        } else emptyList()
+        val own = setOfNotNull(appPackageName)
+        val candidates = controllers.map { c ->
+            val st = c.playbackState
+            StemResumeSessionPicker.Candidate(
+                packageName = c.packageName,
+                state = st?.state ?: PlaybackState.STATE_NONE,
+                lastUpdateTime = st?.lastPositionUpdateTime ?: 0L,
+                usage = c.playbackInfo?.audioAttributes?.usage,
+                isRemote = c.playbackInfo?.playbackType ==
+                    android.media.session.MediaController.PlaybackInfo.PLAYBACK_TYPE_REMOTE,
+                hasPlayAction = st == null || st.actions == 0L ||
+                    (st.actions and (PlaybackState.ACTION_PLAY or PlaybackState.ACTION_PLAY_PAUSE)) != 0L,
+            )
+        }
+        val anyPlaying = candidates.any {
+            it.packageName !in own && StemResumeSessionPicker.isResumed(it.state)
+        }
+        val target = StemResumeSessionPicker.pick(candidates, own, lastPlayingSessionPackage)
+        val path = StemResumeSessionPicker.decide(
+            musicActive = false,
+            anySessionPlaying = anyPlaying,
+            hasSessionAccess = component != null,
+            target = target,
+        )
+        if (path != StemResumeSessionPicker.Path.DIRECT_SESSION || target == null) {
+            Log.i("MediaController", "Stem resume ($reason): path=KEY_EVENT access=${component != null} sessions=${candidates.size} anyPlaying=$anyPlaying")
+            return false
+        }
+        val ctrl = controllers.firstOrNull { it.packageName == target.packageName }
+        if (ctrl == null) return false
+        return try {
+            ctrl.transportControls.play()
+            Log.i("MediaController", "Stem resume ($reason): path=DIRECT_SESSION pkg=${target.packageName} state=${target.state}")
+            handler.postDelayed({
+                val now = runCatching { ctrl.playbackState?.state }.getOrNull()
+                if (StemResumeSessionPicker.isResumed(now) || audioManager.isMusicActive) {
+                    Log.i("MediaController", "Stem resume: DIRECT_SESSION confirmed pkg=${target.packageName} state=$now")
+                } else {
+                    Log.i("MediaController", "Stem resume: DIRECT_SESSION not playing after 1s (pkg=${target.packageName} state=$now); path=KEY_EVENT_RETRY")
+                    dispatchPlayPauseKey()
+                    lastSelfActionAt = SystemClock.uptimeMillis()
+                }
+            }, 1000L)
+            true
+        } catch (t: Exception) {
+            Log.i("MediaController", "Stem resume: direct play failed for ${target.packageName} (${t.message}); path=KEY_EVENT")
+            false
+        }
     }
 
     @Synchronized
