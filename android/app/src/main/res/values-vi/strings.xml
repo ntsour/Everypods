@@ -956,7 +956,6 @@ Yêu cầu giao thức: %4$d</string>
     <string name="gym_auto_disclosure">EveryPods dùng vị trí của bạn, kể cả khi ứng dụng đã đóng hoặc không được sử dụng, để bật Chế độ tập và chia sẻ nhịp tim bạn đã chọn khi bạn đến phòng tập đã lưu. Vị trí phòng tập chỉ lưu trên điện thoại này và không lưu lịch sử vị trí. Android và dịch vụ Google Play thực hiện việc phát hiện.</string>
     <string name="gym_auto_grant_precise">Cho phép vị trí chính xác</string>
     <string name="gym_auto_grant_background">Mở cài đặt vị trí</string>
-    <string name="gym_auto_background_hint">Trong cài đặt, mở Quyền, sau đó Vị trí, rồi chọn “Luôn cho phép”.</string>
     <string name="gym_auto_permission_denied">Tự động hóa phòng tập cần vị trí chính xác. Các phần khác của EveryPods vẫn hoạt động.</string>
     <string name="gym_auto_use_current">Dùng vị trí hiện tại</string>
     <string name="gym_auto_latitude">Vĩ độ</string>
@@ -1013,4 +1012,13 @@ Yêu cầu giao thức: %4$d</string>
     <string name="gym_zones_search_keywords">vị trí phòng gym, địa điểm, vùng, danh sách, nhiều phòng gym</string>
     <string name="gym_zone_edit_search_keywords">thêm vị trí, vị trí mới, sửa, đổi tên, xóa, gỡ, di chuyển ghim</string>
     <string name="gym_map_search_title">Bản đồ vị trí phòng gym</string>
+    <string name="gym_perm_fg_title">Bước 1/2: vị trí chính xác</string>
+    <string name="gym_perm_fg_body">Tự động hóa phòng tập cần vị trí chính xác của bạn để biết khi nào bạn đến phòng tập. Ở màn hình tiếp theo, giữ chọn «Chính xác» và chọn «Trong khi dùng ứng dụng». Sau đó bạn sẽ được yêu cầu cho phép mọi lúc.</string>
+    <string name="gym_perm_bg_dialog_title">Bước 2/2: luôn cho phép</string>
+    <string name="gym_perm_bg_dialog_body">Để phát hiện phòng tập khi EveryPods đã đóng, Android sẽ mở trang quyền vị trí. Chọn «%1$s» rồi quay lại. Vị trí chỉ lưu trên điện thoại này và không lưu lịch sử.</string>
+    <string name="gym_perm_settings_body">Tự động hóa phòng tập chưa bật: vị trí chỉ được phép «Trong khi dùng ứng dụng». Mở cài đặt, nhấn Quyền, rồi Vị trí, và chọn «%1$s».</string>
+    <string name="gym_perm_allow_all_fallback">Luôn cho phép</string>
+    <string name="gym_perm_continue">Tiếp tục</string>
+    <string name="gym_perm_not_now">Để sau</string>
+    <string name="gym_auto_while_using">Vị trí chỉ được phép khi đang dùng ứng dụng. Tự động hóa phòng tập cần «Luôn cho phép» để hoạt động ở chế độ nền.</string>
 </resources>

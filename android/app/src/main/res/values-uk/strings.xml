@@ -956,7 +956,6 @@
     <string name="gym_auto_disclosure">EveryPods використовує ваше місцезнаходження, навіть коли застосунок закритий або не використовується, щоб увімкнути режим спортзалу та вибраний обмін пульсом, коли ви прибуваєте до збереженого спортзалу. Розташування спортзалу зберігається лише на цьому телефоні, історія місцезнаходжень не ведеться. Визначення виконують Android і сервіси Google Play.</string>
     <string name="gym_auto_grant_precise">Дозволити точне місцезнаходження</string>
     <string name="gym_auto_grant_background">Відкрити налаштування геоданих</string>
-    <string name="gym_auto_background_hint">У налаштуваннях відкрийте Дозволи, потім Геодані, і виберіть «Дозволяти завжди».</string>
     <string name="gym_auto_permission_denied">Для автоматизації спортзалу потрібне точне місцезнаходження. Решта EveryPods працює без нього.</string>
     <string name="gym_auto_use_current">Використати поточне місцезнаходження</string>
     <string name="gym_auto_latitude">Широта</string>
@@ -1013,4 +1012,13 @@
     <string name="gym_zones_search_keywords">місця спортзалу, локації, зони, список, кілька спортзалів</string>
     <string name="gym_zone_edit_search_keywords">додати місце, нове місце, редагувати, перейменувати, видалити, стерти, перемістити мітку</string>
     <string name="gym_map_search_title">Карта місця спортзалу</string>
+    <string name="gym_perm_fg_title">Крок 1 з 2: точне місцезнаходження</string>
+    <string name="gym_perm_fg_body">Автоматизації спортзалу потрібне ваше точне місцезнаходження, щоб знати, коли ви приходите в зал. На наступному екрані залиште «Точне» і виберіть «Лише під час використання додатка». Далі вас попросять дозволити доступ завжди.</string>
+    <string name="gym_perm_bg_dialog_title">Крок 2 з 2: дозволити завжди</string>
+    <string name="gym_perm_bg_dialog_body">Щоб визначати спортзал, коли EveryPods закрито, Android відкриє сторінку дозволу на місцезнаходження. Виберіть «%1$s» і поверніться. Місцезнаходження залишається на цьому телефоні, історія не зберігається.</string>
+    <string name="gym_perm_settings_body">Автоматизація спортзалу ще не ввімкнена: доступ дозволено лише під час використання додатка. Відкрийте налаштування, торкніться «Дозволи», потім «Місцезнаходження» і виберіть «%1$s».</string>
+    <string name="gym_perm_allow_all_fallback">Дозволити завжди</string>
+    <string name="gym_perm_continue">Продовжити</string>
+    <string name="gym_perm_not_now">Не зараз</string>
+    <string name="gym_auto_while_using">Доступ до місцезнаходження дозволено лише під час використання додатка. Для роботи у фоні автоматизації потрібно «Дозволити завжди».</string>
 </resources>

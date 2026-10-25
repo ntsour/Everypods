@@ -956,7 +956,6 @@ Protokol istekleri: %4$d</string>
     <string name="gym_auto_disclosure">EveryPods, kayıtlı spor salonunuza vardığınızda Spor Modu’nu ve seçtiğiniz nabız paylaşımını açmak için uygulama kapalıyken veya kullanılmıyorken bile konumunuzu kullanır. Salonun konumu bu telefonda kalır ve konum geçmişi tutulmaz. Algılamayı Android ve Google Play hizmetleri yapar.</string>
     <string name="gym_auto_grant_precise">Hassas konuma izin ver</string>
     <string name="gym_auto_grant_background">Konum ayarlarını aç</string>
-    <string name="gym_auto_background_hint">Ayarlarda İzinler’i, ardından Konum’u açın ve “Her zaman izin ver”i seçin.</string>
     <string name="gym_auto_permission_denied">Spor salonu otomasyonu için hassas konum gerekir. EveryPods’un geri kalanı onsuz çalışır.</string>
     <string name="gym_auto_use_current">Mevcut konumu kullan</string>
     <string name="gym_auto_latitude">Enlem</string>
@@ -1013,4 +1012,13 @@ Protokol istekleri: %4$d</string>
     <string name="gym_zones_search_keywords">spor salonu konumları, yerler, bölgeler, liste, birden fazla salon</string>
     <string name="gym_zone_edit_search_keywords">konum ekle, yeni konum, düzenle, yeniden adlandır, kaldır, sil, iğneyi taşı</string>
     <string name="gym_map_search_title">Spor salonu konum haritası</string>
+    <string name="gym_perm_fg_title">Adım 1/2: hassas konum</string>
+    <string name="gym_perm_fg_body">Spor salonu otomasyonu, salona ne zaman vardığınızı bilmek için hassas konumunuza ihtiyaç duyar. Sonraki ekranda «Hassas» seçili kalsın ve «Uygulama kullanılırken» seçeneğini seçin. Ardından her zaman izin vermeniz istenecek.</string>
+    <string name="gym_perm_bg_dialog_title">Adım 2/2: her zaman izin ver</string>
+    <string name="gym_perm_bg_dialog_body">EveryPods kapalıyken salonunuzu algılamak için Android sırada konum izni sayfasını açar. «%1$s» seçeneğini seçip geri dönün. Konum bu telefonda kalır ve geçmiş tutulmaz.</string>
+    <string name="gym_perm_settings_body">Spor salonu otomasyonu henüz açık değil: konum «Uygulama kullanılırken» olarak ayarlı. Ayarları açın, İzinler’e, ardından Konum’a dokunun ve «%1$s» seçeneğini seçin.</string>
+    <string name="gym_perm_allow_all_fallback">Her zaman izin ver</string>
+    <string name="gym_perm_continue">Devam</string>
+    <string name="gym_perm_not_now">Şimdi değil</string>
+    <string name="gym_auto_while_using">Konuma yalnızca uygulama kullanılırken izin veriliyor. Spor salonu otomasyonunun arka planda çalışması için «Her zaman izin ver» gerekir.</string>
 </resources>

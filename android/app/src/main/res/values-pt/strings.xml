@@ -956,7 +956,6 @@ Pedidos do protocolo: %4$d</string>
     <string name="gym_auto_disclosure">O EveryPods usa a sua localização, mesmo com a app fechada ou sem uso, para ativar o modo ginásio e a partilha de frequência cardíaca escolhida quando chega ao ginásio guardado. A localização do ginásio fica neste telemóvel e não é guardado histórico de localizações. A deteção é feita pelo Android e pelos serviços Google Play.</string>
     <string name="gym_auto_grant_precise">Permitir localização precisa</string>
     <string name="gym_auto_grant_background">Abrir definições de localização</string>
-    <string name="gym_auto_background_hint">Nas definições, abra Autorizações, depois Localização, e escolha “Permitir sempre”.</string>
     <string name="gym_auto_permission_denied">A automação do ginásio requer localização precisa. O resto do EveryPods funciona sem ela.</string>
     <string name="gym_auto_use_current">Usar localização atual</string>
     <string name="gym_auto_latitude">Latitude</string>
@@ -1013,4 +1012,13 @@ Pedidos do protocolo: %4$d</string>
     <string name="gym_zones_search_keywords">locais do ginásio, lugares, zonas, lista, vários ginásios</string>
     <string name="gym_zone_edit_search_keywords">adicionar local, novo local, editar, mudar o nome, remover, eliminar, mover marcador</string>
     <string name="gym_map_search_title">Mapa do local do ginásio</string>
+    <string name="gym_perm_fg_title">Passo 1 de 2: localização precisa</string>
+    <string name="gym_perm_fg_body">A automação do ginásio precisa da sua localização precisa para saber quando chega ao ginásio. No ecrã seguinte, mantenha «Precisa» selecionada e escolha «Enquanto a app está a ser usada». Depois ser-lhe-á pedido para permitir sempre.</string>
+    <string name="gym_perm_bg_dialog_title">Passo 2 de 2: permitir sempre</string>
+    <string name="gym_perm_bg_dialog_body">Para detetar o ginásio com o EveryPods fechado, o Android abre a seguir a página da autorização de localização. Escolha «%1$s» e volte. A localização fica neste telefone e não é guardado histórico.</string>
+    <string name="gym_perm_settings_body">A automação do ginásio ainda não está ativa: a localização está em «Enquanto a app está a ser usada». Abra as definições, toque em Autorizações, depois Localização, e escolha «%1$s».</string>
+    <string name="gym_perm_allow_all_fallback">Permitir sempre</string>
+    <string name="gym_perm_continue">Continuar</string>
+    <string name="gym_perm_not_now">Agora não</string>
+    <string name="gym_auto_while_using">A localização só é permitida enquanto usa a app. A automação do ginásio precisa de «Permitir sempre» para funcionar em segundo plano.</string>
 </resources>

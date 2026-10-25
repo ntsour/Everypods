@@ -973,7 +973,6 @@ Protocol requests: %4$d</string>
     <string name="gym_auto_disclosure">EveryPods uses your location, even when the app is closed or not in use, to turn on Gym Mode and your selected heart-rate sharing when you arrive at your saved gym. The gym location stays on this phone and no location history is kept. Android and Google Play services perform the detection.</string>
     <string name="gym_auto_grant_precise">Allow precise location</string>
     <string name="gym_auto_grant_background">Open location settings</string>
-    <string name="gym_auto_background_hint">In settings, open Permissions, then Location, and choose “Allow all the time”.</string>
     <string name="gym_auto_permission_denied">Precise location is required for gym automation. The rest of EveryPods works without it.</string>
     <string name="gym_auto_use_current">Use current location</string>
     <string name="gym_auto_latitude">Latitude</string>
@@ -1030,4 +1029,13 @@ Protocol requests: %4$d</string>
     <string name="gym_zones_search_keywords">gym locations, places, zones, list, multiple gyms</string>
     <string name="gym_zone_edit_search_keywords">add location, new location, edit, rename, remove, delete, move pin</string>
     <string name="gym_map_search_title">Gym location map</string>
+    <string name="gym_perm_fg_title">Step 1 of 2: precise location</string>
+    <string name="gym_perm_fg_body">Gym automation needs your precise location to know when you arrive at your gym. On the next screen, keep “Precise” selected and choose “While using the app”. Next, you will be asked to allow it all the time.</string>
+    <string name="gym_perm_bg_dialog_title">Step 2 of 2: allow all the time</string>
+    <string name="gym_perm_bg_dialog_body">To detect your gym while EveryPods is closed, Android opens the location permission page next. Choose “%1$s”, then come back. The location stays on this phone and no history is kept.</string>
+    <string name="gym_perm_settings_body">Gym automation is not on yet: location is set to “While using the app”. Open settings, tap Permissions, then Location, and choose “%1$s”.</string>
+    <string name="gym_perm_allow_all_fallback">Allow all the time</string>
+    <string name="gym_perm_continue">Continue</string>
+    <string name="gym_perm_not_now">Not now</string>
+    <string name="gym_auto_while_using">Location is only allowed while using the app. Gym automation needs “Allow all the time” to work in the background.</string>
 </resources>

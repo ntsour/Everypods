@@ -956,7 +956,6 @@ Richieste protocollo: %4$d</string>
     <string name="gym_auto_disclosure">EveryPods usa la tua posizione, anche quando l’app è chiusa o non in uso, per attivare la modalità palestra e la condivisione del battito scelta quando arrivi alla palestra salvata. La posizione della palestra resta su questo telefono e non viene conservata alcuna cronologia. Il rilevamento è eseguito da Android e dai servizi Google Play.</string>
     <string name="gym_auto_grant_precise">Consenti posizione precisa</string>
     <string name="gym_auto_grant_background">Apri impostazioni posizione</string>
-    <string name="gym_auto_background_hint">Nelle impostazioni apri Autorizzazioni, poi Posizione, e scegli “Consenti sempre”.</string>
     <string name="gym_auto_permission_denied">L’automazione palestra richiede la posizione precisa. Il resto di EveryPods funziona anche senza.</string>
     <string name="gym_auto_use_current">Usa posizione attuale</string>
     <string name="gym_auto_latitude">Latitudine</string>
@@ -1013,4 +1012,13 @@ Richieste protocollo: %4$d</string>
     <string name="gym_zones_search_keywords">posizioni della palestra, luoghi, zone, elenco, più palestre</string>
     <string name="gym_zone_edit_search_keywords">aggiungi posizione, nuova posizione, modifica, rinomina, rimuovi, elimina, sposta segnaposto</string>
     <string name="gym_map_search_title">Mappa della posizione della palestra</string>
+    <string name="gym_perm_fg_title">Passaggio 1 di 2: posizione precisa</string>
+    <string name="gym_perm_fg_body">L’automazione palestra ha bisogno della tua posizione precisa per sapere quando arrivi in palestra. Nella schermata successiva lascia selezionato «Precisa» e scegli «Mentre usi l’app». Poi ti verrà chiesto di consentirla sempre.</string>
+    <string name="gym_perm_bg_dialog_title">Passaggio 2 di 2: consenti sempre</string>
+    <string name="gym_perm_bg_dialog_body">Per rilevare la palestra quando EveryPods è chiusa, Android aprirà la pagina dell’autorizzazione di posizione. Scegli «%1$s» e torna indietro. La posizione resta su questo telefono e non viene salvata alcuna cronologia.</string>
+    <string name="gym_perm_settings_body">L’automazione palestra non è ancora attiva: la posizione è impostata su «Mentre usi l’app». Apri le impostazioni, tocca Autorizzazioni, poi Posizione, e scegli «%1$s».</string>
+    <string name="gym_perm_allow_all_fallback">Consenti sempre</string>
+    <string name="gym_perm_continue">Continua</string>
+    <string name="gym_perm_not_now">Non ora</string>
+    <string name="gym_auto_while_using">La posizione è consentita solo mentre usi l’app. L’automazione palestra richiede «Consenti sempre» per funzionare in background.</string>
 </resources>

@@ -83,6 +83,8 @@ fun GymAutomationScreen() {
     var message by remember { mutableStateOf<Int?>(null) }
     var fine by remember { mutableStateOf(false) }
     var background by remember { mutableStateOf(false) }
+    // The user tapped "Enable" before "Allow all the time" was granted; finish once it is.
+    var pendingEnable by rememberSaveable { mutableStateOf(false) }
     val status by GymAutomationCoordinator.status.collectAsState()
     val method = remember(rule) { HeartRateSharingPrefs.configuredMethod(context) }
 
@@ -90,6 +92,15 @@ fun GymAutomationScreen() {
         val step = GymLocationPermission.step(context)
         fine = step != GymLocationPermission.Step.NEED_PRECISE
         background = step == GymLocationPermission.Step.GRANTED
+        val current = GymAutomationRepository.rule(context)
+        if (GymLocationPermission.shouldCompleteEnable(pendingEnable, step, current.hasLocation)) {
+            pendingEnable = false
+            if (!current.enabled) {
+                rule = GymAutomationRepository.saveRule(context, current.copy(enabled = true))
+                GymAutomationCoordinator.dispatch(context, Event.RuleChanged)
+                GymGeofenceRegistrar.sync(context)
+            }
+        }
         GymAutomationCoordinator.refreshStatus(context)
     }
     /**
@@ -155,14 +166,17 @@ fun GymAutomationScreen() {
                 SettingsSection(stringResource(R.string.gym_auto_title)) {
                     StyledToggle(label = stringResource(R.string.gym_auto_enable), checked = rule.enabled,
                         description = if (!rule.hasLocation || !background) stringResource(R.string.gym_auto_status_setup) else null,
-                        enabled = rule.hasLocation && background,
-                        onCheckedChange = { on -> update { it.copy(enabled = on) } })
+                        enabled = rule.hasLocation,
+                        onCheckedChange = { on ->
+                            if (on && !background) { pendingEnable = true; requestLocation() }
+                            else { pendingEnable = false; update { it.copy(enabled = on) } }
+                        })
                 }
                 SettingsSection(stringResource(R.string.gym_auto_permissions)) {
                     Text(stringResource(R.string.gym_auto_disclosure), style = bodyStyle(dark), modifier = Modifier.padding(16.dp))
                     if (!fine) GymButton(stringResource(R.string.gym_auto_grant_precise), onClick = requestLocation)
                     else if (!background) {
-                        Text(stringResource(R.string.gym_auto_background_hint), style = bodyStyle(dark), modifier = Modifier.padding(horizontal = 16.dp))
+                        Text(stringResource(R.string.gym_auto_while_using), style = bodyStyle(dark), modifier = Modifier.padding(horizontal = 16.dp))
                         GymButton(stringResource(R.string.gym_auto_grant_background), onClick = requestLocation)
                     }
                     message?.let { Text(stringResource(it), style = bodyStyle(dark), modifier = Modifier.padding(16.dp)) }

@@ -956,7 +956,6 @@
     <string name="gym_auto_disclosure">即使應用程式已關閉或未在使用，EveryPods 也會使用你的位置資訊，在你抵達已儲存的健身房時開啟健身模式和你選擇的心率分享。健身房位置只儲存在這支手機上，不會保留位置記錄。偵測由 Android 和 Google Play 服務執行。</string>
     <string name="gym_auto_grant_precise">允許使用精確位置</string>
     <string name="gym_auto_grant_background">開啟位置資訊設定</string>
-    <string name="gym_auto_background_hint">在設定中開啟「權限」，接著開啟「位置資訊」，並選擇「一律允許」。</string>
     <string name="gym_auto_permission_denied">健身房自動化需要精確位置。EveryPods 的其他功能不需要此權限也能使用。</string>
     <string name="gym_auto_use_current">使用目前位置</string>
     <string name="gym_auto_latitude">緯度</string>
@@ -1013,4 +1012,13 @@
     <string name="gym_zones_search_keywords">健身房位置, 地點, 區域, 清單, 多個健身房</string>
     <string name="gym_zone_edit_search_keywords">新增位置, 新位置, 編輯, 重新命名, 移除, 刪除, 移動圖釘</string>
     <string name="gym_map_search_title">健身房位置地圖</string>
+    <string name="gym_perm_fg_title">第 1 步（共 2 步）：精確位置</string>
+    <string name="gym_perm_fg_body">健身房自動化需要你的精確位置，才能知道你何時抵達健身房。在下一個畫面中，請保持選取「精確」，然後選擇「僅在使用該應用程式時允許」。接著會請你一律允許。</string>
+    <string name="gym_perm_bg_dialog_title">第 2 步（共 2 步）：一律允許</string>
+    <string name="gym_perm_bg_dialog_body">為了在 EveryPods 關閉時也能偵測健身房，Android 接下來會開啟位置權限頁面。請選擇「%1$s」，然後返回。位置只會儲存在這支手機上，不會保留記錄。</string>
+    <string name="gym_perm_settings_body">健身房自動化尚未開啟：位置權限為「僅在使用該應用程式時允許」。請開啟設定，輕觸「權限」，再輕觸「位置」，然後選擇「%1$s」。</string>
+    <string name="gym_perm_allow_all_fallback">一律允許</string>
+    <string name="gym_perm_continue">繼續</string>
+    <string name="gym_perm_not_now">以後再說</string>
+    <string name="gym_auto_while_using">僅在使用應用程式時允許存取位置。健身房自動化需要「一律允許」才能在背景運作。</string>
 </resources>

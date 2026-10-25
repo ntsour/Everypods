@@ -955,7 +955,6 @@ Protokollanfragen: %4$d</string>
     <string name="gym_auto_disclosure">EveryPods verwendet deinen Standort, auch wenn die App geschlossen ist oder nicht verwendet wird, um bei Ankunft in deinem gespeicherten Fitnessstudio den Gym-Modus und die ausgewählte Herzfrequenzfreigabe einzuschalten. Der Standort des Studios bleibt auf diesem Telefon, es wird kein Standortverlauf gespeichert. Die Erkennung übernehmen Android und Google Play-Dienste.</string>
     <string name="gym_auto_grant_precise">Genauen Standort erlauben</string>
     <string name="gym_auto_grant_background">Standorteinstellungen öffnen</string>
-    <string name="gym_auto_background_hint">Öffne in den Einstellungen Berechtigungen, dann Standort, und wähle „Immer zulassen“.</string>
     <string name="gym_auto_permission_denied">Für die Fitnessstudio-Automatik ist der genaue Standort erforderlich. Der Rest von EveryPods funktioniert ohne ihn.</string>
     <string name="gym_auto_use_current">Aktuellen Standort verwenden</string>
     <string name="gym_auto_latitude">Breitengrad</string>
@@ -1012,4 +1011,13 @@ Protokollanfragen: %4$d</string>
     <string name="gym_zones_search_keywords">Fitnessstudio-Standorte, Orte, Zonen, Liste, mehrere Studios</string>
     <string name="gym_zone_edit_search_keywords">Standort hinzufügen, neuer Standort, bearbeiten, umbenennen, entfernen, löschen, Markierung verschieben</string>
     <string name="gym_map_search_title">Karte für den Fitnessstudio-Standort</string>
+    <string name="gym_perm_fg_title">Schritt 1 von 2: genauer Standort</string>
+    <string name="gym_perm_fg_body">Die Gym-Automatik braucht deinen genauen Standort, um zu erkennen, wann du im Fitnessstudio ankommst. Lass im nächsten Fenster „Genau“ ausgewählt und wähle „Während der App-Nutzung“. Danach wirst du gebeten, den Zugriff immer zu erlauben.</string>
+    <string name="gym_perm_bg_dialog_title">Schritt 2 von 2: immer zulassen</string>
+    <string name="gym_perm_bg_dialog_body">Damit dein Fitnessstudio auch bei geschlossener App erkannt wird, öffnet Android als Nächstes die Standortberechtigung. Wähle „%1$s“ und kehre dann zurück. Der Standort bleibt auf diesem Telefon, es wird kein Verlauf gespeichert.</string>
+    <string name="gym_perm_settings_body">Die Gym-Automatik ist noch nicht aktiv: Der Standort ist auf „Während der App-Nutzung“ gesetzt. Öffne die Einstellungen, tippe auf Berechtigungen, dann Standort, und wähle „%1$s“.</string>
+    <string name="gym_perm_allow_all_fallback">Immer zulassen</string>
+    <string name="gym_perm_continue">Weiter</string>
+    <string name="gym_perm_not_now">Nicht jetzt</string>
+    <string name="gym_auto_while_using">Standort ist nur während der App-Nutzung erlaubt. Die Gym-Automatik braucht „Immer zulassen“, um im Hintergrund zu funktionieren.</string>
 </resources>

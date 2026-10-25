@@ -956,7 +956,6 @@ Requêtes du protocole : %4$d</string>
     <string name="gym_auto_disclosure">EveryPods utilise votre position, même lorsque l’app est fermée ou inutilisée, pour activer le mode sport et le partage de fréquence cardiaque choisi lorsque vous arrivez à votre salle enregistrée. La position de la salle reste sur ce téléphone et aucun historique de position n’est conservé. La détection est assurée par Android et les services Google Play.</string>
     <string name="gym_auto_grant_precise">Autoriser la position précise</string>
     <string name="gym_auto_grant_background">Ouvrir les réglages de position</string>
-    <string name="gym_auto_background_hint">Dans les réglages, ouvrez Autorisations, puis Position, et choisissez « Toujours autoriser ».</string>
     <string name="gym_auto_permission_denied">L’automatisation nécessite la position précise. Le reste d’EveryPods fonctionne sans elle.</string>
     <string name="gym_auto_use_current">Utiliser la position actuelle</string>
     <string name="gym_auto_latitude">Latitude</string>
@@ -1013,4 +1012,13 @@ Requêtes du protocole : %4$d</string>
     <string name="gym_zones_search_keywords">lieux de salle de sport, endroits, zones, liste, plusieurs salles</string>
     <string name="gym_zone_edit_search_keywords">ajouter un lieu, nouveau lieu, modifier, renommer, supprimer, effacer, déplacer l\'épingle</string>
     <string name="gym_map_search_title">Carte du lieu de la salle</string>
+    <string name="gym_perm_fg_title">Étape 1 sur 2 : position exacte</string>
+    <string name="gym_perm_fg_body">L’automatisation de la salle de sport a besoin de votre position exacte pour savoir quand vous arrivez. Sur l’écran suivant, laissez « Position exacte » sélectionnée et choisissez « Lorsque vous utilisez l’application ». Ensuite, il vous sera demandé de l’autoriser tout le temps.</string>
+    <string name="gym_perm_bg_dialog_title">Étape 2 sur 2 : toujours autoriser</string>
+    <string name="gym_perm_bg_dialog_body">Pour détecter votre salle quand EveryPods est fermé, Android ouvre ensuite la page d’autorisation de localisation. Choisissez « %1$s », puis revenez. La position reste sur ce téléphone et aucun historique n’est conservé.</string>
+    <string name="gym_perm_settings_body">L’automatisation n’est pas encore active : la localisation est réglée sur « Lorsque vous utilisez l’application ». Ouvrez les paramètres, touchez Autorisations, puis Position, et choisissez « %1$s ».</string>
+    <string name="gym_perm_allow_all_fallback">Toujours autoriser</string>
+    <string name="gym_perm_continue">Continuer</string>
+    <string name="gym_perm_not_now">Pas maintenant</string>
+    <string name="gym_auto_while_using">La localisation n’est autorisée que pendant l’utilisation de l’application. L’automatisation a besoin de « Toujours autoriser » pour fonctionner en arrière-plan.</string>
 </resources>
