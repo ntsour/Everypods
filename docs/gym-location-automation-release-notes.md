@@ -1,7 +1,7 @@
 # Gym location automation — privacy and release checklist
 
 - Location permissions (`ACCESS_FINE/COARSE_LOCATION`, `ACCESS_BACKGROUND_LOCATION`) are requested only from the Gym automation editor, after an in-app prominent disclosure. Never at startup or from a geofence callback.
-- The gym centre, radius and a small visit journal (presence, ownership/suppression flags, no coordinates) are stored in the app-private `gym_automation` preferences. `allowBackup=false` already applies. No location history, analytics or sync. Logs never contain coordinates.
+- Up to 10 gym locations (name, centre, radius) and a small visit journal (presence, zone ids inside, ownership/suppression flags, no coordinates) are stored in the app-private `gym_automation` preferences. `allowBackup=false` already applies. No location history, analytics or sync. Logs never contain coordinates.
 - Detection is done by Android / Google Play services geofencing (`play-services-location` 21.4.0).
 - **Play release (not done):** background location needs a Play Console permissions declaration, a demo video of the prominent disclosure and feature, and privacy-policy coverage. Approval isn't guaranteed for an optional feature. If a Play build ships without the feature, remove the background permission and the registration code together.
 - The debug-only simulator receiver lives in `src/debug` and is not in release builds.
@@ -15,7 +15,7 @@
   Tiles are requested from `tile.openstreetmap.org` only while the user has the picker
   open on the Gym automation screen. The request reveals the viewed map area (tile
   x/y/zoom), the device IP and the User-Agent `EveryPods/<version> (Android; <package>)`.
-  The picked point and the saved zone are never sent; they are stored only in the app's
+  The picked point and the saved zones are never sent; they are stored only in the app's
   private preferences, as before.
 - Geofencing, the visit state machine and background work make no network calls and do
   not load the map. Tile cache lives in the app cache dir (max 50 MB, trimmed to 40 MB),

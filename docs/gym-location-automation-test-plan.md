@@ -4,8 +4,9 @@ Branch `feature/gym-location-automation`. Spec: `docs/location-gym-automation-im
 Debug build only (`io.automated.ventures.everypods`, `-debug` version suffix). Record device, Android version and build SHA for each run.
 
 ## What the feature does
-- One saved gym zone (geofence). Inner circle = radius (default 150 m, presets 100/150/250/500/1000 m); arrival is a 60 s DWELL.
-- Outer circle = radius + max(50 m, 25 %); an EXIT there starts a **3 min departure grace**. Coming back (DWELL) inside the grace cancels departure.
+- Up to **10 gym locations** (zones), each with its own name and radius. Radius slider 20–300 m in 20 m steps (default 160 m). Below 100 m the geofence is still registered at 100 m (Play services minimum) and the editor shows a warning. Arrival in any zone is a 60 s DWELL.
+- Overlapping zones count as one visit: inside if inside **any** zone, left only when outside **all** zones.
+- Outer circle = geofence radius + max(50 m, 25 %); an EXIT there starts a **3 min departure grace**. Coming back (DWELL) inside the grace cancels departure.
 - Condition: AirPods locally connected (AACP link). Arrival without AirPods waits; connecting later activates once.
 - Actions: Gym Mode on (existing saved gym press controls apply). Heart rate: **only** the explicitly selected sharing method (Heart rate settings) is started, via the same service command as the case-art shortcut. No selection → no HR. HR already running → left alone, not owned.
 - Departure (restore on): Gym Mode off only if the rule turned it on; HR stopped only if the rule started it.
@@ -16,7 +17,7 @@ Debug build only (`io.automated.ventures.everypods`, `-debug` version suffix). R
 ## Setup
 1. Smart features → Gym Mode → **Gym automation** (also under Automation, and in search).
 2. Tap **Allow precise location** (foreground prompt), then **Open location settings** → Permissions → Location → “Allow all the time”. Return; screen rechecks.
-3. Save a location (Use current location, or type lat/lon → Save coordinates). Toggle **Enable automation** (disabled until location + background permission).
+3. Add location → pan the map under the fixed centre pin (saved automatically ~0.7 s after the map settles), or Use current location / type lat/lon. Toggle **Enable automation** (disabled until location + background permission).
 4. Heart rate settings: pick a sharing method (or none) depending on the case.
 
 ## Logcat
@@ -30,7 +31,7 @@ adb logcat -s EveryPodsGymAuto EveryPodsHRM AirPodsService
 - **Debug hook (preferred for logic/wiring)** — debug builds only, exported receiver guarded by `android.permission.DUMP` (adb shell has it). Same receiver → coordinator path as real geofences:
   ```
   A=io.automated.ventures.everypods.debug.GYM_AUTOMATION
-  adb shell am broadcast -a $A -p io.automated.ventures.everypods --es cmd configure --ef lat 40.4168 --ef lon -3.7038 --ei radius 150 --ez enabled true
+  adb shell am broadcast -a $A -p io.automated.ventures.everypods --es cmd configure --ef lat 40.4168 --ef lon -3.7038 --ei radius 160 --ez enabled true   # --ei zone <index> selects/adds a zone (index == count adds), --es name <name>; cmd remove --ei zone <index> removes; arrive/exit accept --ei zone
   adb shell am broadcast -a $A -p io.automated.ventures.everypods --es cmd arrive      # inner DWELL
   adb shell am broadcast -a $A -p io.automated.ventures.everypods --es cmd exit        # outer EXIT (grace starts)
   adb shell am broadcast -a $A -p io.automated.ventures.everypods --es cmd grace       # force grace re-check (only departs after 3 min)
@@ -86,12 +87,28 @@ re-checks on resume.
 
 | # | Case | Steps | Expected |
 |---|------|-------|----------|
-| M1 | No permission | Revoke all location → Gym automation → Pick on map | Map loads; tap places pin + circle; Save pinned location stores coordinates (fields update). No permission dialog. |
-| M2 | Radius live | Map open with pin → tap radius presets | Circle resizes immediately. |
-| M3 | Use map center | Pan map → Use map center | Pin moves to centre. |
-| M4 | Offline | Airplane mode → Pick on map | "Map tiles could not be loaded…" shown; typed coordinates and Use current location (with GPS) still work. |
+| M1 | No permission | Revoke all location → Gym automation → Add location | Map loads with the pin fixed at the centre; pan → coordinates text updates; after settling, the zone is saved (back to list shows it). No permission dialog, no save button. |
+| M2 | Radius live | Edit view → drag radius slider | Circle resizes immediately; value snaps to 20 m steps (20–300 m); <100 m shows the small-zone warning. |
+| M3 | Debounced persist | Fling the map repeatedly | One `rule changed`/geofence sync per settle (logcat), not per frame. Opening the editor without touching the map does not write. |
+| M4 | Offline | Airplane mode → Edit a location | "Map tiles could not be loaded…" shown; typed coordinates and Use current location (with GPS) still work. |
 | M5 | No idle network | Close map; leave app; trigger debug arrive/exit | No tile requests (`adb logcat -s OsmDroid` silent); geofence logs unchanged. |
 | M6 | Attribution | Map open | "© OpenStreetMap contributors" visible. |
+
+## Multi-zone cases
+
+| # | Case | Steps | Expected |
+|---|------|-------|----------|
+| Z1 | Migration | Install over a build with one saved zone (schema 1) | One location appears with the same name (or "Gym 1"), coordinates, radius snapped to the grid (150→160, 500/1000→300); an active visit continues; old geofence ids still recognised. |
+| Z2 | Add / cap | Add locations until 10 | Each gets "Gym N"; at 10 the Add button is replaced by the cap message. |
+| Z3 | Rename | Edit → change name | List updates; no geofence re-registration (logcat), visit untouched. |
+| Z4 | Inside A then B | debug `arrive --ei zone 0`, then `arrive --ei zone 1` | Actions applied once; second arrival changes nothing. |
+| Z5 | Leave A, still in B | then `exit --ei zone 0` | No grace, Gym stays on. |
+| Z6 | Leave all | then `exit --ei zone 1` | 3 min grace, then owned changes restored. Re-arriving in any zone during grace cancels it. |
+| Z7 | Remove active zone | Inside only A → Edit A → Remove location → confirm | Confirmation dialog first; then 3 min grace (never instant restore). If also inside B: visit continues. |
+| Z8 | Move active zone | Inside A → pan A's pin | A dropped until its new fence's initial DWELL; grace runs, re-confirmation cancels it, same visit. |
+| Z9 | Add during visit | Inside A → Add location | Visit unchanged; new fences registered. |
+| Z10 | Process death | During a visit with 2 zones `adb shell am kill io.automated.ventures.everypods`, then exit both | State restored from journal (inside zones persisted); grace and restore behave as Z6. |
+| Z11 | Search | Settings search "radius", "add location", "remove", "map" (EN/ES/EL) | Gym automation result opens the gym screen. |
 
 ## Correctness cases (HR ownership, shared start, reconnect fix)
 
