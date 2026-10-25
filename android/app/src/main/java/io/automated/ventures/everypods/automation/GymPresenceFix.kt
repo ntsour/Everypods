@@ -20,16 +20,16 @@ import java.util.concurrent.atomic.AtomicBoolean
  */
 object GymPresenceFix {
     @SuppressLint("MissingPermission") // Caller checks GymGeofenceRegistrar.hasPermissions.
-    fun request(ctx: Context, rule: GymAutomationRule, done: (Presence) -> Unit) {
-        val lat = rule.latitude
-        val lon = rule.longitude
-        if (lat == null || lon == null) { done(Presence.UNKNOWN); return }
+    fun request(ctx: Context, rule: GymAutomationRule, done: (Presence, Map<String, Long>) -> Unit) {
+        val zones = rule.validZones
+        if (zones.isEmpty()) { done(Presence.UNKNOWN, emptyMap()); return }
         val once = AtomicBoolean(false)
-        val finish = { p: Presence -> if (once.compareAndSet(false, true)) done(p) }
+        val finish = { p: Pair<Presence, Map<String, Long>> -> if (once.compareAndSet(false, true)) done(p.first, p.second) }
+        val unknown = Presence.UNKNOWN to emptyMap<String, Long>()
         val cancel = CancellationTokenSource()
         val main = Handler(Looper.getMainLooper())
         // Our own cap in case Play services never completes the task.
-        main.postDelayed({ cancel.cancel(); finish(Presence.UNKNOWN) }, PresenceEvidence.FIX_TIMEOUT_MS)
+        main.postDelayed({ cancel.cancel(); finish(unknown) }, PresenceEvidence.FIX_TIMEOUT_MS)
         val request = CurrentLocationRequest.Builder()
             .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
             .setDurationMillis(PresenceEvidence.FIX_TIMEOUT_MS)
@@ -37,23 +37,26 @@ object GymPresenceFix {
             .build()
         runCatching {
             LocationServices.getFusedLocationProviderClient(ctx).getCurrentLocation(request, cancel.token)
-                .addOnSuccessListener { loc -> finish(classify(loc, lat, lon, rule)) }
+                .addOnSuccessListener { loc -> finish(classify(loc, zones)) }
                 .addOnFailureListener { e ->
                     Log.w(GymAutomationCoordinator.TAG, "presence fix failed: ${e.javaClass.simpleName}")
-                    finish(Presence.UNKNOWN)
+                    finish(unknown)
                 }
         }.onFailure {
             Log.w(GymAutomationCoordinator.TAG, "presence fix error: ${it.javaClass.simpleName}")
-            finish(Presence.UNKNOWN)
+            finish(unknown)
         }
     }
 
-    private fun classify(loc: Location?, lat: Double, lon: Double, rule: GymAutomationRule): Presence {
-        if (loc == null || !loc.hasAccuracy()) return Presence.UNKNOWN
-        val out = FloatArray(1)
-        Location.distanceBetween(loc.latitude, loc.longitude, lat, lon, out)
+    private fun classify(loc: Location?, zones: List<GymZone>): Pair<Presence, Map<String, Long>> {
+        if (loc == null || !loc.hasAccuracy()) return Presence.UNKNOWN to emptyMap()
         val ageMs = (SystemClock.elapsedRealtimeNanos() - loc.elapsedRealtimeNanos) / 1_000_000
-        return PresenceEvidence.classify(out[0].toDouble(), loc.accuracy.toDouble(), ageMs,
-            rule.radiusMeters, rule.exitRadiusMeters)
+        val perZone = zones.map { z ->
+            val out = FloatArray(1)
+            Location.distanceBetween(loc.latitude, loc.longitude, z.latitude!!, z.longitude!!, out)
+            z to PresenceEvidence.classify(out[0].toDouble(), loc.accuracy.toDouble(), ageMs,
+                z.geofenceRadiusMeters, z.exitRadiusMeters)
+        }
+        return PresenceEvidence.combine(perZone.map { (z, p) -> Triple(z.id, z.revision, p) })
     }
 }

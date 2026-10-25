@@ -33,6 +33,13 @@ data class Journal(
     /** User stopped heart rate during this visit (or it was interrupted by a restart). */
     val hrSuppressed: Boolean = false,
     val locationUnavailable: Boolean = false,
+    /**
+     * Zones (id to geometry revision) whose inner boundary this visit is inside. The visit
+     * only starts its departure grace when the last one is left, edited or removed.
+     */
+    val insideZones: Map<String, Long> = emptyMap(),
+    /** Decoded from a schema-1 journal (no zone set yet); resolved by the repository. */
+    val legacyInside: Boolean = false,
 )
 
 /** Live state the coordinator reads just before reducing. */
@@ -51,13 +58,19 @@ data class Snapshot(
     val hrSelectedMethod: String?,
     /** Live owner of the running heart-rate session (persisted by the service), else null. */
     val hrOwner: HeartRateSource? = null,
-)
+    /** Geometry revision of every registrable zone. Empty means a single zone keyed by [ruleRevision]. */
+    val zoneRevisions: Map<String, Long> = emptyMap(),
+) {
+    /** Whether a transition for [zoneId] at [revision] belongs to the current registration. */
+    fun isCurrent(zoneId: String, revision: Long): Boolean =
+        if (zoneRevisions.isEmpty()) revision == ruleRevision else zoneRevisions[zoneId] == revision
+}
 
 sealed interface Event {
     /** Inner-boundary DWELL for [revision]. */
-    data class Arrived(val revision: Long, val visitId: String) : Event
+    data class Arrived(val revision: Long, val visitId: String, val zoneId: String = SINGLE_ZONE) : Event
     /** Outer-boundary EXIT for [revision]: starts the departure grace period. */
-    data class Exited(val revision: Long) : Event
+    data class Exited(val revision: Long, val zoneId: String = SINGLE_ZONE) : Event
     /** Grace timer fired (or reconciliation found the deadline elapsed). */
     data object GraceCheck : Event
     /** Geofence error, provider off, permission revoked: never counts as leaving. */
@@ -72,11 +85,20 @@ sealed interface Event {
      * Result of one bounded current-location fix taken on reconnect/restart while presence
      * was UNKNOWN. [presence] is UNKNOWN when the fix was stale, inaccurate or missing.
      */
-    data class PresenceFix(val revision: Long, val presence: Presence, val visitId: String) : Event
+    data class PresenceFix(
+        val revision: Long, val presence: Presence, val visitId: String,
+        /** Zones (id to revision) the fix placed us inside; only meaningful for INSIDE. */
+        val zones: Map<String, Long> = emptyMap(),
+    ) : Event
     /** Process start; journal restored from storage. */
     data object ColdStart : Event
-    /** Rule edited/disabled/deleted. */
+    /** Rule edited/disabled, or zones added, edited or removed. */
     data object RuleChanged : Event
+
+    companion object {
+        /** Zone key used when a snapshot has no per-zone revisions (single-zone callers/tests). */
+        const val SINGLE_ZONE = ""
+    }
 }
 
 sealed interface Effect {
@@ -102,7 +124,7 @@ object GymAutomationReducer {
         var n = j
         when (e) {
             is Event.Arrived -> {
-                if (!s.ruleEnabled || e.revision != s.ruleRevision) return Result(j, emptyList())
+                if (!s.ruleEnabled || !s.isCurrent(e.zoneId, e.revision)) return Result(j, emptyList())
                 if (n.departureDeadline != null) fx += Effect.CancelGraceCheck
                 n = if (n.presence == Presence.INSIDE && n.visitId != null) {
                     n.copy(departureDeadline = null, locationUnavailable = false, bootId = s.bootId)
@@ -112,12 +134,16 @@ object GymAutomationReducer {
                 } else {
                     Journal(ruleRevision = s.ruleRevision, presence = Presence.INSIDE, visitId = e.visitId, bootId = s.bootId)
                 }
+                n = n.copy(insideZones = n.insideZones + (e.zoneId to e.revision))
                 n = apply(n, s, fx)
             }
             is Event.Exited -> {
-                if (e.revision != s.ruleRevision) return Result(j, emptyList())
+                if (!s.isCurrent(e.zoneId, e.revision)) return Result(j, emptyList())
                 // Only a visit that was actually inside can end; an initial EXIT is ignored.
-                if (n.presence != Presence.INSIDE || n.visitId == null || n.departureDeadline != null) return Result(j, emptyList())
+                if (n.presence != Presence.INSIDE || n.visitId == null) return Result(j, emptyList())
+                // Overlapping zones: leaving one while still inside another keeps the visit.
+                n = n.copy(insideZones = n.insideZones - e.zoneId)
+                if (n.insideZones.isNotEmpty() || n.departureDeadline != null) return Result(n, emptyList())
                 val at = s.now + DEPARTURE_GRACE_MS
                 n = n.copy(departureDeadline = at, bootId = s.bootId)
                 fx += Effect.ScheduleGraceCheck(at)
@@ -149,6 +175,7 @@ object GymAutomationReducer {
                         } else {
                             Journal(ruleRevision = s.ruleRevision, presence = Presence.INSIDE, visitId = e.visitId, bootId = s.bootId)
                         }
+                        n = n.copy(insideZones = e.zones.filter { (id, rev) -> s.isCurrent(id, rev) })
                         n = apply(n, s, fx)
                     }
                     Presence.OUTSIDE -> {
@@ -190,7 +217,7 @@ object GymAutomationReducer {
                 if (n.bootId != s.bootId) {
                     // Previous boot's evidence is meaningless; keep config + suppression.
                     n = n.copy(presence = if (n.visitId != null) Presence.UNKNOWN else n.presence,
-                        departureDeadline = null, bootId = s.bootId)
+                        departureDeadline = null, bootId = s.bootId, insideZones = emptyMap())
                 } else if (n.departureDeadline != null) {
                     fx += Effect.ScheduleGraceCheck(n.departureDeadline!!)
                 }
@@ -201,9 +228,23 @@ object GymAutomationReducer {
                 }
             }
             Event.RuleChanged -> {
-                if (!s.ruleEnabled || s.ruleRevision != n.ruleRevision) {
+                if (!s.ruleEnabled) {
+                    // Automation switched off: end any visit (restoring what it owns) and reset.
                     if (n.visitId != null) n = depart(n, s, fx)
                     n = Journal(ruleRevision = s.ruleRevision, bootId = s.bootId)
+                } else {
+                    // Zone added/edited/removed: never reset the visit. A zone that was removed
+                    // or moved/resized no longer counts as "inside"; its new geofence (initial
+                    // DWELL) re-adds it if we are still there.
+                    val kept = n.insideZones.filter { (id, rev) -> s.isCurrent(id, rev) }
+                    val lostLast = n.insideZones.isNotEmpty() && kept.isEmpty()
+                    n = n.copy(ruleRevision = s.ruleRevision, insideZones = kept)
+                    if (lostLast && n.presence == Presence.INSIDE && n.visitId != null && n.departureDeadline == null) {
+                        // Same rule as leaving the last zone: the usual grace, never an instant restore.
+                        val at = s.now + DEPARTURE_GRACE_MS
+                        n = n.copy(departureDeadline = at, bootId = s.bootId)
+                        fx += Effect.ScheduleGraceCheck(at)
+                    }
                 }
             }
         }

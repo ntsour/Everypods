@@ -105,12 +105,13 @@ object GymAutomationCoordinator {
             hrActive = h?.heartRateActive() == true,
             hrSelectedMethod = HeartRateSharingPrefs.configuredMethod(ctx)?.name,
             hrOwner = h?.heartRateOwner(),
+            zoneRevisions = rule.zoneRevisions,
         )
         val result = GymAutomationReducer.reduce(journal, event, snapshot)
         if (result.journal != journal) GymAutomationRepository.saveJournal(ctx, result.journal)
         if (result.effects.isNotEmpty() || event !is Event.Reconcile) {
             Log.i(TAG, "event=${event.javaClass.simpleName} presence=${result.journal.presence} " +
-                "effects=${result.effects.map { it.javaClass.simpleName }} ready=${snapshot.airPodsReady}")
+                "zonesInside=${result.journal.insideZones.size} effects=${result.effects.map { it.javaClass.simpleName }} ready=${snapshot.airPodsReady}")
         }
         var journalNow = result.journal
         result.effects.forEach { effect ->
@@ -131,11 +132,11 @@ object GymAutomationCoordinator {
         if (!PresenceEvidence.canRequest(s.now, lastFixAt, fixInFlight)) return
         fixInFlight = true
         lastFixAt = s.now
-        GymPresenceFix.request(ctx, rule) { presence ->
+        GymPresenceFix.request(ctx, rule) { presence, zones ->
             onMain {
                 fixInFlight = false
-                Log.i(TAG, "presence fix=$presence")
-                dispatch(ctx, Event.PresenceFix(rule.revision, presence, UUID.randomUUID().toString()))
+                Log.i(TAG, "presence fix=$presence zones=${zones.size}")
+                dispatch(ctx, Event.PresenceFix(rule.revision, presence, UUID.randomUUID().toString(), zones))
             }
         }
     }

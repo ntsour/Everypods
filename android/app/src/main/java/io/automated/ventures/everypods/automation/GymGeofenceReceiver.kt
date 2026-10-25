@@ -31,12 +31,12 @@ class GymGeofenceReceiver : BroadcastReceiver() {
         /** Shared by the real receiver and the debug simulator. */
         fun handle(context: Context, transition: Int, requestIds: List<String>) {
             val rule = GymAutomationRepository.rule(context)
-            requestIds.mapNotNull { GymGeofenceRegistrar.parse(rule, it) }.forEach { (revision, inner) ->
+            requestIds.mapNotNull { GymGeofenceRegistrar.parse(rule, it) }.forEach { p ->
                 when {
-                    inner && transition == Geofence.GEOFENCE_TRANSITION_DWELL ->
-                        GymAutomationCoordinator.dispatch(context, Event.Arrived(revision, UUID.randomUUID().toString()))
-                    !inner && transition == Geofence.GEOFENCE_TRANSITION_EXIT ->
-                        GymAutomationCoordinator.dispatch(context, Event.Exited(revision))
+                    p.inner && transition == Geofence.GEOFENCE_TRANSITION_DWELL ->
+                        GymAutomationCoordinator.dispatch(context, Event.Arrived(p.revision, UUID.randomUUID().toString(), p.zoneId))
+                    !p.inner && transition == Geofence.GEOFENCE_TRANSITION_EXIT ->
+                        GymAutomationCoordinator.dispatch(context, Event.Exited(p.revision, p.zoneId))
                 }
             }
             // Geofence delivery is a background FGS-start exemption; the service owns AirPods work.

@@ -24,6 +24,19 @@ object PresenceEvidence {
         }
     }
 
+    /**
+     * Combines per-zone evidence: INSIDE if inside any zone (with those zones), OUTSIDE only
+     * if clearly outside every zone, otherwise UNKNOWN.
+     */
+    fun combine(perZone: List<Triple<String, Long, Presence>>): Pair<Presence, Map<String, Long>> {
+        val inside = perZone.filter { it.third == Presence.INSIDE }.associate { it.first to it.second }
+        return when {
+            inside.isNotEmpty() -> Presence.INSIDE to inside
+            perZone.isNotEmpty() && perZone.all { it.third == Presence.OUTSIDE } -> Presence.OUTSIDE to emptyMap()
+            else -> Presence.UNKNOWN to emptyMap()
+        }
+    }
+
     fun canRequest(now: Long, lastRequestAt: Long?, inFlight: Boolean): Boolean =
         !inFlight && (lastRequestAt == null || now - lastRequestAt >= FIX_COOLDOWN_MS)
 }

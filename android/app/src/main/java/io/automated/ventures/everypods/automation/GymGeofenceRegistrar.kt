@@ -12,7 +12,7 @@ import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingRequest
 import com.google.android.gms.location.LocationServices
 
-/** Registers the inner DWELL and outer EXIT geofences for the current rule revision. */
+/** Registers an inner DWELL and an outer EXIT geofence for every located zone (max 20 fences). */
 object GymGeofenceRegistrar {
     const val LOITER_MS = 60_000
 
@@ -20,15 +20,18 @@ object GymGeofenceRegistrar {
         ctx.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED &&
             ctx.checkSelfPermission(Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED
 
-    fun innerId(rule: GymAutomationRule) = "gym:${rule.id}:${rule.revision}:in"
-    fun outerId(rule: GymAutomationRule) = "gym:${rule.id}:${rule.revision}:out"
+    // Same shape as schema 1 ("gym:<ruleId>:<rev>:in"); the migrated zone keeps the rule id.
+    fun innerId(zone: GymZone) = "gym:${zone.id}:${zone.revision}:in"
+    fun outerId(zone: GymZone) = "gym:${zone.id}:${zone.revision}:out"
 
-    /** Parses a request id back to (revision, isInner) for the current rule, else null. */
-    fun parse(rule: GymAutomationRule, requestId: String): Pair<Long, Boolean>? {
+    data class Parsed(val zoneId: String, val revision: Long, val inner: Boolean)
+
+    /** Parses a request id for a zone that still exists; the reducer checks the revision. */
+    fun parse(rule: GymAutomationRule, requestId: String): Parsed? {
         val parts = requestId.split(":")
-        if (parts.size != 4 || parts[0] != "gym" || parts[1] != rule.id) return null
+        if (parts.size != 4 || parts[0] != "gym" || rule.zone(parts[1]) == null) return null
         val revision = parts[2].toLongOrNull() ?: return null
-        return when (parts[3]) { "in" -> revision to true; "out" -> revision to false; else -> null }
+        return when (parts[3]) { "in" -> Parsed(parts[1], revision, true); "out" -> Parsed(parts[1], revision, false); else -> null }
     }
 
     private fun pendingIntent(ctx: Context): PendingIntent = PendingIntent.getBroadcast(
@@ -36,13 +39,17 @@ object GymGeofenceRegistrar {
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE,
     )
 
-    /** Idempotent: replaces any previous registration with the current revision, or removes it. */
+    /**
+     * Idempotent: replaces any previous registration with the current zones, or removes it.
+     * The rule is read after removal completes, so overlapping syncs all register the
+     * latest zones rather than a stale snapshot.
+     */
     @SuppressLint("MissingPermission")
     fun sync(ctx: Context) {
-        val rule = GymAutomationRepository.rule(ctx)
         val client = LocationServices.getGeofencingClient(ctx)
         val pi = pendingIntent(ctx)
         client.removeGeofences(pi).addOnCompleteListener {
+            val rule = GymAutomationRepository.rule(ctx)
             if (!rule.enabled || !rule.hasLocation) {
                 Log.i(GymAutomationCoordinator.TAG, "geofences removed (rule off)")
                 return@addOnCompleteListener
@@ -51,22 +58,26 @@ object GymGeofenceRegistrar {
                 Log.w(GymAutomationCoordinator.TAG, "geofences not registered: location permission missing")
                 return@addOnCompleteListener
             }
-            val inner = Geofence.Builder().setRequestId(innerId(rule))
-                .setCircularRegion(rule.latitude!!, rule.longitude!!, rule.radiusMeters.toFloat())
-                .setExpirationDuration(Geofence.NEVER_EXPIRE)
-                .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_DWELL)
-                .setLoiteringDelay(LOITER_MS).build()
-            val outer = Geofence.Builder().setRequestId(outerId(rule))
-                .setCircularRegion(rule.latitude, rule.longitude, rule.exitRadiusMeters.toFloat())
-                .setExpirationDuration(Geofence.NEVER_EXPIRE)
-                .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_EXIT).build()
+            val fences = rule.validZones.flatMap { zone ->
+                listOf(
+                    Geofence.Builder().setRequestId(innerId(zone))
+                        .setCircularRegion(zone.latitude!!, zone.longitude!!, zone.geofenceRadiusMeters.toFloat())
+                        .setExpirationDuration(Geofence.NEVER_EXPIRE)
+                        .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_DWELL)
+                        .setLoiteringDelay(LOITER_MS).build(),
+                    Geofence.Builder().setRequestId(outerId(zone))
+                        .setCircularRegion(zone.latitude, zone.longitude, zone.exitRadiusMeters.toFloat())
+                        .setExpirationDuration(Geofence.NEVER_EXPIRE)
+                        .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_EXIT).build(),
+                )
+            }
             val request = GeofencingRequest.Builder()
                 // Initial DWELL supports enabling while already inside; no initial EXIT.
                 .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_DWELL)
-                .addGeofences(listOf(inner, outer)).build()
+                .addGeofences(fences).build()
             runCatching {
                 client.addGeofences(request, pi)
-                    .addOnSuccessListener { Log.i(GymAutomationCoordinator.TAG, "geofences registered rev=${rule.revision}") }
+                    .addOnSuccessListener { Log.i(GymAutomationCoordinator.TAG, "geofences registered rev=${rule.revision} zones=${rule.validZones.size}") }
                     .addOnFailureListener { e ->
                         Log.w(GymAutomationCoordinator.TAG, "geofence registration failed: ${e.javaClass.simpleName}")
                         GymAutomationCoordinator.dispatch(ctx, Event.LocationUnavailable)
