@@ -1427,6 +1427,20 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         CallNotifListener.onMuteStateChanged = { muted ->
             if (isInAnyCall()) applyMuteStateFromAppNotif(muted)
         }
+        CallNotifListener.onCallStateChanged = { ringing, active ->
+            setupStemActions()
+            if (ringing) {
+                handleIncomingCall()
+            } else {
+                stopIncomingCallGestureDetection()
+                if (active && config.headGesturesEnabled && config.headGesturesMuteCall) {
+                    handleActiveCall()
+                } else if (!active && !isInCall && !isVoIPCallActive) {
+                    handleIncomingCallOnceConnected = false
+                    if (!sharedPreferences.getBoolean("head_tracking_enabled", false)) stopHeadTracking()
+                }
+            }
+        }
 
         localMac = config.selfMacAddress
         if (localMac.isEmpty()) {
@@ -1675,6 +1689,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     TelephonyManager.CALL_STATE_OFFHOOK -> {
                         Log.d(TAG, "Call state: OFFHOOK")
                         isCallRinging = false
+                        stopIncomingCallGestureDetection()
                         val leAvailableForAudio =
                             bleManager.getMostRecentStatus()?.isLeftInEar == true || bleManager.getMostRecentStatus()?.isRightInEar == true
 //                        if ((CrossDevice.isAvailable && !isConnectedLocally && earDetectionNotification.status.contains(0x00)) || leAvailableForAudio) CoroutineScope(
@@ -1698,6 +1713,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                         Log.d(TAG, "Call state: IDLE")
                         isInCall = false
                         isCallRinging = false
+                        stopIncomingCallGestureDetection()
                         gestureDetector?.stopDetection()
                         if (isHeadTrackingActive) stopHeadTracking()
                         activeCallGestureLoopRunning = false
@@ -1715,7 +1731,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         sysAudioManager.addOnModeChangedListener(mainExecutor) { mode ->
             Log.d(TAG, "Audio mode changed: $mode")
             if (mode == AudioManager.MODE_IN_COMMUNICATION) {
-                if (!isInCall && !isVoIPCallActive) {
+                if (!CallNotifListener.isVoipNotifRinging) stopIncomingCallGestureDetection()
+                if (!isInCall && !isVoIPCallActive && !CallNotifListener.isVoipNotifRinging) {
                     isVoIPCallActive = true
                     Log.d(TAG, "VoIP call detected (audio mode IN_COMMUNICATION)")
                     setupStemActions()
@@ -1737,11 +1754,16 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 if (isVoIPCallActive) {
                     isVoIPCallActive = false
                     Log.d(TAG, "VoIP call ended (audio mode changed to $mode)")
-                    gestureDetector?.stopDetection()
-                    if (isHeadTrackingActive) stopHeadTracking()
+                    // Viber briefly uses communication audio while still ringing.
+                    // Its explicit incoming notification outranks this mode change.
+                    if (!CallNotifListener.isVoipNotifRinging) {
+                        gestureDetector?.stopDetection()
+                        if (isHeadTrackingActive) stopHeadTracking()
+                    }
                     activeCallGestureLoopRunning = false
                     stopMutedReminder()
                     setupStemActions()
+                    if (CallNotifListener.isVoipNotifRinging) handleIncomingCall()
                 }
             }
         }
@@ -2257,8 +2279,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             override fun onHeadTrackingReceived(headTracking: ByteArray) {
                 Log.d(TAG, "onHeadTrackingReceived: active=$isHeadTrackingActive len=${headTracking.size}")
                 if (isHeadTrackingActive) {
-                    HeadTracking.processPacket(headTracking)
-                    processHeadTrackingData(headTracking)
+                    val samples = HeadTracking.processPacket(headTracking)
+                    Log.d(TAG, "Motion frame: bytes=${headTracking.size} samples=${samples.size}")
+                    samples.forEach(::processHeadTrackingData)
                 }
             }
 
@@ -4112,12 +4135,33 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         }
     }
 
+    private var incomingCallGestureDetection = false
+
+    private fun stopIncomingCallGestureDetection() {
+        if (!incomingCallGestureDetection) return
+        gestureDetector?.stopDetection()
+        incomingCallGestureDetection = false
+    }
+
     fun handleIncomingCall() {
-        if (isInCall) return
+        if (isInCall || (isVoIPCallActive && !CallNotifListener.isVoipNotifRinging) || incomingCallGestureDetection ||
+            (!isCallRinging && !CallNotifListener.isVoipNotifRinging)
+        ) return
         if (config.headGesturesEnabled && config.headGesturesAnswerCall) {
             initGestureDetector()
+            // Replace a test-screen detector's callback with the incoming call's
+            // callback. startDetection otherwise keeps an already-running test.
+            gestureDetector?.stopDetection(doNotStop = true)
+            activeCallGestureLoopRunning = false
             startHeadTracking()
+            incomingCallGestureDetection = true
             gestureDetector?.startDetection { accepted ->
+                incomingCallGestureDetection = false
+                // The notification can disappear or connect before a gesture
+                // finishes. Never turn a late incoming nod into an active-call toggle.
+                if ((!isCallRinging && !CallNotifListener.isVoipNotifRinging) || isInCall ||
+                    (!CallNotifListener.isVoipNotifRinging && hasActiveCallForTelecomFallback())
+                ) return@startDetection
                 if (accepted) {
                     answerCall()
                     handleIncomingCallOnceConnected = false
@@ -4333,6 +4377,34 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     private fun answerCall() {
         Log.d(TAG, "answerCall called")
 
+        // A watched VoIP notification gives us the exact call's Answer action.
+        // Prefer it over a global Telecom answer so a second waiting call cannot
+        // be answered accidentally. A successful send is only dispatch; the
+        // notification/audio state transition remains the confirmation.
+        if (CallNotifListener.isVoipNotifRinging) {
+            if (CallNotifListener.answerCall()) {
+                Log.d(TAG, "answerCall: dispatched current VoIP notification action; awaiting call-state transition")
+                scheduleTelecomVoipAnswerFallback()
+                islandWindow?.close()
+                return
+            }
+            if (CallNotifListener.hasPendingCallAction()) {
+                Log.d(TAG, "answerCall: notification answer is already pending; waiting for its state transition")
+                islandWindow?.close()
+                return
+            }
+            if (!hasActiveCallForTelecomFallback() &&
+                CallNotifListener.hasUnambiguousVoipCallTarget() && dispatchHeadsethookToTelecom()
+            ) {
+                Log.d(TAG, "answerCall: no notification action was dispatched; used Telecom for the sole incoming VoIP call")
+                islandWindow?.close()
+                return
+            }
+            Log.w(TAG, "answerCall: current VoIP notification has no usable Answer action; avoiding a global Telecom answer")
+            islandWindow?.close()
+            return
+        }
+
         // Primary path: HEADSETHOOK → Telecom's HeadsetMediaButton session.
         // Works for cellular calls AND self-managed VoIP (WhatsApp etc.).
         // Telecom maps a SHORT_PRESS during RINGING → answer.
@@ -4365,74 +4437,151 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         islandWindow?.close()
     }
 
+    /** Some call apps expose an Activity Answer PendingIntent that Android blocks
+     *  when invoked by our background notification listener. Give the app a brief
+     *  chance to transition first, then use Telecom only for the sole still-ringing
+     *  notification-backed call. */
+    private fun scheduleTelecomVoipAnswerFallback() {
+        Handler(Looper.getMainLooper()).postDelayed({
+            val activeCallObserved = hasActiveCallForTelecomFallback()
+            if (activeCallObserved) {
+                Log.d(TAG, "answerCall: system/audio already reports an active call; skipping Telecom answer fallback")
+            }
+            if (!CallNotifListener.claimTelecomAnswerFallback(activeCallObserved)) return@postDelayed
+
+            if (CallNotifListener.isVoipNotifRinging && dispatchHeadsethookToTelecom()) {
+                Log.d(TAG, "answerCall: notification action did not transition; dispatched Telecom fallback for sole incoming VoIP call")
+                return@postDelayed
+            }
+
+            CallNotifListener.cancelPendingTelecomAnswerFallback()
+            Log.w(TAG, "answerCall: Telecom fallback unavailable for the still-ringing VoIP call")
+        }, CallNotifListener.ANSWER_TELECOM_FALLBACK_DELAY_MS)
+    }
+
+    private fun hasActiveCallForTelecomFallback(): Boolean {
+        val mode = (getSystemService(AUDIO_SERVICE) as AudioManager).mode
+        return isInCall || isVoIPCallActive || CallNotifListener.isVoipNotifActive ||
+            mode == AudioManager.MODE_IN_CALL || mode == AudioManager.MODE_IN_COMMUNICATION
+    }
+
     private fun rejectCall() {
         Log.d(TAG, "rejectCall called")
 
-        // Determine ringing vs active. During ringing we want to DECLINE (don't
-        // answer the call); during an active call we want to END it.
+        val audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
         val telecomInCall = try {
             (getSystemService(TELECOM_SERVICE) as TelecomManager).isInCall
-        } catch (_: Exception) { false }
-        val ringing = isCallRinging
-        val active = !ringing && (isInCall || isVoIPCallActive || telecomInCall)
-        Log.d(TAG, "rejectCall: ringing=$ringing active=$active (isCallRinging=$isCallRinging isInCall=$isInCall isVoIPCallActive=$isVoIPCallActive telecomInCall=$telecomInCall)")
+        } catch (_: SecurityException) { false }
+        val notifRinging = CallNotifListener.isVoipNotifRinging
+        val notifActive = CallNotifListener.isVoipNotifActive
+        val systemRinging = !isInCall && !isVoIPCallActive && !notifActive &&
+            (audioManager.mode == AudioManager.MODE_RINGTONE || telecomInCall)
+        val ringing = notifRinging || isCallRinging || systemRinging
+        val active = !ringing && (notifActive || isInCall || isVoIPCallActive || telecomInCall)
+        Log.d(TAG, "rejectCall: ringing=$ringing active=$active (telephonyRinging=$isCallRinging notifRinging=$notifRinging notifActive=$notifActive isInCall=$isInCall isVoIPCallActive=$isVoIPCallActive telecomInCall=$telecomInCall audioMode=${audioManager.mode})")
+
+        if (notifRinging) {
+            // Never send a short HEADSETHOOK while a notification says incoming:
+            // Telecom interprets that event as ANSWER. Use this call's Decline PI.
+            if (CallNotifListener.declineCall()) {
+                Log.d(TAG, "rejectCall: dispatched current VoIP decline action; awaiting call-state transition")
+                islandWindow?.close()
+                return
+            }
+            Log.w(TAG, "rejectCall: incoming VoIP notification has no usable decline action; not sending a headset toggle")
+            islandWindow?.close()
+            return
+        }
+
+        if (ringing) {
+            // The notification listener may not have an action (or access) for a
+            // cellular ring. Telecom endCall is safe here; HEADSETHOOK is not.
+            if (endTelecomCall()) {
+                sendToast(getString(R.string.toast_call_ended))
+            } else {
+                Log.w(TAG, "rejectCall: Telecom could not reject the incoming call")
+            }
+            islandWindow?.close()
+            return
+        }
 
         if (active) {
-            // For an active call, route HEADSETHOOK to Telecom's HeadsetMediaButton
-            // session. Telecom maps SHORT_PRESS during ACTIVE → end call. This is
-            // the only third-party path that ends self-managed VoIP calls in-progress
-            // (WhatsApp, Signal, etc.).
-            if (dispatchHeadsethookToTelecom()) {
-                Log.d(TAG, "rejectCall: dispatched to Telecom session — active call should end")
-                sendToast(getString(R.string.toast_call_ended))
+            // For notification-backed calls, use that notification's exact Hang
+            // up action first so a different Telecom call cannot be ended.
+            if (notifActive && CallNotifListener.hangUp()) {
+                Log.d(TAG, "rejectCall: dispatched current VoIP hang-up action; awaiting call-state transition")
+                islandWindow?.close()
+                return
+            }
+            if (notifActive) {
+                if (CallNotifListener.hasPendingCallAction()) {
+                    Log.d(TAG, "rejectCall: notification-backed call action is still pending; not dispatching another route")
+                    islandWindow?.close()
+                    return
+                }
+                if (!CallNotifListener.hasUnambiguousVoipCallTarget()) {
+                    Log.w(TAG, "rejectCall: multiple notification-backed calls are active; avoiding a global Telecom hang-up")
+                    islandWindow?.close()
+                    return
+                }
+                if (!CallNotifListener.beginCurrentHangUpFallback()) {
+                    Log.w(TAG, "rejectCall: could not claim the current notification-backed call for Telecom fallback")
+                    islandWindow?.close()
+                    return
+                }
+                // A short headset event ends an active Telecom call. Claim the
+                // current call first so repeated gestures cannot dispatch twice.
+                if (dispatchHeadsethookToTelecom()) {
+                    Log.d(TAG, "rejectCall: dispatched Telecom end-call event; awaiting call-state transition")
+                    islandWindow?.close()
+                    return
+                }
+                CallNotifListener.cancelPendingHangUpFallback()
+                Log.w(TAG, "rejectCall: no safe action is available for the current VoIP call")
+                islandWindow?.close()
+                return
+            } else if (dispatchHeadsethookToTelecom()) {
+                Log.d(TAG, "rejectCall: dispatched Telecom end-call event; awaiting call-state transition")
                 islandWindow?.close()
                 return
             }
         }
 
-        // Cellular / non-self-managed fallback: TelecomManager.endCall().
-        var telecomEnded = false
-        try {
+        if (!active && !ringing) {
+            Log.w(TAG, "rejectCall: no ringing or active call state to act on")
+            islandWindow?.close()
+            return
+        }
+
+        if (endTelecomCall()) {
+            sendToast(getString(R.string.toast_call_ended))
+        } else {
+            Log.w(TAG, "rejectCall: no safe action succeeded for the current call stage")
+        }
+        islandWindow?.close()
+    }
+
+    /** TelecomManager.endCall or legacy platform fallback for a call whose stage is known. */
+    private fun endTelecomCall(): Boolean {
+        return try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 val telecomManager = getSystemService(TELECOM_SERVICE) as TelecomManager
-                if (checkSelfPermission(Manifest.permission.ANSWER_PHONE_CALLS) == PackageManager.PERMISSION_GRANTED) {
-                    telecomEnded = telecomManager.endCall()
-                    Log.d(TAG, "rejectCall: TelecomManager.endCall() returned $telecomEnded")
-                }
+                val ended = checkSelfPermission(Manifest.permission.ANSWER_PHONE_CALLS) == PackageManager.PERMISSION_GRANTED &&
+                    telecomManager.endCall()
+                Log.d(TAG, "endTelecomCall: TelecomManager.endCall() returned $ended")
+                ended
             } else {
                 val telephonyService = getSystemService(TELEPHONY_SERVICE) as TelephonyManager
                 val telephonyClass = Class.forName(telephonyService.javaClass.name)
-                val method = telephonyClass.getDeclaredMethod("getITelephony")
-                method.isAccessible = true
+                val method = telephonyClass.getDeclaredMethod("getITelephony").apply { isAccessible = true }
                 val telephonyInterface = method.invoke(telephonyService)
                 val endCallMethod = telephonyInterface.javaClass.getDeclaredMethod("endCall")
-                endCallMethod.invoke(telephonyInterface)
+                endCallMethod.invoke(telephonyInterface) as? Boolean ?: true
             }
         } catch (e: Exception) {
-            Log.w(TAG, "rejectCall: TelecomManager.endCall failed: ${e.message}")
+            Log.w(TAG, "endTelecomCall failed: ${e.message}")
+            false
         }
-
-        if (!telecomEnded) {
-            // Notification actions: hangUp (Teams etc., active call) or
-            // declineCall (incoming ringing). Both are Broadcast PendingIntents
-            // and work cross-process for most VoIP apps.
-            val handled = CallNotifListener.hangUp()
-            if (handled) {
-                Log.d(TAG, "rejectCall: ended via notification hang-up action")
-                sendToast(getString(R.string.toast_call_ended))
-            } else {
-                val declined = CallNotifListener.declineCall()
-                if (declined) {
-                    Log.d(TAG, "rejectCall: declined via notification decline action")
-                    sendToast(getString(R.string.toast_call_declined))
-                } else {
-                    Log.w(TAG, "rejectCall: no method worked — call may remain active")
-                }
-            }
-        } else {
-            sendToast(getString(R.string.toast_call_ended))
-        }
-        islandWindow?.close()
     }
 
     fun sendToast(message: String) {
@@ -4442,14 +4591,14 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }
 
     @RequiresApi(Build.VERSION_CODES.R)
-    fun processHeadTrackingData(data: ByteArray) {
-        val horizontal = ByteBuffer.wrap(data, 51, 2).order(ByteOrder.LITTLE_ENDIAN).short.toInt()
-        val vertical = ByteBuffer.wrap(data, 53, 2).order(ByteOrder.LITTLE_ENDIAN).short.toInt()
+    private fun processHeadTrackingData(sample: io.automated.ventures.everypods.bluetooth.HeadMotionProtocol.Sample) {
+        val horizontal = sample.horizontal
+        val vertical = sample.vertical
         Log.d(TAG, "headData h=$horizontal v=$vertical detector=${gestureDetector != null} running=${gestureDetector?.isRunning}")
         try {
             gestureDetector?.processHeadOrientation(horizontal, vertical)
         } catch (e: Exception) {
-            Log.w(TAG, "gesture detector on ${data.toHexString()}: ${e.message}")
+            Log.w(TAG, "gesture detector failed: ${e.message}")
         }
     }
 
@@ -5297,13 +5446,36 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             override fun onServiceConnected(profile: Int, proxy: BluetoothProfile) {
                 if (profile == BluetoothProfile.A2DP) {
                     bluetoothA2dpProxy = proxy as android.bluetooth.BluetoothA2dp
-                    // Prime the cache so the first reconnect after install isn't blocked.
+                    // Refresh our local-sink gate as soon as the proxy is ready. If
+                    // an app update/restart killed the process-owned AACP socket while
+                    // Android kept A2DP connected, reconnect immediately instead of
+                    // waiting for another BLE status broadcast (which can be minutes
+                    // later while the buds remain worn and idle).
                     val mac = try {
                         sharedPreferences.getString("mac_address", "") ?: ""
                     } catch (_: Exception) {
                         ""
                     }
-                    if (mac.isNotEmpty()) isA2dpConnectedTo(mac)
+                    if (mac.isNotEmpty() && isA2dpConnectedTo(mac)) {
+                        Log.d(
+                            TAG,
+                            "<LogCollector:Conn> A2DP proxy confirms AirPods already connected; " +
+                                "queueing immediate AACP reconnect"
+                        )
+                        Handler(Looper.getMainLooper()).postDelayed({
+                            if (isConnected()) {
+                                Log.d(TAG, "<LogCollector:Conn> startup reconnect skipped — AACP is already connected")
+                                return@postDelayed
+                            }
+                            val target = try { adapter.getRemoteDevice(mac) } catch (e: Exception) {
+                                Log.w(TAG, "<LogCollector:Conn> startup reconnect has invalid saved AirPods address", e)
+                                return@postDelayed
+                            }
+                            CoroutineScope(Dispatchers.IO).launch {
+                                connectToSocket(adapter, target)
+                            }
+                        }, 1_000L)
+                    }
                     Log.d(TAG, "A2DP profile proxy acquired")
                 }
             }
@@ -6224,6 +6396,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         Log.w(TAG, "W5 Service onDestroy — process going away; RFCOMM links will drop until restart")
 
         CallNotifListener.onMuteStateChanged = null
+        CallNotifListener.onCallStateChanged = null
         sharedPreferences.unregisterOnSharedPreferenceChangeListener(this)
         cancelGymTimerLockScreenNotification()
         synchronized(gymModeStemPressLock) {

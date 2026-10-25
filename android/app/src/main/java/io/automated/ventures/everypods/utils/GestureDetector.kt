@@ -48,11 +48,10 @@ class GestureDetector(
         private const val IMMEDIATE_FEEDBACK_THRESHOLD = 400
         private const val DIRECTION_CHANGE_SENSITIVITY = 80
 
-        private const val FAST_MOVEMENT_THRESHOLD = 300.0
-        private const val MIN_REQUIRED_EXTREMES = 3
-        private const val MAX_REQUIRED_EXTREMES = 4
 
         private const val MAX_VALID_ORIENTATION_VALUE = 6000
+        private const val GESTURE_WINDOW_MS = 4_000L
+        private const val NOD_PEAK_THRESHOLD = 275
     }
 
     val audio = GestureFeedback(ServiceManager.getService()?.baseContext!!)
@@ -74,14 +73,12 @@ class GestureDetector(
     private var lastPeakTime: Long = 0
     private val peakIntervals = Collections.synchronizedList(ArrayList<Double>())
 
-    private val movementSpeedIntervals = Collections.synchronizedList(ArrayList<Long>())
 
     private val peakThreshold = 400
-    private val directionChangeThreshold = DIRECTION_CHANGE_SENSITIVITY
+    private val horizontalTracker = MotionPeakTracker(DIRECTION_CHANGE_SENSITIVITY.toDouble())
+    private val verticalTracker = MotionPeakTracker(50.0)
     private val rhythmConsistencyThreshold = 0.8
 
-    private var horizontalIncreasing: Boolean? = null
-    private var verticalIncreasing: Boolean? = null
 
     private val minConfidenceThreshold = 0.6
 
@@ -194,103 +191,36 @@ fun startDetection(doNotStop: Boolean = false, onGestureDetected: (Boolean) -> U
 
 
     private fun detectPeaksAndTroughs() {
-        if (horizontalBuffer.size < 4 || verticalBuffer.size < 4) return
-
-        val hValues = horizontalBuffer.takeLast(4)
-        val vValues = verticalBuffer.takeLast(4)
-        val hVariance = calculateVariance(hValues)
-        val vVariance = calculateVariance(vValues)
-
-        processDirectionChanges(
-            horizontalBuffer,
-            horizontalIncreasing,
-            hVariance,
-            horizontalPeaks,
-            horizontalTroughs
-        )?.let { horizontalIncreasing = it }
-
-        processDirectionChanges(
-            verticalBuffer,
-            verticalIncreasing,
-            vVariance,
-            verticalPeaks,
-            verticalTroughs
-        )?.let { verticalIncreasing = it }
+        horizontalTracker.add(horizontalBuffer.last())?.let { recordTurningPoint(it, false) }
+        verticalTracker.add(verticalBuffer.last())?.let { recordTurningPoint(it, true) }
     }
 
-    private fun processDirectionChanges(
-        buffer: List<Double>,
-        isIncreasing: Boolean?,
-        variance: Double,
-        peaks: MutableList<Triple<Int, Double, Long>>,
-        troughs: MutableList<Triple<Int, Double, Long>>
-    ): Boolean? {
-        if (buffer.size < 2) return isIncreasing
-
-        val current = buffer.last()
-        val prev = buffer[buffer.size - 2]
-        var increasing = isIncreasing ?: (current > prev)
-
-        val dynamicThreshold = max(50.0, min(directionChangeThreshold.toDouble(), variance / 3))
-
+    private fun recordTurningPoint(point: MotionPeakTracker.TurningPoint, vertical: Boolean) {
+        val threshold = if (vertical) NOD_PEAK_THRESHOLD else peakThreshold
+        if (abs(point.value) <= threshold) return
         val now = System.currentTimeMillis()
-
-        if (increasing && current < prev - dynamicThreshold) {
-            Log.d(TAG, "Direction change (peak): prev=$prev abs=${abs(prev)} threshold=$peakThreshold accepted=${abs(prev) > peakThreshold}")
-            if (abs(prev) > peakThreshold) {
-                peaks.add(Triple(buffer.size - 1, prev, now))
-                if (lastPeakTime > 0) {
-                    val interval = (now - lastPeakTime) / 1000.0
-                    val timeDiff = now - lastPeakTime
-
-                    synchronized(peakIntervals) {
-                        peakIntervals.add(interval)
-                        if (peakIntervals.size > 5) peakIntervals.removeAt(0)
-                    }
-
-                    synchronized(movementSpeedIntervals) {
-                        movementSpeedIntervals.add(timeDiff)
-                        if (movementSpeedIntervals.size > 5) movementSpeedIntervals.removeAt(0)
-                    }
-                }
-                lastPeakTime = now
-            }
-            increasing = false
-        } else if (!increasing && current > prev + dynamicThreshold) {
-            Log.d(TAG, "Direction change (trough): prev=$prev abs=${abs(prev)} threshold=$peakThreshold accepted=${abs(prev) > peakThreshold}")
-            if (abs(prev) > peakThreshold) {
-                troughs.add(Triple(buffer.size - 1, prev, now))
-
-                if (lastPeakTime > 0) {
-                    val interval = (now - lastPeakTime) / 1000.0
-                    val timeDiff = now - lastPeakTime
-
-                    synchronized(peakIntervals) {
-                        peakIntervals.add(interval)
-                        if (peakIntervals.size > 5) peakIntervals.removeAt(0)
-                    }
-
-                    synchronized(movementSpeedIntervals) {
-                        movementSpeedIntervals.add(timeDiff)
-                        if (movementSpeedIntervals.size > 5) movementSpeedIntervals.removeAt(0)
-                    }
-                }
-                lastPeakTime = now
-            }
-            increasing = true
+        if (now - lastPeakTime > GESTURE_WINDOW_MS) {
+            peakIntervals.clear()
+            lastPeakTime = 0
         }
+        val destination = when {
+            vertical && point.isPeak -> verticalPeaks
+            vertical -> verticalTroughs
+            point.isPeak -> horizontalPeaks
+            else -> horizontalTroughs
+        }
+        destination.add(Triple(point.index, point.value, now))
+        Log.d(TAG, "${if (vertical) "Vertical" else "Horizontal"} turning point: value=${point.value} index=${point.index}")
+        if (lastPeakTime > 0 && now > lastPeakTime) {
+            val elapsed = now - lastPeakTime
+            synchronized(peakIntervals) {
+                peakIntervals.add(elapsed / 1000.0)
+                if (peakIntervals.size > 5) peakIntervals.removeAt(0)
+            }
 
-        return increasing
+        }
+        lastPeakTime = now
     }
-
-    private fun calculateVariance(values: List<Double>): Double {
-        if (values.size <= 1) return 0.0
-
-        val mean = values.average()
-        val squaredDiffs = values.map { (it - mean) * (it - mean) }
-        return squaredDiffs.average()
-    }
-
 
     private fun calculateRhythmConsistency(): Double {
         if (peakIntervals.size < 2) return 0.0
@@ -311,13 +241,16 @@ fun startDetection(doNotStop: Boolean = false, onGestureDetected: (Boolean) -> U
 
         val recent = sortedExtremes.takeLast(getRequiredExtremes())
 
+        if (!RepeatedMotionPattern.accepts(recent.map { it.first to it.second })) return 0.0
+
         val avgAmplitude = recent.map { abs(it.second) }.average()
-        val amplitudeFactor = min(1.0, avgAmplitude / 600)
+        val amplitudeFactor = min(1.0, avgAmplitude / 600.0)
 
         val rhythmFactor = calculateRhythmConsistency()
 
         val signs = recent.map { if (it.second > 0) 1 else -1 }
         val alternating = (1 until signs.size).all { signs[it] != signs[it - 1] }
+        if (isVertical && !alternating) return 0.0
         val alternationFactor = if (alternating) 1.0 else 0.5
 
         val isolationFactor = if (isVertical) {
@@ -340,20 +273,13 @@ fun startDetection(doNotStop: Boolean = false, onGestureDetected: (Boolean) -> U
         )
     }
 
-    private fun getRequiredExtremes(): Int {
-        if (movementSpeedIntervals.isEmpty()) return MIN_REQUIRED_EXTREMES
-
-        val avgInterval = movementSpeedIntervals.average()
-        Log.d(TAG, "Average movement interval: $avgInterval ms")
-
-        return if (avgInterval < FAST_MOVEMENT_THRESHOLD) {
-            MAX_REQUIRED_EXTREMES
-        } else {
-            MIN_REQUIRED_EXTREMES
-        }
-    }
+    private fun getRequiredExtremes(): Int = RepeatedMotionPattern.REQUIRED_EXTREMES
 
     private fun detectGestures(): Boolean? {
+        val cutoff = System.currentTimeMillis() - GESTURE_WINDOW_MS
+        listOf(verticalPeaks, verticalTroughs, horizontalPeaks, horizontalTroughs).forEach { points ->
+            points.removeIf { it.third < cutoff }
+        }
         val requiredExtremes = getRequiredExtremes()
         Log.d(TAG, "Current required extremes: $requiredExtremes, vPeaks=${verticalPeaks.size} vTroughs=${verticalTroughs.size} hPeaks=${horizontalPeaks.size} hTroughs=${horizontalTroughs.size}")
 
@@ -394,9 +320,10 @@ fun startDetection(doNotStop: Boolean = false, onGestureDetected: (Boolean) -> U
         verticalPeaks.clear()
         verticalTroughs.clear()
         peakIntervals.clear()
-        movementSpeedIntervals.clear()
-        horizontalIncreasing = null
-        verticalIncreasing = null
+        horizontalTracker.reset()
+        verticalTracker.reset()
+        horizontalAvgBuffer.clear()
+        verticalAvgBuffer.clear()
         lastPeakTime = 0
         significantMotion = false
         lastSignificantMotionTime = 0L
