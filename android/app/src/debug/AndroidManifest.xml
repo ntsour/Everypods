@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Debug-only QA hook: adb shell am broadcast (shell holds DUMP). Not in release. -->
+        <receiver
+            android:name=".automation.GymAutomationDebugReceiver"
+            android:exported="true"
+            android:permission="android.permission.DUMP">
+            <intent-filter>
+                <action android:name="io.automated.ventures.everypods.debug.GYM_AUTOMATION" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>
