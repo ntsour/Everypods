@@ -947,4 +947,43 @@ Pedidos do protocolo: %4$d</string>
     <string name="connection_type_wifi_description">Necessária para transmitir áudio por Wi-Fi.</string>
     <string name="hrs_monitor_only">Apenas monitoramento (sem compartilhamento)</string>
     <string name="hrs_sharing_off">Compartilhamento desativado</string>
+
+    <!-- Gym automation (location) -->
+    <string name="gym_auto_title">Automação do ginásio</string>
+    <string name="gym_auto_summary">Ativa o modo ginásio quando chega ao ginásio com os AirPods ligados</string>
+    <string name="gym_auto_enable">Ativar automação</string>
+    <string name="gym_auto_permissions">Acesso à localização</string>
+    <string name="gym_auto_disclosure">O EveryPods usa a sua localização, mesmo com a app fechada ou sem uso, para ativar o modo ginásio e a partilha de frequência cardíaca escolhida quando chega ao ginásio guardado. A localização do ginásio fica neste telemóvel e não é guardado histórico de localizações. A deteção é feita pelo Android e pelos serviços Google Play.</string>
+    <string name="gym_auto_grant_precise">Permitir localização precisa</string>
+    <string name="gym_auto_grant_background">Abrir definições de localização</string>
+    <string name="gym_auto_background_hint">Nas definições, abra Autorizações, depois Localização, e escolha “Permitir sempre”.</string>
+    <string name="gym_auto_permission_denied">A automação do ginásio requer localização precisa. O resto do EveryPods funciona sem ela.</string>
+    <string name="gym_auto_location">Localização do ginásio</string>
+    <string name="gym_auto_use_current">Usar localização atual</string>
+    <string name="gym_auto_latitude">Latitude</string>
+    <string name="gym_auto_longitude">Longitude</string>
+    <string name="gym_auto_save_location">Guardar coordenadas</string>
+    <string name="gym_auto_location_saved">Localização guardada: %1$s, %2$s</string>
+    <string name="gym_auto_no_location">Ainda não há localização guardada</string>
+    <string name="gym_auto_invalid_coordinates">Introduza uma latitude e longitude válidas</string>
+    <string name="gym_auto_fix_failed">Não foi possível obter uma localização precisa. Tente ao ar livre ou perto de uma janela.</string>
+    <string name="gym_auto_radius">Raio de deteção: %1$d m</string>
+    <string name="gym_auto_radius_value">%1$d m</string>
+    <string name="gym_auto_radius_hint">Inclui a área à volta do edifício.</string>
+    <string name="gym_auto_actions">À chegada</string>
+    <string name="gym_auto_hr">Iniciar frequência cardíaca</string>
+    <string name="gym_auto_hr_desc">Usa a sua escolha de partilha: %1$s</string>
+    <string name="gym_auto_hr_none">Nenhum método de partilha selecionado, por isso a frequência cardíaca não será iniciada</string>
+    <string name="gym_auto_restore">Restaurar à saída</string>
+    <string name="gym_auto_restore_desc">Desativa o modo ginásio e para a frequência cardíaca só se esta automação os ativou</string>
+    <string name="gym_auto_status_off">Desativada</string>
+    <string name="gym_auto_status_setup">Conclua a configuração da localização</string>
+    <string name="gym_auto_status_waiting_arrival">À espera da chegada</string>
+    <string name="gym_auto_status_waiting_airpods">À espera dos AirPods</string>
+    <string name="gym_auto_status_active">Modo ginásio ativo</string>
+    <string name="gym_auto_status_paused">Em pausa nesta visita</string>
+    <string name="gym_auto_status_leaving">A sair do ginásio</string>
+    <string name="gym_auto_status_unavailable">Localização indisponível</string>
+    <string name="gym_auto_resume">Retomar nesta visita</string>
+    <string name="gym_auto_stop">Parar nesta visita</string>
 </resources>

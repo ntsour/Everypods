@@ -254,6 +254,7 @@ private fun buildSearchIndex(context: Context): List<SearchableItem> = listOf(
     SearchableItem("Battery Alerts",           "Smart Features", "smart", "category/smart?anchor=battery_alert_threshold", keywords = listOf("low battery", "speak", "announce", "alerta de batería")),
     SearchableItem(context.getString(R.string.ui_sleep_timer),              "Smart Features", "smart", "category/smart", anchor = "sleep_timer", keywords = listOf("auto stop", "timer")),
     SearchableItem(context.getString(R.string.ui_gym_timer),                "Smart Features", "smart", "gym_timer", keywords = listOf("stopwatch", "workout", "fitness")),
+    SearchableItem(context.getString(R.string.gym_auto_title),              "Smart Features", "smart", "gym_automation", keywords = listOf("location", "geofence", "arrive", "gym", "ubicación", "gimnasio", "τοποθεσία", "γυμναστήριο")),
     SearchableItem("Battery Alert Threshold",  "Smart Features", "smart", "category/smart?anchor=battery_alert_threshold", keywords = listOf("battery threshold", "low battery percent", "umbral de batería", "umbral de batería baja")),
     SearchableItem("Sleep Timer Duration",     "Smart Features", "smart", "category/smart", anchor = "sleep_timer", keywords = listOf("sleep timer duration", "sleep countdown", "temporizador de sueño")),
     // App Settings

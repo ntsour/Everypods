@@ -964,4 +964,43 @@ Protocol requests: %4$d</string>
     <string name="hrs_monitor_only">Monitoring only (no sharing)</string>
     <string name="hrs_sharing_off">Sharing off</string>
     <string name="hrs_tickr_case_symbol" translatable="false">TKR</string>
+
+    <!-- Gym automation (location) -->
+    <string name="gym_auto_title">Gym automation</string>
+    <string name="gym_auto_summary">Turn on Gym Mode when you arrive at your gym with AirPods connected</string>
+    <string name="gym_auto_enable">Enable automation</string>
+    <string name="gym_auto_permissions">Location access</string>
+    <string name="gym_auto_disclosure">EveryPods uses your location, even when the app is closed or not in use, to turn on Gym Mode and your selected heart-rate sharing when you arrive at your saved gym. The gym location stays on this phone and no location history is kept. Android and Google Play services perform the detection.</string>
+    <string name="gym_auto_grant_precise">Allow precise location</string>
+    <string name="gym_auto_grant_background">Open location settings</string>
+    <string name="gym_auto_background_hint">In settings, open Permissions, then Location, and choose “Allow all the time”.</string>
+    <string name="gym_auto_permission_denied">Precise location is required for gym automation. The rest of EveryPods works without it.</string>
+    <string name="gym_auto_location">Gym location</string>
+    <string name="gym_auto_use_current">Use current location</string>
+    <string name="gym_auto_latitude">Latitude</string>
+    <string name="gym_auto_longitude">Longitude</string>
+    <string name="gym_auto_save_location">Save coordinates</string>
+    <string name="gym_auto_location_saved">Saved location: %1$s, %2$s</string>
+    <string name="gym_auto_no_location">No location saved yet</string>
+    <string name="gym_auto_invalid_coordinates">Enter a valid latitude and longitude</string>
+    <string name="gym_auto_fix_failed">Couldn’t get an accurate location. Try again outdoors or near a window.</string>
+    <string name="gym_auto_radius">Detection radius: %1$d m</string>
+    <string name="gym_auto_radius_value">%1$d m</string>
+    <string name="gym_auto_radius_hint">Includes the area around the building.</string>
+    <string name="gym_auto_actions">On arrival</string>
+    <string name="gym_auto_hr">Start heart rate</string>
+    <string name="gym_auto_hr_desc">Uses your heart-rate sharing choice: %1$s</string>
+    <string name="gym_auto_hr_none">No sharing method selected, so heart rate won’t start</string>
+    <string name="gym_auto_restore">Restore on departure</string>
+    <string name="gym_auto_restore_desc">Turns Gym Mode off and stops heart rate only if this automation turned them on</string>
+    <string name="gym_auto_status_off">Off</string>
+    <string name="gym_auto_status_setup">Finish location setup</string>
+    <string name="gym_auto_status_waiting_arrival">Waiting for arrival</string>
+    <string name="gym_auto_status_waiting_airpods">Waiting for AirPods</string>
+    <string name="gym_auto_status_active">Gym Mode active</string>
+    <string name="gym_auto_status_paused">Paused for this visit</string>
+    <string name="gym_auto_status_leaving">Leaving the gym</string>
+    <string name="gym_auto_status_unavailable">Location unavailable</string>
+    <string name="gym_auto_resume">Resume for this visit</string>
+    <string name="gym_auto_stop">Stop for this visit</string>
 </resources>

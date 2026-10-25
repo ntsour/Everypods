@@ -947,4 +947,43 @@
     <string name="connection_type_wifi_description">透過 Wi-Fi 傳輸音訊時需要此連接。</string>
     <string name="hrs_monitor_only">僅監測（不分享）</string>
     <string name="hrs_sharing_off">分享已關閉</string>
+
+    <!-- Gym automation (location) -->
+    <string name="gym_auto_title">健身房自動化</string>
+    <string name="gym_auto_summary">連接 AirPods 抵達健身房時開啟健身模式</string>
+    <string name="gym_auto_enable">啟用自動化</string>
+    <string name="gym_auto_permissions">位置資訊存取權</string>
+    <string name="gym_auto_disclosure">即使應用程式已關閉或未在使用，EveryPods 也會使用你的位置資訊，在你抵達已儲存的健身房時開啟健身模式和你選擇的心率分享。健身房位置只儲存在這支手機上，不會保留位置記錄。偵測由 Android 和 Google Play 服務執行。</string>
+    <string name="gym_auto_grant_precise">允許使用精確位置</string>
+    <string name="gym_auto_grant_background">開啟位置資訊設定</string>
+    <string name="gym_auto_background_hint">在設定中開啟「權限」，接著開啟「位置資訊」，並選擇「一律允許」。</string>
+    <string name="gym_auto_permission_denied">健身房自動化需要精確位置。EveryPods 的其他功能不需要此權限也能使用。</string>
+    <string name="gym_auto_location">健身房位置</string>
+    <string name="gym_auto_use_current">使用目前位置</string>
+    <string name="gym_auto_latitude">緯度</string>
+    <string name="gym_auto_longitude">經度</string>
+    <string name="gym_auto_save_location">儲存座標</string>
+    <string name="gym_auto_location_saved">已儲存位置：%1$s, %2$s</string>
+    <string name="gym_auto_no_location">尚未儲存位置</string>
+    <string name="gym_auto_invalid_coordinates">請輸入有效的緯度和經度</string>
+    <string name="gym_auto_fix_failed">無法取得精確位置。請在戶外或靠近窗戶處再試一次。</string>
+    <string name="gym_auto_radius">偵測半徑：%1$d 公尺</string>
+    <string name="gym_auto_radius_value">%1$d 公尺</string>
+    <string name="gym_auto_radius_hint">包含建築物周圍的區域。</string>
+    <string name="gym_auto_actions">抵達時</string>
+    <string name="gym_auto_hr">開始心率</string>
+    <string name="gym_auto_hr_desc">使用你的心率分享選擇：%1$s</string>
+    <string name="gym_auto_hr_none">未選擇分享方式，因此不會開始心率</string>
+    <string name="gym_auto_restore">離開時還原</string>
+    <string name="gym_auto_restore_desc">只有在由此自動化開啟時，才會關閉健身模式並停止心率</string>
+    <string name="gym_auto_status_off">已關閉</string>
+    <string name="gym_auto_status_setup">完成位置設定</string>
+    <string name="gym_auto_status_waiting_arrival">等待抵達</string>
+    <string name="gym_auto_status_waiting_airpods">等待 AirPods</string>
+    <string name="gym_auto_status_active">健身模式已開啟</string>
+    <string name="gym_auto_status_paused">本次造訪已暫停</string>
+    <string name="gym_auto_status_leaving">正在離開健身房</string>
+    <string name="gym_auto_status_unavailable">無法使用位置資訊</string>
+    <string name="gym_auto_resume">本次造訪繼續</string>
+    <string name="gym_auto_stop">本次造訪停止</string>
 </resources>

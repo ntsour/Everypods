@@ -947,4 +947,43 @@
     <string name="connection_type_wifi_description">Потрібне для передавання аудіо через Wi-Fi.</string>
     <string name="hrs_monitor_only">Лише моніторинг (без передавання)</string>
     <string name="hrs_sharing_off">Передавання вимкнено</string>
+
+    <!-- Gym automation (location) -->
+    <string name="gym_auto_title">Автоматизація спортзалу</string>
+    <string name="gym_auto_summary">Вмикає режим спортзалу, коли ви приходите до спортзалу з підключеними AirPods</string>
+    <string name="gym_auto_enable">Увімкнути автоматизацію</string>
+    <string name="gym_auto_permissions">Доступ до геоданих</string>
+    <string name="gym_auto_disclosure">EveryPods використовує ваше місцезнаходження, навіть коли застосунок закритий або не використовується, щоб увімкнути режим спортзалу та вибраний обмін пульсом, коли ви прибуваєте до збереженого спортзалу. Розташування спортзалу зберігається лише на цьому телефоні, історія місцезнаходжень не ведеться. Визначення виконують Android і сервіси Google Play.</string>
+    <string name="gym_auto_grant_precise">Дозволити точне місцезнаходження</string>
+    <string name="gym_auto_grant_background">Відкрити налаштування геоданих</string>
+    <string name="gym_auto_background_hint">У налаштуваннях відкрийте Дозволи, потім Геодані, і виберіть «Дозволяти завжди».</string>
+    <string name="gym_auto_permission_denied">Для автоматизації спортзалу потрібне точне місцезнаходження. Решта EveryPods працює без нього.</string>
+    <string name="gym_auto_location">Розташування спортзалу</string>
+    <string name="gym_auto_use_current">Використати поточне місцезнаходження</string>
+    <string name="gym_auto_latitude">Широта</string>
+    <string name="gym_auto_longitude">Довгота</string>
+    <string name="gym_auto_save_location">Зберегти координати</string>
+    <string name="gym_auto_location_saved">Збережене розташування: %1$s, %2$s</string>
+    <string name="gym_auto_no_location">Розташування ще не збережено</string>
+    <string name="gym_auto_invalid_coordinates">Введіть дійсні широту й довготу</string>
+    <string name="gym_auto_fix_failed">Не вдалося отримати точне місцезнаходження. Спробуйте надворі або біля вікна.</string>
+    <string name="gym_auto_radius">Радіус виявлення: %1$d м</string>
+    <string name="gym_auto_radius_value">%1$d м</string>
+    <string name="gym_auto_radius_hint">Включає територію навколо будівлі.</string>
+    <string name="gym_auto_actions">Після прибуття</string>
+    <string name="gym_auto_hr">Запустити пульс</string>
+    <string name="gym_auto_hr_desc">Використовує ваш вибір обміну: %1$s</string>
+    <string name="gym_auto_hr_none">Метод обміну не вибрано, тому пульс не запуститься</string>
+    <string name="gym_auto_restore">Відновлювати після відходу</string>
+    <string name="gym_auto_restore_desc">Вимикає режим спортзалу й зупиняє пульс, лише якщо їх увімкнула ця автоматизація</string>
+    <string name="gym_auto_status_off">Вимкнено</string>
+    <string name="gym_auto_status_setup">Завершіть налаштування геоданих</string>
+    <string name="gym_auto_status_waiting_arrival">Очікування прибуття</string>
+    <string name="gym_auto_status_waiting_airpods">Очікування AirPods</string>
+    <string name="gym_auto_status_active">Режим спортзалу активний</string>
+    <string name="gym_auto_status_paused">Призупинено для цього візиту</string>
+    <string name="gym_auto_status_leaving">Вихід зі спортзалу</string>
+    <string name="gym_auto_status_unavailable">Геодані недоступні</string>
+    <string name="gym_auto_resume">Відновити для цього візиту</string>
+    <string name="gym_auto_stop">Зупинити для цього візиту</string>
 </resources>

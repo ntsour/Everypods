@@ -912,4 +912,43 @@
     <string name="connection_type_wifi_description">Απαιτείται για μετάδοση ήχου μέσω Wi-Fi.</string>
     <string name="hrs_monitor_only">Μόνο παρακολούθηση (χωρίς κοινοποίηση)</string>
     <string name="hrs_sharing_off">Η κοινοποίηση είναι ανενεργή</string>
+
+    <!-- Gym automation (location) -->
+    <string name="gym_auto_title">Αυτοματισμός γυμναστηρίου</string>
+    <string name="gym_auto_summary">Ενεργοποιεί τη λειτουργία γυμναστηρίου όταν φτάνετε στο γυμναστήριο με συνδεδεμένα AirPods</string>
+    <string name="gym_auto_enable">Ενεργοποίηση αυτοματισμού</string>
+    <string name="gym_auto_permissions">Πρόσβαση στην τοποθεσία</string>
+    <string name="gym_auto_disclosure">Το EveryPods χρησιμοποιεί την τοποθεσία σας, ακόμη και όταν η εφαρμογή είναι κλειστή ή δεν χρησιμοποιείται, για να ενεργοποιεί τη λειτουργία γυμναστηρίου και την κοινοποίηση καρδιακού ρυθμού που έχετε επιλέξει όταν φτάνετε στο αποθηκευμένο γυμναστήριο. Η τοποθεσία του γυμναστηρίου μένει σε αυτό το τηλέφωνο και δεν τηρείται ιστορικό τοποθεσιών. Τον εντοπισμό κάνουν το Android και οι υπηρεσίες Google Play.</string>
+    <string name="gym_auto_grant_precise">Να επιτρέπεται η ακριβής τοποθεσία</string>
+    <string name="gym_auto_grant_background">Άνοιγμα ρυθμίσεων τοποθεσίας</string>
+    <string name="gym_auto_background_hint">Στις ρυθμίσεις, ανοίξτε Άδειες, μετά Τοποθεσία, και επιλέξτε «Να επιτρέπεται συνεχώς».</string>
+    <string name="gym_auto_permission_denied">Ο αυτοματισμός γυμναστηρίου χρειάζεται ακριβή τοποθεσία. Το υπόλοιπο EveryPods λειτουργεί χωρίς αυτήν.</string>
+    <string name="gym_auto_location">Τοποθεσία γυμναστηρίου</string>
+    <string name="gym_auto_use_current">Χρήση τρέχουσας τοποθεσίας</string>
+    <string name="gym_auto_latitude">Γεωγραφικό πλάτος</string>
+    <string name="gym_auto_longitude">Γεωγραφικό μήκος</string>
+    <string name="gym_auto_save_location">Αποθήκευση συντεταγμένων</string>
+    <string name="gym_auto_location_saved">Αποθηκευμένη τοποθεσία: %1$s, %2$s</string>
+    <string name="gym_auto_no_location">Δεν έχει αποθηκευτεί τοποθεσία</string>
+    <string name="gym_auto_invalid_coordinates">Εισαγάγετε έγκυρο γεωγραφικό πλάτος και μήκος</string>
+    <string name="gym_auto_fix_failed">Δεν ήταν δυνατή η λήψη ακριβούς τοποθεσίας. Δοκιμάστε σε εξωτερικό χώρο ή κοντά σε παράθυρο.</string>
+    <string name="gym_auto_radius">Ακτίνα εντοπισμού: %1$d m</string>
+    <string name="gym_auto_radius_value">%1$d m</string>
+    <string name="gym_auto_radius_hint">Περιλαμβάνει την περιοχή γύρω από το κτίριο.</string>
+    <string name="gym_auto_actions">Κατά την άφιξη</string>
+    <string name="gym_auto_hr">Έναρξη καρδιακού ρυθμού</string>
+    <string name="gym_auto_hr_desc">Χρησιμοποιεί την επιλογή κοινοποίησης: %1$s</string>
+    <string name="gym_auto_hr_none">Δεν έχει επιλεγεί μέθοδος κοινοποίησης, οπότε ο καρδιακός ρυθμός δεν θα ξεκινήσει</string>
+    <string name="gym_auto_restore">Επαναφορά κατά την αναχώρηση</string>
+    <string name="gym_auto_restore_desc">Απενεργοποιεί τη λειτουργία γυμναστηρίου και σταματά τον καρδιακό ρυθμό μόνο αν τα ενεργοποίησε αυτός ο αυτοματισμός</string>
+    <string name="gym_auto_status_off">Ανενεργός</string>
+    <string name="gym_auto_status_setup">Ολοκληρώστε τη ρύθμιση τοποθεσίας</string>
+    <string name="gym_auto_status_waiting_arrival">Αναμονή άφιξης</string>
+    <string name="gym_auto_status_waiting_airpods">Αναμονή για AirPods</string>
+    <string name="gym_auto_status_active">Λειτουργία γυμναστηρίου ενεργή</string>
+    <string name="gym_auto_status_paused">Σε παύση για αυτή την επίσκεψη</string>
+    <string name="gym_auto_status_leaving">Αποχώρηση από το γυμναστήριο</string>
+    <string name="gym_auto_status_unavailable">Η τοποθεσία δεν είναι διαθέσιμη</string>
+    <string name="gym_auto_resume">Συνέχιση για αυτή την επίσκεψη</string>
+    <string name="gym_auto_stop">Διακοπή για αυτή την επίσκεψη</string>
 </resources>

@@ -947,4 +947,43 @@ Yêu cầu giao thức: %4$d</string>
     <string name="connection_type_wifi_description">Cần thiết để truyền âm thanh qua Wi-Fi.</string>
     <string name="hrs_monitor_only">Chỉ theo dõi (không chia sẻ)</string>
     <string name="hrs_sharing_off">Đã tắt chia sẻ</string>
+
+    <!-- Gym automation (location) -->
+    <string name="gym_auto_title">Tự động hóa phòng tập</string>
+    <string name="gym_auto_summary">Bật Chế độ tập khi bạn đến phòng tập với AirPods đã kết nối</string>
+    <string name="gym_auto_enable">Bật tự động hóa</string>
+    <string name="gym_auto_permissions">Quyền truy cập vị trí</string>
+    <string name="gym_auto_disclosure">EveryPods dùng vị trí của bạn, kể cả khi ứng dụng đã đóng hoặc không được sử dụng, để bật Chế độ tập và chia sẻ nhịp tim bạn đã chọn khi bạn đến phòng tập đã lưu. Vị trí phòng tập chỉ lưu trên điện thoại này và không lưu lịch sử vị trí. Android và dịch vụ Google Play thực hiện việc phát hiện.</string>
+    <string name="gym_auto_grant_precise">Cho phép vị trí chính xác</string>
+    <string name="gym_auto_grant_background">Mở cài đặt vị trí</string>
+    <string name="gym_auto_background_hint">Trong cài đặt, mở Quyền, sau đó Vị trí, rồi chọn “Luôn cho phép”.</string>
+    <string name="gym_auto_permission_denied">Tự động hóa phòng tập cần vị trí chính xác. Các phần khác của EveryPods vẫn hoạt động.</string>
+    <string name="gym_auto_location">Vị trí phòng tập</string>
+    <string name="gym_auto_use_current">Dùng vị trí hiện tại</string>
+    <string name="gym_auto_latitude">Vĩ độ</string>
+    <string name="gym_auto_longitude">Kinh độ</string>
+    <string name="gym_auto_save_location">Lưu tọa độ</string>
+    <string name="gym_auto_location_saved">Vị trí đã lưu: %1$s, %2$s</string>
+    <string name="gym_auto_no_location">Chưa lưu vị trí nào</string>
+    <string name="gym_auto_invalid_coordinates">Nhập vĩ độ và kinh độ hợp lệ</string>
+    <string name="gym_auto_fix_failed">Không lấy được vị trí chính xác. Hãy thử lại ngoài trời hoặc gần cửa sổ.</string>
+    <string name="gym_auto_radius">Bán kính phát hiện: %1$d m</string>
+    <string name="gym_auto_radius_value">%1$d m</string>
+    <string name="gym_auto_radius_hint">Bao gồm khu vực xung quanh tòa nhà.</string>
+    <string name="gym_auto_actions">Khi đến nơi</string>
+    <string name="gym_auto_hr">Bắt đầu đo nhịp tim</string>
+    <string name="gym_auto_hr_desc">Dùng lựa chọn chia sẻ của bạn: %1$s</string>
+    <string name="gym_auto_hr_none">Chưa chọn phương thức chia sẻ nên nhịp tim sẽ không bắt đầu</string>
+    <string name="gym_auto_restore">Khôi phục khi rời đi</string>
+    <string name="gym_auto_restore_desc">Tắt Chế độ tập và dừng nhịp tim chỉ khi tự động hóa này đã bật chúng</string>
+    <string name="gym_auto_status_off">Tắt</string>
+    <string name="gym_auto_status_setup">Hoàn tất thiết lập vị trí</string>
+    <string name="gym_auto_status_waiting_arrival">Đang chờ đến nơi</string>
+    <string name="gym_auto_status_waiting_airpods">Đang chờ AirPods</string>
+    <string name="gym_auto_status_active">Chế độ tập đang bật</string>
+    <string name="gym_auto_status_paused">Tạm dừng cho lần đến này</string>
+    <string name="gym_auto_status_leaving">Đang rời phòng tập</string>
+    <string name="gym_auto_status_unavailable">Không có vị trí</string>
+    <string name="gym_auto_resume">Tiếp tục cho lần đến này</string>
+    <string name="gym_auto_stop">Dừng cho lần đến này</string>
 </resources>

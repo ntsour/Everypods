@@ -946,4 +946,43 @@ Protokollanfragen: %4$d</string>
     <string name="connection_type_wifi_description">Für die WLAN-Audioübertragung erforderlich.</string>
     <string name="hrs_monitor_only">Nur messen (nicht teilen)</string>
     <string name="hrs_sharing_off">Übertragung aus</string>
+
+    <!-- Gym automation (location) -->
+    <string name="gym_auto_title">Fitnessstudio-Automatik</string>
+    <string name="gym_auto_summary">Gym-Modus einschalten, wenn du mit verbundenen AirPods im Fitnessstudio ankommst</string>
+    <string name="gym_auto_enable">Automatik aktivieren</string>
+    <string name="gym_auto_permissions">Standortzugriff</string>
+    <string name="gym_auto_disclosure">EveryPods verwendet deinen Standort, auch wenn die App geschlossen ist oder nicht verwendet wird, um bei Ankunft in deinem gespeicherten Fitnessstudio den Gym-Modus und die ausgewählte Herzfrequenzfreigabe einzuschalten. Der Standort des Studios bleibt auf diesem Telefon, es wird kein Standortverlauf gespeichert. Die Erkennung übernehmen Android und Google Play-Dienste.</string>
+    <string name="gym_auto_grant_precise">Genauen Standort erlauben</string>
+    <string name="gym_auto_grant_background">Standorteinstellungen öffnen</string>
+    <string name="gym_auto_background_hint">Öffne in den Einstellungen Berechtigungen, dann Standort, und wähle „Immer zulassen“.</string>
+    <string name="gym_auto_permission_denied">Für die Fitnessstudio-Automatik ist der genaue Standort erforderlich. Der Rest von EveryPods funktioniert ohne ihn.</string>
+    <string name="gym_auto_location">Standort des Fitnessstudios</string>
+    <string name="gym_auto_use_current">Aktuellen Standort verwenden</string>
+    <string name="gym_auto_latitude">Breitengrad</string>
+    <string name="gym_auto_longitude">Längengrad</string>
+    <string name="gym_auto_save_location">Koordinaten speichern</string>
+    <string name="gym_auto_location_saved">Gespeicherter Standort: %1$s, %2$s</string>
+    <string name="gym_auto_no_location">Noch kein Standort gespeichert</string>
+    <string name="gym_auto_invalid_coordinates">Gib einen gültigen Breiten- und Längengrad ein</string>
+    <string name="gym_auto_fix_failed">Kein genauer Standort verfügbar. Versuche es draußen oder in Fensternähe erneut.</string>
+    <string name="gym_auto_radius">Erkennungsradius: %1$d m</string>
+    <string name="gym_auto_radius_value">%1$d m</string>
+    <string name="gym_auto_radius_hint">Umfasst den Bereich um das Gebäude.</string>
+    <string name="gym_auto_actions">Bei Ankunft</string>
+    <string name="gym_auto_hr">Herzfrequenz starten</string>
+    <string name="gym_auto_hr_desc">Verwendet deine Freigabeauswahl: %1$s</string>
+    <string name="gym_auto_hr_none">Keine Freigabemethode ausgewählt, daher startet die Herzfrequenz nicht</string>
+    <string name="gym_auto_restore">Beim Verlassen wiederherstellen</string>
+    <string name="gym_auto_restore_desc">Schaltet den Gym-Modus aus und stoppt die Herzfrequenz nur, wenn diese Automatik sie eingeschaltet hat</string>
+    <string name="gym_auto_status_off">Aus</string>
+    <string name="gym_auto_status_setup">Standort-Einrichtung abschließen</string>
+    <string name="gym_auto_status_waiting_arrival">Warte auf Ankunft</string>
+    <string name="gym_auto_status_waiting_airpods">Warte auf AirPods</string>
+    <string name="gym_auto_status_active">Gym-Modus aktiv</string>
+    <string name="gym_auto_status_paused">Für diesen Besuch pausiert</string>
+    <string name="gym_auto_status_leaving">Fitnessstudio wird verlassen</string>
+    <string name="gym_auto_status_unavailable">Standort nicht verfügbar</string>
+    <string name="gym_auto_resume">Für diesen Besuch fortsetzen</string>
+    <string name="gym_auto_stop">Für diesen Besuch beenden</string>
 </resources>
