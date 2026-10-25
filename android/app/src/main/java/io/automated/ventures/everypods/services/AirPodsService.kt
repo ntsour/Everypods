@@ -1313,6 +1313,20 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             updateCaseBatteryFromBLE()
         }
 
+        override fun onLidStateUnknown() {
+            LidAutoconnectDiagnostics.logEvent("lid_unknown", mapOf("reason" to "ble_silent"))
+            // Preserve only the existing bounded intent, never an indefinite open state.
+            val deadline = passiveRecoveryDeadlineMs
+            lidAutoconnectHandler.postDelayed({
+                if (passiveRecoveryDeadlineMs == deadline &&
+                    SystemClock.elapsedRealtime() >= deadline) {
+                    lidOpenState = false
+                    cancelPendingLidAutoconnect("lid_unknown_expired")
+                    CrossDevice.cancelPassiveAcquisition()
+                }
+            }, (deadline - SystemClock.elapsedRealtime()).coerceAtLeast(0L))
+        }
+
         override fun onLidStateChanged(
             lidOpen: Boolean,
         ) {
@@ -2210,6 +2224,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             }
 
             override fun onOwnershipToFalseRequest(sender: String, reasonReverseTapped: Boolean) {
+                val wasAudioHolder = isA2dpConnected()
                 // TODO: Show a reverse button, but that's a lot of effort -- i'd have to change the UI too, which i hate doing, and handle other device's reverses too, and disconnect audio etc... so for now, just pause the audio and show the island without asking to reverse.
                 // handling reverse is a problem because we'd have to disconnect the audio, but there's no option connect audio again natively, so notification would have to be changed. I wish there was a way to just "change the audio output device".
                 // (20 minutes later) i've done it nonetheless :]
@@ -2235,7 +2250,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     // NOTE: do NOT call disconnectAudio() again here — the prior
                     // unconditional call above already handled it. A duplicate call
                     // back-to-back through reflection caused BT-stack state confusion.
-                    if (!inCase) showIsland(
+                    if (wasAudioHolder && !inCase) showIsland(
                         this@AirPodsService,
                         (batteryNotification.getBattery()
                             .find { it.component == BatteryComponent.LEFT }?.level
@@ -2248,7 +2263,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                         otherDeviceName = senderName
                     )
                 }
-                if (!aacpManager.owns && !inCase) {
+                if (wasAudioHolder && !aacpManager.owns && !inCase) {
                     showIsland(
                         this@AirPodsService,
                         (batteryNotification.getBattery()
@@ -2265,6 +2280,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             }
 
             override fun onShowNearbyUI(sender: String) {
+                if (!isA2dpConnected()) return
                 if (areBothPodsInCase()) {
                     Log.d(TAG, "Ignoring ShowNearbyUI from $sender — AirPods are in case")
                     return
@@ -3800,6 +3816,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
     /** Pending lid-open auto-grab; cancelled if lid closes before connect starts. */
     private var pendingLidAutoconnectRunnable: Runnable? = null
+    private var passiveRecoveryDeadlineMs = 0L
+    private var passiveRecoveryRunnable: Runnable? = null
     /** Single pending a2dp_flux follow-up; never more than one at a time. */
     private var pendingFluxRecheckRunnable: Runnable? = null
     /** Delayed A2DP retries for one passive lid-open attempt. */
@@ -5875,6 +5893,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }
 
     fun disconnectForCD() {
+        val wasAudioHolder = isA2dpConnected()
         // Call-hold veto: if this device is currently ringing or in a call, do not yield
         // the AirPods. All devices receive the same Teams/VoIP ring simultaneously and each
         // issues kRequestDisconnect — without this veto the first requester blindly wins
@@ -5908,7 +5927,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         val batteryList = batteryNotification.getBattery()
         val leftLevel = batteryList.find { it.component == BatteryComponent.LEFT }?.level
         val rightLevel = batteryList.find { it.component == BatteryComponent.RIGHT }?.level
-        if (leftLevel != null && rightLevel != null) {
+        if (wasAudioHolder && leftLevel != null && rightLevel != null) {
             showIsland(this, leftLevel.coerceAtMost(rightLevel), IslandType.MOVED_TO_REMOTE)
         }
         // Pause local playback immediately — don't wait for the A2DP proxy callback.
@@ -6455,7 +6474,16 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         if (runCatching {
                 (getSystemService(TELECOM_SERVICE) as android.telecom.TelecomManager).isInCall
             }.getOrDefault(false)) return PeerAudioUse.CALL
-        if (!isA2dpConnected()) return PeerAudioUse.UNKNOWN
+        val state = runCatching {
+            val adapter = getSystemService(BluetoothManager::class.java).adapter
+            if (adapter?.isEnabled != true || macAddress.isBlank()) null
+            else bluetoothA2dpProxy?.getConnectionState(adapter.getRemoteDevice(macAddress))
+        }.getOrNull()
+        // Disconnected is idle for this headset; unavailable or transitioning is unknown.
+        if (state != BluetoothProfile.STATE_CONNECTED) {
+            return io.automated.ventures.everypods.utils.peer.disconnectedHeadsetAudioUse(
+                state == BluetoothProfile.STATE_DISCONNECTED, isConnected())
+        }
         return runCatching {
             val playing = (getSystemService(AUDIO_SERVICE) as AudioManager).isMusicActive
             if (playing) PeerAudioUse.MEDIA else PeerAudioUse.IDLE
@@ -6532,31 +6560,15 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
     /** Soft UX once per lid-open: no auto-steal; playback/manual reconnect remains the path. */
     private fun maybeNotifyLidOtherOwner(reason: String) {
-        if (!AudioLeasePrefs.isFeatureEnabled(sharedPreferences)) return
-        if (lidOtherOwnerNotifiedForOpen) return
-        lidOtherOwnerNotifiedForOpen = true
-        val hint = resolveA2dpOwnerHint()
-        logLidOwnerContext(reason, hint)
-        val message = getString(R.string.lid_other_owner_takeover_hint)
-        sendToast(message)
-        // Island when overlays enabled — name the CrossDevice peer if known.
-        if (sharedPreferences.getBoolean("show_island_popup", true) &&
-            Settings.canDrawOverlays(this)
-        ) {
-            val left = batteryNotification.getBattery()
-                .find { it.component == BatteryComponent.LEFT }?.level ?: 0
-            val right = batteryNotification.getBattery()
-                .find { it.component == BatteryComponent.RIGHT }?.level ?: 0
-            showIsland(
-                this,
-                left.coerceAtMost(right),
-                IslandType.MOVED_TO_OTHER_DEVICE,
-                otherDeviceName = hint.displayName ?: "another device",
-            )
-        }
+        // Observing a peer holder is not an ownership departure from this device.
+        // Keep diagnostics, but do not toast or show a misleading "Moved" island.
+        logLidOwnerContext(reason, resolveA2dpOwnerHint())
     }
 
     private fun cancelPendingLidAutoconnect(reason: String) {
+        passiveRecoveryRunnable?.let(lidAutoconnectHandler::removeCallbacks)
+        passiveRecoveryRunnable = null
+        passiveRecoveryDeadlineMs = 0L
         pendingLidAutoconnectRunnable?.let {
             lidAutoconnectHandler.removeCallbacks(it)
             pendingLidAutoconnectRunnable = null
@@ -6614,6 +6626,14 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }
 
     /** Re-check ownership before every delayed passive retry. */
+    private fun mayRecoverOfflineLastHolder(): Boolean =
+        CrossDeviceReconnectPolicy.mayRecoverOfflineLastHolder(
+            AudioLeasePrefs.isLeaseHolder(sharedPreferences),
+            AudioLeasePrefs.leaseEverSet(sharedPreferences),
+            CrossDevice.configuredPeers.any { CrossDevice.isConnectedTo(it) },
+            CrossDevice.isAvailable,
+        )
+
     private fun mayContinueLidAutoconnect(): Boolean {
         val now = SystemClock.elapsedRealtime()
         if (now < lidAutoconnectContentionUntilMs) {
@@ -6624,6 +6644,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             return false
         }
         val shared = CrossDevice.isEnabled && CrossDevice.configuredPeers.isNotEmpty()
+        if (shared && mayRecoverOfflineLastHolder()) return true
         val synchronizedPeers = CrossDevice.hasFreshPeerOwnershipSnapshot()
         if (!CrossDeviceReconnectPolicy.mayPassivelyAcquire(
                 shared, synchronizedPeers, CrossDevice.isAvailable,
@@ -6772,6 +6793,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             pendingLidAutoconnectRunnable = null
             runLidAutoconnectAttempt()
         }
+        passiveRecoveryDeadlineMs = SystemClock.elapsedRealtime() + 10_000L
         pendingLidAutoconnectRunnable = runnable
         // Delay slightly under LID_CLOSE_TIMEOUT so a quick close cancels first.
         lidAutoconnectHandler.postDelayed(runnable, 400L)
@@ -6886,9 +6908,13 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             return
         }
 
-        if (shared) {
+        if (shared && !mayRecoverOfflineLastHolder()) {
             requestSharedPassiveAcquisition("lid_open")
             return
+        }
+        if (shared) {
+            CrossDevice.cancelPassiveAcquisition()
+            LidAutoconnectDiagnostics.logEvent("offline_last_holder_recovery")
         }
         startLidConnectWithRetries(savedDevice)
     }
@@ -7102,6 +7128,16 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             "source" to source,
             "result" to if (started) "requested" else "not_ready",
         ))
+        if (lidOpenState && SystemClock.elapsedRealtime() < passiveRecoveryDeadlineMs &&
+            passiveRecoveryRunnable == null) {
+            CrossDevice.refreshPassiveOwnership()
+            val retry = Runnable {
+                passiveRecoveryRunnable = null
+                if (lidOpenState && !holdsAirPods()) runLidAutoconnectAttempt()
+            }
+            passiveRecoveryRunnable = retry
+            lidAutoconnectHandler.postDelayed(retry, 750L)
+        }
         return started
     }
 

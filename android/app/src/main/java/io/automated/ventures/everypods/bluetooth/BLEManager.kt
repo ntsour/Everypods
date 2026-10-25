@@ -69,6 +69,7 @@ class BLEManager(private val context: Context) {
         fun onDeviceStatusChanged(device: AirPodsStatus, previousStatus: AirPodsStatus?)
         fun onBroadcastFromNewAddress(device: AirPodsStatus)
         fun onLidStateChanged(lidOpen: Boolean)
+        fun onLidStateUnknown() {}
         fun onEarStateChanged(device: AirPodsStatus, leftInEar: Boolean, rightInEar: Boolean)
         fun onBatteryChanged(device: AirPodsStatus)
         fun onDeviceDisappeared()
@@ -550,9 +551,9 @@ class BLEManager(private val context: Context) {
     private fun checkLidStateTimeout() {
         val currentTime = System.currentTimeMillis()
         if (currentTime - lastBroadcastTime > LID_CLOSE_TIMEOUT_MS && currentGlobalLidState == true) {
-            Log.d(TAG, "No broadcasts for ${LID_CLOSE_TIMEOUT_MS}ms, forcing lid state to closed")
-            currentGlobalLidState = false
-            airPodsStatusListener?.onLidStateChanged(false)
+            Log.d(TAG, "No broadcasts for ${LID_CLOSE_TIMEOUT_MS}ms, lid state unknown")
+            currentGlobalLidState = null
+            airPodsStatusListener?.onLidStateUnknown()
         }
     }
 
