@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
@@ -24,6 +25,12 @@ import androidx.compose.ui.unit.sp
 
 /** A group owns its surface; nested controls must render as rows. */
 internal val LocalSettingsGroup = compositionLocalOf { false }
+
+@Composable
+internal fun SettingsDivider() = HorizontalDivider(
+    color = Color(0x30888888), thickness = 0.5.dp,
+    modifier = Modifier.padding(horizontal = 16.dp)
+)
 
 @Composable
 internal fun SettingsHeading(title: String, modifier: Modifier = Modifier) {

@@ -24,7 +24,7 @@ fun CallControlSettings(
     // A single layout owns both header and rows; the old sibling Box overlapped them.
     SettingsSection(stringResource(R.string.hg_call_actions)) {
         HeadGestureCallAction.entries.forEachIndexed { index, action ->
-            if (index > 0) HorizontalDivider(Modifier.padding(vertical = 8.dp))
+            if (index > 0) SettingsDivider()
             Text(stringResource(when (action) {
                 HeadGestureCallAction.ANSWER -> R.string.answer_call
                 HeadGestureCallAction.DECLINE -> R.string.hg_decline_call

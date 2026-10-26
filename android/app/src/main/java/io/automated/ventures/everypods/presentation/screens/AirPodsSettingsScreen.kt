@@ -402,10 +402,7 @@ internal fun MenuSectionHeader(label: String, dark: Boolean, requiresAacp: Boole
 }
 
 @Composable
-internal fun MenuDivider() = HorizontalDivider(
-    color = Color(0x30888888), thickness = 0.5.dp,
-    modifier = Modifier.padding(horizontal = 16.dp)
-)
+internal fun MenuDivider() = io.automated.ventures.everypods.presentation.components.SettingsDivider()
 
 @Composable
 internal fun MenuNavRow(
