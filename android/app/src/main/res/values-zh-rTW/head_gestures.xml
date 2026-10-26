@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="hg_nod">點頭（是）</string>
+    <string name="hg_shake">搖頭（否）</string>
+    <string name="hg_do_nothing">不執行動作</string>
+    <string name="hg_none">無</string>
+    <string name="hg_configuration">頭部手勢設定</string>
+    <string name="hg_call_actions">通話動作</string>
+    <string name="hg_decline_call">拒接電話</string>
+    <string name="hg_head_gesture">頭部手勢</string>
+    <string name="hg_stem_press">按壓耳機柄</string>
+    <string name="hg_gym_controls">健身控制</string>
+    <string name="hg_gym_tuning">健身頭部手勢調整</string>
+    <string name="hg_separate_gym">使用獨立的健身調整設定</string>
+    <string name="hg_tuning_profile">調整設定檔</string>
+    <string name="hg_normal">一般</string>
+    <string name="hg_gym_shared">健身模式使用一般設定。啟用獨立的健身調整設定以進行變更。</string>
+    <string name="hg_amplitude">動作幅度（感測器相對單位）</string>
+    <string name="hg_repetitions">所需重複次數</string>
+    <string name="hg_cooldown">動作間隔</string>
+    <string name="hg_seconds">%1$.1f 秒</string>
+    <string name="hg_reset_tuning">重設調整設定</string>
+    <string name="hg_stop_test">停止測試</string>
+    <string name="hg_tuning_help">較大的幅度和更多重複次數需要更明確的動作。一次重複是指完整的往返動作並回到中立位置。</string>
+    <string name="hg_test_help">安全測試手勢：測試期間會暫停已指派的動作。實際來電會結束測試。請佩戴至少一隻已連接到此手機的 AirPod。</string>
+    <string name="hg_test_progress">%1$s：幅度 %2$d · 重複 %3$d/%4$d</string>
+    <string name="hg_detected">已辨識：%1$s</string>
+    <string name="hg_cooldown_remaining">動作間隔：%1$.1f 秒</string>
+    <string name="hg_dismiss">關閉</string>
+    <string name="hg_migration_notice">搖頭現在會切換通話靜音狀態。點頭不再取消靜音。請在「通話動作」中變更指派。</string>
+    <string name="hg_permission_description">使用已設定的頭部手勢接聽或拒接電話。</string>
+    <string name="hg_stop_announcements">搖頭停止語音播報</string>
+    <string name="hg_stop_announcements_help">播報期間，搖頭會停止播報，而不會執行已指派的健身或一般動作。通話優先。需要啟用頭部手勢。</string>
+    <string name="hg_advanced_diagnostics">進階選項與診斷</string>
+    <string name="hg_gym_active_hint">健身模式已開啟。這些一般指派已暫停。請在「健身控制」中設定頭部手勢。</string>
+</resources>

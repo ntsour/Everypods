@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="hg_nod">Nicken (ja)</string>
+    <string name="hg_shake">Kopfschütteln (nein)</string>
+    <string name="hg_do_nothing">Keine Aktion</string>
+    <string name="hg_none">Keine</string>
+    <string name="hg_configuration">Kopfgesten konfigurieren</string>
+    <string name="hg_call_actions">Anrufaktionen</string>
+    <string name="hg_decline_call">Anruf ablehnen</string>
+    <string name="hg_head_gesture">Kopfgeste</string>
+    <string name="hg_stem_press">Druck auf den Stiel</string>
+    <string name="hg_gym_controls">Training-Steuerung</string>
+    <string name="hg_gym_tuning">Kopfgesten fürs Training anpassen</string>
+    <string name="hg_separate_gym">Separate Trainingseinstellungen verwenden</string>
+    <string name="hg_tuning_profile">Einstellungsprofil</string>
+    <string name="hg_normal">Normal</string>
+    <string name="hg_gym_shared">Der Trainingsmodus verwendet die normalen Einstellungen. Aktiviere separate Einstellungen, um sie zu ändern.</string>
+    <string name="hg_amplitude">Bewegungsamplitude (relative Sensorwerte)</string>
+    <string name="hg_repetitions">Erforderliche Wiederholungen</string>
+    <string name="hg_cooldown">Wartezeit zwischen Aktionen</string>
+    <string name="hg_seconds">%1$.1f Sekunden</string>
+    <string name="hg_reset_tuning">Einstellungen zurücksetzen</string>
+    <string name="hg_stop_test">Test beenden</string>
+    <string name="hg_tuning_help">Eine größere Amplitude und mehr Wiederholungen erfordern bewusstere Bewegungen. Eine Wiederholung ist eine vollständige Hin- und Herbewegung zurück zur Neutralstellung.</string>
+    <string name="hg_test_help">Gesten sicher testen: Zugewiesene Aktionen pausieren während des Tests. Ein echter Anruf beendet den Test. Trage mindestens einen mit diesem Telefon verbundenen AirPod.</string>
+    <string name="hg_test_progress">%1$s: Amplitude %2$d · Wiederholungen %3$d/%4$d</string>
+    <string name="hg_detected">Erkannt: %1$s</string>
+    <string name="hg_cooldown_remaining">Wartezeit: %1$.1f Sekunden</string>
+    <string name="hg_dismiss">Schließen</string>
+    <string name="hg_migration_notice">Kopfschütteln schaltet jetzt das Mikrofon während eines Anrufs stumm oder wieder ein. Nicken hebt die Stummschaltung nicht mehr auf. Ändere die Zuordnung unter Anrufaktionen.</string>
+    <string name="hg_permission_description">Konfigurierte Kopfgesten zum Annehmen oder Ablehnen von Anrufen verwenden.</string>
+    <string name="hg_stop_announcements">Kopfschütteln stoppt gesprochene Ansagen</string>
+    <string name="hg_stop_announcements_help">Schüttle während einer Ansage den Kopf, um sie zu stoppen, statt die zugewiesene Trainings- oder normale Aktion auszuführen. Anrufe haben Vorrang. Kopfgesten müssen aktiviert sein.</string>
+    <string name="hg_advanced_diagnostics">Erweitert und Diagnose</string>
+    <string name="hg_gym_active_hint">Der Trainingsmodus ist aktiv. Diese normalen Zuordnungen sind pausiert. Konfiguriere Kopfgesten in der Training-Steuerung.</string>
+</resources>

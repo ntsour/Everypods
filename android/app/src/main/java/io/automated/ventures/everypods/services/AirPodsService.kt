@@ -133,7 +133,12 @@ import io.automated.ventures.everypods.data.CustomEq
 import io.automated.ventures.everypods.data.Battery
 import io.automated.ventures.everypods.data.BatteryComponent
 import io.automated.ventures.everypods.data.BatteryStatus
-import io.automated.ventures.everypods.data.StemAction
+import io.automated.ventures.everypods.data.*
+import io.automated.ventures.everypods.utils.HeadGestureWearState
+import io.automated.ventures.everypods.utils.HeadGestureStream
+import io.automated.ventures.everypods.utils.HeadGesturePolicy
+import io.automated.ventures.everypods.utils.HeadGesturePrefs
+import io.automated.ventures.everypods.utils.GestureFeedback
 import io.automated.ventures.everypods.data.StemPressDefaults
 import io.automated.ventures.everypods.data.isHeadTrackingData
 import io.automated.ventures.everypods.presentation.overlays.IslandType
@@ -949,13 +954,6 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         var relativeConversationalAwarenessVolume: Boolean = true,
         // Master switch — when false, all head gesture features are disabled.
         var headGesturesEnabled: Boolean = false,
-        // Nod/shake answers/declines an incoming (ringing) call.
-        var headGesturesAnswerCall: Boolean = true,
-        // Shake mutes the mic and nod unmutes during an active call.
-        var headGesturesMuteCall: Boolean = true,
-        // Horizontal head shakes stop an audible EveryPods announcement.
-        var headGesturesStopAnnouncement: Boolean = true,
-        var headGesturesGymTimer: Boolean = true,
         var disconnectWhenNotWearing: Boolean = false,
         var conversationalAwarenessVolume: Int = 43,
         var qsClickBehavior: String = "cycle",
@@ -1386,6 +1384,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             device: BLEManager.AirPodsStatus, leftInEar: Boolean, rightInEar: Boolean
         ) {
             Log.d(TAG, "Ear state changed - Left: $leftInEar, Right: $rightInEar")
+            gestureHandler.post { reconcileHeadGestures(wearHint = true) }
             if (leftInEar || rightInEar) {
                 io.automated.ventures.everypods.utils.BatteryAlertWatcher.checkAndMaybeAlert(
                     this@AirPodsService,
@@ -1512,6 +1511,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
         sharedPreferences = getSharedPreferences("settings", MODE_PRIVATE)
         GymTimer.setPreparationCountdownEnabled(GymModePrefs.preparationCountdownEnabled(this))
+        HeadGesturePrefs.migrate(sharedPreferences)
         initializeConfig()
 
         aacpManager = AACPManager()
@@ -1526,9 +1526,6 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
         sharedPreferences.registerOnSharedPreferenceChangeListener(this)
         AnnouncementCoordinator.addSpeechStartListener(announcementSpeechStartListener)
-        if (config.gymModeEnabled || AnnouncementCoordinator.isManagedAnnouncementAudible()) {
-            startContextGestureDetection()
-        }
         startNotifListenerWatchdog()
         startStaleNotificationCleanup()
 
@@ -1539,21 +1536,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             if (isInAnyCall()) applyMuteStateFromAppNotif(muted)
         }
         CallNotifListener.onCallStateChanged = { ringing, active ->
-            if (ringing || active) stopContextGestureDetection()
             setupStemActions()
-            if (ringing) {
-                handleIncomingCall()
-            } else {
-                stopIncomingCallGestureDetection()
-                if (active && config.headGesturesEnabled && config.headGesturesMuteCall) {
-                    handleActiveCall()
-                } else if (!active && !isInCall && !isVoIPCallActive) {
-                    handleIncomingCallOnceConnected = false
-                    activeCallGestureLoopRunning = false
-                    startContextGestureDetection()
-                    if (!contextGestureDetection && !sharedPreferences.getBoolean("head_tracking_enabled", false)) stopHeadTracking()
-                }
-            }
+            if (!ringing && !active) handleIncomingCallOnceConnected = false
+            // The one controller owns incoming, active, announcement and ordinary contexts.
+            reconcileHeadGestures()
         }
 
         localMac = config.selfMacAddress
@@ -1578,13 +1564,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         // startForegroundNotification() already ran at the top of onCreate.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             initGestureDetector()
+            gestureControllerRunning = true
+            gestureHandler.post(gestureTick)
         } else {
             gestureDetector = null
             config.headGesturesEnabled = false
-            config.headGesturesAnswerCall = false
-            config.headGesturesMuteCall = false
-            config.headGesturesStopAnnouncement = false
-            config.headGesturesGymTimer = false
             sharedPreferences.edit {
                 putBoolean("head_gestures_enabled", false)
                 putBoolean("head_gestures_answer_call", false)
@@ -1780,7 +1764,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 when (state) {
                     TelephonyManager.CALL_STATE_RINGING -> {
                         Log.d(TAG, "Call state: RINGING")
-                        stopContextGestureDetection()
+                        reconcileHeadGestures()
                         isCallRinging = true
                         // Re-apply the stem config now that the call is ringing. The
                         // AirPods reset stem behavior when they enter the HFP incoming-
@@ -1800,16 +1784,15 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                                 takeOver("call")
                             }
                         }
-                        if (config.headGesturesEnabled && config.headGesturesAnswerCall) {
+                        if (config.headGesturesEnabled) {
                             handleIncomingCall()
                         }
                     }
 
                     TelephonyManager.CALL_STATE_OFFHOOK -> {
                         Log.d(TAG, "Call state: OFFHOOK")
-                        stopContextGestureDetection()
+                        reconcileHeadGestures()
                         isCallRinging = false
-                        stopIncomingCallGestureDetection()
                         val leAvailableForAudio =
                             bleManager.getMostRecentStatus()?.isLeftInEar == true || bleManager.getMostRecentStatus()?.isRightInEar == true
 //                        if ((CrossDevice.isAvailable && !isConnectedLocally && earDetectionNotification.status.contains(0x00)) || leAvailableForAudio) CoroutineScope(
@@ -1824,23 +1807,20 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                         }
                         isInCall = true
                         setupStemActions()
-                        if (config.headGesturesEnabled && config.headGesturesMuteCall) {
+                        if (config.headGesturesEnabled) {
                             handleActiveCall()
                         }
                     }
 
                     TelephonyManager.CALL_STATE_IDLE -> {
                         Log.d(TAG, "Call state: IDLE")
-                        stopContextGestureDetection()
+                        reconcileHeadGestures()
                         isInCall = false
                         isCallRinging = false
-                        stopIncomingCallGestureDetection()
-                        gestureDetector?.stopDetection()
-                        if (isHeadTrackingActive) stopHeadTracking()
-                        activeCallGestureLoopRunning = false
+                        reconcileHeadGestures()
                         stopMutedReminder()
                         setupStemActions()
-                        startContextGestureDetection()
+                        reconcileHeadGestures()
                     }
                 }
             }
@@ -1853,13 +1833,12 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         sysAudioManager.addOnModeChangedListener(mainExecutor) { mode ->
             Log.d(TAG, "Audio mode changed: $mode")
             if (mode == AudioManager.MODE_IN_COMMUNICATION) {
-                stopContextGestureDetection()
-                if (!CallNotifListener.isVoipNotifRinging) stopIncomingCallGestureDetection()
+                reconcileHeadGestures()
                 if (!isInCall && !isVoIPCallActive && !CallNotifListener.isVoipNotifRinging) {
                     isVoIPCallActive = true
                     Log.d(TAG, "VoIP call detected (audio mode IN_COMMUNICATION)")
                     setupStemActions()
-                    if (config.headGesturesEnabled && config.headGesturesMuteCall) handleActiveCall()
+                    if (config.headGesturesEnabled) handleActiveCall()
                     // Handover trigger for VoIP (Teams, Zoom, …). MODE_IN_COMMUNICATION
                     // fires on the device that ANSWERED (or started) the call, never on
                     // a device that is only ringing — so this is the unambiguous "this
@@ -1877,18 +1856,12 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 if (isVoIPCallActive) {
                     isVoIPCallActive = false
                     Log.d(TAG, "VoIP call ended (audio mode changed to $mode)")
-                    // Viber briefly uses communication audio while still ringing.
-                    // Its explicit incoming notification outranks this mode change.
-                    if (!CallNotifListener.isVoipNotifRinging) {
-                        gestureDetector?.stopDetection()
-                        if (isHeadTrackingActive) stopHeadTracking()
-                    }
-                    activeCallGestureLoopRunning = false
+                    reconcileHeadGestures()
                     stopMutedReminder()
                     setupStemActions()
                     if (CallNotifListener.isVoipNotifRinging) handleIncomingCall()
                 }
-                startContextGestureDetection()
+                reconcileHeadGestures()
             }
         }
         // Catch a VoIP call already in progress when the listener registered
@@ -1896,7 +1869,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             isVoIPCallActive = true
             Log.d(TAG, "VoIP call already in progress at startup")
             setupStemActions()
-            if (config.headGesturesEnabled && config.headGesturesMuteCall) handleActiveCall()
+            if (config.headGesturesEnabled) handleActiveCall()
         }
 
         if (config.showPhoneBatteryInWidget) {
@@ -2207,20 +2180,31 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             }
 
             override fun onEarDetectionReceived(earDetection: ByteArray) {
+                if (earDetection.size < 8) {
+                    Log.w("HeadGestures", "Ignoring truncated wear report")
+                    return
+                }
                 sendBroadcast(Intent(AirPodsNotifications.EAR_DETECTION_DATA).apply {
-                    val list = earDetectionNotification.status
-                    val bytes = ByteArray(2)
-                    bytes[0] = list[0]
-                    bytes[1] = list[1]
+                    val bytes = earDetection.copyOfRange(6, 8)
                     putExtra("data", bytes)
                 }.apply {
                     setPackage(packageName)
                 })
                 Log.d(
                     "AirPodsParser",
-                    "Ear Detection: ${earDetectionNotification.status[0]} ${earDetectionNotification.status[1]}"
+                    "Ear Detection: ${earDetection[6]} ${earDetection[7]}"
                 )
+                val generation = BluetoothConnectionManager.connectionGeneration()
+                val wornMask = (if (earDetection[6] == 0x00.toByte()) 1 else 0) or
+                    (if (earDetection[7] == 0x00.toByte()) 2 else 0)
                 processEarDetectionChange(earDetection)
+                gestureHandler.post {
+                    // Sensor reports can precede the engine's Connected publication.
+                    // Keep current-socket evidence; action eligibility still requires Connected.
+                    gestureWear.report(generation, BluetoothConnectionManager.connectionGeneration(),
+                        BluetoothConnectionManager.getCurrentSocket() != null, wornMask)
+                    reconcileHeadGestures()
+                }
             }
 
             override fun onConversationAwarenessReceived(conversationAwareness: ByteArray) {
@@ -2254,6 +2238,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             }
 
             override fun onOwnershipChangeReceived(owns: Boolean) {
+                gestureHandler.post { reconcileHeadGestures() }
                 if (!owns) {
                     if (heartRateState.value.running || heartRateSharingState.value.active) stopHeartRate(HeartRateFailure.NOT_OWNER)
                     Log.d(TAG, "ownership lost — Android will fire AUDIO_BECOMING_NOISY to pause the old device")
@@ -2403,9 +2388,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             override fun onHeadTrackingReceived(headTracking: ByteArray) {
                 Log.d(TAG, "onHeadTrackingReceived: active=$isHeadTrackingActive len=${headTracking.size}")
                 if (isHeadTrackingActive) {
-                    val samples = HeadTracking.processPacket(headTracking)
-                    Log.d(TAG, "Motion frame: bytes=${headTracking.size} samples=${samples.size}")
-                    samples.forEach(::processHeadTrackingData)
+                    val generation = BluetoothConnectionManager.connectionGeneration()
+                    val epoch = gestureEpoch
+                    val receivedAt = SystemClock.elapsedRealtime()
+                    val samples = io.automated.ventures.everypods.bluetooth.HeadMotionProtocol.decodeAll(headTracking)
+                    if (samples.isNotEmpty()) processHeadTrackingData(samples, generation, epoch, receivedAt)
                 }
             }
 
@@ -2472,7 +2459,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     if (GymModeStemPressArbitration.shouldDeferSinglePress(config.gymModeEnabled, stemPressType)) {
                         deferGymModeSinglePress(bud, it)
                     } else {
-                        executeStemAction(it)
+                        executeControlAction(it)
                     }
                 }
             }
@@ -2699,75 +2686,6 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
     private fun isAnnouncementAudible(): Boolean = AnnouncementCoordinator.isAudiblySpeaking()
 
-    private fun startContextGestureDetection() {
-        if (!config.headGesturesEnabled || isInAnyCall()) return
-        if (!(config.gymModeEnabled && config.headGesturesGymTimer) &&
-            !(config.headGesturesStopAnnouncement && AnnouncementCoordinator.isManagedAnnouncementAudible())
-        ) return
-        if (contextGestureMonitorJob?.isActive == true) return
-
-        val generation = ++contextGestureGeneration
-        contextGestureDetection = true
-        Log.d(TAG, "Context gesture detection starting: generation=$generation gym=${config.gymModeEnabled}")
-        contextGestureMonitorJob = CoroutineScope(Dispatchers.Main).launch {
-            initGestureDetector()
-            gestureDetector?.stopDetection(doNotStop = true)
-            try {
-                while (isActive && generation == contextGestureGeneration && config.headGesturesEnabled &&
-                    ((config.gymModeEnabled && config.headGesturesGymTimer) || (config.headGesturesStopAnnouncement &&
-                        AnnouncementCoordinator.isManagedAnnouncementAudible()))
-                ) {
-                    val detector = gestureDetector ?: break
-                    if (!detector.isRunning) {
-                        detector.startDetection(doNotStop = true) { verticalNod ->
-                            if (!isInAnyCall() && config.headGesturesEnabled) {
-                                val announcementHasPriority = config.headGesturesStopAnnouncement &&
-                                    AnnouncementCoordinator.isManagedAnnouncementAudible()
-                                if (announcementHasPriority) {
-                                    // Announcement gestures take precedence over Gym Mode.
-                                    if (!verticalNod) {
-                                        Log.d(TAG, "Horizontal head gesture: stopping spoken announcement")
-                                        stopAnnouncement()
-                                    }
-                                } else if (config.gymModeEnabled && config.headGesturesGymTimer) {
-                                    if (verticalNod) {
-                                        Log.d(TAG, "Gym Mode head gesture: vertical nod toggles timer start/pause")
-                                        GymTimer.startStop()
-                                    } else {
-                                        Log.d(TAG, "Gym Mode head gesture: horizontal shake resets timer")
-                                        GymTimer.reset()
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    delay(50)
-                }
-            } finally {
-                if (generation == contextGestureGeneration) {
-                    contextGestureDetection = false
-                    contextGestureMonitorJob = null
-                    if (!incomingCallGestureDetection && !activeCallGestureLoopRunning) {
-                        gestureDetector?.stopDetection()
-                    }
-                }
-            }
-        }
-    }
-
-    private fun stopContextGestureDetection() {
-        val wasMonitoringContext = contextGestureDetection
-        ++contextGestureGeneration
-        contextGestureDetection = false
-        contextGestureMonitorJob?.cancel()
-        contextGestureMonitorJob = null
-        if (wasMonitoringContext && !incomingCallGestureDetection &&
-            !activeCallGestureLoopRunning
-        ) {
-            gestureDetector?.stopDetection()
-        }
-    }
-
     private fun deferGymModeSinglePress(
         bud: AACPManager.Companion.StemPressBudType,
         action: StemAction
@@ -2781,7 +2699,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     pending.action
                 }
             }
-            actionToRun?.let(::executeStemAction)
+            actionToRun?.let(::executeControlAction)
         }
         synchronized(gymModeStemPressLock) {
             pendingGymModeSinglePress?.let { gymModeStemPressHandler.removeCallbacks(it.runnable) }
@@ -2810,7 +2728,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         AnnouncementCoordinator.stop()
     }
 
-    private fun executeStemAction(action: StemAction) {
+    private fun executeControlAction(action: StemAction) {
         when (action) {
             StemAction.PLAY_PAUSE -> MediaController.sendPlayPause()
             StemAction.PREVIOUS_TRACK -> MediaController.sendPreviousTrack()
@@ -2845,7 +2763,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 })
             }
 
-            StemAction.MUTE_CALL -> toggleMicMute()
+            StemAction.MUTE_CALL -> if (isInAnyCall()) toggleMicMute()
 
             StemAction.TOGGLE_GYM_MODE -> {
                 GymModePrefs.setEnabled(this, !GymModePrefs.isEnabled(this))
@@ -2988,7 +2906,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
         // Same confirmation tone as head gestures: confirm_no for mute, confirm_yes for unmute.
         initGestureDetector()
-        gestureDetector?.audio?.playConfirmation(!nowMuted)
+        gestureAudio.playConfirmation(!nowMuted)
     }
 
     /** Called when the watched VoIP app's in-notification mute state changes (user
@@ -3016,7 +2934,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         audioManager.setMicrophoneMute(muted)
         Log.d(TAG, "applyMuteStateFromAppNotif: OS mic muted=$muted (synced from in-app button)")
         initGestureDetector()
-        gestureDetector?.audio?.playConfirmation(!muted)
+        gestureAudio.playConfirmation(!muted)
         if (muted) startMutedReminder() else stopMutedReminder()
     }
 
@@ -3210,10 +3128,6 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 "relative_conversational_awareness_volume", true
             ),
             headGesturesEnabled = sharedPreferences.getBoolean("head_gestures_enabled", false),
-            headGesturesAnswerCall = sharedPreferences.getBoolean("head_gestures_answer_call", true),
-            headGesturesMuteCall = sharedPreferences.getBoolean("head_gestures_mute_call", true),
-            headGesturesStopAnnouncement = sharedPreferences.getBoolean("head_gestures_stop_announcement", true),
-            headGesturesGymTimer = sharedPreferences.getBoolean("head_gestures_gym_timer", true),
             disconnectWhenNotWearing = sharedPreferences.getBoolean(
                 "disconnect_when_not_wearing", false
             ),
@@ -3434,6 +3348,12 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
     override fun onSharedPreferenceChanged(preferences: SharedPreferences?, key: String?) {
         if (preferences == null || key == null) return
+        if (key.startsWith("head_gesture") || key == "gym_mode_enabled" || key == "use_alternate_head_tracking_packets") {
+            gestureHandler.post {
+                gestureSettings = null
+                reconcileHeadGestures()
+            }
+        }
 
         if (key in setOf(
                 AudioLeasePrefs.KEY_LID_OPEN_LAST_HOLDER_AUTOCONNECT,
@@ -3465,23 +3385,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             "relative_conversational_awareness_volume" -> config.relativeConversationalAwarenessVolume =
                 preferences.getBoolean(key, true)
 
-            "head_gestures_enabled" -> {
-                config.headGesturesEnabled = preferences.getBoolean(key, false)
-                if (!config.headGesturesEnabled) stopContextGestureDetection()
-                else startContextGestureDetection()
-            }
-            "head_gestures_answer_call" -> config.headGesturesAnswerCall = preferences.getBoolean(key, true)
-            "head_gestures_mute_call" -> config.headGesturesMuteCall = preferences.getBoolean(key, true)
-            "head_gestures_stop_announcement" -> {
-                config.headGesturesStopAnnouncement = preferences.getBoolean(key, true)
-                stopContextGestureDetection()
-                if (config.headGesturesEnabled) startContextGestureDetection()
-            }
-            "head_gestures_gym_timer" -> {
-                config.headGesturesGymTimer = preferences.getBoolean(key, true)
-                stopContextGestureDetection()
-                if (config.headGesturesEnabled) startContextGestureDetection()
-            }
+            "head_gestures_enabled" -> config.headGesturesEnabled = preferences.getBoolean(key, false)
             "disconnect_when_not_wearing" -> config.disconnectWhenNotWearing =
                 preferences.getBoolean(key, false)
 
@@ -3548,11 +3452,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
             "gym_mode_enabled" -> {
                 config.gymModeEnabled = preferences.getBoolean(key, false)
-                if (!config.gymModeEnabled && !AnnouncementCoordinator.isManagedAnnouncementAudible()) {
-                    stopContextGestureDetection()
-                } else {
-                    startContextGestureDetection()
-                }
+                reconcileHeadGestures()
                 onGymHeartRateChanged(config.gymModeEnabled)
                 io.automated.ventures.everypods.automation.GymAutomationCoordinator
                     .onGymModeChanged(this, config.gymModeEnabled)
@@ -3671,11 +3571,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }
 
     private var gestureDetector: GestureDetector? = null
-    private var contextGestureMonitorJob: Job? = null
-    private var contextGestureGeneration = 0L
-    @Volatile private var contextGestureDetection = false
     private val announcementSpeechStartListener: () -> Unit = {
-        Handler(Looper.getMainLooper()).post { startContextGestureDetection() }
+        gestureHandler.post { reconcileHeadGestures() }
     }
     private var isInCall = false
     private var isCallRinging = false
@@ -3717,7 +3614,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
     private fun initGestureDetector() {
         if (gestureDetector == null) {
-            gestureDetector = GestureDetector(this)
+            gestureDetector = GestureDetector { SystemClock.elapsedRealtime() }
         }
     }
 
@@ -4357,47 +4254,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         }
     }
 
-    private var incomingCallGestureDetection = false
+    fun handleIncomingCall() { reconcileHeadGestures() }
 
-    private fun stopIncomingCallGestureDetection() {
-        if (!incomingCallGestureDetection) return
-        gestureDetector?.stopDetection()
-        incomingCallGestureDetection = false
-    }
-
-    fun handleIncomingCall() {
-        if (isInCall || (isVoIPCallActive && !CallNotifListener.isVoipNotifRinging) || incomingCallGestureDetection ||
-            (!isCallRinging && !CallNotifListener.isVoipNotifRinging)
-        ) return
-        stopContextGestureDetection()
-        if (config.headGesturesEnabled && config.headGesturesAnswerCall) {
-            initGestureDetector()
-            // Replace a test-screen detector's callback with the incoming call's
-            // callback. startDetection otherwise keeps an already-running test.
-            gestureDetector?.stopDetection(doNotStop = true)
-            activeCallGestureLoopRunning = false
-            startHeadTracking()
-            incomingCallGestureDetection = true
-            gestureDetector?.startDetection { accepted ->
-                incomingCallGestureDetection = false
-                // The notification can disappear or connect before a gesture
-                // finishes. Never turn a late incoming nod into an active-call toggle.
-                if ((!isCallRinging && !CallNotifListener.isVoipNotifRinging) || isInCall ||
-                    (!CallNotifListener.isVoipNotifRinging && hasActiveCallForTelecomFallback())
-                ) return@startDetection
-                if (accepted) {
-                    answerCall()
-                    handleIncomingCallOnceConnected = false
-                } else {
-                    rejectCall()
-                    handleIncomingCallOnceConnected = false
-                }
-            }
-
-        }
-    }
-
-    private var activeCallGestureLoopRunning = false
     private var mutedReminderJob: kotlinx.coroutines.Job? = null
     private var notifListenerWatchdogJob: kotlinx.coroutines.Job? = null
     private var bleScanWatchdogJob: kotlinx.coroutines.Job? = null
@@ -4413,7 +4271,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 delay(15_000)
                 val audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
                 if (isInAnyCall() && (CallNotifListener.isMuteShownByAppNotif() ?: audioManager.isMicrophoneMute)) {
-                    gestureDetector?.audio?.playMuteReminder()
+                    gestureAudio.playMuteReminder()
                     Log.d(TAG, "Mute reminder beep played")
                 } else {
                     break
@@ -4477,67 +4335,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         }
     }
 
-    fun handleActiveCall() {
-        stopContextGestureDetection()
-        if (activeCallGestureLoopRunning) {
-            Log.d(TAG, "handleActiveCall: already running, skip")
-            return
-        }
-        Log.d(TAG, "handleActiveCall: starting head gesture loop for call mute/unmute")
-        initGestureDetector()
-        // Force-stop any pre-existing detection (e.g. left over from the test screen)
-        // so we re-start with our own callback wired to toggleMicMute / rejectCall.
-        gestureDetector?.stopDetection(doNotStop = true)
-        startHeadTracking()
-        activeCallGestureLoopRunning = true
-        startActiveCallGestureLoop()
-    }
-
-    private fun startActiveCallGestureLoop() {
-        gestureDetector?.startDetection(doNotStop = true) { accepted ->
-            Log.d(TAG, "Active-call gesture detected: accepted=$accepted, inAnyCall=${isInAnyCall()}")
-            if (!isInAnyCall()) return@startDetection
-            val audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
-            val isMuted = CallNotifListener.isMuteShownByAppNotif() ?: audioManager.isMicrophoneMute
-            if (!accepted) {
-                if (!isMuted) {
-                    audioManager.setMicrophoneMute(true)
-                    CallNotifListener.setMuted(true)
-                    sendToast(getString(R.string.toast_mic_muted))
-                    Log.d(TAG, "Gesture mute: shake → muted")
-                    startMutedReminder()
-                }
-            } else {
-                if (isMuted) {
-                    audioManager.setMicrophoneMute(false)
-                    CallNotifListener.setMuted(false)
-                    sendToast(getString(R.string.toast_mic_unmuted))
-                    Log.d(TAG, "Gesture unmute: nod → unmuted")
-                    stopMutedReminder()
-                }
-            }
-            if (isInAnyCall()) {
-                startActiveCallGestureLoop()
-            }
-        }
-    }
-
-    @OptIn(ExperimentalCoroutinesApi::class)
-    suspend fun testHeadGestures(): Boolean {
-        // Stop any stale detection (e.g. from a previous test where stopDetection was never
-        // called because doNotStop=true and the screen closed via stopHeadTracking only).
-        // Without this, isRunning stays true and startDetection returns immediately.
-        gestureDetector?.stopDetection(doNotStop = true)
-        return suspendCancellableCoroutine { continuation ->
-            gestureDetector?.startDetection(doNotStop = true) { accepted ->
-                if (continuation.isActive) {
-                    continuation.resume(accepted) { _, _, _ ->
-                        gestureDetector?.stopDetection()
-                    }
-                }
-            }
-        }
-    }
+    fun handleActiveCall() { reconcileHeadGestures() }
 
     /**
      * Dispatch a media-button KeyEvent (DOWN+UP) directly to Telecom's
@@ -4815,14 +4613,56 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }
 
     @RequiresApi(Build.VERSION_CODES.R)
-    private fun processHeadTrackingData(sample: io.automated.ventures.everypods.bluetooth.HeadMotionProtocol.Sample) {
-        val horizontal = sample.horizontal
-        val vertical = sample.vertical
-        Log.d(TAG, "headData h=$horizontal v=$vertical detector=${gestureDetector != null} running=${gestureDetector?.isRunning}")
-        try {
-            gestureDetector?.processHeadOrientation(horizontal, vertical)
-        } catch (e: Exception) {
-            Log.w(TAG, "gesture detector failed: ${e.message}")
+    private fun processHeadTrackingData(
+        samples: List<io.automated.ventures.everypods.bluetooth.HeadMotionProtocol.Sample>,
+        receivedGeneration: Long, receivedEpoch: Long, receivedAt: Long,
+    ) {
+        gestureHandler.post {
+            // Delayed/old-connection packets cannot complete a gesture in a different context.
+            if (!gestureControllerRunning || receivedGeneration != BluetoothConnectionManager.connectionGeneration() ||
+                receivedEpoch != gestureEpoch || SystemClock.elapsedRealtime() - receivedAt > 250) return@post
+            gestureStream.onSample(receivedGeneration, receivedAt)
+            val previous = gestureSnapshot
+            reconcileHeadGestures()
+            if (previous != gestureSnapshot || receivedEpoch != gestureEpoch || !isHeadTrackingActive) return@post
+            HeadTracking.processSamples(samples)
+            if (!gestureDetectionRequested) return@post
+            val snapshot = gestureSnapshot ?: return@post
+            val detector = gestureDetector ?: return@post
+            if (BuildConfig.DEBUG && receivedAt - lastMotionDiagnosticAt >= 2000) {
+                lastMotionDiagnosticAt = receivedAt
+                Log.d("HeadGestures", "Motion samples=${samples.size} h=${samples.minOf { it.horizontal }}..${samples.maxOf { it.horizontal }} " +
+                    "v=${samples.minOf { it.vertical }}..${samples.maxOf { it.vertical }} waitingNeutral=${detector.awaitingNeutral} " +
+                    "epoch=$receivedEpoch current=$gestureEpoch progress=${detector.status}")
+            }
+            for (sample in samples) {
+                val event = detector.process(sample.horizontal, sample.vertical,
+                    snapshot.settings.tuningFor(HeadGesture.NOD, snapshot.gym),
+                    snapshot.settings.tuningFor(HeadGesture.SHAKE, snapshot.gym))
+                _headGestureStatus.value = detector.status
+                if (event == null) continue
+                reconcileHeadGestures()
+                if (snapshot != gestureSnapshot || !gestureDetectionRequested) return@post
+                val dispatch = snapshot.settings.resolve(event, snapshot.context, snapshot.announcementAudible)
+                Log.d("HeadGestures", "Detected $event context=${snapshot.context} dispatch=$dispatch")
+                when (dispatch) {
+                    is HeadGestureDispatch.Action -> {
+                        // Mute owns its own feedback based on the resulting call state.
+                        if (dispatch.action != StemAction.MUTE_CALL) gestureAudio.playConfirmation(event == HeadGesture.NOD)
+                        executeControlAction(dispatch.action)
+                    }
+                    is HeadGestureDispatch.Call -> when (dispatch.action) {
+                        HeadGestureCallAction.ANSWER -> { gestureAudio.playConfirmation(true); answerCall(); handleIncomingCallOnceConnected = false }
+                        HeadGestureCallAction.DECLINE, HeadGestureCallAction.HANG_UP -> { gestureAudio.playConfirmation(false); rejectCall(); handleIncomingCallOnceConnected = false }
+                        HeadGestureCallAction.MUTE_TOGGLE -> toggleMicMute()
+                    }
+                    HeadGestureDispatch.StopAnnouncement -> stopAnnouncement()
+                    HeadGestureDispatch.Test -> gestureAudio.playConfirmation(event == HeadGesture.NOD)
+                    HeadGestureDispatch.None -> Unit
+                }
+                // Never interpret the tail of this same radio batch as another action.
+                return@post
+            }
         }
     }
 
@@ -6072,20 +5912,14 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     aacpManager.sendSmartRoutingShowUI(localMac)
                     aacpManager.sendHijackRequest(localMac)
                 }
-                val headTrackingEnabled = sharedPreferences.getBoolean("head_tracking_enabled", false)
-                if (handleIncomingCallOnceConnected && (isCallRinging || CallNotifListener.isVoipNotifRinging)) {
-                    handleIncomingCall()
-                } else {
-                    handleIncomingCallOnceConnected = false
-                    if (headTrackingEnabled || gestureMotionRequired()) startHeadTracking()
-                    else stopHeadTracking()
-                }
+                gestureHandler.post { reconcileHeadGestures() }
+                if (handleIncomingCallOnceConnected) handleIncomingCall()
                 Handler(Looper.getMainLooper()).postDelayed({
                     aacpManager.sendPacket(aacpManager.createHandshakePacket())
                     aacpManager.sendSetFeatureFlagsPacket()
                     aacpManager.sendNotificationRequest()
                     aacpManager.sendRequestProximityKeys(AACPManager.Companion.ProximityKeyType.IRK.value)
-                    if (!handleIncomingCallOnceConnected && headTrackingEnabled && !gestureMotionRequired()) stopHeadTracking()
+                    reconcileHeadGestures()
                 }, 5000)
 
                 sendBroadcast(
@@ -6614,6 +6448,16 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }
 
     override fun onDestroy() {
+        gestureControllerRunning = false
+        stopMutedReminder()
+        if (gestureAudioDelegate.isInitialized()) gestureAudio.release()
+        gestureHandler.removeCallbacksAndMessages(null)
+        if (isHeadTrackingActive && isConnected()) sendHeadTrackingRequest(false)
+        isHeadTrackingActive = false
+        gestureEpoch++
+        gestureStream.reset()
+        gestureWear.reconcile(BluetoothConnectionManager.connectionGeneration(), false)
+        gestureDetector?.reset()
         gymAutomationAttached = false
         io.automated.ventures.everypods.automation.GymAutomationCoordinator.detach(gymAutomationHost)
         androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.removeObserver(hrProcessObserver)
@@ -6628,7 +6472,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         CallNotifListener.onMuteStateChanged = null
         CallNotifListener.onCallStateChanged = null
         AnnouncementCoordinator.removeSpeechStartListener(announcementSpeechStartListener)
-        stopContextGestureDetection()
+        reconcileHeadGestures()
         sharedPreferences.unregisterOnSharedPreferenceChangeListener(this)
         cancelGymTimerLockScreenNotification()
         synchronized(gymModeStemPressLock) {
@@ -6689,45 +6533,175 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         super.onDestroy()
     }
 
-    var isHeadTrackingActive = false
-
-    private fun gestureMotionRequired(): Boolean =
-        contextGestureDetection || incomingCallGestureDetection || activeCallGestureLoopRunning
-
-    fun stopDiagnosticHeadTracking() {
-        if (!gestureMotionRequired()) stopHeadTracking()
+    @Volatile var isHeadTrackingActive = false
+        private set
+    private val gestureHandler = Handler(Looper.getMainLooper())
+    private val gestureAudioDelegate = lazy { GestureFeedback(this) }
+    private val gestureAudio by gestureAudioDelegate
+    private var diagnosticTrackingRequested = false
+    private var gestureTesting = false
+    private var gestureTestGym = false
+    private val gestureWear = HeadGestureWearState()
+    private val gestureStream = HeadGestureStream()
+    private var gestureDetectionRequested = false
+    private var lastGestureDecision: String? = null
+    private var lastMotionDiagnosticAt = 0L
+    @Volatile private var gestureEpoch = 0L
+    private var gestureSnapshot: GestureSnapshot? = null
+    private var gestureSettings: HeadGestureSettings? = null
+    private data class GestureSnapshot(
+        val settings: HeadGestureSettings, val context: HeadGestureContext,
+        val gym: Boolean, val eligible: Boolean, val generation: Long, val announcementAudible: Boolean, val wearRevision: Long,
+    )
+    private val _headGestureStatus = kotlinx.coroutines.flow.MutableStateFlow(GestureDetector.Status())
+    val headGestureStatus = _headGestureStatus.asStateFlow()
+    private val _headGestureTesting = kotlinx.coroutines.flow.MutableStateFlow(false)
+    val headGestureTesting = _headGestureTesting.asStateFlow()
+    private var gestureControllerRunning = false
+    private val gestureTick = object : Runnable {
+        override fun run() {
+            if (!gestureControllerRunning) return
+            reconcileHeadGestures()
+            gestureHandler.postDelayed(this, 250)
+        }
     }
 
+    fun setHeadGestureTest(enabled: Boolean, gym: Boolean = false) {
+        if (Looper.myLooper() != Looper.getMainLooper()) { gestureHandler.post { setHeadGestureTest(enabled, gym) }; return }
+        if (!gestureControllerRunning) return
+        gestureTesting = enabled
+        gestureTestGym = gym
+        gestureDetector?.awaitNeutral()
+        reconcileHeadGestures()
+    }
+
+    // Explicit diagnostics are a separate owner from actions and the safe test.
     fun startHeadTracking() {
-        isHeadTrackingActive = true
-        val useAlternatePackets =
-            sharedPreferences.getBoolean("use_alternate_head_tracking_packets", true)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && aacpManager.getControlCommandStatus(
-                AACPManager.Companion.ControlCommandIdentifiers.OWNS_CONNECTION
-            )?.value?.get(0)?.toInt() != 1
-        ) {
-            takeOver("call", startHeadTrackingAgain = true)
-            Log.d(TAG, "Taking over for head tracking")
-        } else {
-            Log.w(TAG, "Will not be taking over for head tracking, might not work.")
-        }
-        if (useAlternatePackets) {
-            aacpManager.sendDataPacket(aacpManager.createAlternateStartHeadTrackingPacket())
-        } else {
-            aacpManager.sendStartHeadTracking()
-        }
-        HeadTracking.reset()
+        if (Looper.myLooper() != Looper.getMainLooper()) { gestureHandler.post { startHeadTracking() }; return }
+        if (!gestureControllerRunning) return
+        diagnosticTrackingRequested = true; reconcileHeadGestures()
+    }
+    fun stopHeadTracking() {
+        if (Looper.myLooper() != Looper.getMainLooper()) { gestureHandler.post { stopHeadTracking() }; return }
+        if (!gestureControllerRunning) return
+        diagnosticTrackingRequested = false; reconcileHeadGestures()
     }
 
-    fun stopHeadTracking() {
-        val useAlternatePackets =
-            sharedPreferences.getBoolean("use_alternate_head_tracking_packets", true)
-        if (useAlternatePackets) {
-            aacpManager.sendDataPacket(aacpManager.createAlternateStopHeadTrackingPacket())
-        } else {
-            aacpManager.sendStopHeadTracking()
+    private fun headGestureContext(): HeadGestureContext {
+        val audioMode = (getSystemService(AUDIO_SERVICE) as AudioManager).mode
+        val telecomActive = if (checkSelfPermission(android.Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED) {
+            try { (getSystemService(TELECOM_SERVICE) as TelecomManager).isInCall } catch (_: SecurityException) { false }
+        } else false
+        return HeadGesturePolicy.context(
+            ringing = isCallRinging || CallNotifListener.isVoipNotifRinging || audioMode == AudioManager.MODE_RINGTONE,
+            activeCall = isInCall || isVoIPCallActive || CallNotifListener.isVoipNotifActive || audioMode == AudioManager.MODE_IN_COMMUNICATION || telecomActive,
+            testing = gestureTesting, gym = GymModePrefs.isEnabled(this),
+        )
+    }
+
+    private fun reconcileHeadGestures(wearHint: Boolean = false) {
+        if (!gestureControllerRunning || !::aacpManager.isInitialized || !::sharedPreferences.isInitialized) return
+        if (Looper.myLooper() != Looper.getMainLooper()) { gestureHandler.post { reconcileHeadGestures(wearHint) }; return }
+        val connected = isConnected()
+        val generation = BluetoothConnectionManager.connectionGeneration()
+        gestureWear.reconcile(generation, BluetoothConnectionManager.getCurrentSocket() != null)
+        val supported = airpodsInstance?.model?.capabilities?.contains(Capability.HEAD_GESTURES) == true
+        // Unlike the general UI accessor, unknown A2DP proxy state is not optimistic here.
+        val audioLocal = if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
+            try { bluetoothA2dpProxy?.connectedDevices?.any { it.address == macAddress } == true } catch (_: SecurityException) { false }
+        } else false
+        val ownsConnection = aacpManager.getControlCommandStatus(
+            AACPManager.Companion.ControlCommandIdentifiers.OWNS_CONNECTION)?.value?.firstOrNull()?.toInt()
+        val local = connected && supported && audioLocal && ownsConnection != 0 && !CrossDevice.peerAudioActive &&
+            SystemClock.elapsedRealtime() >= peerDropCooldownUntilMs
+        val worn = gestureWear.isWorn(generation)
+        val context = headGestureContext()
+        if (context == HeadGestureContext.RINGING || context == HeadGestureContext.ACTIVE_CALL) gestureTesting = false
+        _headGestureTesting.value = gestureTesting
+        val settings = gestureSettings ?: HeadGesturePrefs.read(sharedPreferences).also { gestureSettings = it }
+        val gym = if (context == HeadGestureContext.TEST) gestureTestGym else GymModePrefs.isEnabled(this)
+        val announcementAudible = settings.enabled && settings.shakeStopsAnnouncements &&
+            (context == HeadGestureContext.NORMAL || context == HeadGestureContext.GYM) && isAnnouncementAudible()
+        val snapshot = GestureSnapshot(settings, context, gym, local && worn,
+            BluetoothConnectionManager.connectionGeneration(), announcementAudible, gestureWear.revision)
+        if (snapshot != gestureSnapshot) {
+            // Context/ear/ownership changes discard partial motion, retain completed cooldowns,
+            // and require a neutral period before rearming (including insertion/removal motion).
+            if (gestureSnapshot?.wearRevision != snapshot.wearRevision || gestureSnapshot?.generation != snapshot.generation) {
+                HeadTracking.reset()
+            }
+            gestureSnapshot = snapshot
+            gestureEpoch++
+            gestureDetector?.awaitNeutral()
+            _headGestureStatus.value = gestureDetector?.status ?: GestureDetector.Status()
         }
-        isHeadTrackingActive = false
+        val owners = HeadGesturePolicy.owners(settings, context, local, worn, diagnosticTrackingRequested,
+            announcementAudible, knownOutOfEar = gestureWear.isKnown(generation) && !worn)
+        val needsWear = diagnosticTrackingRequested || HeadGesture.entries.any {
+            settings.resolve(it, context, announcementAudible) != HeadGestureDispatch.None
+        }
+        if (gestureWear.shouldRefresh(generation, SystemClock.elapsedRealtime(), needsWear, local, wearHint)) {
+            Log.d("HeadGestures", "Refreshing authoritative wear report generation=$generation")
+            val sent = aacpManager.sendDataPacketForGeneration(aacpManager.createRequestNotificationPacket(), generation)
+            Log.d("HeadGestures", "Wear refresh sent=$sent")
+        }
+        gestureDetectionRequested = owners.detect
+        val wanted = owners.track
+        if (BuildConfig.DEBUG) {
+            val decision = "connected=$connected supported=$supported audioLocal=$audioLocal owns=$ownsConnection " +
+                "peerAudio=${CrossDevice.peerAudioActive} cooldown=${SystemClock.elapsedRealtime() < peerDropCooldownUntilMs} " +
+                "wearGeneration=${gestureWear.reportGeneration} generation=$generation worn=$worn " +
+                "context=$context enabled=${settings.enabled} nod=${settings.resolve(HeadGesture.NOD, context, announcementAudible)} " +
+                "shake=${settings.resolve(HeadGesture.SHAKE, context, announcementAudible)} " +
+                "detect=${owners.detect} track=$wanted diagnostics=$diagnosticTrackingRequested mask=${gestureWear.wornMask} " +
+                "stream=${gestureStream.state(SystemClock.elapsedRealtime())}"
+            if (decision != lastGestureDecision) {
+                Log.d("HeadGestures", decision)
+                lastGestureDecision = decision
+            }
+        }
+        val command = gestureStream.reconcile(wanted, generation,
+            sharedPreferences.getBoolean("use_alternate_head_tracking_packets", true), SystemClock.elapsedRealtime(), commandAllowed = local)
+        when (command) {
+            HeadGestureStream.Command.START -> {
+                gestureEpoch++
+                Log.d("HeadGestures", "Starting motion stream generation=$generation retry=${gestureStream.retries}")
+                val sent = sendHeadTrackingRequest(true)
+                gestureStream.onCommandResult(command, sent)
+                HeadTracking.reset()
+                gestureDetector?.awaitNeutral()
+            }
+            HeadGestureStream.Command.STOP -> {
+                gestureEpoch++
+                val sent = sendHeadTrackingRequest(false)
+                gestureStream.onCommandResult(command, sent)
+                HeadTracking.reset()
+                gestureDetector?.awaitNeutral()
+            }
+            HeadGestureStream.Command.NONE -> Unit
+        }
+        isHeadTrackingActive = gestureStream.acceptingSamples
+    }
+
+    private fun sendHeadTrackingRequest(start: Boolean): Boolean {
+        // Recheck at the write boundary, including generation and current ownership.
+        val currentGeneration = BluetoothConnectionManager.connectionGeneration()
+        if (!gestureStream.matchesGeneration(currentGeneration) || !isConnected() || CrossDevice.peerAudioActive ||
+            SystemClock.elapsedRealtime() < peerDropCooldownUntilMs ||
+            aacpManager.getControlCommandStatus(AACPManager.Companion.ControlCommandIdentifiers.OWNS_CONNECTION)?.value?.firstOrNull() == 0.toByte()) return false
+        val localAudio = if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
+            try { bluetoothA2dpProxy?.connectedDevices?.any { it.address == macAddress } == true } catch (_: SecurityException) { false }
+        } else false
+        if (!localAudio) return false
+        val alternate = gestureStream.commandAlternate
+        val payload = if (alternate) {
+            if (start) aacpManager.createAlternateStartHeadTrackingPacket() else aacpManager.createAlternateStopHeadTrackingPacket()
+        } else {
+            if (start) aacpManager.createStartHeadTrackingPacket() else aacpManager.createStopHeadTrackingPacket()
+        }
+        val sent = aacpManager.sendDataPacketForGeneration(payload, currentGeneration)
+        Log.d("HeadGestures", "Tracking command start=$start alternate=$alternate generation=$currentGeneration sent=$sent")
+        return sent
     }
 
     @SuppressLint("MissingPermission")

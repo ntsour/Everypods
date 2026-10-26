@@ -81,6 +81,7 @@ android {
         applicationId = "io.automated.ventures.everypods"
         minSdk = 33
         targetSdk = 37
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         versionCode = 130
         versionName = appVersionName
         buildConfigField("Boolean", "DIRCON_ENABLED", "false")

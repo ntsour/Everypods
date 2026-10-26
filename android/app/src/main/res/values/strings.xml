@@ -369,7 +369,7 @@
     <string name="ui_stopwatch_elapsed_time_cue">Stopwatch elapsed-time cue</string>
     <string name="ui_system_voices">System voices</string>
     <string name="ui_test_connection">Test connection</string>
-    <string name="ui_test_head_gestures">Test Head Gestures</string>
+    <string name="ui_test_head_gestures">Test head gestures</string>
     <string name="ui_timer_mode">Timer Mode</string>
     <string name="ui_unable_to_connect_to_airpods_o">Unable to connect to AirPods over L2CAP</string>
     <string name="ui_velocity">Velocity</string>

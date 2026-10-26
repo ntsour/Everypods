@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="hg_nod">Кивок (так)</string>
+    <string name="hg_shake">Похитування головою (ні)</string>
+    <string name="hg_do_nothing">Нічого не робити</string>
+    <string name="hg_none">Немає</string>
+    <string name="hg_configuration">Налаштування жестів головою</string>
+    <string name="hg_call_actions">Дії під час виклику</string>
+    <string name="hg_decline_call">Відхилити виклик</string>
+    <string name="hg_head_gesture">Жест головою</string>
+    <string name="hg_stem_press">Натискання ніжки</string>
+    <string name="hg_gym_controls">Керування в спортзалі</string>
+    <string name="hg_gym_tuning">Налаштування жестів для спортзалу</string>
+    <string name="hg_separate_gym">Окремі налаштування для спортзалу</string>
+    <string name="hg_tuning_profile">Профіль налаштувань</string>
+    <string name="hg_normal">Звичайний</string>
+    <string name="hg_gym_shared">Режим спортзалу використовує звичайні налаштування. Увімкніть окремі налаштування, щоб змінити їх.</string>
+    <string name="hg_amplitude">Амплітуда руху (відносні одиниці датчика)</string>
+    <string name="hg_repetitions">Потрібна кількість повторів</string>
+    <string name="hg_cooldown">Пауза між діями</string>
+    <string name="hg_seconds">%1$.1f с</string>
+    <string name="hg_reset_tuning">Скинути налаштування</string>
+    <string name="hg_stop_test">Зупинити тест</string>
+    <string name="hg_tuning_help">Більша амплітуда та більше повторів потребують свідоміших рухів. Один повтор — повний рух туди й назад із поверненням у нейтральне положення.</string>
+    <string name="hg_test_help">Безпечно перевірте жести: призначені дії призупинено під час тесту. Справжній виклик завершує тест. Надягніть принаймні один AirPod, підключений до цього телефона.</string>
+    <string name="hg_test_progress">%1$s: амплітуда %2$d · повтори %3$d/%4$d</string>
+    <string name="hg_detected">Виявлено: %1$s</string>
+    <string name="hg_cooldown_remaining">Пауза: %1$.1f с</string>
+    <string name="hg_dismiss">Закрити</string>
+    <string name="hg_migration_notice">Похитування головою тепер перемикає мікрофон під час викликів. Кивок більше не вмикає мікрофон. Змініть призначення в розділі дій під час виклику.</string>
+    <string name="hg_permission_description">Використовуйте налаштовані жести головою, щоб приймати або відхиляти виклики.</string>
+    <string name="hg_stop_announcements">Похитати головою, щоб зупинити голосові оголошення</string>
+    <string name="hg_stop_announcements_help">Під час оголошення похитайте головою, щоб зупинити його замість виконання призначеної звичайної дії чи дії спортзалу. Виклики мають пріоритет. Жести головою мають бути ввімкнені.</string>
+    <string name="hg_advanced_diagnostics">Розширені налаштування й діагностика</string>
+    <string name="hg_gym_active_hint">Режим спортзалу активний. Ці звичайні призначення призупинено. Налаштуйте жести в розділі керування спортзалом.</string>
+</resources>

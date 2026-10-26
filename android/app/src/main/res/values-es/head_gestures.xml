@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="hg_nod">Asentir (sí)</string>
+    <string name="hg_shake">Negar (no)</string>
+    <string name="hg_do_nothing">No hacer nada</string>
+    <string name="hg_none">Ninguno</string>
+    <string name="hg_configuration">Configuración de gestos de cabeza</string>
+    <string name="hg_call_actions">Acciones de llamada</string>
+    <string name="hg_decline_call">Rechazar llamada</string>
+    <string name="hg_head_gesture">Gesto de cabeza</string>
+    <string name="hg_stem_press">Pulsación de la varilla</string>
+    <string name="hg_gym_controls">Controles del gimnasio</string>
+    <string name="hg_gym_tuning">Ajuste de gestos para el gimnasio</string>
+    <string name="hg_separate_gym">Usar un ajuste específico para el gimnasio</string>
+    <string name="hg_tuning_profile">Perfil de ajuste</string>
+    <string name="hg_normal">Normal</string>
+    <string name="hg_gym_shared">El modo gimnasio usa el ajuste normal. Activa el ajuste específico para cambiarlo.</string>
+    <string name="hg_amplitude">Amplitud del movimiento (unidades relativas del sensor)</string>
+    <string name="hg_repetitions">Repeticiones necesarias</string>
+    <string name="hg_cooldown">Espera entre acciones</string>
+    <string name="hg_seconds">%1$.1f segundos</string>
+    <string name="hg_reset_tuning">Restablecer ajuste</string>
+    <string name="hg_stop_test">Detener prueba</string>
+    <string name="hg_tuning_help">Una amplitud mayor y más repeticiones requieren movimientos más deliberados. Una repetición es un movimiento completo de ida y vuelta hasta volver a la posición neutra.</string>
+    <string name="hg_test_help">Prueba los gestos con seguridad: las acciones asignadas se pausan durante la prueba. Una llamada real termina la prueba. Lleva puesto al menos un AirPod conectado a este teléfono.</string>
+    <string name="hg_test_progress">%1$s: amplitud %2$d · repeticiones %3$d/%4$d</string>
+    <string name="hg_detected">Detectado: %1$s</string>
+    <string name="hg_cooldown_remaining">Espera: %1$.1f segundos</string>
+    <string name="hg_dismiss">Cerrar</string>
+    <string name="hg_migration_notice">Negar ahora alterna el silencio durante las llamadas. Asentir ya no reactiva el micrófono. Cambia las asignaciones en Acciones de llamada.</string>
+    <string name="hg_permission_description">Usa los gestos de cabeza configurados para responder o rechazar llamadas.</string>
+    <string name="hg_stop_announcements">Negar para detener los anuncios hablados</string>
+    <string name="hg_stop_announcements_help">Mientras se reproduce un anuncio, niega con la cabeza para detenerlo en lugar de ejecutar la acción asignada del gimnasio o normal. Las llamadas tienen prioridad. Requiere activar Gestos de cabeza.</string>
+    <string name="hg_advanced_diagnostics">Opciones avanzadas y diagnóstico</string>
+    <string name="hg_gym_active_hint">El modo gimnasio está activo. Estas asignaciones normales están en pausa. Configura los gestos de cabeza en Controles del gimnasio.</string>
+</resources>

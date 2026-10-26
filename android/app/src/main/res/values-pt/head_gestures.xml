@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="hg_nod">Acenar (sim)</string>
+    <string name="hg_shake">Abanar a cabeça (não)</string>
+    <string name="hg_do_nothing">Não fazer nada</string>
+    <string name="hg_none">Nenhum</string>
+    <string name="hg_configuration">Configuração dos gestos de cabeça</string>
+    <string name="hg_call_actions">Ações de chamada</string>
+    <string name="hg_decline_call">Recusar chamada</string>
+    <string name="hg_head_gesture">Gesto de cabeça</string>
+    <string name="hg_stem_press">Pressão na haste</string>
+    <string name="hg_gym_controls">Controlos de ginásio</string>
+    <string name="hg_gym_tuning">Ajuste de gestos para o ginásio</string>
+    <string name="hg_separate_gym">Usar ajuste separado para o ginásio</string>
+    <string name="hg_tuning_profile">Perfil de ajuste</string>
+    <string name="hg_normal">Normal</string>
+    <string name="hg_gym_shared">O modo ginásio usa o ajuste normal. Ative um ajuste separado para o alterar.</string>
+    <string name="hg_amplitude">Amplitude do movimento (unidades relativas do sensor)</string>
+    <string name="hg_repetitions">Repetições necessárias</string>
+    <string name="hg_cooldown">Intervalo entre ações</string>
+    <string name="hg_seconds">%1$.1f segundos</string>
+    <string name="hg_reset_tuning">Repor ajuste</string>
+    <string name="hg_stop_test">Parar teste</string>
+    <string name="hg_tuning_help">Uma amplitude maior e mais repetições exigem movimentos mais deliberados. Uma repetição é um movimento completo de ida e volta, regressando à posição neutra.</string>
+    <string name="hg_test_help">Teste os gestos em segurança: as ações atribuídas ficam suspensas durante o teste. Uma chamada real termina o teste. Use pelo menos um AirPod ligado a este telefone.</string>
+    <string name="hg_test_progress">%1$s: amplitude %2$d · repetições %3$d/%4$d</string>
+    <string name="hg_detected">Detetado: %1$s</string>
+    <string name="hg_cooldown_remaining">Intervalo: %1$.1f segundos</string>
+    <string name="hg_dismiss">Fechar</string>
+    <string name="hg_migration_notice">Abanar a cabeça agora alterna o silêncio durante as chamadas. Acenar já não reativa o microfone. Altere as atribuições em Ações de chamada.</string>
+    <string name="hg_permission_description">Use os gestos de cabeça configurados para atender ou recusar chamadas.</string>
+    <string name="hg_stop_announcements">Abanar a cabeça para parar os anúncios falados</string>
+    <string name="hg_stop_announcements_help">Durante um anúncio, abane a cabeça para o parar em vez de executar a ação normal ou de ginásio atribuída. As chamadas têm prioridade. Os gestos de cabeça têm de estar ativos.</string>
+    <string name="hg_advanced_diagnostics">Opções avançadas e diagnóstico</string>
+    <string name="hg_gym_active_hint">O modo ginásio está ativo. Estas atribuições normais estão suspensas. Configure os gestos nos Controlos de ginásio.</string>
+</resources>

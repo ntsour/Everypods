@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="hg_nod">Cenno (sì)</string>
+    <string name="hg_shake">Scuotimento (no)</string>
+    <string name="hg_do_nothing">Nessuna azione</string>
+    <string name="hg_none">Nessuno</string>
+    <string name="hg_configuration">Configurazione dei gesti della testa</string>
+    <string name="hg_call_actions">Azioni chiamata</string>
+    <string name="hg_decline_call">Rifiuta chiamata</string>
+    <string name="hg_head_gesture">Gesto della testa</string>
+    <string name="hg_stem_press">Pressione sullo stelo</string>
+    <string name="hg_gym_controls">Controlli palestra</string>
+    <string name="hg_gym_tuning">Regolazione gesti per la palestra</string>
+    <string name="hg_separate_gym">Usa regolazioni separate per la palestra</string>
+    <string name="hg_tuning_profile">Profilo di regolazione</string>
+    <string name="hg_normal">Normale</string>
+    <string name="hg_gym_shared">La modalità palestra usa le regolazioni normali. Attiva le regolazioni separate per modificarle.</string>
+    <string name="hg_amplitude">Ampiezza del movimento (unità relative del sensore)</string>
+    <string name="hg_repetitions">Ripetizioni richieste</string>
+    <string name="hg_cooldown">Pausa tra le azioni</string>
+    <string name="hg_seconds">%1$.1f secondi</string>
+    <string name="hg_reset_tuning">Ripristina regolazioni</string>
+    <string name="hg_stop_test">Interrompi test</string>
+    <string name="hg_tuning_help">Una maggiore ampiezza e più ripetizioni richiedono movimenti più intenzionali. Una ripetizione è un movimento completo avanti e indietro con ritorno alla posizione neutra.</string>
+    <string name="hg_test_help">Prova i gesti in sicurezza: le azioni assegnate sono sospese durante il test. Una chiamata reale termina il test. Indossa almeno un AirPod collegato a questo telefono.</string>
+    <string name="hg_test_progress">%1$s: ampiezza %2$d · ripetizioni %3$d/%4$d</string>
+    <string name="hg_detected">Rilevato: %1$s</string>
+    <string name="hg_cooldown_remaining">Pausa: %1$.1f secondi</string>
+    <string name="hg_dismiss">Chiudi</string>
+    <string name="hg_migration_notice">Lo scuotimento ora attiva o disattiva il microfono durante le chiamate. Il cenno non riattiva più il microfono. Modifica le assegnazioni in Azioni chiamata.</string>
+    <string name="hg_permission_description">Usa i gesti della testa configurati per rispondere o rifiutare le chiamate.</string>
+    <string name="hg_stop_announcements">Scuoti la testa per interrompere gli annunci vocali</string>
+    <string name="hg_stop_announcements_help">Durante un annuncio, scuoti la testa per interromperlo anziché eseguire l’azione normale o della palestra assegnata. Le chiamate hanno la priorità. I gesti della testa devono essere attivi.</string>
+    <string name="hg_advanced_diagnostics">Opzioni avanzate e diagnostica</string>
+    <string name="hg_gym_active_hint">La modalità palestra è attiva. Queste assegnazioni normali sono sospese. Configura i gesti in Controlli palestra.</string>
+</resources>

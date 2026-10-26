@@ -654,8 +654,12 @@ fun Main(gymTimerNavigationRequest: Int = 0, heartRateNavigationRequest: Int = 0
                             }
                         }
                     }
-                    composable("head_tracking") {
-                        if (airPodsViewModel != null) HeadTrackingScreen(airPodsViewModel, navController)
+                    composable("head_tracking?gym={gym}&anchor={anchor}", arguments = listOf(
+                        navArgument("gym") { type = NavType.BoolType; defaultValue = false },
+                        navArgument("anchor") { type = NavType.StringType; nullable = true; defaultValue = null },
+                    )) { entry ->
+                        if (airPodsViewModel != null) HeadTrackingScreen(airPodsViewModel, navController,
+                            initialGym = entry.arguments?.getBoolean("gym") == true, anchor = entry.arguments?.getString("anchor"))
                     }
                     composable("heart_rate_screen") {
                         if (airPodsViewModel != null) io.automated.ventures.everypods.presentation.screens.HeartRateScreen(airPodsViewModel, navController)
@@ -846,7 +850,7 @@ fun Main(gymTimerNavigationRequest: Int = 0, heartRateNavigationRequest: Int = 0
                         GitHubIssuesScreen()
                     }
                     composable("gym_press_actions") {
-                        if (airPodsViewModel != null) GymPressActionsScreen(airPodsViewModel)
+                        if (airPodsViewModel != null) GymPressActionsScreen(airPodsViewModel, navController)
                     }
                     composable("gym_timer") {
                         GymTimerScreen()

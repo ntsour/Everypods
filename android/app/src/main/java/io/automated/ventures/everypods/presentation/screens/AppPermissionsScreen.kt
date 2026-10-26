@@ -247,7 +247,7 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
                 RowDivider()
                 PermissionRow(
                     title = stringResource(R.string.ui_phone),
-                    description = stringResource(R.string.ui_answer_calls_with_head_gesture),
+                    description = stringResource(R.string.hg_permission_description),
                     granted = phoneGranted, dark = dark, accent = accent, green = green
                 ) { grantRuntime(arrayOf(Manifest.permission.READ_PHONE_STATE, Manifest.permission.ANSWER_PHONE_CALLS)) }
             }

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="hg_nod">Başı sallama (evet)</string>
+    <string name="hg_shake">Başı yana sallama (hayır)</string>
+    <string name="hg_do_nothing">Hiçbir şey yapma</string>
+    <string name="hg_none">Yok</string>
+    <string name="hg_configuration">Baş Hareketi Yapılandırması</string>
+    <string name="hg_call_actions">Arama İşlemleri</string>
+    <string name="hg_decline_call">Aramayı reddet</string>
+    <string name="hg_head_gesture">Baş hareketi</string>
+    <string name="hg_stem_press">Sapı sıkma</string>
+    <string name="hg_gym_controls">Spor Kontrolleri</string>
+    <string name="hg_gym_tuning">Spor için baş hareketi ayarı</string>
+    <string name="hg_separate_gym">Spor için ayrı ayar kullan</string>
+    <string name="hg_tuning_profile">Ayar profili</string>
+    <string name="hg_normal">Normal</string>
+    <string name="hg_gym_shared">Spor modu normal ayarları kullanır. Değiştirmek için ayrı spor ayarını etkinleştirin.</string>
+    <string name="hg_amplitude">Hareket genliği (göreli sensör birimleri)</string>
+    <string name="hg_repetitions">Gerekli tekrar sayısı</string>
+    <string name="hg_cooldown">İşlemler arası bekleme</string>
+    <string name="hg_seconds">%1$.1f saniye</string>
+    <string name="hg_reset_tuning">Ayarları sıfırla</string>
+    <string name="hg_stop_test">Testi durdur</string>
+    <string name="hg_tuning_help">Daha yüksek genlik ve daha fazla tekrar, daha bilinçli hareketler gerektirir. Bir tekrar, nötr konuma dönüşle tamamlanan bir ileri-geri harekettir.</string>
+    <string name="hg_test_help">Hareketleri güvenle test edin: test sırasında atanmış işlemler duraklatılır. Gerçek bir arama testi sonlandırır. Bu telefona bağlı en az bir AirPod takın.</string>
+    <string name="hg_test_progress">%1$s: genlik %2$d · tekrar %3$d/%4$d</string>
+    <string name="hg_detected">Algılanan: %1$s</string>
+    <string name="hg_cooldown_remaining">Bekleme: %1$.1f saniye</string>
+    <string name="hg_dismiss">Kapat</string>
+    <string name="hg_migration_notice">Başı yana sallamak artık aramalarda mikrofonun sesini açıp kapatır. Başı yukarı aşağı sallamak artık sesi açmaz. Atamaları Arama İşlemleri bölümünden değiştirin.</string>
+    <string name="hg_permission_description">Aramaları yanıtlamak veya reddetmek için yapılandırılmış baş hareketlerini kullanın.</string>
+    <string name="hg_stop_announcements">Sesli duyuruları durdurmak için başı yana salla</string>
+    <string name="hg_stop_announcements_help">Konuşma sırasında, atanmış spor veya normal işlemi çalıştırmak yerine durdurmak için başınızı yana sallayın. Aramalar önceliklidir. Baş hareketlerinin etkin olması gerekir.</string>
+    <string name="hg_advanced_diagnostics">Gelişmiş ayarlar ve tanılama</string>
+    <string name="hg_gym_active_hint">Spor modu etkin. Bu normal atamalar duraklatıldı. Baş hareketlerini Spor Kontrolleri bölümünde yapılandırın.</string>
+</resources>

@@ -32,6 +32,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 class GestureFeedback(context: Context) {
 
+    fun release() { soundPool.release() }
+
     private val TAG = "GestureFeedback"
 
     private val soundsLoaded = AtomicBoolean(false)

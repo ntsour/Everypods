@@ -17,7 +17,6 @@
 */
 
 
-// this is absolutely unnecessary, why did I make this. a simple toggle would've sufficed
 
 @file:OptIn(ExperimentalEncodingApi::class)
 
@@ -54,6 +53,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import io.automated.ventures.everypods.presentation.components.SettingsExpansionHeader
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -97,6 +98,8 @@ import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import io.automated.ventures.everypods.R
 import io.automated.ventures.everypods.presentation.components.StyledButton
 import io.automated.ventures.everypods.presentation.components.StyledIconButton
@@ -109,6 +112,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import io.automated.ventures.everypods.presentation.viewmodel.AppSettingsViewModel
 import io.automated.ventures.everypods.services.ServiceManager
 import io.automated.ventures.everypods.utils.HeadTracking
+import io.automated.ventures.everypods.utils.HeadGesturePrefs
+import io.automated.ventures.everypods.data.HeadGesture
+import io.automated.ventures.everypods.presentation.components.*
 import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlin.math.abs
 import kotlin.math.cos
@@ -116,357 +122,133 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 @ExperimentalHazeMaterialsApi
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HeadTrackingScreen(
     viewModel: AirPodsViewModel,
     navController: NavController,
-    appSettingsViewModel: AppSettingsViewModel = viewModel()
+    appSettingsViewModel: AppSettingsViewModel = viewModel(),
+    initialGym: Boolean = false,
+    anchor: String? = null,
 ) {
     val state by viewModel.uiState.collectAsState()
-    var diagnosticsExpanded by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
-    DisposableEffect(diagnosticsExpanded) {
-        if (diagnosticsExpanded) viewModel.startHeadTracking()
-        onDispose { if (diagnosticsExpanded) viewModel.stopHeadTracking() }
-    }
-    val isDarkTheme = isSystemInDarkTheme()
-    if (isDarkTheme) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
-    val textColor = if (isDarkTheme) Color.White else Color.Black
-
+    val appState by appSettingsViewModel.uiState.collectAsState()
+    val (prefs, settings) = rememberHeadGestureSettings()
+    val service = ServiceManager.getService()
+    var advancedExpanded by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    var gymProfile by androidx.compose.runtime.saveable.rememberSaveable(initialGym) { mutableStateOf(initialGym) }
+    var testing by remember { mutableStateOf(false) }
+    var status by remember { mutableStateOf(io.automated.ventures.everypods.utils.GestureDetector.Status()) }
+    val enabled = state.isPremium && state.capabilities.contains(io.automated.ventures.everypods.data.Capability.HEAD_GESTURES)
+    val dark = isSystemInDarkTheme()
     val scrollState = rememberScrollState()
-    val backdrop = rememberLayerBackdrop()
-    StyledScaffold(
-        title = stringResource(R.string.ui_head_gestures),
-        actionButtons = if (!diagnosticsExpanded) emptyList() else listOf(
-            { scaffoldBackdrop ->
-                StyledIconButton(
-                    onClick = {
-                        if (!state.headTrackingActive) {
-                            viewModel.startHeadTracking()
-                            Log.d("HeadTrackingScreen", "Head tracking started")
-                        } else {
-                            viewModel.stopHeadTracking()
-                            Log.d("HeadTrackingScreen", "Head tracking stopped")
+    val registry = remember { AnchorRegistry() }
+    val targetTop = with(androidx.compose.ui.platform.LocalDensity.current) { 112.dp.roundToPx() }
+    LaunchedEffect(anchor) {
+        if (anchor != null) {
+            val y = snapshotFlow { registry.positions[anchor] }.filterNotNull().first()
+            scrollState.animateScrollTo((scrollState.value + y - targetTop).coerceAtLeast(0))
+        }
+    }
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, service, advancedExpanded) {
+        val tools = io.automated.ventures.everypods.utils.HeadTrackingToolsLifecycle(
+            diagnosticsExpanded = advancedExpanded,
+            startDiagnostics = { service?.startHeadTracking() },
+            stopDiagnostics = { service?.stopHeadTracking() },
+            cancelTest = { service?.setHeadGestureTest(false) },
+        )
+        lifecycleOwner.lifecycle.addObserver(tools)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(tools); tools.close() }
+    }
+    LaunchedEffect(service) {
+        service?.headGestureStatus?.collect { status = it }
+    }
+    LaunchedEffect(service) {
+        service?.headGestureTesting?.collect { testing = it }
+    }
+    CompositionLocalProvider(LocalAnchorRegistry provides registry, LocalActiveAnchor provides anchor) {
+    StyledScaffold(title = stringResource(R.string.hg_configuration)) { topPadding, hazeState, bottomPadding ->
+        Column(Modifier.fillMaxSize().testTag("dest_head_tracking").hazeSource(hazeState)
+            .verticalScroll(scrollState).padding(horizontal = 16.dp)) {
+            Spacer(Modifier.height(topPadding))
+            Text(stringResource(R.string.hg_tuning_help), style = gestureSupportingStyle(), modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+            AnchorWrapper("gym_gesture_tuning") { modifier -> SettingsSection(stringResource(R.string.hg_tuning_profile), modifier) {
+                StyledToggle(label = stringResource(R.string.hg_separate_gym), checked = settings.separateGymTuning,
+                    enabled = enabled, onCheckedChange = { HeadGesturePrefs.setGymTuning(prefs, it) }, independent = true)
+                GestureSettingPicker(stringResource(R.string.hg_tuning_profile), gymProfile,
+                    listOf(false to stringResource(R.string.hg_normal), true to stringResource(R.string.hg_gym_controls)), enabled) {
+                    service?.setHeadGestureTest(false)
+                    gymProfile = it
+                }
+            } }
+            val editGym = gymProfile && settings.separateGymTuning
+            if (gymProfile && !settings.separateGymTuning) Text(stringResource(R.string.hg_gym_shared), style = gestureSupportingStyle(), modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+            HeadGesture.entries.forEach { gesture ->
+                val tuning = settings.tuningFor(gesture, gymProfile)
+                SettingsSection(headGestureLabel(gesture)) {
+                    AnchorWrapper("${gesture.name.lowercase()}_amplitude") { modifier -> Column(modifier) {
+                        GestureSettingPicker(stringResource(R.string.hg_amplitude), tuning.amplitude,
+                            (200..2000 step 100).map { it to it.toString() }, enabled && (!gymProfile || editGym)) {
+                            HeadGesturePrefs.setTuning(prefs, gesture, editGym, tuning.copy(amplitude = it))
                         }
-                    },
-                    icon = if (state.headTrackingActive) "􀊅" else "􀊃",
-                    backdrop = scaffoldBackdrop
-                )
+                    } }
+                    AnchorWrapper("${gesture.name.lowercase()}_repetitions") { modifier -> Column(modifier) {
+                        GestureSettingPicker(stringResource(R.string.hg_repetitions), tuning.repetitions,
+                            (1..4).map { it to it.toString() }, enabled && (!gymProfile || editGym)) {
+                            HeadGesturePrefs.setTuning(prefs, gesture, editGym, tuning.copy(repetitions = it))
+                        }
+                    } }
+                    AnchorWrapper("${gesture.name.lowercase()}_cooldown") { modifier -> Column(modifier) {
+                        GestureSettingPicker(stringResource(R.string.hg_cooldown), tuning.cooldownMs,
+                            (500..5000 step 500).map { it to stringResource(R.string.hg_seconds, it / 1000f) }, enabled && (!gymProfile || editGym)) {
+                            HeadGesturePrefs.setTuning(prefs, gesture, editGym, tuning.copy(cooldownMs = it))
+                        }
+                    } }
+                }
             }
-        ),
-    ) { topPadding, hazeState, _ ->
-
-        var gestureText by remember { mutableStateOf("") }
-        val coroutineScope = rememberCoroutineScope()
-
-        var lastClickTime by remember { mutableLongStateOf(0L) }
-        var shouldExplode by remember { mutableStateOf(false) }
-
-        val scrollState = rememberScrollState()
-
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(scrollState),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Column (
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .hazeSource(state = hazeState)
-                    .layerBackdrop(backdrop)
-                    .padding(top = 8.dp)
-                    .padding(horizontal = 16.dp)
-            ) {
-                Spacer(modifier = Modifier.height(topPadding))
-
-                if (!state.isPremium) {
-                    StyledButton(
-                        onClick = {
-                            navController.navigate("purchase_screen")
-                        },
-                        backdrop = rememberLayerBackdrop(),
-                        modifier = Modifier.fillMaxWidth(),
-                        maxScale = 0.05f,
-                        surfaceColor = if (isSystemInDarkTheme()) Color(0xFF916100) else Color(0xFFE59900)
-                    ) {
-                        Text(
-                            stringResource(R.string.unlock_advanced_features),
-                            style = TextStyle(
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Medium,
-                                fontFamily = FontFamily(Font(R.font.sf_pro)),
-                                color = Color.White
-                            ),
-                        )
+            GestureSettingAction(stringResource(R.string.hg_reset_tuning), enabled = enabled && (!gymProfile || editGym)) {
+                HeadGesturePrefs.resetTuning(prefs, editGym)
+            }
+            val advancedAnchor = anchor in setOf("gesture_test", "head_tracking_packets", "head_diagnostics")
+            LaunchedEffect(advancedAnchor) { if (advancedAnchor) advancedExpanded = true }
+            SettingsExpansionHeader(label = stringResource(R.string.hg_advanced_diagnostics), expanded = advancedExpanded,
+                onToggle = {
+                    advancedExpanded = !advancedExpanded
+                    if (!advancedExpanded) service?.setHeadGestureTest(false)
+                }, contentColor = if (dark) Color.White else Color.Black)
+            if (advancedExpanded) {
+            AnchorWrapper("gesture_test") { modifier -> SettingsSection(stringResource(R.string.ui_test_head_gestures), modifier) {
+                Text(stringResource(R.string.hg_test_help), style = gestureSupportingStyle(), modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                GestureSettingAction(stringResource(if (testing) R.string.hg_stop_test else R.string.ui_test_head_gestures),
+                    enabled = enabled && state.aacpAvailable && service != null) { service?.setHeadGestureTest(!testing, gymProfile) }
+                if (testing) {
+                    HeadGesture.entries.forEach { gesture ->
+                        val progress = if (gesture == HeadGesture.NOD) status.nod else status.shake
+                        Text(stringResource(R.string.hg_test_progress, headGestureLabel(gesture), progress.amplitude,
+                            progress.repetitions, settings.tuningFor(gesture, gymProfile).repetitions), style = gestureSupportingStyle(), modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(stringResource(R.string.hg_detected, status.detected?.let { headGestureLabel(it) } ?: stringResource(R.string.hg_none)), style = gestureLabelStyle(), modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                    Text(stringResource(R.string.hg_cooldown_remaining, status.cooldownMs / 1000f), style = gestureSupportingStyle(), modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
                 }
-
-                SettingsSection(stringResource(R.string.ui_head_gestures)) {
-                StyledToggle(
-                    label = stringResource(R.string.ui_head_gestures),
-                    checked = state.headGesturesEnabled,
-                    onCheckedChange = { viewModel.setHeadGesturesEnabled(it) },
-                    enabled = (state.isPremium || state.headGesturesEnabled) && state.aacpAvailable,
-                    description = stringResource(R.string.ui_master_switch_for_all_head_ges)
-                )
-
-                StyledToggle(
-                    label = stringResource(R.string.ui_answer_decline_incoming_calls),
-                    checked = state.headGesturesAnswerCall,
-                    onCheckedChange = { viewModel.setHeadGesturesAnswerCall(it) },
-                    enabled = state.headGesturesEnabled && (state.isPremium || state.headGesturesAnswerCall) && state.aacpAvailable,
-                    description = stringResource(R.string.ui_nod_to_answer_an_incoming_call)
-                )
-
-                StyledToggle(
-                    label = stringResource(R.string.ui_mute_unmute_during_a_call),
-                    checked = state.headGesturesMuteCall,
-                    onCheckedChange = { viewModel.setHeadGesturesMuteCall(it) },
-                    enabled = state.headGesturesEnabled && (state.isPremium || state.headGesturesMuteCall) && state.aacpAvailable,
-                    description = stringResource(R.string.ui_shake_your_head_during_an_acti)
-                )
-
-                StyledToggle(
-                    label = stringResource(R.string.ui_stop_spoken_announcements),
-                    checked = state.headGesturesStopAnnouncement,
-                    onCheckedChange = { viewModel.setHeadGesturesStopAnnouncement(it) },
-                    enabled = state.headGesturesEnabled && (state.isPremium || state.headGesturesStopAnnouncement) && state.aacpAvailable,
-                    description = stringResource(R.string.ui_horizontal_gesture_stops_announcement)
-                )
-
-                StyledToggle(
-                    label = stringResource(R.string.ui_control_gym_timer),
-                    checked = state.headGesturesGymTimer,
-                    onCheckedChange = { viewModel.setHeadGesturesGymTimer(it) },
-                    enabled = state.headGesturesEnabled && (state.isPremium || state.headGesturesGymTimer) && state.aacpAvailable,
-                    description = stringResource(R.string.ui_gym_mode_head_gesture_actions)
-                )
-
-
-                }
-                SettingsExpansionHeader(
-                    label = stringResource(R.string.design_diagnostics),
-                    expanded = diagnosticsExpanded,
-                    onToggle = { diagnosticsExpanded = !diagnosticsExpanded },
-                    contentColor = textColor,
-                )
-                if (diagnosticsExpanded) {
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(stringResource(R.string.ui_head_orientation),
-                    style = TextStyle(
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = textColor.copy(alpha = 0.6f),
-                        fontFamily = FontFamily(Font(R.font.sf_pro))
-                    ),
-                    modifier = Modifier.padding(start = 16.dp, bottom = 8.dp, top = 8.dp)
-                )
+            }
+            }
+            AnchorWrapper("head_tracking_packets") { modifier -> SettingsSection(stringResource(R.string.advanced_options), modifier) {
+                StyledToggle(label = stringResource(R.string.use_alternate_head_tracking_packets),
+                    description = stringResource(R.string.use_alternate_head_tracking_packets_description),
+                    checked = appState.useAlternateHeadTrackingPackets, onCheckedChange = appSettingsViewModel::setUseAlternateHeadTrackingPackets,
+                    independent = true, enabled = enabled)
+            } }
+            AnchorWrapper("head_diagnostics") { modifier -> Column(modifier) {
+                SettingsHeading(stringResource(R.string.ui_head_orientation))
                 HeadVisualization()
-
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(stringResource(R.string.ui_velocity),
-                    style = TextStyle(
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = textColor.copy(alpha = 0.6f),
-                        fontFamily = FontFamily(Font(R.font.sf_pro))
-                    ),
-                    modifier = Modifier.padding(start = 16.dp, bottom = 8.dp, top = 8.dp)
-                )
+                SettingsHeading(stringResource(R.string.ui_velocity))
                 AccelerationPlot()
-
-                // ── Enable / disable head tracking ────────────────────────
-                val appState by appSettingsViewModel.uiState.collectAsState()
-                Spacer(modifier = Modifier.height(8.dp))
-                StyledToggle(
-                    label = stringResource(R.string.ui_enable_head_tracking),
-                    description = stringResource(R.string.ui_send_head_tracking_data_to_the),
-                    checked         = appState.headTrackingEnabled,
-                    onCheckedChange = appSettingsViewModel::setHeadTrackingEnabled,
-                    independent     = true,
-                    enabled         = true
-                )
-
-                // ── Advanced Option: Alternate head-tracking packets ───────
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = stringResource(R.string.advanced_options),
-                    style = TextStyle(
-                        fontSize = 14.sp, fontWeight = FontWeight.Bold,
-                        color = textColor.copy(alpha = 0.6f),
-                        fontFamily = FontFamily(Font(R.font.sf_pro))
-                    ),
-                    modifier = Modifier.padding(start = 16.dp, bottom = 4.dp, top = 8.dp)
-                )
-                StyledToggle(
-                    label           = stringResource(R.string.use_alternate_head_tracking_packets),
-                    description     = stringResource(R.string.use_alternate_head_tracking_packets_description),
-                    checked         = appState.useAlternateHeadTrackingPackets,
-                    onCheckedChange = appSettingsViewModel::setUseAlternateHeadTrackingPackets,
-                    independent     = true,
-                    enabled         = appState.isPremium
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                LaunchedEffect(gestureText) {
-                    if (gestureText.isNotEmpty()) {
-                        lastClickTime = System.currentTimeMillis()
-                        delay(3000)
-                        if (System.currentTimeMillis() - lastClickTime >= 3000) {
-                            shouldExplode = true
-                        }
-                    }
-                }
-                }
+            } }
             }
-            if (diagnosticsExpanded) {
-            val gestureTextValue = stringResource(R.string.shake_your_head_or_nod)
-            StyledButton(
-                onClick = {
-                    gestureText = gestureTextValue
-                    coroutineScope.launch {
-                        val accepted = ServiceManager.getService()?.testHeadGestures() ?: false
-                        gestureText = if (accepted) "\"Yes\" gesture detected." else "\"No\" gesture detected."
-                    }
-                },
-                backdrop = backdrop,
-                modifier = Modifier.fillMaxWidth(0.75f),
-                maxScale = 0.05f
-            ) {
-                Text(stringResource(R.string.ui_test_head_gestures),
-                    style = TextStyle(
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium,
-                        fontFamily = FontFamily(Font(R.font.sf_pro)),
-                        color = textColor
-                    ),
-                )
-            }
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.padding(top = 12.dp, bottom = 24.dp)
-            ) {
-                AnimatedContent(
-                    targetState = gestureText,
-                    transitionSpec = {
-                        (fadeIn(
-                            animationSpec = tween(300)
-                        ) + slideInVertically(
-                            initialOffsetY = { 40 },
-                            animationSpec = tween(300)
-                        )).togetherWith(fadeOut(animationSpec = tween(150)))
-                    }
-                ) { text ->
-                    if (shouldExplode) {
-                        LaunchedEffect(Unit) {
-                            CoroutineScope(coroutineScope.coroutineContext).launch {
-                                delay(750)
-                                gestureText = ""
-                            }
-                        }
-                        ParticleText(
-                            text = text,
-                            style = TextStyle(
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Medium,
-                                fontFamily = FontFamily(Font(R.font.sf_pro)),
-                                color = textColor,
-                                textAlign = TextAlign.Center
-                            ),
-                            onAnimationComplete = {
-                                shouldExplode = false
-                            },
-                        )
-                    } else {
-                        Text(
-                            text = text,
-                            style = TextStyle(
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Medium,
-                                fontFamily = FontFamily(Font(R.font.sf_pro)),
-                                color = textColor,
-                                textAlign = TextAlign.Center
-                            ),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                        )
-                    }
-                }
-            }
-            }
+            Spacer(Modifier.height(if (anchor != null) androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp else bottomPadding))
         }
     }
-}
-private data class Particle(
-    val initialPosition: Offset,
-    val velocity: Offset,
-    var alpha: Float = 1f
-)
-
-@Composable
-private fun ParticleText(
-    text: String,
-    style: TextStyle,
-    onAnimationComplete: () -> Unit,
-) {
-    val particles = remember { mutableStateListOf<Particle>() }
-    val textMeasurer = rememberTextMeasurer()
-    var isAnimating by remember { mutableStateOf(true) }
-    var textVisible by remember { mutableStateOf(true) }
-
-    Canvas(modifier = Modifier.fillMaxWidth()) {
-        val textLayoutResult = textMeasurer.measure(text, style)
-        val textBounds = textLayoutResult.size
-        val centerX = (size.width - textBounds.width) / 2
-        val centerY = size.height / 2
-
-        if (textVisible && particles.isEmpty()) {
-            drawText(
-                textMeasurer = textMeasurer,
-                text = text,
-                style = style,
-                topLeft = Offset(centerX, centerY - textBounds.height / 2)
-            )
-        }
-
-        if (particles.isEmpty()) {
-            val random = Random(System.currentTimeMillis())
-            for (@Suppress("Unused")i in 0..100) {
-                val x = centerX + random.nextFloat() * textBounds.width
-                val y = centerY - textBounds.height / 2 + random.nextFloat() * textBounds.height
-                val vx = (random.nextFloat() - 0.5f) * 20
-                val vy = (random.nextFloat() - 0.5f) * 20
-                particles.add(Particle(Offset(x, y), Offset(vx, vy)))
-            }
-        }
-
-        particles.forEach { particle ->
-            drawCircle(
-                color = style.color.copy(alpha = particle.alpha),
-                radius = 0.5.dp.toPx(),
-                center = particle.initialPosition
-            )
-        }
-    }
-
-    LaunchedEffect(text) {
-        while (isAnimating) {
-            delay(16)
-            particles.forEachIndexed { index, particle ->
-                particles[index] = particle.copy(
-                    initialPosition = particle.initialPosition + particle.velocity,
-                    alpha = (particle.alpha - 0.02f).coerceAtLeast(0f)
-                )
-            }
-
-            if (particles.all { it.alpha <= 0f }) {
-                isAnimating = false
-                onAnimationComplete()
-            }
-        }
     }
 }
 
