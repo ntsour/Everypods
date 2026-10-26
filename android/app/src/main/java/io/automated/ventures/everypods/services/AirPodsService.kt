@@ -97,6 +97,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -109,6 +110,12 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import io.automated.ventures.everypods.BuildConfig
+import io.automated.ventures.everypods.automation.GymAutomationCoordinator
+import io.automated.ventures.everypods.automation.HeartRateOwnerStore
+import io.automated.ventures.everypods.automation.HeartRateSource
+import io.automated.ventures.everypods.automation.HeartRateStartPlanner
+import io.automated.ventures.everypods.automation.HrOwnerRecord
+import io.automated.ventures.everypods.automation.HrStartDecision
 import io.automated.ventures.everypods.EXTRA_OPEN_GYM_TIMER
 import io.automated.ventures.everypods.GymTimerLockScreenActivity
 import io.automated.ventures.everypods.MainActivity
@@ -730,12 +737,97 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         Log.i("EveryPodsHRM", "Session waiting; firmware=$firmware service=${heartRateState.value.serviceId}")
     }
 
-    fun stopHeartRate(reason: HeartRateFailure? = null, connectionUsable: Boolean = true) {
+    fun stopHeartRate(
+        reason: HeartRateFailure? = null,
+        connectionUsable: Boolean = true,
+        source: HeartRateSource = HeartRateSource.SYSTEM,
+    ) {
         if (Looper.myLooper() != Looper.getMainLooper()) {
-            Handler(Looper.getMainLooper()).post { stopHeartRate(reason, connectionUsable) }
+            Handler(Looper.getMainLooper()).post { stopHeartRate(reason, connectionUsable, source) }
             return
         }
+        val wasActive = heartRateActiveNow()
         stopHeartRateInternal(reason, connectionUsable, allowSensorRecovery = true)
+        // A failure may enter bounded sensor recovery: ownership survives until it really ends.
+        if (wasActive && !heartRateActiveNow()) HeartRateOwnerStore.write(this, null)
+        // Only a deliberate user stop suppresses the gym rule's HR for this visit; the
+        // automation's own stop, Gym Mode cleanup and failures are not user overrides.
+        if (wasActive && reason == null && source.isUserStop && gymAutomationAttached) {
+            GymAutomationCoordinator.onHeartRateStopped(this)
+        }
+    }
+
+    fun stopHeartRateFrom(source: HeartRateSource) = stopHeartRate(source = source)
+
+    private fun heartRateActiveNow() = heartRateState.value.running || heartRateSharingState.value.active ||
+        heartRateState.value.status == io.automated.ventures.everypods.bluetooth.hrm.HeartRateStatus.RECOVERING
+
+    private fun hrBootId(): String = Settings.Global.getInt(contentResolver, Settings.Global.BOOT_COUNT, -1).toString()
+
+    /** Records [source] as the owner of the session that is live now (no-op if the start was rejected). */
+    private fun recordHeartRateOwner(source: HeartRateSource) {
+        if (heartRateActiveNow()) {
+            HeartRateOwnerStore.write(this, HrOwnerRecord(source, hrBootId(), System.currentTimeMillis()))
+        }
+    }
+
+    fun heartRateOwner(): HeartRateSource? =
+        HrOwnerRecord.liveOwner(HeartRateOwnerStore.read(this), heartRateActiveNow(), hrBootId())
+
+    /**
+     * The one shared "start heart rate like the case shortcut" step: starts only the
+     * explicitly selected sharing method, never picks one, and leaves a running
+     * session untouched. Permission UI stays with the caller (none for background).
+     * Must run on the main thread.
+     */
+    fun ensureHeartRateStarted(source: HeartRateSource): HrStartDecision {
+        val decision = HeartRateStartPlanner.decide(
+            active = heartRateActiveNow(),
+            selected = HeartRateSharingPrefs.configuredMethod(this),
+            dirconEnabled = BuildConfig.DIRCON_ENABLED,
+            sdkInt = Build.VERSION.SDK_INT,
+        ) { checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED }
+        if (decision is HrStartDecision.Start) startHeartRateSharingFrom(decision.method, source)
+        Log.i("EveryPodsHRM", "ensureStarted source=$source decision=${decision.javaClass.simpleName}")
+        return decision
+    }
+
+    fun startHeartRateSharingFrom(method: HeartRateSharingMethod, source: HeartRateSource) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            Handler(Looper.getMainLooper()).post { startHeartRateSharingFrom(method, source) }
+            return
+        }
+        startHeartRateSharing(method, gym = source == HeartRateSource.AUTOMATION || source == HeartRateSource.GYM_MODE)
+        recordHeartRateOwner(source)
+    }
+
+    fun startHeartRateFrom(source: HeartRateSource) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            Handler(Looper.getMainLooper()).post { startHeartRateFrom(source) }
+            return
+        }
+        startHeartRate()
+        recordHeartRateOwner(source)
+    }
+
+    fun switchHeartRateToMonitorOnlyFrom(source: HeartRateSource) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            Handler(Looper.getMainLooper()).post { switchHeartRateToMonitorOnlyFrom(source) }
+            return
+        }
+        switchHeartRateToMonitorOnly()
+        recordHeartRateOwner(source)
+    }
+
+    @Volatile private var gymAutomationAttached = false
+    private val gymAutomationHost = object : io.automated.ventures.everypods.automation.GymAutomationHost {
+        override fun airPodsReady() = isConnected() && io.automated.ventures.everypods.utils.isAacpCapable()
+        override fun heartRateActive() = heartRateActiveNow()
+        override fun heartRateOwner() = this@AirPodsService.heartRateOwner()
+        // Same shared step as the case shortcut; the service still rechecks Wahoo,
+        // capability and ownership and publishes failures.
+        override fun ensureHeartRateStarted() = ensureHeartRateStarted(HeartRateSource.AUTOMATION)
+        override fun stopHeartRateFromAutomation() = stopHeartRate(source = HeartRateSource.AUTOMATION)
     }
 
     private fun stopHeartRateInternal(
@@ -841,11 +933,13 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     private fun onGymHeartRateChanged(enabled: Boolean) {
         val wasGymOwned = hrSharingIntent.gymOwned
         if (!enabled) {
-            if (wasGymOwned) stopHeartRate()
+            if (wasGymOwned) stopHeartRate(source = HeartRateSource.GYM_MODE)
             hrSharingIntent.gymChanged(false)
-        } else if (HeartRateSharingPrefs.gymAuto(this) && !hrSharingIntent.suppressedForGym &&
+        } else if (!io.automated.ventures.everypods.automation.GymAutomationCoordinator.writingGym &&
+            // Location-origin Gym Mode: the rule alone decides HR (shortcut semantics).
+            HeartRateSharingPrefs.gymAuto(this) && !hrSharingIntent.suppressedForGym &&
             !heartRateSharingState.value.active) {
-            startHeartRateSharing(HeartRateSharingPrefs.method(this), gym = true)
+            startHeartRateSharingFrom(HeartRateSharingPrefs.method(this), HeartRateSource.GYM_MODE)
         }
     }
 
@@ -1369,6 +1463,16 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     @SuppressLint("MissingPermission", "UnspecifiedRegisterReceiverFlag", "HardwareIds")
     override fun onCreate() {
         super.onCreate()
+        Handler(Looper.getMainLooper()).post {
+            gymAutomationAttached = true
+            io.automated.ventures.everypods.automation.GymAutomationCoordinator.attach(this, gymAutomationHost)
+            hrSharingScope.launch {
+                io.automated.ventures.everypods.bluetooth.BluetoothConnectionManager.state.collect {
+                    io.automated.ventures.everypods.automation.GymAutomationCoordinator.dispatch(
+                        this@AirPodsService, io.automated.ventures.everypods.automation.Event.Reconcile)
+                }
+            }
+        }
         androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.addObserver(hrProcessObserver)
         WahooDiagnosticBridge.resetInterruptedSession(this)
         getSystemService(NotificationManager::class.java).cancel(731)
@@ -1418,6 +1522,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         initializeAACPManagerCallback()
 
         sharedPreferences.registerOnSharedPreferenceChangeListener(this)
+        AnnouncementCoordinator.addSpeechStartListener(announcementSpeechStartListener)
         startNotifListenerWatchdog()
         startStaleNotificationCleanup()
 
@@ -1426,6 +1531,12 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         // the in-app button and then the stem would desync the two mute states.
         CallNotifListener.onMuteStateChanged = { muted ->
             if (isInAnyCall()) applyMuteStateFromAppNotif(muted)
+        }
+        CallNotifListener.onCallStateChanged = { ringing, active ->
+            setupStemActions()
+            if (!ringing && !active) handleIncomingCallOnceConnected = false
+            // The one controller owns incoming, active, announcement and ordinary contexts.
+            reconcileHeadGestures()
         }
 
         localMac = config.selfMacAddress
@@ -1459,6 +1570,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 putBoolean("head_gestures_enabled", false)
                 putBoolean("head_gestures_answer_call", false)
                 putBoolean("head_gestures_mute_call", false)
+                putBoolean("head_gestures_stop_announcement", false)
+                putBoolean("head_gestures_gym_timer", false)
             }
             Log.d(TAG, "Head gestures disabled as device is running Android 9 or below")
         }
@@ -1648,6 +1761,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 when (state) {
                     TelephonyManager.CALL_STATE_RINGING -> {
                         Log.d(TAG, "Call state: RINGING")
+                        reconcileHeadGestures()
                         isCallRinging = true
                         // Re-apply the stem config now that the call is ringing. The
                         // AirPods reset stem behavior when they enter the HFP incoming-
@@ -1674,6 +1788,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
                     TelephonyManager.CALL_STATE_OFFHOOK -> {
                         Log.d(TAG, "Call state: OFFHOOK")
+                        reconcileHeadGestures()
                         isCallRinging = false
                         val leAvailableForAudio =
                             bleManager.getMostRecentStatus()?.isLeftInEar == true || bleManager.getMostRecentStatus()?.isRightInEar == true
@@ -1696,11 +1811,13 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
                     TelephonyManager.CALL_STATE_IDLE -> {
                         Log.d(TAG, "Call state: IDLE")
+                        reconcileHeadGestures()
                         isInCall = false
                         isCallRinging = false
                         reconcileHeadGestures()
                         stopMutedReminder()
                         setupStemActions()
+                        reconcileHeadGestures()
                     }
                 }
             }
@@ -1713,7 +1830,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         sysAudioManager.addOnModeChangedListener(mainExecutor) { mode ->
             Log.d(TAG, "Audio mode changed: $mode")
             if (mode == AudioManager.MODE_IN_COMMUNICATION) {
-                if (!isInCall && !isVoIPCallActive) {
+                reconcileHeadGestures()
+                if (!isInCall && !isVoIPCallActive && !CallNotifListener.isVoipNotifRinging) {
                     isVoIPCallActive = true
                     Log.d(TAG, "VoIP call detected (audio mode IN_COMMUNICATION)")
                     setupStemActions()
@@ -1738,7 +1856,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     reconcileHeadGestures()
                     stopMutedReminder()
                     setupStemActions()
+                    if (CallNotifListener.isVoipNotifRinging) handleIncomingCall()
                 }
+                reconcileHeadGestures()
             }
         }
         // Catch a VoIP call already in progress when the listener registered
@@ -2262,8 +2382,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             override fun onHeadTrackingReceived(headTracking: ByteArray) {
                 Log.d(TAG, "onHeadTrackingReceived: active=$isHeadTrackingActive len=${headTracking.size}")
                 if (isHeadTrackingActive) {
-                    if (headTracking.size >= 55) HeadTracking.processPacket(headTracking)
-                    processHeadTrackingData(headTracking)
+                    val samples = HeadTracking.processPacket(headTracking)
+                    Log.d(TAG, "Motion frame: bytes=${headTracking.size} samples=${samples.size}")
+                    samples.forEach(::processHeadTrackingData)
                 }
             }
 
@@ -3327,7 +3448,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
             "gym_mode_enabled" -> {
                 config.gymModeEnabled = preferences.getBoolean(key, false)
+                reconcileHeadGestures()
                 onGymHeartRateChanged(config.gymModeEnabled)
+                io.automated.ventures.everypods.automation.GymAutomationCoordinator
+                    .onGymModeChanged(this, config.gymModeEnabled)
                 setupStemActions()
                 announceGymModeToggle()
                 refreshGymModeNotification()
@@ -3335,7 +3459,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
             HeartRateSharingPrefs.GYM_AUTO -> {
                 if (!HeartRateSharingPrefs.gymAuto(this)) {
-                    if (hrSharingIntent.gymOwned) stopHeartRate()
+                    if (hrSharingIntent.gymOwned) stopHeartRate(source = HeartRateSource.GYM_MODE)
                 } else onGymHeartRateChanged(config.gymModeEnabled)
             }
 
@@ -3443,6 +3567,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }
 
     private var gestureDetector: GestureDetector? = null
+    private val announcementSpeechStartListener: () -> Unit = {
+        gestureHandler.post { reconcileHeadGestures() }
+    }
     private var isInCall = false
     private var isCallRinging = false
     private var isVoIPCallActive = false
@@ -4268,6 +4395,34 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     private fun answerCall() {
         Log.d(TAG, "answerCall called")
 
+        // A watched VoIP notification gives us the exact call's Answer action.
+        // Prefer it over a global Telecom answer so a second waiting call cannot
+        // be answered accidentally. A successful send is only dispatch; the
+        // notification/audio state transition remains the confirmation.
+        if (CallNotifListener.isVoipNotifRinging) {
+            if (CallNotifListener.answerCall()) {
+                Log.d(TAG, "answerCall: dispatched current VoIP notification action; awaiting call-state transition")
+                scheduleTelecomVoipAnswerFallback()
+                islandWindow?.close()
+                return
+            }
+            if (CallNotifListener.hasPendingCallAction()) {
+                Log.d(TAG, "answerCall: notification answer is already pending; waiting for its state transition")
+                islandWindow?.close()
+                return
+            }
+            if (!hasActiveCallForTelecomFallback() &&
+                CallNotifListener.hasUnambiguousVoipCallTarget() && dispatchHeadsethookToTelecom()
+            ) {
+                Log.d(TAG, "answerCall: no notification action was dispatched; used Telecom for the sole incoming VoIP call")
+                islandWindow?.close()
+                return
+            }
+            Log.w(TAG, "answerCall: current VoIP notification has no usable Answer action; avoiding a global Telecom answer")
+            islandWindow?.close()
+            return
+        }
+
         // Primary path: HEADSETHOOK → Telecom's HeadsetMediaButton session.
         // Works for cellular calls AND self-managed VoIP (WhatsApp etc.).
         // Telecom maps a SHORT_PRESS during RINGING → answer.
@@ -4300,74 +4455,151 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         islandWindow?.close()
     }
 
+    /** Some call apps expose an Activity Answer PendingIntent that Android blocks
+     *  when invoked by our background notification listener. Give the app a brief
+     *  chance to transition first, then use Telecom only for the sole still-ringing
+     *  notification-backed call. */
+    private fun scheduleTelecomVoipAnswerFallback() {
+        Handler(Looper.getMainLooper()).postDelayed({
+            val activeCallObserved = hasActiveCallForTelecomFallback()
+            if (activeCallObserved) {
+                Log.d(TAG, "answerCall: system/audio already reports an active call; skipping Telecom answer fallback")
+            }
+            if (!CallNotifListener.claimTelecomAnswerFallback(activeCallObserved)) return@postDelayed
+
+            if (CallNotifListener.isVoipNotifRinging && dispatchHeadsethookToTelecom()) {
+                Log.d(TAG, "answerCall: notification action did not transition; dispatched Telecom fallback for sole incoming VoIP call")
+                return@postDelayed
+            }
+
+            CallNotifListener.cancelPendingTelecomAnswerFallback()
+            Log.w(TAG, "answerCall: Telecom fallback unavailable for the still-ringing VoIP call")
+        }, CallNotifListener.ANSWER_TELECOM_FALLBACK_DELAY_MS)
+    }
+
+    private fun hasActiveCallForTelecomFallback(): Boolean {
+        val mode = (getSystemService(AUDIO_SERVICE) as AudioManager).mode
+        return isInCall || isVoIPCallActive || CallNotifListener.isVoipNotifActive ||
+            mode == AudioManager.MODE_IN_CALL || mode == AudioManager.MODE_IN_COMMUNICATION
+    }
+
     private fun rejectCall() {
         Log.d(TAG, "rejectCall called")
 
-        // Determine ringing vs active. During ringing we want to DECLINE (don't
-        // answer the call); during an active call we want to END it.
+        val audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
         val telecomInCall = try {
             (getSystemService(TELECOM_SERVICE) as TelecomManager).isInCall
-        } catch (_: Exception) { false }
-        val ringing = isCallRinging
-        val active = !ringing && (isInCall || isVoIPCallActive || telecomInCall)
-        Log.d(TAG, "rejectCall: ringing=$ringing active=$active (isCallRinging=$isCallRinging isInCall=$isInCall isVoIPCallActive=$isVoIPCallActive telecomInCall=$telecomInCall)")
+        } catch (_: SecurityException) { false }
+        val notifRinging = CallNotifListener.isVoipNotifRinging
+        val notifActive = CallNotifListener.isVoipNotifActive
+        val systemRinging = !isInCall && !isVoIPCallActive && !notifActive &&
+            (audioManager.mode == AudioManager.MODE_RINGTONE || telecomInCall)
+        val ringing = notifRinging || isCallRinging || systemRinging
+        val active = !ringing && (notifActive || isInCall || isVoIPCallActive || telecomInCall)
+        Log.d(TAG, "rejectCall: ringing=$ringing active=$active (telephonyRinging=$isCallRinging notifRinging=$notifRinging notifActive=$notifActive isInCall=$isInCall isVoIPCallActive=$isVoIPCallActive telecomInCall=$telecomInCall audioMode=${audioManager.mode})")
+
+        if (notifRinging) {
+            // Never send a short HEADSETHOOK while a notification says incoming:
+            // Telecom interprets that event as ANSWER. Use this call's Decline PI.
+            if (CallNotifListener.declineCall()) {
+                Log.d(TAG, "rejectCall: dispatched current VoIP decline action; awaiting call-state transition")
+                islandWindow?.close()
+                return
+            }
+            Log.w(TAG, "rejectCall: incoming VoIP notification has no usable decline action; not sending a headset toggle")
+            islandWindow?.close()
+            return
+        }
+
+        if (ringing) {
+            // The notification listener may not have an action (or access) for a
+            // cellular ring. Telecom endCall is safe here; HEADSETHOOK is not.
+            if (endTelecomCall()) {
+                sendToast(getString(R.string.toast_call_ended))
+            } else {
+                Log.w(TAG, "rejectCall: Telecom could not reject the incoming call")
+            }
+            islandWindow?.close()
+            return
+        }
 
         if (active) {
-            // For an active call, route HEADSETHOOK to Telecom's HeadsetMediaButton
-            // session. Telecom maps SHORT_PRESS during ACTIVE → end call. This is
-            // the only third-party path that ends self-managed VoIP calls in-progress
-            // (WhatsApp, Signal, etc.).
-            if (dispatchHeadsethookToTelecom()) {
-                Log.d(TAG, "rejectCall: dispatched to Telecom session — active call should end")
-                sendToast(getString(R.string.toast_call_ended))
+            // For notification-backed calls, use that notification's exact Hang
+            // up action first so a different Telecom call cannot be ended.
+            if (notifActive && CallNotifListener.hangUp()) {
+                Log.d(TAG, "rejectCall: dispatched current VoIP hang-up action; awaiting call-state transition")
+                islandWindow?.close()
+                return
+            }
+            if (notifActive) {
+                if (CallNotifListener.hasPendingCallAction()) {
+                    Log.d(TAG, "rejectCall: notification-backed call action is still pending; not dispatching another route")
+                    islandWindow?.close()
+                    return
+                }
+                if (!CallNotifListener.hasUnambiguousVoipCallTarget()) {
+                    Log.w(TAG, "rejectCall: multiple notification-backed calls are active; avoiding a global Telecom hang-up")
+                    islandWindow?.close()
+                    return
+                }
+                if (!CallNotifListener.beginCurrentHangUpFallback()) {
+                    Log.w(TAG, "rejectCall: could not claim the current notification-backed call for Telecom fallback")
+                    islandWindow?.close()
+                    return
+                }
+                // A short headset event ends an active Telecom call. Claim the
+                // current call first so repeated gestures cannot dispatch twice.
+                if (dispatchHeadsethookToTelecom()) {
+                    Log.d(TAG, "rejectCall: dispatched Telecom end-call event; awaiting call-state transition")
+                    islandWindow?.close()
+                    return
+                }
+                CallNotifListener.cancelPendingHangUpFallback()
+                Log.w(TAG, "rejectCall: no safe action is available for the current VoIP call")
+                islandWindow?.close()
+                return
+            } else if (dispatchHeadsethookToTelecom()) {
+                Log.d(TAG, "rejectCall: dispatched Telecom end-call event; awaiting call-state transition")
                 islandWindow?.close()
                 return
             }
         }
 
-        // Cellular / non-self-managed fallback: TelecomManager.endCall().
-        var telecomEnded = false
-        try {
+        if (!active && !ringing) {
+            Log.w(TAG, "rejectCall: no ringing or active call state to act on")
+            islandWindow?.close()
+            return
+        }
+
+        if (endTelecomCall()) {
+            sendToast(getString(R.string.toast_call_ended))
+        } else {
+            Log.w(TAG, "rejectCall: no safe action succeeded for the current call stage")
+        }
+        islandWindow?.close()
+    }
+
+    /** TelecomManager.endCall or legacy platform fallback for a call whose stage is known. */
+    private fun endTelecomCall(): Boolean {
+        return try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 val telecomManager = getSystemService(TELECOM_SERVICE) as TelecomManager
-                if (checkSelfPermission(Manifest.permission.ANSWER_PHONE_CALLS) == PackageManager.PERMISSION_GRANTED) {
-                    telecomEnded = telecomManager.endCall()
-                    Log.d(TAG, "rejectCall: TelecomManager.endCall() returned $telecomEnded")
-                }
+                val ended = checkSelfPermission(Manifest.permission.ANSWER_PHONE_CALLS) == PackageManager.PERMISSION_GRANTED &&
+                    telecomManager.endCall()
+                Log.d(TAG, "endTelecomCall: TelecomManager.endCall() returned $ended")
+                ended
             } else {
                 val telephonyService = getSystemService(TELEPHONY_SERVICE) as TelephonyManager
                 val telephonyClass = Class.forName(telephonyService.javaClass.name)
-                val method = telephonyClass.getDeclaredMethod("getITelephony")
-                method.isAccessible = true
+                val method = telephonyClass.getDeclaredMethod("getITelephony").apply { isAccessible = true }
                 val telephonyInterface = method.invoke(telephonyService)
                 val endCallMethod = telephonyInterface.javaClass.getDeclaredMethod("endCall")
-                endCallMethod.invoke(telephonyInterface)
+                endCallMethod.invoke(telephonyInterface) as? Boolean ?: true
             }
         } catch (e: Exception) {
-            Log.w(TAG, "rejectCall: TelecomManager.endCall failed: ${e.message}")
+            Log.w(TAG, "endTelecomCall failed: ${e.message}")
+            false
         }
-
-        if (!telecomEnded) {
-            // Notification actions: hangUp (Teams etc., active call) or
-            // declineCall (incoming ringing). Both are Broadcast PendingIntents
-            // and work cross-process for most VoIP apps.
-            val handled = CallNotifListener.hangUp()
-            if (handled) {
-                Log.d(TAG, "rejectCall: ended via notification hang-up action")
-                sendToast(getString(R.string.toast_call_ended))
-            } else {
-                val declined = CallNotifListener.declineCall()
-                if (declined) {
-                    Log.d(TAG, "rejectCall: declined via notification decline action")
-                    sendToast(getString(R.string.toast_call_declined))
-                } else {
-                    Log.w(TAG, "rejectCall: no method worked — call may remain active")
-                }
-            }
-        } else {
-            sendToast(getString(R.string.toast_call_ended))
-        }
-        islandWindow?.close()
     }
 
     fun sendToast(message: String) {
@@ -4377,13 +4609,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }
 
     @RequiresApi(Build.VERSION_CODES.R)
-    fun processHeadTrackingData(data: ByteArray) {
-        if (data.size < 55) {
-            gestureHandler.post { gestureDetector?.invalidate() }
-            return
-        }
-        val horizontal = ByteBuffer.wrap(data, 51, 2).order(ByteOrder.LITTLE_ENDIAN).short.toInt()
-        val vertical = ByteBuffer.wrap(data, 53, 2).order(ByteOrder.LITTLE_ENDIAN).short.toInt()
+    private fun processHeadTrackingData(sample: io.automated.ventures.everypods.bluetooth.HeadMotionProtocol.Sample) {
+        val horizontal = sample.horizontal
+        val vertical = sample.vertical
         val receivedAt = android.os.SystemClock.elapsedRealtime()
         val receivedGeneration = BluetoothConnectionManager.connectionGeneration()
         gestureHandler.post {
@@ -4409,8 +4637,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                         executeControlAction(dispatch.action)
                     }
                     is HeadGestureDispatch.Call -> when (dispatch.action) {
-                        HeadGestureCallAction.ANSWER -> { gestureAudio.playConfirmation(true); answerCall() }
-                        HeadGestureCallAction.DECLINE, HeadGestureCallAction.HANG_UP -> { gestureAudio.playConfirmation(false); rejectCall() }
+                        HeadGestureCallAction.ANSWER -> { gestureAudio.playConfirmation(true); answerCall(); handleIncomingCallOnceConnected = false }
+                        HeadGestureCallAction.DECLINE, HeadGestureCallAction.HANG_UP -> { gestureAudio.playConfirmation(false); rejectCall(); handleIncomingCallOnceConnected = false }
                         HeadGestureCallAction.MUTE_TOGGLE -> toggleMicMute()
                     }
                     HeadGestureDispatch.StopAnnouncement -> stopAnnouncement()
@@ -4877,7 +5105,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             takeOver("music", manualTakeOverAfterReversed = true)
         }
 
-        if (intent?.action == "io.automated.ventures.everypods.STOP_HR_SHARING") stopHeartRate()
+        if (intent?.action == "io.automated.ventures.everypods.STOP_HR_SHARING") stopHeartRate(source = HeartRateSource.NOTIFICATION)
 
         if (intent?.action == ACTION_TOGGLE_GYM_MODE) {
             GymModePrefs.setEnabled(this, !GymModePrefs.isEnabled(this))
@@ -5265,13 +5493,36 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             override fun onServiceConnected(profile: Int, proxy: BluetoothProfile) {
                 if (profile == BluetoothProfile.A2DP) {
                     bluetoothA2dpProxy = proxy as android.bluetooth.BluetoothA2dp
-                    // Prime the cache so the first reconnect after install isn't blocked.
+                    // Refresh our local-sink gate as soon as the proxy is ready. If
+                    // an app update/restart killed the process-owned AACP socket while
+                    // Android kept A2DP connected, reconnect immediately instead of
+                    // waiting for another BLE status broadcast (which can be minutes
+                    // later while the buds remain worn and idle).
                     val mac = try {
                         sharedPreferences.getString("mac_address", "") ?: ""
                     } catch (_: Exception) {
                         ""
                     }
-                    if (mac.isNotEmpty()) isA2dpConnectedTo(mac)
+                    if (mac.isNotEmpty() && isA2dpConnectedTo(mac)) {
+                        Log.d(
+                            TAG,
+                            "<LogCollector:Conn> A2DP proxy confirms AirPods already connected; " +
+                                "queueing immediate AACP reconnect"
+                        )
+                        Handler(Looper.getMainLooper()).postDelayed({
+                            if (isConnected()) {
+                                Log.d(TAG, "<LogCollector:Conn> startup reconnect skipped — AACP is already connected")
+                                return@postDelayed
+                            }
+                            val target = try { adapter.getRemoteDevice(mac) } catch (e: Exception) {
+                                Log.w(TAG, "<LogCollector:Conn> startup reconnect has invalid saved AirPods address", e)
+                                return@postDelayed
+                            }
+                            CoroutineScope(Dispatchers.IO).launch {
+                                connectToSocket(adapter, target)
+                            }
+                        }, 1_000L)
+                    }
                     Log.d(TAG, "A2DP profile proxy acquired")
                 }
             }
@@ -6187,6 +6438,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         if (isHeadTrackingActive && isConnected()) sendHeadTrackingRequest(false)
         isHeadTrackingActive = false
         gestureDetector?.reset()
+        gymAutomationAttached = false
+        io.automated.ventures.everypods.automation.GymAutomationCoordinator.detach(gymAutomationHost)
         androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.removeObserver(hrProcessObserver)
         io.automated.ventures.everypods.relay.BtHandoverSync.close()
         stopHeartRate()
@@ -6197,6 +6450,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         Log.w(TAG, "W5 Service onDestroy — process going away; RFCOMM links will drop until restart")
 
         CallNotifListener.onMuteStateChanged = null
+        CallNotifListener.onCallStateChanged = null
+        AnnouncementCoordinator.removeSpeechStartListener(announcementSpeechStartListener)
+        reconcileHeadGestures()
         sharedPreferences.unregisterOnSharedPreferenceChangeListener(this)
         cancelGymTimerLockScreenNotification()
         synchronized(gymModeStemPressLock) {

@@ -15,10 +15,12 @@ object HeadGesturePrefs {
 
     @Synchronized fun migrate(prefs: SharedPreferences) {
         val version = prefs.getInt(VERSION, 0)
-        if (version >= 2) return
-        if (version == 1) {
-            // Retire the manual stream override; the controller derives tracking demand.
-            prefs.edit().remove("head_tracking_enabled").putInt(VERSION, 2).commit()
+        if (version >= 3) return
+        if (version >= 1) {
+            // Retire the manual stream override and retain main's announcement preference.
+            val edit = prefs.edit().remove("head_tracking_enabled")
+            migrateAnnouncementPreference(prefs, edit)
+            edit.putInt(VERSION, 3).commit()
             return
         }
         val legacy = prefs.contains("head_gestures_enabled") || prefs.contains("head_gestures_answer_call") || prefs.contains("head_gestures_mute_call")
@@ -40,8 +42,15 @@ object HeadGesturePrefs {
         defaults.forEach { (action, gesture) ->
             if (!prefs.contains(callKey(action))) edit.putString(callKey(action), gesture?.name ?: "NONE")
         }
+        migrateAnnouncementPreference(prefs, edit)
         edit.putBoolean(NOTICE, mute)
-            .remove("head_tracking_enabled").putInt(VERSION, 2).commit()
+            .remove("head_tracking_enabled").putInt(VERSION, 3).commit()
+    }
+
+    private fun migrateAnnouncementPreference(prefs: SharedPreferences, edit: SharedPreferences.Editor) {
+        if (!prefs.contains(STOP_ANNOUNCEMENTS) && prefs.contains("head_gestures_stop_announcement")) {
+            edit.putBoolean(STOP_ANNOUNCEMENTS, prefs.getBoolean("head_gestures_stop_announcement", true))
+        }
     }
 
     fun read(prefs: SharedPreferences): HeadGestureSettings {

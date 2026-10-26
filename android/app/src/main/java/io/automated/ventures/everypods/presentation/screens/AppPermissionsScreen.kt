@@ -68,6 +68,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.core.app.ActivityCompat
 import io.automated.ventures.everypods.R
 import io.automated.ventures.everypods.presentation.components.StyledScaffold
+import io.automated.ventures.everypods.automation.GymLocationPermission
 import io.automated.ventures.everypods.services.CallNotifListener
 
 private val PermSfPro get() = FontFamily(Font(R.font.sf_pro))
@@ -101,6 +102,7 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
     var phoneGranted        by remember { mutableStateOf(false) }
     var overlayGranted      by remember { mutableStateOf(false) }
     var notifAccessGranted  by remember { mutableStateOf(false) }
+    var gymLocationStep     by remember { mutableStateOf(GymLocationPermission.step(context)) }
 
     fun refreshAll() {
         btGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
@@ -114,6 +116,7 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
         phoneGranted        = isGranted(Manifest.permission.READ_PHONE_STATE) && isGranted(Manifest.permission.ANSWER_PHONE_CALLS)
         overlayGranted      = Settings.canDrawOverlays(context)
         notifAccessGranted  = CallNotifListener.isAccessGranted(context)
+        gymLocationStep     = GymLocationPermission.step(context)
     }
 
     LaunchedEffect(Unit) {
@@ -136,6 +139,8 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
     // ── Launchers ────────────────────────────────────────────────────────
     val multiLauncher  = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { refreshAll() }
     val singleLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { refreshAll() }
+    // Optional; only requested when the user taps the Gym location row.
+    val requestGymLocation = rememberGymLocationPermissionAction { refreshAll() }
 
     // Whether we've actually launched a system request for a permission IN THIS SESSION.
     // The "permanently denied → App Info" decision must be based on this, NOT on a
@@ -318,6 +323,18 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
                     description = stringResource(R.string.ui_sync_mute_state_with_teams_vib),
                     granted = notifAccessGranted, dark = dark, accent = accent, green = green
                 ) { CallNotifListener.openAccessSettings(context) }
+                RowDivider()
+                PermissionRow(
+                    title = stringResource(R.string.gym_perm_bg_title),
+                    description = stringResource(R.string.gym_perm_bg_desc) + when (gymLocationStep) {
+                        GymLocationPermission.Step.NEED_PRECISE -> "\n\n" + stringResource(R.string.gym_perm_bg_step1)
+                        GymLocationPermission.Step.NEED_BACKGROUND -> "\n\n" + stringResource(R.string.gym_perm_bg_step2)
+                        GymLocationPermission.Step.GRANTED -> ""
+                    },
+                    granted = gymLocationStep == GymLocationPermission.Step.GRANTED,
+                    dark = dark, accent = accent, green = green,
+                    modifier = Modifier.testTag("perm_gym_background_location"),
+                ) { requestGymLocation() }
             }
 
             // Continue button for first-launch flow
@@ -355,11 +372,11 @@ private fun RowDivider() = HorizontalDivider(
 @Composable
 private fun PermissionRow(
     title: String, description: String, granted: Boolean,
-    dark: Boolean, accent: Color, green: Color, onGrant: () -> Unit
+    dark: Boolean, accent: Color, green: Color, modifier: Modifier = Modifier, onGrant: () -> Unit
 ) {
     val textColor = if (dark) Color.White else Color.Black
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+        modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f).padding(end = 12.dp)) {

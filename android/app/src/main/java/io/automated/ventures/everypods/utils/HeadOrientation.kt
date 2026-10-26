@@ -20,6 +20,7 @@ package io.automated.ventures.everypods.utils
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import io.automated.ventures.everypods.bluetooth.HeadMotionProtocol
 import kotlin.math.roundToInt
 
 data class Orientation(val pitch: Float = 0f, val yaw: Float = 0f)
@@ -41,13 +42,16 @@ object HeadTracking {
     private const val CALIBRATION_SAMPLE_COUNT = 10
     private const val ORIENTATION_OFFSET = 5500
 
-    fun processPacket(packet: ByteArray) {
-        val o1 = bytesToInt(packet[43], packet[44])
-        val o2 = bytesToInt(packet[45], packet[46])
-        val o3 = bytesToInt(packet[47], packet[48])
+    fun processPacket(packet: ByteArray): List<HeadMotionProtocol.Sample> =
+        HeadMotionProtocol.decodeAll(packet).also { samples -> samples.forEach(::processSample) }
 
-        val horizontalAccel = bytesToInt(packet[51], packet[52]).toFloat()
-        val verticalAccel = bytesToInt(packet[53], packet[54]).toFloat()
+    private fun processSample(sample: HeadMotionProtocol.Sample) {
+        val o1 = sample.orientation1
+        val o2 = sample.orientation2
+        val o3 = sample.orientation3
+
+        val horizontalAccel = sample.horizontal.toFloat()
+        val verticalAccel = sample.vertical.toFloat()
 
         if (!isCalibrated) {
             calibrationSamples.add(Triple(o1, o2, o3))
@@ -86,10 +90,6 @@ object HeadTracking {
         val yaw = (o2Norm - o3Norm) / 2f / 32000f * 180f
 
         return Orientation(pitch, yaw)
-    }
-
-    private fun bytesToInt(b1: Byte, b2: Byte): Int {
-        return (b2.toInt() shl 8) or (b1.toInt() and 0xFF)
     }
 
     fun reset() {

@@ -89,4 +89,12 @@ class HeadGesturePrefsTest {
         assertFalse(settings.enabled)
     }
 
+    @Test fun `upgrading main retains explicit spoken announcement preference`() {
+        prefs.edit().putBoolean("head_gestures_stop_announcement", false).commit()
+        assertFalse(HeadGesturePrefs.read(prefs).shakeStopsAnnouncements)
+        HeadGesturePrefs.setShakeStopsAnnouncements(prefs, true)
+        prefs.edit().putInt("head_gesture_schema_version", 2).commit()
+        assertTrue(HeadGesturePrefs.read(prefs).shakeStopsAnnouncements)
+    }
+
 }

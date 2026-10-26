@@ -26,6 +26,7 @@ import android.content.res.Configuration
 import android.content.Intent
 import android.graphics.drawable.Icon
 import android.os.Build
+import android.os.SystemClock
 import android.provider.Settings
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
@@ -40,19 +41,15 @@ import io.automated.ventures.everypods.R
  * reacts as if the user tapped the button in the notification, keeping its
  * in-app UI in sync.
  *
- * Action resolution uses a three-tier pipeline:
+ * Action resolution uses a structural-first pipeline:
  *
  *   Tier 1 — Notification.CallStyle extras (API 31+, locale-independent, structural).
  *            Reads EXTRA_ANSWER_INTENT, EXTRA_DECLINE_INTENT, EXTRA_HANG_UP_INTENT
  *            from notification.extras. These are stable keys regardless of locale,
  *            language, or notification button labels.
  *
- *   Tier 2 — Position convention. Falls back to actions[0]=decline, actions[1]=answer
- *            (matches Notification.CallStyle.forIncomingCall arg order). Used for
- *            apps that don't set CallStyle extras (rare on modern Android).
- *
- *   Tier 3 — Keyword match (multi-locale title substring). Last-resort safety net
- *            for legacy apps and for mute/unmute (CallStyle has no mute extra).
+ *   Fallback — action metadata, verified app resources/icons and whole-label
+ *              keyword matching. Never infer actions from array position.
  *
  * Requires the user to grant Notification access (Settings → Apps → Special
  * access → Notification access). Use [isAccessGranted] / [openAccessSettings]
@@ -62,6 +59,7 @@ class CallNotifListener : NotificationListenerService() {
 
     companion object {
         private const val TAG = "CallNotifListener"
+        private val ACTION_WORD_SEPARATORS = Regex("[^\\p{L}\\p{N}]+")
 
         private val WATCHED_PACKAGES = setOf(
             "com.microsoft.teams",
@@ -72,7 +70,7 @@ class CallNotifListener : NotificationListenerService() {
         )
 
         // ─── Keyword lists (tier 3) ───────────────────────────────────────────
-        // Lower-case substrings checked against action title. ASCII-folded and
+        // Lower-case labels checked against action title. ASCII-folded and
         // diacritic variants included where common. Order matters when checking
         // (unmute must be tried before mute — substring trap).
         // Coverage: en, es, fr, de, it, pt, nl, pl, tr, ru, el, zh-CN, zh-TW, ja, ko, ar, he.
@@ -106,6 +104,8 @@ class CallNotifListener : NotificationListenerService() {
             "応答", "出る", "受ける",
             // Korean
             "받기", "응답", "수락",
+            // Ukrainian / Vietnamese: installed Viber CallStyle resource values.
+            "відповісти", "trả lời",
             // Arabic
             "الرد", "قبول",
             // Hebrew
@@ -145,6 +145,8 @@ class CallNotifListener : NotificationListenerService() {
             "رفض",
             // Hebrew
             "דחה",
+            // Ukrainian / Vietnamese: installed Viber CallStyle resource values.
+            "відхилити", "từ chối",
         )
 
         private val HANG_UP_KEYWORDS = listOf(
@@ -279,7 +281,7 @@ class CallNotifListener : NotificationListenerService() {
                 )) {
                     val id = localized.getIdentifier(name, "string", packageName)
                     if (id != 0) {
-                        val label = localized.getString(id).trim().lowercase(Locale.ROOT)
+                        val label = normalizeActionLabel(localized.getString(id))
                         labels[label] = muted
                     }
                 }
@@ -287,13 +289,182 @@ class CallNotifListener : NotificationListenerService() {
             return labels
         }
 
-        // ─── Action cache ─────────────────────────────────────────────────────
-        @Volatile private var muteAction: Notification.Action? = null
-        @Volatile private var unmuteAction: Notification.Action? = null
-        @Volatile private var hangUpAction: Notification.Action? = null
-        @Volatile private var answerAction: Notification.Action? = null
-        @Volatile private var declineAction: Notification.Action? = null
-        @Volatile private var lastSeenKey: String? = null
+        private fun normalizeActionLabel(label: String): String =
+            label.lowercase(Locale.ROOT).replace(ACTION_WORD_SEPARATORS, " ").trim()
+
+        internal fun readTeamsCallLabels(
+            teams: Context, packageName: String, tags: Array<String>,
+        ): Map<String, String> {
+            val labels = mutableMapOf<String, String>()
+            for (tag in tags) {
+                val config = Configuration(teams.resources.configuration).apply {
+                    setLocale(Locale.forLanguageTag(tag))
+                }
+                val localized = teams.createConfigurationContext(config).resources
+                for ((name, role) in listOf(
+                    "notifications_pre_call_answer_audio" to "answer",
+                    "notifications_pre_call_decline" to "decline",
+                )) {
+                    val id = localized.getIdentifier(name, "string", packageName)
+                    if (id != 0) labels[normalizeActionLabel(localized.getString(id))] = role
+                }
+            }
+            return labels
+        }
+
+        private enum class CallStage { INCOMING, ONGOING, SCREENING, UNKNOWN }
+
+        /** All actions and state belong to one exact notification owner. */
+        private data class CallSnapshot(
+            val key: String,
+            val packageName: String,
+            val postTime: Long,
+            val stage: CallStage,
+            val mute: Notification.Action?,
+            val unmute: Notification.Action?,
+            val hangUp: Notification.Action?,
+            val answer: Notification.Action?,
+            val decline: Notification.Action?,
+        )
+
+        private enum class CallActionKind { ANSWER, TELECOM_ANSWER, DECLINE, HANG_UP }
+        private data class PendingCallAction(
+            val key: String,
+            val stage: CallStage,
+            val kind: CallActionKind,
+            val actionIntent: PendingIntent?,
+            val startedAtElapsedMs: Long,
+        )
+        private const val CALL_ACTION_PENDING_WINDOW_MS = 5_000L
+        internal const val ANSWER_TELECOM_FALLBACK_DELAY_MS = 800L
+
+        private val snapshotLock = Any()
+        private val callSnapshots = linkedMapOf<String, CallSnapshot>()
+        private var pendingCallAction: PendingCallAction? = null
+        @Volatile private var notificationListenerContext: Context? = null
+
+        private fun CallSnapshot.intentFor(kind: CallActionKind): PendingIntent? = when (kind) {
+            CallActionKind.ANSWER, CallActionKind.TELECOM_ANSWER -> answer?.actionIntent
+            CallActionKind.DECLINE -> decline?.actionIntent
+            CallActionKind.HANG_UP -> hangUp?.actionIntent
+        }
+
+        private fun currentCallSnapshot(): CallSnapshot? = synchronized(snapshotLock) {
+            val incoming = callSnapshots.values.filter { it.stage == CallStage.INCOMING }
+            val candidates = if (incoming.isNotEmpty()) incoming else
+                callSnapshots.values.filter { it.stage == CallStage.ONGOING }
+            candidates.maxWithOrNull(compareBy<CallSnapshot> { it.postTime }.thenBy { it.key })
+        }
+
+        /** Whether Telecom fallback can safely target the only observed call. */
+        fun hasUnambiguousVoipCallTarget(): Boolean = synchronized(snapshotLock) {
+            callSnapshots.values.count {
+                it.stage == CallStage.INCOMING || it.stage == CallStage.ONGOING
+            } == 1
+        }
+
+        fun hasPendingCallAction(): Boolean = synchronized(snapshotLock) {
+            pendingCallAction?.let {
+                SystemClock.elapsedRealtime() - it.startedAtElapsedMs < CALL_ACTION_PENDING_WINDOW_MS
+            } == true
+        }
+
+        /** Claim the delayed Telecom answer route only if the notification Answer
+         *  action did not move this same, sole call out of its incoming stage. */
+        internal fun claimTelecomAnswerFallback(
+            activeCallObserved: Boolean,
+            nowElapsedMs: Long = SystemClock.elapsedRealtime(),
+        ): Boolean = synchronized(snapshotLock) {
+            // Telecom/audio can report connection before the app updates its
+            // incoming notification. A headset toggle at that point can hang up.
+            if (activeCallObserved) return@synchronized false
+            val pending = pendingCallAction ?: return@synchronized false
+            val current = currentCallSnapshot()
+            val eligible = pending.kind == CallActionKind.ANSWER &&
+                nowElapsedMs - pending.startedAtElapsedMs >= ANSWER_TELECOM_FALLBACK_DELAY_MS &&
+                nowElapsedMs - pending.startedAtElapsedMs < CALL_ACTION_PENDING_WINDOW_MS &&
+                current?.key == pending.key && current.stage == CallStage.INCOMING &&
+                callSnapshots.values.count {
+                    it.stage == CallStage.INCOMING || it.stage == CallStage.ONGOING
+                } == 1
+            if (!eligible) return@synchronized false
+
+            pendingCallAction = pending.copy(kind = CallActionKind.TELECOM_ANSWER)
+            Log.d(TAG, "Notification Answer did not transition; claimed Telecom fallback for ${pending.key}")
+            true
+        }
+
+        internal fun cancelPendingTelecomAnswerFallback() {
+            synchronized(snapshotLock) {
+                if (pendingCallAction?.kind == CallActionKind.TELECOM_ANSWER) pendingCallAction = null
+            }
+        }
+
+        fun beginCurrentHangUpFallback(): Boolean {
+            val snapshot = currentCallSnapshot()
+            if (snapshot?.stage != CallStage.ONGOING) return false
+            return claimCallAction(snapshot, CallActionKind.HANG_UP, "Telecom hang-up")
+        }
+
+        fun cancelPendingHangUpFallback() {
+            synchronized(snapshotLock) {
+                if (pendingCallAction?.kind == CallActionKind.HANG_UP) pendingCallAction = null
+            }
+        }
+
+        private fun publishSnapshot(key: String, snapshot: CallSnapshot?) {
+            var changedMuteState: Boolean? = null
+            var muteStateChanged = false
+            var callStateChanged = false
+            synchronized(snapshotLock) {
+                val previous = callSnapshots[key]
+                if (snapshot == null) callSnapshots.remove(key)
+                else callSnapshots[key] = snapshot
+
+                val pending = pendingCallAction
+                if (pending != null && (
+                        pending.key == key && (snapshot == null || previous?.stage != snapshot.stage ||
+                            snapshot.intentFor(pending.kind) != pending.actionIntent)
+                    )) {
+                    Log.d(TAG, "Clearing pending ${pending.kind} for ${pending.key}; call action changed or notification was removed")
+                    pendingCallAction = null
+                }
+
+                val ringing = callSnapshots.values.any { it.stage == CallStage.INCOMING }
+                val active = callSnapshots.values.any { it.stage == CallStage.ONGOING }
+                callStateChanged = ringing != isVoipNotifRinging || active != isVoipNotifActive
+                isVoipNotifRinging = ringing
+                isVoipNotifActive = active
+
+                val selected = currentCallSnapshot()
+                val newMuteState = if (selected?.stage == CallStage.ONGOING) when {
+                    selected.unmute != null && selected.mute == null -> true
+                    selected.mute != null && selected.unmute == null -> false
+                    else -> null
+                } else null
+                if (newMuteState != muteShownByAppNotif) {
+                    muteShownByAppNotif = newMuteState
+                    changedMuteState = newMuteState
+                    muteStateChanged = true
+                }
+            }
+
+            if (callStateChanged) onCallStateChanged?.invoke(isVoipNotifRinging, isVoipNotifActive)
+            if (muteStateChanged) changedMuteState?.let { state -> onMuteStateChanged?.invoke(state) }
+        }
+
+        private fun clearSnapshots() {
+            val hadCall: Boolean
+            synchronized(snapshotLock) {
+                hadCall = isVoipNotifRinging || isVoipNotifActive
+                callSnapshots.clear()
+                pendingCallAction = null
+                isVoipNotifRinging = false
+                isVoipNotifActive = false
+                muteShownByAppNotif = null
+            }
+            if (hadCall) onCallStateChanged?.invoke(false, false)
+        }
 
         /** Canonical mute state derived from the watched VoIP app's notification buttons.
          *  true  = notification currently shows "Unmute" (i.e. mic is muted in the app)
@@ -324,6 +495,9 @@ class CallNotifListener : NotificationListenerService() {
          *  is first detected or changes. */
         @Volatile var onMuteStateChanged: ((muted: Boolean) -> Unit)? = null
 
+        /** Aggregate stage transitions, including calls with no Telecom callback. */
+        @Volatile var onCallStateChanged: ((ringing: Boolean, active: Boolean) -> Unit)? = null
+
         /** Returns the canonical mute state derived from the active VoIP app's
          *  notification button label, or null if unknown / no active call. */
         fun isMuteShownByAppNotif(): Boolean? = muteShownByAppNotif
@@ -343,16 +517,19 @@ class CallNotifListener : NotificationListenerService() {
         }
 
         // ─── Dispatch helpers ─────────────────────────────────────────────────
-        // All four fire the cached PendingIntent via PendingIntent.send() with
-        // ActivityOptions.setPendingIntentBackgroundActivityStartMode(ALLOWED)
-        // on API 34+. This lifts the Background Activity Launch (BAL)
-        // restriction that Android 14+ otherwise applies to Activity
-        // PendingIntents fired from a foreground service — required for apps
-        // like Viber whose Answer/Hang up PIs target a fullscreen call Activity.
-        // The ActivityOptions bundle is harmless for Broadcast / Service PIs.
+        // Dispatch only the resolved call's PendingIntent on behalf of a call
+        // control gesture. API 36+ requires ALLOW_ALWAYS to use an existing
+        // background-launch exemption (including SYSTEM_ALERT_WINDOW); legacy
+        // ALLOWED no longer transfers that exemption. This opt-in does not grant
+        // the exemption itself, and dispatch still does not confirm completion.
 
         fun setMuted(muted: Boolean): Boolean {
-            val action = if (muted) muteAction else unmuteAction
+            val snapshot = currentCallSnapshot()
+            if (snapshot?.stage != CallStage.ONGOING) {
+                Log.d(TAG, "setMuted($muted): no current ongoing call")
+                return false
+            }
+            val action = if (muted) snapshot.mute else snapshot.unmute
             if (action == null) {
                 Log.d(TAG, "setMuted($muted): no cached action")
                 return false
@@ -361,45 +538,110 @@ class CallNotifListener : NotificationListenerService() {
         }
 
         fun hangUp(): Boolean {
-            val action = hangUpAction ?: run {
+            val snapshot = currentCallSnapshot()
+            if (snapshot?.stage != CallStage.ONGOING) {
+                Log.d(TAG, "hangUp(): no current ongoing call")
+                return false
+            }
+            val action = snapshot.hangUp ?: run {
                 Log.d(TAG, "hangUp(): no cached action")
                 return false
             }
-            return sendActionPendingIntent(action, "hangUp")
+            return dispatchCallAction(snapshot, action, "hangUp", CallActionKind.HANG_UP)
         }
 
         fun answerCall(): Boolean {
-            val action = answerAction ?: run {
+            val snapshot = currentCallSnapshot()
+            if (snapshot?.stage != CallStage.INCOMING) {
+                Log.d(TAG, "answerCall(): no current incoming call")
+                return false
+            }
+            val action = snapshot.answer ?: run {
                 Log.d(TAG, "answerCall(): no cached action")
                 return false
             }
-            return sendActionPendingIntent(action, "answerCall")
+            return dispatchCallAction(snapshot, action, "answerCall", CallActionKind.ANSWER)
         }
 
         fun declineCall(): Boolean {
-            val action = declineAction ?: run {
+            val snapshot = currentCallSnapshot()
+            if (snapshot?.stage != CallStage.INCOMING) {
+                Log.d(TAG, "declineCall(): no current incoming call")
+                return false
+            }
+            val action = snapshot.decline ?: run {
                 Log.d(TAG, "declineCall(): no cached action")
                 return false
             }
-            return sendActionPendingIntent(action, "declineCall")
+            return dispatchCallAction(snapshot, action, "declineCall", CallActionKind.DECLINE)
+        }
+
+        private fun dispatchCallAction(
+            snapshot: CallSnapshot,
+            action: Notification.Action,
+            label: String,
+            kind: CallActionKind,
+        ): Boolean {
+            if (!claimCallAction(snapshot, kind, label)) return false
+            val sent = sendActionPendingIntent(action, label)
+            if (!sent) clearPendingCallAction(snapshot.key, kind)
+            return sent
+        }
+
+        private fun claimCallAction(snapshot: CallSnapshot, kind: CallActionKind, label: String): Boolean {
+            val now = SystemClock.elapsedRealtime()
+            synchronized(snapshotLock) {
+                if (callSnapshots[snapshot.key] != snapshot || currentCallSnapshot() != snapshot) {
+                    Log.d(TAG, "$label: call snapshot changed before dispatch")
+                    return false
+                }
+                val pending = pendingCallAction
+                if (pending != null && pending.key == snapshot.key && pending.stage == snapshot.stage &&
+                    now - pending.startedAtElapsedMs < CALL_ACTION_PENDING_WINDOW_MS &&
+                    (pending.kind == kind || pending.kind == CallActionKind.TELECOM_ANSWER)
+                ) {
+                    Log.d(TAG, "$label: matching call action is still pending for ${snapshot.key}")
+                    return false
+                }
+                pendingCallAction = PendingCallAction(
+                    key = snapshot.key,
+                    stage = snapshot.stage,
+                    kind = kind,
+                    actionIntent = snapshot.intentFor(kind),
+                    startedAtElapsedMs = now,
+                )
+            }
+            return true
+        }
+
+        private fun clearPendingCallAction(key: String, kind: CallActionKind) {
+            synchronized(snapshotLock) {
+                if (pendingCallAction?.key == key && pendingCallAction?.kind == kind) {
+                    pendingCallAction = null
+                }
+            }
         }
 
         private fun sendActionPendingIntent(
             action: Notification.Action,
             label: String,
         ): Boolean = try {
-            val ctx = ServiceManager.getService()?.applicationContext
+            val ctx = notificationListenerContext ?: ServiceManager.getService()?.applicationContext
             val fillIn = Intent().apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
             val optsBundle = if (Build.VERSION.SDK_INT >= 34) {
                 @Suppress("DEPRECATION")
                 ActivityOptions.makeBasic()
                     .setPendingIntentBackgroundActivityStartMode(
-                        ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+                        if (Build.VERSION.SDK_INT >= 36) {
+                            ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_ALWAYS
+                        } else {
+                            ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+                        }
                     )
                     .toBundle()
             } else null
             action.actionIntent.send(ctx, 0, fillIn, null, null, null, optsBundle)
-            Log.d(TAG, "$label: fired ${action.title}")
+            Log.d(TAG, "$label: dispatched ${action.title}; awaiting call-state transition")
             true
         } catch (t: Throwable) {
             Log.w(TAG, "$label failed: ${t.message}")
@@ -409,9 +651,11 @@ class CallNotifListener : NotificationListenerService() {
 
     override fun onListenerConnected() {
         super.onListenerConnected()
+        notificationListenerContext = applicationContext
         io.automated.ventures.everypods.utils.MediaController.refreshMediaSessionMonitoring(this, force = true)
         Log.d(TAG, "Listener connected")
         // Re-scan currently posted notifications so we pick up an in-progress call.
+        clearSnapshots()
         try {
             activeNotifications?.forEach { handle(it) }
         } catch (t: Throwable) {
@@ -423,20 +667,22 @@ class CallNotifListener : NotificationListenerService() {
         handle(sbn)
     }
 
+    override fun onListenerDisconnected() {
+        clearSnapshots()
+        notificationListenerContext = null
+        super.onListenerDisconnected()
+    }
+
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
         if (sbn.packageName !in WATCHED_PACKAGES) return
-        if (sbn.key == lastSeenKey) {
-            Log.d(TAG, "Call notification removed; clearing cached actions")
-            muteAction = null
-            unmuteAction = null
-            hangUpAction = null
-            answerAction = null
-            declineAction = null
-            lastSeenKey = null
-            muteShownByAppNotif = null
-            isVoipNotifRinging = false
-            isVoipNotifActive = false
-        }
+        Log.d(TAG, "Call notification removed; releasing snapshot for ${sbn.key}")
+        publishSnapshot(sbn.key, null)
+    }
+
+    override fun onDestroy() {
+        clearSnapshots()
+        notificationListenerContext = null
+        super.onDestroy()
     }
 
     /**
@@ -472,8 +718,28 @@ class CallNotifListener : NotificationListenerService() {
         }
     }
 
+    /** Read the exact Teams resource labels across EveryPods' supported locales. */
+    private fun teamsCallLabels(packageName: String): Map<String, String> {
+        if (!packageName.startsWith("com.microsoft.teams")) return emptyMap()
+        return try {
+            val teams = createPackageContext(packageName, 0)
+            val tags = resources.getStringArray(R.array.supported_locale_tags)
+            readTeamsCallLabels(teams, packageName, tags)
+        } catch (e: Exception) {
+            Log.d(TAG, "Teams call action resources unavailable: ${e.javaClass.simpleName}")
+            emptyMap()
+        }
+    }
+
+    private fun matchesActionLabel(title: String, keyword: String): Boolean {
+        val normalizedTitle = title.replace(ACTION_WORD_SEPARATORS, " ").trim()
+        val normalizedKeyword = keyword.replace(ACTION_WORD_SEPARATORS, " ").trim()
+        return normalizedKeyword.isNotEmpty() && " $normalizedTitle ".contains(" $normalizedKeyword ")
+    }
+
     private fun handle(sbn: StatusBarNotification) {
         if (sbn.packageName !in WATCHED_PACKAGES) return
+        notificationListenerContext = applicationContext
         val n = sbn.notification ?: return
         val actions: Array<Notification.Action> = n.actions ?: emptyArray()
 
@@ -481,7 +747,7 @@ class CallNotifListener : NotificationListenerService() {
         val titles = actions.map { it.title?.toString().orEmpty() }
         Log.d(TAG, "Scanning ${sbn.packageName} notification (key=${sbn.key}, actions=${titles})")
 
-        // ─── Tier 1 — CallStyle extras (locale-independent, structural) ──────
+        // ─── Structural CallStyle state and actions ───────────────────────────
         val extras = n.extras
         val callTypeRaw = try { extras.getInt(Notification.EXTRA_CALL_TYPE, 0) } catch (_: Throwable) { 0 }
         val answerPi  = getPendingIntentExtra(extras, Notification.EXTRA_ANSWER_INTENT)
@@ -494,15 +760,11 @@ class CallNotifListener : NotificationListenerService() {
         var foundMute: Notification.Action? = null
         var foundUnmute: Notification.Action? = null
 
-        val tier1Hit = (foundAnswer != null) || (foundDecline != null) || (foundHangUp != null)
-
-        // ─── Tier 3 — Keyword match (multi-locale title substring) ───────────
-        // Runs BEFORE tier 2 so that title-matchable actions are correctly
-        // classified before position guessing kicks in. Without this, an active
-        // call notification whose [Unmute, Hang up] actions get walked by
-        // position-based tier 2 would mis-cache Unmute as "decline" and Hang up
-        // as "answer".
+        // ─── Fallback action metadata and whole-label matching ────────────────
+        // These clues can fill missing actions, but cannot override CallStyle
+        // intents already resolved above or determine the CallStyle stage.
         val teamsLabels = teamsMuteLabels(sbn.packageName)
+        val teamsCalls = teamsCallLabels(sbn.packageName)
         for (a in actions) {
             val iconName = if (sbn.packageName.startsWith("com.microsoft.teams")) {
                 try {
@@ -516,114 +778,83 @@ class CallNotifListener : NotificationListenerService() {
             val metadataState = muteStateForAction(a.semanticAction, iconName)
             Log.d(TAG, "Call action metadata: semantic=${a.semanticAction} icon=$iconName muted=$metadataState")
             if (metadataState != null) {
-                if (metadataState) foundUnmute = a else foundMute = a
+                if (metadataState && foundUnmute == null) foundUnmute = a
+                else if (!metadataState && foundMute == null) foundMute = a
                 continue
             }
             if (iconName == "icn_callaction_endcall") {
-                foundHangUp = a
+                if (foundHangUp == null) foundHangUp = a
                 continue
             }
-            val title = a.title?.toString().orEmpty().lowercase(Locale.ROOT)
+            val rawTitle = a.title?.toString().orEmpty()
+            val title = rawTitle.lowercase(Locale.ROOT)
             if (title.isEmpty()) continue
-            val resourceState = teamsLabels[title.trim()]
+            val normalizedTitle = normalizeActionLabel(rawTitle)
+            when (teamsCalls[normalizedTitle]) {
+                "answer" -> if (foundAnswer == null) foundAnswer = a
+                "decline" -> if (foundDecline == null) foundDecline = a
+            }
+            val resourceState = teamsLabels[normalizedTitle]
             if (resourceState != null) {
                 Log.d(TAG, "Call action matched Teams string resource: muted=$resourceState")
-                if (resourceState) foundUnmute = a else foundMute = a
+                if (resourceState && foundUnmute == null) foundUnmute = a
+                else if (!resourceState && foundMute == null) foundMute = a
                 continue
             }
-            // Order matters: unmute before mute (substring trap).
+            // Whole-token matching avoids substring collisions such as the
+            // Portuguese answer label "Atender" being mistaken for "end".
             when {
-                foundUnmute == null && UNMUTE_KEYWORDS.any { title.contains(it) }  -> foundUnmute  = a
-                foundMute   == null && MUTE_KEYWORDS.any   { title.contains(it) }  -> foundMute    = a
-                foundHangUp == null && HANG_UP_KEYWORDS.any{ title.contains(it) }  -> foundHangUp  = a
-                foundAnswer == null && ANSWER_KEYWORDS.any { title.contains(it) }  -> foundAnswer  = a
-                foundDecline== null && DECLINE_KEYWORDS.any{ title.contains(it) }  -> foundDecline = a
+                foundUnmute == null && UNMUTE_KEYWORDS.any { matchesActionLabel(title, it) }  -> foundUnmute  = a
+                foundMute   == null && MUTE_KEYWORDS.any   { matchesActionLabel(title, it) }  -> foundMute    = a
+                foundHangUp == null && HANG_UP_KEYWORDS.any{ matchesActionLabel(title, it) }  -> foundHangUp  = a
+                foundAnswer == null && ANSWER_KEYWORDS.any { matchesActionLabel(title, it) }  -> foundAnswer  = a
+                foundDecline== null && DECLINE_KEYWORDS.any{ matchesActionLabel(title, it) }  -> foundDecline = a
             }
         }
 
-        // ─── Tier 2 — Position convention (last-resort only) ─────────────────
-        // Strictly requires explicit CALL_TYPE_INCOMING and that tier 1 + tier 3
-        // didn't resolve at least one of answer/decline. Without explicit
-        // CALL_TYPE_INCOMING we cannot distinguish ringing from active by shape,
-        // and walking actions by position would mis-cache active-call buttons
-        // (Teams active notif = [Unmute, Hang up]: position-based ringing
-        // mapping would put Unmute under "decline" and Hang up under "answer").
-        if (n.category == Notification.CATEGORY_CALL &&
-            callTypeRaw == Notification.CallStyle.CALL_TYPE_INCOMING &&
-            foundAnswer == null && foundDecline == null &&
-            actions.size >= 2
-        ) {
-            Log.d(TAG, "tier2: applying position convention (incoming, no tier1/3 hit, ${actions.size} actions)")
-            foundDecline = actions[0]
-            foundAnswer  = actions[1]
+        val stage = when (callTypeRaw) {
+            Notification.CallStyle.CALL_TYPE_INCOMING -> CallStage.INCOMING
+            Notification.CallStyle.CALL_TYPE_ONGOING -> CallStage.ONGOING
+            Notification.CallStyle.CALL_TYPE_SCREENING -> CallStage.SCREENING
+            else -> when {
+                n.category != Notification.CATEGORY_CALL -> null
+                foundAnswer != null && foundDecline != null -> CallStage.INCOMING
+                foundHangUp != null || foundMute != null || foundUnmute != null -> CallStage.ONGOING
+                else -> CallStage.UNKNOWN
+            }
         }
 
-        // ─── Cache update ─────────────────────────────────────────────────────
-        // Guard against false positives from non-call notifications that
-        // coincidentally have similarly-named buttons (e.g. WhatsApp message
-        // notifications also have a "Mute" button for conversation muting).
-        // Require at least 2 call-related actions OR a tier-1 CallStyle hit
-        // (which is structural and trustworthy on its own) before caching.
-        val callActionCount = listOf(
-            foundMute, foundUnmute, foundHangUp, foundAnswer, foundDecline
-        ).count { it != null }
-        if (callActionCount == 0) return
-        if (callActionCount < 2 && !tier1Hit && n.category != Notification.CATEGORY_CALL) {
-            Log.d(TAG, "Ignoring ${sbn.packageName} notification with only $callActionCount call-related action(s) — likely not a call")
+        if (stage == null) {
+            // If an app reuses a key for a non-call notification, drop the old
+            // call/actions owned by that key instead of retaining stale state.
+            publishSnapshot(sbn.key, null)
             return
         }
 
-        muteAction = foundMute ?: muteAction
-        unmuteAction = foundUnmute ?: unmuteAction
-        hangUpAction = foundHangUp ?: hangUpAction
-        answerAction = foundAnswer ?: answerAction
-        declineAction = foundDecline ?: declineAction
-        lastSeenKey = sbn.key
+        val snapshot = CallSnapshot(
+            key = sbn.key,
+            packageName = sbn.packageName,
+            postTime = sbn.postTime,
+            stage = stage,
+            mute = foundMute,
+            unmute = foundUnmute,
+            hangUp = foundHangUp,
+            answer = foundAnswer,
+            decline = foundDecline,
+        )
+        publishSnapshot(sbn.key, snapshot)
         Log.d(
             TAG,
-            "Cached actions from ${sbn.packageName} (tier1Hit=$tier1Hit callType=$callTypeRaw): " +
-                "mute=${foundMute?.title}, unmute=${foundUnmute?.title}, " +
-                "hangUp=${foundHangUp?.title}, answer=${foundAnswer?.title}, decline=${foundDecline?.title}"
+            "Replaced call snapshot key=${sbn.key} package=${sbn.packageName} stage=$stage " +
+                "actions(mute=${foundMute != null}, unmute=${foundUnmute != null}, " +
+                "hangUp=${foundHangUp != null}, answer=${foundAnswer != null}, decline=${foundDecline != null})"
         )
 
-        // Maintain the ringing/active VoIP flags so AirPodsService.isInAnyCall()
-        // can detect VoIP calls that bypass TelephonyManager / Telecom (Viber).
-        // Ringing requires both answer + decline AND no active-call signals
-        // (no hangUp/mute/unmute) — otherwise we're looking at an active call
-        // whose actions happened to be mis-cached.
-        val hasActiveSignals = foundHangUp != null || foundMute != null || foundUnmute != null
-        val ringingNow = foundAnswer != null && foundDecline != null && !hasActiveSignals
-        val activeNow = !ringingNow && hasActiveSignals
-        if (ringingNow != isVoipNotifRinging) {
-            Log.d(TAG, "isVoipNotifRinging: $isVoipNotifRinging → $ringingNow (${sbn.packageName})")
-            isVoipNotifRinging = ringingNow
-        }
-        if (activeNow != isVoipNotifActive) {
-            Log.d(TAG, "isVoipNotifActive: $isVoipNotifActive → $activeNow (${sbn.packageName})")
-            isVoipNotifActive = activeNow
-        }
-
-        // Incoming ringing VoIP call detected. Self-managed VoIP apps
-        // (WhatsApp, Viber) don't trigger TelephonyManager CALL_STATE_RINGING,
-        // so the AirPods never enter HFP call state and setupStemActions()
-        // is never called — meaning single press events aren't forwarded
-        // to the app. Kick stem action setup here to re-apply the config.
-        if (ringingNow) {
-            Log.d(TAG, "Ringing VoIP call detected for ${sbn.packageName} — calling setupStemActions()")
+        // Self-managed VoIP ringing may not trigger TelephonyManager call state,
+        // so reapply the stem configuration from the notification stage itself.
+        if (stage == CallStage.INCOMING) {
+            Log.d(TAG, "Incoming VoIP notification detected for ${sbn.packageName} — setting up stem actions")
             ServiceManager.getService()?.setupStemActions()
-        }
-
-        // Derive canonical mute state: "Unmute" button visible → currently muted,
-        // "Mute" button visible → currently unmuted. Ambiguous if both or neither present.
-        val newState: Boolean? = when {
-            foundUnmute != null && foundMute == null -> true
-            foundMute != null && foundUnmute == null -> false
-            else -> null
-        }
-        if (newState != null && newState != muteShownByAppNotif) {
-            muteShownByAppNotif = newState
-            Log.d(TAG, "App-notif mute state detected → $newState (${sbn.packageName})")
-            onMuteStateChanged?.invoke(newState)
         }
     }
 

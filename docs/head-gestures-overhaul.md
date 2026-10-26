@@ -79,3 +79,16 @@ Moved configuration below Call actions and aligned the new controls with `docs/d
 The connected Pixel's Android 17 cannot run the existing Espresso 3.6.1 input injector (`InputManager.getInstance` is unavailable). The attempted Gradle connected-test task also uninstalled its target application during cleanup. The application was reinstalled; the user declined settings recovery. Do not use the Gradle connected-test task on this personal device. Future UI automation must use an isolated test application/device and a compatible framework. No physical-gesture or successful UI-instrumentation result is claimed for that run.
 
 Final UI/automatic-tracking follow-up validation: Debug assembly, instrumentation-source compilation and baseline-aware lint succeeded. All 391 unit tests passed with no failures/errors, including automatic release after removing the final normal/Gym/call assignment and migration of the retired manual tracking preference. All eleven translation files have matching resource keys and format placeholders. The Pixel disconnected before the final revised APK could be installed; no successful device UI/gesture validation is claimed.
+
+
+## Main integration — 26 October 2026
+
+Integrated upstream `main` through `baa277b3` (PRs #53–#57) into `codex/head-gestures-main`, retaining the configurable gesture overhaul and all subsequent UI refinements. This restores location-based Gym automation, its multi-zone map editor, permissions/navigation/search, HR ownership and shared shortcut start behavior, plus main's media resume and VoIP routing fixes.
+
+The new gesture controller now consumes main's validated `HeadMotionProtocol` protobuf sensor samples, including variable-length and batched motion frames; it no longer reads fixed offsets from enclosing packets. It uses the latest incoming-call callbacks and safe answer/decline implementations. Normal/Gym/announcement assignments remain configurable. The single Advanced and diagnostics disclosure and Controls order (Stem actions → Listening mode configuration → Head gestures → Call actions → Head gesture configuration → remaining configuration) are retained.
+
+Schema version 3 preserves an explicit announcement-cancellation setting from main when no newer configurable preference exists. The Gym Mode category toggle observes preference changes made by location automation.
+
+Validation: Debug assembly, instrumentation-source compilation and baseline-aware lint succeeded. **536 unit tests passed**, including upstream Gym automation/search/HR ownership and VoIP tests, existing gesture tests, a new decoded-motion-to-action pipeline regression test, and preference migration tests. `git diff origin/main --check` passed; upstream-generated aboutlibraries whitespace remains unchanged. No connected instrumentation task, preference reset, simulated geofence, or physical arrival test was run for this integration. Pre-existing untracked handoff/report files that now exist on main were preserved in a named Git stash before merging.
+
+Installed the merged Debug APK on the connected Pixel 10 using `adb install -r` (Success). MainActivity launch returned Status: ok; the app remained running with no fatal exception recorded for the current process. This preserves current app data. Actual gym arrival/departure and physical head gestures remain separate live checks.

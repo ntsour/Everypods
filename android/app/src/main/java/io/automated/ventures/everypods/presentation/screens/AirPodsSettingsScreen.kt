@@ -210,7 +210,8 @@ internal fun searchIndex(context: Context): List<SearchableItem> {
             }
         item.copy(directRoute = route, categoryKey = key,
             category = categoryLabels[key] ?: item.category,
-            keywords = item.keywords + categoryAliases[item.categoryKey].orEmpty() + englishItems[index].label)
+            keywords = (item.keywords + categoryAliases[item.categoryKey].orEmpty() + englishItems[index].label +
+                englishItems[index].keywords).distinct())
     }
     return indexed + SearchableItem(
             context.getString(R.string.audio_relay_playback),
@@ -219,6 +220,30 @@ internal fun searchIndex(context: Context): List<SearchableItem> {
             "category/connection?anchor=connections",
             keywords = listOf("wifi audio", "play through", "relay", "handover"),
         )
+}
+
+/** Comma-separated, translated search keywords from a string resource (locale system). */
+internal fun gymKeywords(context: Context, res: Int): List<String> =
+    context.getString(res).split(',', '，', '、').map(String::trim).filter(String::isNotEmpty)
+
+/**
+ * Gym automation sub-settings (locations list, add/edit/remove, radius, map). Labels and
+ * keywords are string resources in every locale; the index also merges the English build.
+ */
+internal fun gymAutomationSearchItems(context: Context): List<SearchableItem> {
+    val base = gymKeywords(context, R.string.gym_auto_search_keywords)
+    fun item(label: Int, vararg keywords: Int) = SearchableItem(
+        context.getString(label), "Smart Features", "smart", "gym_automation",
+        keywords = base + keywords.flatMap { gymKeywords(context, it) } + context.getString(R.string.gym_auto_title),
+    )
+    return listOf(
+        item(R.string.gym_zones_title, R.string.gym_zones_search_keywords),
+        item(R.string.gym_zone_add, R.string.gym_zone_edit_search_keywords),
+        item(R.string.gym_zone_edit, R.string.gym_zone_edit_search_keywords, R.string.gym_map_search_keywords),
+        item(R.string.gym_zone_remove, R.string.gym_zone_edit_search_keywords),
+        item(R.string.gym_auto_radius_title, R.string.gym_auto_radius_search_keywords),
+        item(R.string.gym_map_search_title, R.string.gym_map_search_keywords),
+    )
 }
 
 private fun buildSearchIndex(context: Context): List<SearchableItem> = listOf(
@@ -260,6 +285,8 @@ private fun buildSearchIndex(context: Context): List<SearchableItem> = listOf(
     SearchableItem("Battery Alerts",           "Smart Features", "smart", "category/smart?anchor=battery_alert_threshold", keywords = listOf("low battery", "speak", "announce", "alerta de batería")),
     SearchableItem(context.getString(R.string.ui_sleep_timer),              "Smart Features", "smart", "category/smart", anchor = "sleep_timer", keywords = listOf("auto stop", "timer")),
     SearchableItem(context.getString(R.string.ui_gym_timer),                "Smart Features", "smart", "gym_timer", keywords = listOf("stopwatch", "workout", "fitness")),
+    SearchableItem(context.getString(R.string.gym_auto_title),              "Smart Features", "smart", "gym_automation", keywords = listOf("location", "geofence", "arrive", "gym", "ubicación", "gimnasio", "τοποθεσία", "γυμναστήριο") + gymKeywords(context, R.string.gym_auto_search_keywords)),
+    *gymAutomationSearchItems(context).toTypedArray(),
     SearchableItem("Battery Alert Threshold",  "Smart Features", "smart", "category/smart?anchor=battery_alert_threshold", keywords = listOf("battery threshold", "low battery percent", "umbral de batería", "umbral de batería baja")),
     SearchableItem("Sleep Timer Duration",     "Smart Features", "smart", "category/smart", anchor = "sleep_timer", keywords = listOf("sleep timer duration", "sleep countdown", "temporizador de sueño")),
     // App Settings
@@ -335,7 +362,7 @@ private fun normalizeSearchText(value: String): String = Normalizer
     .replace("[^\\p{L}\\p{N}]+".toRegex(), " ")
     .trim()
 
-private fun rankSearchResults(items: List<SearchableItem>, query: String): List<SearchableItem> {
+internal fun rankSearchResults(items: List<SearchableItem>, query: String): List<SearchableItem> {
     val normalizedQuery = normalizeSearchText(query)
     if (normalizedQuery.isBlank()) return emptyList()
     val queryTokens = normalizedQuery.split(' ').filter(String::isNotBlank)

@@ -15,3 +15,15 @@ EveryPods is not affiliated with or endorsed by Apple.
 The Android application includes open-source dependencies whose notices and
 licenses are displayed in the in-app Open Source Licenses screen. Dependency
 updates must preserve those notices.
+
+## Map picker (Gym location automation)
+
+- **osmdroid** 6.1.20 (`org.osmdroid:osmdroid-android`), © osmdroid contributors,
+  licensed under the Apache License 2.0 (compatible with GPLv3 when distributed as
+  part of a GPLv3 work). <https://github.com/osmdroid/osmdroid>
+- **Map data and tiles** © OpenStreetMap contributors, data available under the Open
+  Database License (ODbL) 1.0; standard tile layer served by the OpenStreetMap
+  Foundation. Attribution is shown on the map. <https://www.openstreetmap.org/copyright>
+  Use follows the OSMF Tile Usage Policy
+  (<https://operations.osmfoundation.org/policies/tiles/>): identifying User-Agent,
+  on-device tile cache, interactive use only (no prefetching or bulk download).

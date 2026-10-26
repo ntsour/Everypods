@@ -667,11 +667,19 @@ private fun SmartContent(state: AirPodsUiState, viewModel: AirPodsViewModel, nav
     AnchorWrapper("gym_mode") { modifier ->
         SettingsSection(stringResource(R.string.ui_gym_mode), modifier) {
             var enabled by remember { mutableStateOf(GymModePrefs.isEnabled(context)) }
+            DisposableEffect(sharedPrefs) {
+                val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+                    if (key == "gym_mode_enabled") enabled = GymModePrefs.isEnabled(context)
+                }
+                sharedPrefs.registerOnSharedPreferenceChangeListener(listener)
+                onDispose { sharedPrefs.unregisterOnSharedPreferenceChangeListener(listener) }
+            }
             StyledToggle(label = stringResource(R.string.ui_gym_mode),
                 description = stringResource(R.string.ui_alternate_stem_actions_for_wor), checked = enabled,
                 onCheckedChange = { enabled = it; GymModePrefs.setEnabled(context, it) })
             MenuNavRow(stringResource(R.string.ui_gym_timer), dark) { navController.navigate("gym_timer") }
             MenuNavRow(stringResource(R.string.hg_gym_controls), dark) { navController.navigate("gym_press_actions") }
+            MenuNavRow(stringResource(R.string.gym_auto_title), dark, subtitle = stringResource(R.string.gym_auto_summary)) { navController.navigate("gym_automation") }
         }
     }
     AnchorWrapper("heart_rate") { modifier -> SettingsSection(stringResource(R.string.design_smart_tools), modifier) {
@@ -683,6 +691,7 @@ private fun SmartContent(state: AirPodsUiState, viewModel: AirPodsViewModel, nav
 
     } }
     AnchorWrapper("automation") { modifier -> SettingsSection(stringResource(R.string.ui_automation), modifier) {
+        MenuNavRow(stringResource(R.string.gym_auto_title), dark, subtitle = stringResource(R.string.gym_auto_summary)) { navController.navigate("gym_automation") }
         if (state.capabilities.contains(Capability.SLEEP_DETECTION)) {
             val id = AACPManager.Companion.ControlCommandIdentifiers.SLEEP_DETECTION_CONFIG
             StyledToggle(label = stringResource(R.string.sleep_detection),
