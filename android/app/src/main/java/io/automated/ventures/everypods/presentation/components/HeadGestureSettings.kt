@@ -111,8 +111,16 @@ fun GestureSettingAction(label: String, enabled: Boolean = true, onClick: () -> 
 }
 
 @Composable
-fun HeadGestureActions(gym: Boolean = false, enabled: Boolean = true, onMasterChange: ((Boolean) -> Unit)? = null) {
+fun HeadGestureActions(gym: Boolean = false, enabled: Boolean = true, onMasterChange: ((Boolean) -> Unit)? = null, onOpenGymControls: (() -> Unit)? = null) {
     val (prefs, settings) = rememberHeadGestureSettings()
+    var gymActive by remember(prefs) { mutableStateOf(prefs.getBoolean("gym_mode_enabled", false)) }
+    DisposableEffect(prefs) {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == "gym_mode_enabled") gymActive = prefs.getBoolean("gym_mode_enabled", false)
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
     SettingsSection(stringResource(R.string.ui_head_gestures)) {
         if (!gym) StyledToggle(
             label = stringResource(R.string.ui_head_gestures),
@@ -134,6 +142,11 @@ fun HeadGestureActions(gym: Boolean = false, enabled: Boolean = true, onMasterCh
             GestureSettingPicker(headGestureLabel(gesture), (if (gym) settings.gym else settings.normal)[gesture], options,
                 enabled = enabled, onSelect = { HeadGesturePrefs.setAction(prefs, gesture, gym, it) })
         }
+    }
+    if (!gym && gymActive) {
+        Text(stringResource(R.string.hg_gym_active_hint), style = gestureSupportingStyle(),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+        if (onOpenGymControls != null) GestureSettingAction(stringResource(R.string.hg_gym_controls), onClick = onOpenGymControls)
     }
     // The notice flag is independent of mappings, so retain separate observable state.
     var showNotice by remember { mutableStateOf(prefs.getBoolean(HeadGesturePrefs.NOTICE, false)) }

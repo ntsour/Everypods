@@ -32,4 +32,5 @@
     <string name="hg_stop_announcements">Shake to stop spoken announcements</string>
     <string name="hg_stop_announcements_help">While speech is playing, shake to stop it instead of running the assigned Gym or normal action. Calls take priority. Requires Head Gestures to be enabled.</string>
     <string name="hg_advanced_diagnostics">Advanced and diagnostics</string>
+    <string name="hg_gym_active_hint">Gym mode is active. These normal assignments are paused. Configure head gestures in Gym controls.</string>
 </resources>

@@ -92,3 +92,8 @@ Schema version 3 preserves an explicit announcement-cancellation setting from ma
 Validation: Debug assembly, instrumentation-source compilation and baseline-aware lint succeeded. **536 unit tests passed**, including upstream Gym automation/search/HR ownership and VoIP tests, existing gesture tests, a new decoded-motion-to-action pipeline regression test, and preference migration tests. `git diff origin/main --check` passed; upstream-generated aboutlibraries whitespace remains unchanged. No connected instrumentation task, preference reset, simulated geofence, or physical arrival test was run for this integration. Pre-existing untracked handoff/report files that now exist on main were preserved in a named Git stash before merging.
 
 Installed the merged Debug APK on the connected Pixel 10 using `adb install -r` (Success). MainActivity launch returned Status: ok; the app remained running with no fatal exception recorded for the current process. This preserves current app data. Actual gym arrival/departure and physical head gestures remain separate live checks.
+
+
+## Head-tracking resilience follow-up
+
+See [the complete signal/command lifecycle audit](head-tracking-lifecycle-audit.md) for reconnect, one/both-earbud, BLE/AACP loss, ownership, recovery, neutral rearming and background-tool cases. Added generation-bound writes, early wear retention, bounded stream/stop recovery, stale-epoch rejection and correct sampled-neutral repetition counting. Safe tests no longer remain active after backgrounding the tool. Gym mode now exposes an active-profile hint without changing mappings. All 575 unit tests and the build/lint checks passed; updated APK installed on Pixel 10. Media commands and saved sensitivity values were left unchanged.

@@ -32,4 +32,5 @@
     <string name="hg_stop_announcements">Scuoti la testa per interrompere gli annunci vocali</string>
     <string name="hg_stop_announcements_help">Durante un annuncio, scuoti la testa per interromperlo anziché eseguire l’azione normale o della palestra assegnata. Le chiamate hanno la priorità. I gesti della testa devono essere attivi.</string>
     <string name="hg_advanced_diagnostics">Opzioni avanzate e diagnostica</string>
+    <string name="hg_gym_active_hint">La modalità palestra è attiva. Queste assegnazioni normali sono sospese. Configura i gesti in Controlli palestra.</string>
 </resources>

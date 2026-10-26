@@ -32,4 +32,5 @@
     <string name="hg_stop_announcements">Sesli duyuruları durdurmak için başı yana salla</string>
     <string name="hg_stop_announcements_help">Konuşma sırasında, atanmış spor veya normal işlemi çalıştırmak yerine durdurmak için başınızı yana sallayın. Aramalar önceliklidir. Baş hareketlerinin etkin olması gerekir.</string>
     <string name="hg_advanced_diagnostics">Gelişmiş ayarlar ve tanılama</string>
+    <string name="hg_gym_active_hint">Spor modu etkin. Bu normal atamalar duraklatıldı. Baş hareketlerini Spor Kontrolleri bölümünde yapılandırın.</string>
 </resources>

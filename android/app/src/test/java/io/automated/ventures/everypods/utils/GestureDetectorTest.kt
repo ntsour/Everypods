@@ -96,4 +96,37 @@ class GestureDetectorTest {
         assertEquals(HeadGesture.SHAKE, repetition(false))
     }
 
+    @Test fun `ear or context change requires neutral and discards partial repetitions`() {
+        repetition()
+        detector.awaitNeutral()
+        assertNull(repetition()) // Insertion/removal motion cannot complete the old command.
+        sample(0); sample(0, dt = 300)
+        assertNull(repetition())
+        assertEquals(HeadGesture.NOD, repetition())
+    }
+    @Test fun `context change preserves completed gesture cooldown`() {
+        repetition(false); assertEquals(HeadGesture.SHAKE, repetition(false))
+        detector.awaitNeutral()
+        repeat(2) { assertNull(repetition(false)) }
+        sample(0, dt = 1000); sample(0, dt = 500)
+        assertNull(repetition(false))
+        assertEquals(HeadGesture.SHAKE, repetition(false))
+    }
+
+    @Test fun `neutral crossed between sensor samples still completes exactly two repetitions`() {
+        // At 40 ms cadence a zero crossing can fall between the opposite peak and next peak.
+        assertNull(sample(900, dt = 40))
+        assertNull(sample(-900, dt = 40))
+        assertNull(sample(900, dt = 40))
+        assertNull(sample(-900, dt = 40))
+        assertEquals(HeadGesture.NOD, sample(0, dt = 40))
+    }
+    @Test fun `crossing the neutral band cannot count one oscillation twice`() {
+        assertNull(sample(900, dt = 40))
+        assertNull(sample(-900, dt = 40))
+        assertNull(sample(900, dt = 40))
+        assertNull(sample(0, dt = 40))
+        assertEquals(1, detector.status.nod.repetitions)
+    }
+
 }

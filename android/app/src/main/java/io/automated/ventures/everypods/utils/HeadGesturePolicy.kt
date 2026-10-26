@@ -14,7 +14,8 @@ object HeadGesturePolicy {
 
     data class Owners(val detect: Boolean, val track: Boolean)
     fun owners(settings: HeadGestureSettings, context: HeadGestureContext, local: Boolean,
-               knownWorn: Boolean, diagnostics: Boolean, announcementAudible: Boolean = false): Owners {
+               knownWorn: Boolean, diagnostics: Boolean, announcementAudible: Boolean = false, knownOutOfEar: Boolean = false): Owners {
+        if (knownOutOfEar) return Owners(false, false)
         val detect = local && knownWorn && HeadGesture.entries.any { settings.resolve(it, context, announcementAudible) != HeadGestureDispatch.None }
         return Owners(detect, local && (detect || diagnostics))
     }

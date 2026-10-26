@@ -32,4 +32,5 @@
     <string name="hg_stop_announcements">Abanar a cabeça para parar os anúncios falados</string>
     <string name="hg_stop_announcements_help">Durante um anúncio, abane a cabeça para o parar em vez de executar a ação normal ou de ginásio atribuída. As chamadas têm prioridade. Os gestos de cabeça têm de estar ativos.</string>
     <string name="hg_advanced_diagnostics">Opções avançadas e diagnóstico</string>
+    <string name="hg_gym_active_hint">O modo ginásio está ativo. Estas atribuições normais estão suspensas. Configure os gestos nos Controlos de ginásio.</string>
 </resources>

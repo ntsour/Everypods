@@ -43,7 +43,9 @@ object HeadTracking {
     private const val ORIENTATION_OFFSET = 5500
 
     fun processPacket(packet: ByteArray): List<HeadMotionProtocol.Sample> =
-        HeadMotionProtocol.decodeAll(packet).also { samples -> samples.forEach(::processSample) }
+        HeadMotionProtocol.decodeAll(packet).also(::processSamples)
+
+    fun processSamples(samples: List<HeadMotionProtocol.Sample>) { samples.forEach(::processSample) }
 
     private fun processSample(sample: HeadMotionProtocol.Sample) {
         val o1 = sample.orientation1

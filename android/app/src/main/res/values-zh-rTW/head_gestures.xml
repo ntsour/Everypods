@@ -32,4 +32,5 @@
     <string name="hg_stop_announcements">搖頭停止語音播報</string>
     <string name="hg_stop_announcements_help">播報期間，搖頭會停止播報，而不會執行已指派的健身或一般動作。通話優先。需要啟用頭部手勢。</string>
     <string name="hg_advanced_diagnostics">進階選項與診斷</string>
+    <string name="hg_gym_active_hint">健身模式已開啟。這些一般指派已暫停。請在「健身控制」中設定頭部手勢。</string>
 </resources>

@@ -32,4 +32,5 @@
     <string name="hg_stop_announcements">Secouer la tête pour arrêter les annonces vocales</string>
     <string name="hg_stop_announcements_help">Pendant une annonce, secouez la tête pour l’arrêter au lieu d’exécuter l’action normale ou de sport attribuée. Les appels sont prioritaires. Les gestes de la tête doivent être activés.</string>
     <string name="hg_advanced_diagnostics">Options avancées et diagnostics</string>
+    <string name="hg_gym_active_hint">Le mode sport est actif. Ces attributions normales sont suspendues. Configurez les gestes dans Commandes de sport.</string>
 </resources>

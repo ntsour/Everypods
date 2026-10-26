@@ -150,12 +150,16 @@ fun HeadTrackingScreen(
             scrollState.animateScrollTo((scrollState.value + y - targetTop).coerceAtLeast(0))
         }
     }
-    DisposableEffect(service) {
-        onDispose { service?.setHeadGestureTest(false); service?.stopHeadTracking() }
-    }
-    DisposableEffect(advancedExpanded, service) {
-        if (advancedExpanded) service?.startHeadTracking()
-        onDispose { if (advancedExpanded) service?.stopHeadTracking() }
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, service, advancedExpanded) {
+        val tools = io.automated.ventures.everypods.utils.HeadTrackingToolsLifecycle(
+            diagnosticsExpanded = advancedExpanded,
+            startDiagnostics = { service?.startHeadTracking() },
+            stopDiagnostics = { service?.stopHeadTracking() },
+            cancelTest = { service?.setHeadGestureTest(false) },
+        )
+        lifecycleOwner.lifecycle.addObserver(tools)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(tools); tools.close() }
     }
     LaunchedEffect(service) {
         service?.headGestureStatus?.collect { status = it }

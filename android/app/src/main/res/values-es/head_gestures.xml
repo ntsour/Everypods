@@ -32,4 +32,5 @@
     <string name="hg_stop_announcements">Negar para detener los anuncios hablados</string>
     <string name="hg_stop_announcements_help">Mientras se reproduce un anuncio, niega con la cabeza para detenerlo en lugar de ejecutar la acción asignada del gimnasio o normal. Las llamadas tienen prioridad. Requiere activar Gestos de cabeza.</string>
     <string name="hg_advanced_diagnostics">Opciones avanzadas y diagnóstico</string>
+    <string name="hg_gym_active_hint">El modo gimnasio está activo. Estas asignaciones normales están en pausa. Configura los gestos de cabeza en Controles del gimnasio.</string>
 </resources>

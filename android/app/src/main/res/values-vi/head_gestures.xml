@@ -32,4 +32,5 @@
     <string name="hg_stop_announcements">Lắc đầu để dừng thông báo bằng giọng nói</string>
     <string name="hg_stop_announcements_help">Khi đang phát giọng nói, lắc đầu để dừng thay vì thực hiện thao tác tập luyện hoặc bình thường đã gán. Cuộc gọi được ưu tiên. Cần bật Cử chỉ đầu.</string>
     <string name="hg_advanced_diagnostics">Nâng cao và chẩn đoán</string>
+    <string name="hg_gym_active_hint">Chế độ tập luyện đang bật. Các thao tác bình thường này được tạm dừng. Cấu hình cử chỉ trong Điều khiển tập luyện.</string>
 </resources>

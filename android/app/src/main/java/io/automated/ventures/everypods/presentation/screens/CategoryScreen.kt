@@ -415,7 +415,8 @@ private fun ControlsContent(
 
         if (capabilities.contains(Capability.HEAD_GESTURES)) {
             AnchorWrapper("head_gestures") { modifier -> Column(modifier) {
-                HeadGestureActions(enabled = state.isPremium && state.aacpAvailable, onMasterChange = viewModel::setHeadGesturesEnabled)
+                HeadGestureActions(enabled = state.isPremium && state.aacpAvailable, onMasterChange = viewModel::setHeadGesturesEnabled,
+                    onOpenGymControls = { navController.navigate("gym_press_actions") })
             } }
         }
 

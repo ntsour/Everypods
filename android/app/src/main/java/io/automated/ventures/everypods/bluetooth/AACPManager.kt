@@ -346,6 +346,23 @@ class AACPManager {
         return sendPacket(createDataPacket(data))
     }
 
+    /** Capture the intended socket once: a concurrent reconnect must not retarget an old command. */
+    fun sendDataPacketForGeneration(data: ByteArray, expectedGeneration: Long): Boolean {
+        val target = synchronized(BluetoothConnectionManager) {
+            if (!BluetoothConnectionManager.isCurrentConnectionGeneration(expectedGeneration)) return false
+            BluetoothConnectionManager.getCurrentSocket() ?: return false
+        }
+        return try {
+            if (!target.isConnected) return false
+            target.outputStream.write(createDataPacket(data))
+            target.outputStream.flush()
+            true
+        } catch (e: Exception) {
+            Log.w(TAG, "Generation-scoped command failed: ${e.javaClass.simpleName}")
+            false
+        }
+    }
+
     fun sendControlCommand(identifier: Byte, value: ByteArray): Boolean {
         val controlPacket = createControlCommandPacket(identifier, value)
         setControlCommandStatusValue(

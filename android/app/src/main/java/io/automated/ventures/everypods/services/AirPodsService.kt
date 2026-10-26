@@ -134,6 +134,8 @@ import io.automated.ventures.everypods.data.Battery
 import io.automated.ventures.everypods.data.BatteryComponent
 import io.automated.ventures.everypods.data.BatteryStatus
 import io.automated.ventures.everypods.data.*
+import io.automated.ventures.everypods.utils.HeadGestureWearState
+import io.automated.ventures.everypods.utils.HeadGestureStream
 import io.automated.ventures.everypods.utils.HeadGesturePolicy
 import io.automated.ventures.everypods.utils.HeadGesturePrefs
 import io.automated.ventures.everypods.utils.GestureFeedback
@@ -1382,6 +1384,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             device: BLEManager.AirPodsStatus, leftInEar: Boolean, rightInEar: Boolean
         ) {
             Log.d(TAG, "Ear state changed - Left: $leftInEar, Right: $rightInEar")
+            gestureHandler.post { reconcileHeadGestures(wearHint = true) }
             if (leftInEar || rightInEar) {
                 io.automated.ventures.everypods.utils.BatteryAlertWatcher.checkAndMaybeAlert(
                     this@AirPodsService,
@@ -2177,28 +2180,30 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             }
 
             override fun onEarDetectionReceived(earDetection: ByteArray) {
+                if (earDetection.size < 8) {
+                    Log.w("HeadGestures", "Ignoring truncated wear report")
+                    return
+                }
                 sendBroadcast(Intent(AirPodsNotifications.EAR_DETECTION_DATA).apply {
-                    val list = earDetectionNotification.status
-                    val bytes = ByteArray(2)
-                    bytes[0] = list[0]
-                    bytes[1] = list[1]
+                    val bytes = earDetection.copyOfRange(6, 8)
                     putExtra("data", bytes)
                 }.apply {
                     setPackage(packageName)
                 })
                 Log.d(
                     "AirPodsParser",
-                    "Ear Detection: ${earDetectionNotification.status[0]} ${earDetectionNotification.status[1]}"
+                    "Ear Detection: ${earDetection[6]} ${earDetection[7]}"
                 )
                 val generation = BluetoothConnectionManager.connectionGeneration()
-                val worn = earDetection.size >= 8 && (earDetection[6] == 0x00.toByte() || earDetection[7] == 0x00.toByte())
+                val wornMask = (if (earDetection[6] == 0x00.toByte()) 1 else 0) or
+                    (if (earDetection[7] == 0x00.toByte()) 2 else 0)
                 processEarDetectionChange(earDetection)
                 gestureHandler.post {
-                    if (generation == BluetoothConnectionManager.connectionGeneration() && isConnected()) {
-                        gestureWearGeneration = generation
-                        gestureWorn = worn
-                        reconcileHeadGestures()
-                    }
+                    // Sensor reports can precede the engine's Connected publication.
+                    // Keep current-socket evidence; action eligibility still requires Connected.
+                    gestureWear.report(generation, BluetoothConnectionManager.connectionGeneration(),
+                        BluetoothConnectionManager.getCurrentSocket() != null, wornMask)
+                    reconcileHeadGestures()
                 }
             }
 
@@ -2233,6 +2238,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             }
 
             override fun onOwnershipChangeReceived(owns: Boolean) {
+                gestureHandler.post { reconcileHeadGestures() }
                 if (!owns) {
                     if (heartRateState.value.running || heartRateSharingState.value.active) stopHeartRate(HeartRateFailure.NOT_OWNER)
                     Log.d(TAG, "ownership lost — Android will fire AUDIO_BECOMING_NOISY to pause the old device")
@@ -2382,9 +2388,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             override fun onHeadTrackingReceived(headTracking: ByteArray) {
                 Log.d(TAG, "onHeadTrackingReceived: active=$isHeadTrackingActive len=${headTracking.size}")
                 if (isHeadTrackingActive) {
-                    val samples = HeadTracking.processPacket(headTracking)
-                    Log.d(TAG, "Motion frame: bytes=${headTracking.size} samples=${samples.size}")
-                    samples.forEach(::processHeadTrackingData)
+                    val generation = BluetoothConnectionManager.connectionGeneration()
+                    val epoch = gestureEpoch
+                    val receivedAt = SystemClock.elapsedRealtime()
+                    val samples = io.automated.ventures.everypods.bluetooth.HeadMotionProtocol.decodeAll(headTracking)
+                    if (samples.isNotEmpty()) processHeadTrackingData(samples, generation, epoch, receivedAt)
                 }
             }
 
@@ -3343,10 +3351,6 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         if (key.startsWith("head_gesture") || key == "gym_mode_enabled" || key == "use_alternate_head_tracking_packets") {
             gestureHandler.post {
                 gestureSettings = null
-                if (key == "use_alternate_head_tracking_packets" && isHeadTrackingActive) {
-                    sendHeadTrackingRequest(false)
-                    isHeadTrackingActive = false
-                }
                 reconcileHeadGestures()
             }
         }
@@ -3610,7 +3614,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
     private fun initGestureDetector() {
         if (gestureDetector == null) {
-            gestureDetector = GestureDetector()
+            gestureDetector = GestureDetector { SystemClock.elapsedRealtime() }
         }
     }
 
@@ -4609,28 +4613,39 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }
 
     @RequiresApi(Build.VERSION_CODES.R)
-    private fun processHeadTrackingData(sample: io.automated.ventures.everypods.bluetooth.HeadMotionProtocol.Sample) {
-        val horizontal = sample.horizontal
-        val vertical = sample.vertical
-        val receivedAt = android.os.SystemClock.elapsedRealtime()
-        val receivedGeneration = BluetoothConnectionManager.connectionGeneration()
+    private fun processHeadTrackingData(
+        samples: List<io.automated.ventures.everypods.bluetooth.HeadMotionProtocol.Sample>,
+        receivedGeneration: Long, receivedEpoch: Long, receivedAt: Long,
+    ) {
         gestureHandler.post {
-            // Do not execute delayed samples after a lifecycle/context transition.
+            // Delayed/old-connection packets cannot complete a gesture in a different context.
             if (!gestureControllerRunning || receivedGeneration != BluetoothConnectionManager.connectionGeneration() ||
-                android.os.SystemClock.elapsedRealtime() - receivedAt > 250) return@post
+                receivedEpoch != gestureEpoch || SystemClock.elapsedRealtime() - receivedAt > 250) return@post
+            gestureStream.onSample(receivedGeneration, receivedAt)
             val previous = gestureSnapshot
             reconcileHeadGestures()
-            if (previous != gestureSnapshot || !gestureDetectionRequested) return@post
+            if (previous != gestureSnapshot || receivedEpoch != gestureEpoch || !isHeadTrackingActive) return@post
+            HeadTracking.processSamples(samples)
+            if (!gestureDetectionRequested) return@post
             val snapshot = gestureSnapshot ?: return@post
             val detector = gestureDetector ?: return@post
-            val event = detector.process(horizontal, vertical,
-                snapshot.settings.tuningFor(HeadGesture.NOD, snapshot.gym),
-                snapshot.settings.tuningFor(HeadGesture.SHAKE, snapshot.gym))
-            _headGestureStatus.value = detector.status
-            if (event != null) {
+            if (BuildConfig.DEBUG && receivedAt - lastMotionDiagnosticAt >= 2000) {
+                lastMotionDiagnosticAt = receivedAt
+                Log.d("HeadGestures", "Motion samples=${samples.size} h=${samples.minOf { it.horizontal }}..${samples.maxOf { it.horizontal }} " +
+                    "v=${samples.minOf { it.vertical }}..${samples.maxOf { it.vertical }} waitingNeutral=${detector.awaitingNeutral} " +
+                    "epoch=$receivedEpoch current=$gestureEpoch progress=${detector.status}")
+            }
+            for (sample in samples) {
+                val event = detector.process(sample.horizontal, sample.vertical,
+                    snapshot.settings.tuningFor(HeadGesture.NOD, snapshot.gym),
+                    snapshot.settings.tuningFor(HeadGesture.SHAKE, snapshot.gym))
+                _headGestureStatus.value = detector.status
+                if (event == null) continue
                 reconcileHeadGestures()
                 if (snapshot != gestureSnapshot || !gestureDetectionRequested) return@post
-                when (val dispatch = snapshot.settings.resolve(event, snapshot.context, snapshot.announcementAudible)) {
+                val dispatch = snapshot.settings.resolve(event, snapshot.context, snapshot.announcementAudible)
+                Log.d("HeadGestures", "Detected $event context=${snapshot.context} dispatch=$dispatch")
+                when (dispatch) {
                     is HeadGestureDispatch.Action -> {
                         // Mute owns its own feedback based on the resulting call state.
                         if (dispatch.action != StemAction.MUTE_CALL) gestureAudio.playConfirmation(event == HeadGesture.NOD)
@@ -4645,6 +4660,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     HeadGestureDispatch.Test -> gestureAudio.playConfirmation(event == HeadGesture.NOD)
                     HeadGestureDispatch.None -> Unit
                 }
+                // Never interpret the tail of this same radio batch as another action.
+                return@post
             }
         }
     }
@@ -5895,7 +5912,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     aacpManager.sendSmartRoutingShowUI(localMac)
                     aacpManager.sendHijackRequest(localMac)
                 }
-                gestureHandler.post { isHeadTrackingActive = false; reconcileHeadGestures() }
+                gestureHandler.post { reconcileHeadGestures() }
                 if (handleIncomingCallOnceConnected) handleIncomingCall()
                 Handler(Looper.getMainLooper()).postDelayed({
                     aacpManager.sendPacket(aacpManager.createHandshakePacket())
@@ -6437,6 +6454,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         gestureHandler.removeCallbacksAndMessages(null)
         if (isHeadTrackingActive && isConnected()) sendHeadTrackingRequest(false)
         isHeadTrackingActive = false
+        gestureEpoch++
+        gestureStream.reset()
+        gestureWear.reconcile(BluetoothConnectionManager.connectionGeneration(), false)
         gestureDetector?.reset()
         gymAutomationAttached = false
         io.automated.ventures.everypods.automation.GymAutomationCoordinator.detach(gymAutomationHost)
@@ -6513,7 +6533,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         super.onDestroy()
     }
 
-    var isHeadTrackingActive = false
+    @Volatile var isHeadTrackingActive = false
         private set
     private val gestureHandler = Handler(Looper.getMainLooper())
     private val gestureAudioDelegate = lazy { GestureFeedback(this) }
@@ -6521,14 +6541,17 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     private var diagnosticTrackingRequested = false
     private var gestureTesting = false
     private var gestureTestGym = false
-    private var gestureWearGeneration = -1L
-    private var gestureWorn = false
+    private val gestureWear = HeadGestureWearState()
+    private val gestureStream = HeadGestureStream()
     private var gestureDetectionRequested = false
+    private var lastGestureDecision: String? = null
+    private var lastMotionDiagnosticAt = 0L
+    @Volatile private var gestureEpoch = 0L
     private var gestureSnapshot: GestureSnapshot? = null
     private var gestureSettings: HeadGestureSettings? = null
     private data class GestureSnapshot(
         val settings: HeadGestureSettings, val context: HeadGestureContext,
-        val gym: Boolean, val eligible: Boolean, val generation: Long, val announcementAudible: Boolean,
+        val gym: Boolean, val eligible: Boolean, val generation: Long, val announcementAudible: Boolean, val wearRevision: Long,
     )
     private val _headGestureStatus = kotlinx.coroutines.flow.MutableStateFlow(GestureDetector.Status())
     val headGestureStatus = _headGestureStatus.asStateFlow()
@@ -6544,15 +6567,25 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }
 
     fun setHeadGestureTest(enabled: Boolean, gym: Boolean = false) {
+        if (Looper.myLooper() != Looper.getMainLooper()) { gestureHandler.post { setHeadGestureTest(enabled, gym) }; return }
+        if (!gestureControllerRunning) return
         gestureTesting = enabled
         gestureTestGym = gym
-        gestureDetector?.reset()
+        gestureDetector?.awaitNeutral()
         reconcileHeadGestures()
     }
 
     // Explicit diagnostics are a separate owner from actions and the safe test.
-    fun startHeadTracking() { diagnosticTrackingRequested = true; reconcileHeadGestures() }
-    fun stopHeadTracking() { diagnosticTrackingRequested = false; reconcileHeadGestures() }
+    fun startHeadTracking() {
+        if (Looper.myLooper() != Looper.getMainLooper()) { gestureHandler.post { startHeadTracking() }; return }
+        if (!gestureControllerRunning) return
+        diagnosticTrackingRequested = true; reconcileHeadGestures()
+    }
+    fun stopHeadTracking() {
+        if (Looper.myLooper() != Looper.getMainLooper()) { gestureHandler.post { stopHeadTracking() }; return }
+        if (!gestureControllerRunning) return
+        diagnosticTrackingRequested = false; reconcileHeadGestures()
+    }
 
     private fun headGestureContext(): HeadGestureContext {
         val audioMode = (getSystemService(AUDIO_SERVICE) as AudioManager).mode
@@ -6566,11 +6599,12 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         )
     }
 
-    private fun reconcileHeadGestures() {
+    private fun reconcileHeadGestures(wearHint: Boolean = false) {
         if (!gestureControllerRunning || !::aacpManager.isInitialized || !::sharedPreferences.isInitialized) return
-        if (Looper.myLooper() != Looper.getMainLooper()) { gestureHandler.post { reconcileHeadGestures() }; return }
+        if (Looper.myLooper() != Looper.getMainLooper()) { gestureHandler.post { reconcileHeadGestures(wearHint) }; return }
         val connected = isConnected()
-        if (!connected) { gestureWearGeneration = -1L; gestureWorn = false }
+        val generation = BluetoothConnectionManager.connectionGeneration()
+        gestureWear.reconcile(generation, BluetoothConnectionManager.getCurrentSocket() != null)
         val supported = airpodsInstance?.model?.capabilities?.contains(Capability.HEAD_GESTURES) == true
         // Unlike the general UI accessor, unknown A2DP proxy state is not optimistic here.
         val audioLocal = if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
@@ -6580,7 +6614,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             AACPManager.Companion.ControlCommandIdentifiers.OWNS_CONNECTION)?.value?.firstOrNull()?.toInt()
         val local = connected && supported && audioLocal && ownsConnection != 0 && !CrossDevice.peerAudioActive &&
             SystemClock.elapsedRealtime() >= peerDropCooldownUntilMs
-        val worn = gestureWearGeneration == BluetoothConnectionManager.connectionGeneration() && gestureWorn
+        val worn = gestureWear.isWorn(generation)
         val context = headGestureContext()
         if (context == HeadGestureContext.RINGING || context == HeadGestureContext.ACTIVE_CALL) gestureTesting = false
         _headGestureTesting.value = gestureTesting
@@ -6589,33 +6623,85 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         val announcementAudible = settings.enabled && settings.shakeStopsAnnouncements &&
             (context == HeadGestureContext.NORMAL || context == HeadGestureContext.GYM) && isAnnouncementAudible()
         val snapshot = GestureSnapshot(settings, context, gym, local && worn,
-            BluetoothConnectionManager.connectionGeneration(), announcementAudible)
+            BluetoothConnectionManager.connectionGeneration(), announcementAudible, gestureWear.revision)
         if (snapshot != gestureSnapshot) {
-            // Speech boundaries discard partial motion but preserve the completed gesture's
-            // cooldown, so the same shake cannot also execute a normal/Gym action.
-            val onlySpeechChanged = gestureSnapshot?.copy(announcementAudible = announcementAudible) == snapshot
+            // Context/ear/ownership changes discard partial motion, retain completed cooldowns,
+            // and require a neutral period before rearming (including insertion/removal motion).
+            if (gestureSnapshot?.wearRevision != snapshot.wearRevision || gestureSnapshot?.generation != snapshot.generation) {
+                HeadTracking.reset()
+            }
             gestureSnapshot = snapshot
-            if (onlySpeechChanged) gestureDetector?.invalidate() else gestureDetector?.reset()
+            gestureEpoch++
+            gestureDetector?.awaitNeutral()
             _headGestureStatus.value = gestureDetector?.status ?: GestureDetector.Status()
         }
-        val owners = HeadGesturePolicy.owners(settings, context, local, worn, diagnosticTrackingRequested, announcementAudible)
+        val owners = HeadGesturePolicy.owners(settings, context, local, worn, diagnosticTrackingRequested,
+            announcementAudible, knownOutOfEar = gestureWear.isKnown(generation) && !worn)
+        val needsWear = diagnosticTrackingRequested || HeadGesture.entries.any {
+            settings.resolve(it, context, announcementAudible) != HeadGestureDispatch.None
+        }
+        if (gestureWear.shouldRefresh(generation, SystemClock.elapsedRealtime(), needsWear, local, wearHint)) {
+            Log.d("HeadGestures", "Refreshing authoritative wear report generation=$generation")
+            val sent = aacpManager.sendDataPacketForGeneration(aacpManager.createRequestNotificationPacket(), generation)
+            Log.d("HeadGestures", "Wear refresh sent=$sent")
+        }
         gestureDetectionRequested = owners.detect
         val wanted = owners.track
-        if (wanted != isHeadTrackingActive) {
-            // This controller never takes the connection from a peer just to monitor motion.
-            if (connected) sendHeadTrackingRequest(wanted)
-            isHeadTrackingActive = wanted
-            HeadTracking.reset()
+        if (BuildConfig.DEBUG) {
+            val decision = "connected=$connected supported=$supported audioLocal=$audioLocal owns=$ownsConnection " +
+                "peerAudio=${CrossDevice.peerAudioActive} cooldown=${SystemClock.elapsedRealtime() < peerDropCooldownUntilMs} " +
+                "wearGeneration=${gestureWear.reportGeneration} generation=$generation worn=$worn " +
+                "context=$context enabled=${settings.enabled} nod=${settings.resolve(HeadGesture.NOD, context, announcementAudible)} " +
+                "shake=${settings.resolve(HeadGesture.SHAKE, context, announcementAudible)} " +
+                "detect=${owners.detect} track=$wanted diagnostics=$diagnosticTrackingRequested mask=${gestureWear.wornMask} " +
+                "stream=${gestureStream.state(SystemClock.elapsedRealtime())}"
+            if (decision != lastGestureDecision) {
+                Log.d("HeadGestures", decision)
+                lastGestureDecision = decision
+            }
         }
+        val command = gestureStream.reconcile(wanted, generation,
+            sharedPreferences.getBoolean("use_alternate_head_tracking_packets", true), SystemClock.elapsedRealtime(), commandAllowed = local)
+        when (command) {
+            HeadGestureStream.Command.START -> {
+                gestureEpoch++
+                Log.d("HeadGestures", "Starting motion stream generation=$generation retry=${gestureStream.retries}")
+                val sent = sendHeadTrackingRequest(true)
+                gestureStream.onCommandResult(command, sent)
+                HeadTracking.reset()
+                gestureDetector?.awaitNeutral()
+            }
+            HeadGestureStream.Command.STOP -> {
+                gestureEpoch++
+                val sent = sendHeadTrackingRequest(false)
+                gestureStream.onCommandResult(command, sent)
+                HeadTracking.reset()
+                gestureDetector?.awaitNeutral()
+            }
+            HeadGestureStream.Command.NONE -> Unit
+        }
+        isHeadTrackingActive = gestureStream.acceptingSamples
     }
 
-    private var trackingAlternatePackets: Boolean? = null
-    private fun sendHeadTrackingRequest(start: Boolean) {
-        val alternate = if (start) sharedPreferences.getBoolean("use_alternate_head_tracking_packets", true)
-            else trackingAlternatePackets ?: sharedPreferences.getBoolean("use_alternate_head_tracking_packets", true)
-        trackingAlternatePackets = if (start) alternate else null
-        if (alternate) aacpManager.sendDataPacket(if (start) aacpManager.createAlternateStartHeadTrackingPacket() else aacpManager.createAlternateStopHeadTrackingPacket())
-        else if (start) aacpManager.sendStartHeadTracking() else aacpManager.sendStopHeadTracking()
+    private fun sendHeadTrackingRequest(start: Boolean): Boolean {
+        // Recheck at the write boundary, including generation and current ownership.
+        val currentGeneration = BluetoothConnectionManager.connectionGeneration()
+        if (!gestureStream.matchesGeneration(currentGeneration) || !isConnected() || CrossDevice.peerAudioActive ||
+            SystemClock.elapsedRealtime() < peerDropCooldownUntilMs ||
+            aacpManager.getControlCommandStatus(AACPManager.Companion.ControlCommandIdentifiers.OWNS_CONNECTION)?.value?.firstOrNull() == 0.toByte()) return false
+        val localAudio = if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
+            try { bluetoothA2dpProxy?.connectedDevices?.any { it.address == macAddress } == true } catch (_: SecurityException) { false }
+        } else false
+        if (!localAudio) return false
+        val alternate = gestureStream.commandAlternate
+        val payload = if (alternate) {
+            if (start) aacpManager.createAlternateStartHeadTrackingPacket() else aacpManager.createAlternateStopHeadTrackingPacket()
+        } else {
+            if (start) aacpManager.createStartHeadTrackingPacket() else aacpManager.createStopHeadTrackingPacket()
+        }
+        val sent = aacpManager.sendDataPacketForGeneration(payload, currentGeneration)
+        Log.d("HeadGestures", "Tracking command start=$start alternate=$alternate generation=$currentGeneration sent=$sent")
+        return sent
     }
 
     @SuppressLint("MissingPermission")

@@ -64,4 +64,12 @@ class HeadGesturePolicyTest {
         assertFalse(HeadGesturePolicy.owners(calls.copy(calls = emptyMap()), HeadGestureContext.RINGING, true, true, false).track)
     }
 
+    @Test fun `both earbuds removed stop even diagnostic and safe-test stream owners`() {
+        for (context in HeadGestureContext.entries) {
+            val owners = HeadGesturePolicy.owners(settings, context, true, false, true, knownOutOfEar = true)
+            assertFalse(owners.detect)
+            assertFalse(owners.track)
+        }
+    }
+
 }

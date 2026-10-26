@@ -22,6 +22,8 @@ class GestureDetector(private val clock: () -> Long = { System.nanoTime() / 1_00
         fun clear() { firstSign = 0; opposite = false; count = 0; started = null; lastExcursion = 0; min = 0; max = 0 }
         fun sample(value: Int, tuning: GestureTuning, now: Long) {
             if (started != null && (now - lastExcursion > 1500 || now - started!! > 6000)) clear()
+            val hadOpposite = opposite
+            val cycleSign = firstSign
             if (abs(value) >= tuning.amplitude) {
                 if (started == null) started = now
                 val sign = if (value > 0) 1 else -1
@@ -30,8 +32,14 @@ class GestureDetector(private val clock: () -> Long = { System.nanoTime() / 1_00
             }
             if (started != null) {
                 min = minOf(min, value); max = maxOf(max, value)
-                if (opposite && abs(value) <= tuning.amplitude / 4) {
+                // A neutral return can fall between two 40 ms samples. Crossing back to
+                // the first side still completes the cycle; don't require an exact zero sample.
+                val returned = abs(value) <= tuning.amplitude / 4 ||
+                    (cycleSign > 0 && value > 0) || (cycleSign < 0 && value < 0)
+                if (hadOpposite && returned) {
                     count++; firstSign = 0; opposite = false; lastExcursion = now
+                    // A full excursion on this sample can begin the next repetition too.
+                    if (abs(value) >= tuning.amplitude) firstSign = if (value > 0) 1 else -1
                 }
             }
         }
@@ -43,6 +51,7 @@ class GestureDetector(private val clock: () -> Long = { System.nanoTime() / 1_00
     private var cooldownUntil = 0L
     private var neutralSince: Long? = null
     private var detected: HeadGesture? = null
+    val awaitingNeutral: Boolean get() = blocked
     var status = Status()
         private set
 
@@ -55,6 +64,14 @@ class GestureDetector(private val clock: () -> Long = { System.nanoTime() / 1_00
     fun invalidate() {
         nod.clear(); shake.clear(); neutralSince = null; lastSample = null
         status = status.copy(nod = Progress(), shake = Progress())
+    }
+
+    /** Lifecycle boundaries must discard partial movements without clearing a completed cooldown. */
+    fun awaitNeutral() {
+        invalidate()
+        blocked = true
+        cooldownUntil = maxOf(cooldownUntil, clock())
+        status = status.copy(cooldownMs = (cooldownUntil - clock()).coerceAtLeast(0))
     }
 
     fun process(horizontal: Int, vertical: Int, nodTuning: GestureTuning, shakeTuning: GestureTuning): HeadGesture? {
