@@ -40,6 +40,12 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.navigation.NavController
+import io.automated.ventures.everypods.presentation.components.HeadGestureActions
+import io.automated.ventures.everypods.data.HeadGesture
+import io.automated.ventures.everypods.data.Capability
+import io.automated.ventures.everypods.utils.HeadGesturePrefs
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -68,7 +74,8 @@ import io.automated.ventures.everypods.presentation.viewmodel.AirPodsViewModel
 
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
-fun GymPressActionsScreen(viewModel: AirPodsViewModel) {
+fun GymPressActionsScreen(viewModel: AirPodsViewModel, navController: NavController) {
+    val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     val sharedPrefs = context.getSharedPreferences("settings", android.content.Context.MODE_PRIVATE)
     val dark = isSystemInDarkTheme()
@@ -108,7 +115,7 @@ fun GymPressActionsScreen(viewModel: AirPodsViewModel) {
         StemAction.TOGGLE_GYM_MODE           to stringResource(R.string.action_toggle_gym),
     )
 
-    StyledScaffold(title = stringResource(R.string.ui_gym_press_actions)) { topPadding, hazeState, bottomPadding ->
+    StyledScaffold(title = stringResource(R.string.hg_gym_controls)) { topPadding, hazeState, bottomPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -215,6 +222,11 @@ fun GymPressActionsScreen(viewModel: AirPodsViewModel) {
 
             Spacer(Modifier.height(12.dp))
 
+            if (state.capabilities.contains(Capability.HEAD_GESTURES)) {
+                HeadGestureActions(gym = true, enabled = state.isPremium && state.aacpAvailable)
+                MenuNavRow(stringResource(R.string.hg_gym_tuning), dark) { navController.navigate("head_tracking?gym=true") }
+            }
+
             // Reset to defaults
             Row(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp)).clickable(
                 interactionSource = remember { MutableInteractionSource() }, indication = null
@@ -228,6 +240,7 @@ fun GymPressActionsScreen(viewModel: AirPodsViewModel) {
                     .remove("gym_left_long_press_action")
                     .remove("gym_right_long_press_action")
                     .apply()
+                HeadGesture.entries.forEach { HeadGesturePrefs.setAction(sharedPrefs, it, true, null) }
                 prefsEpoch++
             }.padding(horizontal = 16.dp, vertical = 14.dp),
                 horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically

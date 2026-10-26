@@ -7,7 +7,7 @@ Agreed with the user on 18 October 2026. This is the implementation target; the 
 1. Connected Home uses six category tiles: **Controls, Audio, Connection, Smart features, App settings, Help**. Disconnected Home keeps its existing status/reconnect, peer, battery, connection, handover, Finder and support layout; normalize its headings and group surfaces to the shared style without replacing it with category tiles.
 2. Settings are edited inline in their category. Dedicated screens remain for complex tools: notification announcements/app selection, gym timer/actions, finder, head gestures, equalizer, device naming, permissions, connected devices, support and diagnostics/legal information.
 3. Sentence case; section headings outside cards; one 18dp rounded surface per group; no nested settings cards. Keep SF Pro. Primary setting labels are 16sp Normal; supporting text 13sp Normal. Screen title 20sp Medium; section title 13sp Semibold and accessibility heading semantics. Essential instructions must not use 12sp Light.
-4. Head gestures shows everyday controls first. Orientation/velocity, tracking packets and gesture tests are behind a collapsed Advanced and diagnostics disclosure.
+4. Head gestures lives under Controls. Everyday action assignments are inline, including Shake to stop spoken announcements. Head gesture configuration opens directly below Call actions and before other Controls configuration. Orientation/velocity, tracking packets and gesture tests are behind a collapsed Advanced and diagnostics disclosure. Head tracking is automatic; there is no manual Enable head tracking setting.
 5. Canonical category content owns state/actions and grouping. Old navigation routes remain compatible and resolve to that content. ANC profiles remains hidden. No incidental feature launch.
 
 ## Approved hierarchy
@@ -16,7 +16,9 @@ Agreed with the user on 18 October 2026. This is the implementation target; the 
 Controls
 ├─ Stem actions: left/right × single/double/triple/long press
 ├─ Listening modes included in the long-press cycle
-├─ Call controls
+├─ Head gestures: enable, stop spoken announcements, Nod/Shake actions
+├─ Call actions: stem controls and head gestures
+├─ Head gesture configuration → tuning, advanced and diagnostics
 ├─ Press speed
 ├─ Press-and-hold duration
 └─ Listening controls: single-bud cancellation, tone, volume swipe
@@ -36,7 +38,7 @@ Connection
 └─ Wear detection: automatic ear detection, disconnect when not wearing / permission reason
 Smart features
 ├─ Gym mode and links to gym tools
-├─ Tools: Announcements, Find My case, Head gestures
+├─ Tools: Announcements, Find My case
 ├─ Automation [one group]
 │  ├─ Sleep detection [where supported]
 │  ├─ Sleep timer: duration presets, remaining time, cancel

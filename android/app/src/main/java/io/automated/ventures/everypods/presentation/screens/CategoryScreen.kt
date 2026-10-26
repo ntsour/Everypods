@@ -112,6 +112,7 @@ import io.automated.ventures.everypods.data.StemAction
 import io.automated.ventures.everypods.presentation.components.AboutCard
 import io.automated.ventures.everypods.presentation.components.AppInfoCard
 import io.automated.ventures.everypods.presentation.components.AudioSettings
+import io.automated.ventures.everypods.presentation.components.HeadGestureActions
 import io.automated.ventures.everypods.presentation.components.CallControlSettings
 import io.automated.ventures.everypods.presentation.components.ConnectionSettings
 import io.automated.ventures.everypods.presentation.components.DeviceInfoCard
@@ -412,17 +413,30 @@ private fun ControlsContent(
             }
         } }
 
+        if (capabilities.contains(Capability.HEAD_GESTURES)) {
+            AnchorWrapper("head_gestures") { modifier -> Column(modifier) {
+                HeadGestureActions(enabled = state.isPremium && state.aacpAvailable, onMasterChange = viewModel::setHeadGesturesEnabled)
+            } }
+        }
+
         // ── Call Controls ─────────────────────────────────────────────────────
         val bytes = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.CALL_MANAGEMENT_CONFIG]?.take(2)?.toByteArray() ?: byteArrayOf(0x00, 0x00)
         val flipped = try { bytes[1] == 0x02.toByte() } catch (_: Exception) { false }
         AnchorWrapper("call_controls") { modifier -> Box(modifier) {
         CallControlSettings(hazeState = remember { HazeState() }, flipped = flipped,
+            enabled = state.aacpAvailable, gesturesEnabled = capabilities.contains(Capability.HEAD_GESTURES), gestureEditingEnabled = state.isPremium,
             onCallControlValueChanged = {
                 viewModel.setControlCommandValue(AACPManager.Companion.ControlCommandIdentifiers.CALL_MANAGEMENT_CONFIG,
                     if (it) byteArrayOf(0x00, 0x02) else byteArrayOf(0x00, 0x03))
             })
 
         } }
+        if (capabilities.contains(Capability.HEAD_GESTURES)) {
+            AnchorWrapper("head_gesture_configuration") { modifier -> Box(modifier) {
+                MenuNavRow(stringResource(R.string.hg_configuration), dark) { navController.navigate("head_tracking") }
+            } }
+        }
+
         // ── Controls Configuration ────────────────────────────────────────────
         AnchorWrapper("controls_configuration") { anchorModifier ->
             Column(anchorModifier.fillMaxWidth()) {
@@ -434,6 +448,8 @@ private fun ControlsContent(
                 )
             }
         }
+
+
     }
 }
 
@@ -655,7 +671,7 @@ private fun SmartContent(state: AirPodsUiState, viewModel: AirPodsViewModel, nav
                 description = stringResource(R.string.ui_alternate_stem_actions_for_wor), checked = enabled,
                 onCheckedChange = { enabled = it; GymModePrefs.setEnabled(context, it) })
             MenuNavRow(stringResource(R.string.ui_gym_timer), dark) { navController.navigate("gym_timer") }
-            MenuNavRow(stringResource(R.string.ui_configure_gym_press_actions), dark) { navController.navigate("gym_press_actions") }
+            MenuNavRow(stringResource(R.string.hg_gym_controls), dark) { navController.navigate("gym_press_actions") }
         }
     }
     AnchorWrapper("heart_rate") { modifier -> SettingsSection(stringResource(R.string.design_smart_tools), modifier) {
@@ -664,10 +680,7 @@ private fun SmartContent(state: AirPodsUiState, viewModel: AirPodsViewModel, nav
         MenuNavRow(stringResource(R.string.ui_notification_announcements), dark) { navController.navigate("notification_announcements") }
         MenuDivider()
         MenuNavRow(stringResource(R.string.ui_find_my_case), dark, subtitle = stringResource(R.string.ui_find_my_case_description)) { navController.navigate("proximity_finder") }
-        if (state.capabilities.contains(Capability.HEAD_GESTURES)) {
-            MenuDivider()
-            MenuNavRow(stringResource(R.string.ui_head_gestures), dark, enabled = state.aacpAvailable) { navController.navigate("head_tracking") }
-        }
+
     } }
     AnchorWrapper("automation") { modifier -> SettingsSection(stringResource(R.string.ui_automation), modifier) {
         if (state.capabilities.contains(Capability.SLEEP_DETECTION)) {

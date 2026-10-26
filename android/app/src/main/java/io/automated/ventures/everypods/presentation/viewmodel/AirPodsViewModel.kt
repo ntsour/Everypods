@@ -87,8 +87,6 @@ data class AirPodsUiState(
 
     val headTrackingActive: Boolean = false,
     val headGesturesEnabled: Boolean = false,
-    val headGesturesAnswerCall: Boolean = true,
-    val headGesturesMuteCall: Boolean = true,
 
     val eqData: FloatArray = floatArrayOf(),
 
@@ -238,8 +236,6 @@ class AirPodsViewModel(
                         false
                     )
                     setHeadGesturesEnabled(false)
-                    setHeadGesturesAnswerCall(false)
-                    setHeadGesturesMuteCall(false)
                 }
                 _uiState.update { it.copy(isPremium = premium) }
             }
@@ -462,9 +458,8 @@ class AirPodsViewModel(
         io.automated.ventures.everypods.utils.AudioLeasePrefs.ensureDefaultEnabled(sharedPreferences)
         val lidOpenLastHolderAutoconnect =
             io.automated.ventures.everypods.utils.AudioLeasePrefs.isFeatureEnabled(sharedPreferences)
+        io.automated.ventures.everypods.utils.HeadGesturePrefs.migrate(sharedPreferences)
         val headGesturesEnabled = sharedPreferences.getBoolean("head_gestures_enabled", false)
-        val headGesturesAnswerCall = sharedPreferences.getBoolean("head_gestures_answer_call", true)
-        val headGesturesMuteCall = sharedPreferences.getBoolean("head_gestures_mute_call", true)
         val leftAction = StemAction.fromStringOrDefault(
             sharedPreferences.getString("left_long_press_action", null),
             io.automated.ventures.everypods.data.StemPressDefaults.LEFT_LONG.name
@@ -485,8 +480,6 @@ class AirPodsViewModel(
                 crossDeviceEnabled = crossDeviceEnabled,
                 lidOpenLastHolderAutoconnect = lidOpenLastHolderAutoconnect,
                 headGesturesEnabled = headGesturesEnabled,
-                headGesturesAnswerCall = headGesturesAnswerCall,
-                headGesturesMuteCall = headGesturesMuteCall,
                 leftAction = leftAction,
                 rightAction = rightAction,
                 dynamicEndOfCharge = dynamicEndOfCharge,
@@ -510,19 +503,9 @@ class AirPodsViewModel(
         }
     }
 
-    fun setHeadGesturesAnswerCall(enabled: Boolean) {
-        sharedPreferences.edit { putBoolean("head_gestures_answer_call", enabled) }
-        _uiState.update {
-            it.copy(headGesturesAnswerCall = enabled)
-        }
-    }
 
-    fun setHeadGesturesMuteCall(enabled: Boolean) {
-        sharedPreferences.edit { putBoolean("head_gestures_mute_call", enabled) }
-        _uiState.update {
-            it.copy(headGesturesMuteCall = enabled)
-        }
-    }
+
+
 
     fun setDynamicEndOfCharge(enabled: Boolean) {
         service.aacpManager.sendControlCommand(ControlCommandIdentifiers.DYNAMIC_END_OF_CHARGE.value, enabled)

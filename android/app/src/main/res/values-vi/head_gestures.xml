@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="hg_nod">Gật đầu (có)</string>
+    <string name="hg_shake">Lắc đầu (không)</string>
+    <string name="hg_do_nothing">Không làm gì</string>
+    <string name="hg_none">Không có</string>
+    <string name="hg_configuration">Cấu hình cử chỉ đầu</string>
+    <string name="hg_call_actions">Thao tác cuộc gọi</string>
+    <string name="hg_decline_call">Từ chối cuộc gọi</string>
+    <string name="hg_head_gesture">Cử chỉ đầu</string>
+    <string name="hg_stem_press">Bóp thân tai nghe</string>
+    <string name="hg_gym_controls">Điều khiển tập luyện</string>
+    <string name="hg_gym_tuning">Tinh chỉnh cử chỉ đầu khi tập</string>
+    <string name="hg_separate_gym">Dùng thiết lập riêng khi tập</string>
+    <string name="hg_tuning_profile">Hồ sơ tinh chỉnh</string>
+    <string name="hg_normal">Bình thường</string>
+    <string name="hg_gym_shared">Chế độ tập luyện dùng thiết lập bình thường. Bật thiết lập riêng để thay đổi.</string>
+    <string name="hg_amplitude">Biên độ chuyển động (đơn vị cảm biến tương đối)</string>
+    <string name="hg_repetitions">Số lần lặp cần thiết</string>
+    <string name="hg_cooldown">Thời gian chờ giữa các thao tác</string>
+    <string name="hg_seconds">%1$.1f giây</string>
+    <string name="hg_reset_tuning">Đặt lại tinh chỉnh</string>
+    <string name="hg_stop_test">Dừng kiểm tra</string>
+    <string name="hg_tuning_help">Biên độ lớn hơn và nhiều lần lặp hơn đòi hỏi chuyển động có chủ đích hơn. Một lần lặp là chuyển động qua lại hoàn chỉnh rồi trở về vị trí trung tính.</string>
+    <string name="hg_test_help">Kiểm tra cử chỉ an toàn: các thao tác đã gán sẽ tạm dừng trong khi kiểm tra. Cuộc gọi thật sẽ kết thúc kiểm tra. Đeo ít nhất một AirPod đã kết nối với điện thoại này.</string>
+    <string name="hg_test_progress">%1$s: biên độ %2$d · số lần lặp %3$d/%4$d</string>
+    <string name="hg_detected">Đã nhận diện: %1$s</string>
+    <string name="hg_cooldown_remaining">Thời gian chờ: %1$.1f giây</string>
+    <string name="hg_dismiss">Đóng</string>
+    <string name="hg_migration_notice">Lắc đầu giờ sẽ bật hoặc tắt micrô trong cuộc gọi. Gật đầu không còn bật lại micrô. Thay đổi trong Thao tác cuộc gọi.</string>
+    <string name="hg_permission_description">Dùng cử chỉ đầu đã cấu hình để trả lời hoặc từ chối cuộc gọi.</string>
+    <string name="hg_stop_announcements">Lắc đầu để dừng thông báo bằng giọng nói</string>
+    <string name="hg_stop_announcements_help">Khi đang phát giọng nói, lắc đầu để dừng thay vì thực hiện thao tác tập luyện hoặc bình thường đã gán. Cuộc gọi được ưu tiên. Cần bật Cử chỉ đầu.</string>
+    <string name="hg_advanced_diagnostics">Nâng cao và chẩn đoán</string>
+</resources>

@@ -23,6 +23,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import io.automated.ventures.everypods.R
 
 /** Inline expandable settings always expose a chevron, independent of their state. */
@@ -41,7 +46,8 @@ fun SettingsExpansionHeader(
         modifier = modifier.fillMaxWidth().heightIn(min = 48.dp).semantics { stateDescription = description },
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(label, modifier = Modifier.weight(1f), color = contentColor)
+            Text(label, modifier = Modifier.weight(1f), color = contentColor, style = TextStyle(
+                fontFamily = FontFamily(Font(R.font.sf_pro)), fontSize = 16.sp, fontWeight = FontWeight.Normal))
             Canvas(Modifier.size(20.dp).graphicsLayer { rotationZ = rotation }) {
                 val thickness = 2.dp.toPx()
                 drawLine(contentColor, Offset(size.width * .2f, size.height * .35f), Offset(size.width * .5f, size.height * .65f), thickness, StrokeCap.Round)

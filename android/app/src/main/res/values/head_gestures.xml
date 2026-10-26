@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="hg_nod">Nod (yes)</string>
+    <string name="hg_shake">Shake (no)</string>
+    <string name="hg_do_nothing">Do nothing</string>
+    <string name="hg_none">None</string>
+    <string name="hg_configuration">Head gesture configuration</string>
+    <string name="hg_call_actions">Call actions</string>
+    <string name="hg_decline_call">Decline call</string>
+    <string name="hg_head_gesture">Head gesture</string>
+    <string name="hg_stem_press">Stem press</string>
+    <string name="hg_gym_controls">Gym controls</string>
+    <string name="hg_gym_tuning">Gym head gesture tuning</string>
+    <string name="hg_separate_gym">Use separate Gym tuning</string>
+    <string name="hg_tuning_profile">Tuning profile</string>
+    <string name="hg_normal">Normal</string>
+    <string name="hg_gym_shared">Gym Mode uses normal tuning. Enable separate Gym tuning to change it.</string>
+    <string name="hg_amplitude">Movement amplitude (relative sensor units)</string>
+    <string name="hg_repetitions">Required repetitions</string>
+    <string name="hg_cooldown">Cooldown between actions</string>
+    <string name="hg_seconds">%1$.1f seconds</string>
+    <string name="hg_reset_tuning">Reset tuning</string>
+    <string name="hg_stop_test">Stop test</string>
+    <string name="hg_tuning_help">Higher amplitude and more repetitions require more deliberate movement. One repetition is a complete back-and-forth movement returning to neutral.</string>
+    <string name="hg_test_help">Test gestures safely: assigned actions are paused during testing. A real call ends the test. Wear at least one AirPod connected to this phone.</string>
+    <string name="hg_test_progress">%1$s: amplitude %2$d · repetitions %3$d/%4$d</string>
+    <string name="hg_detected">Detected: %1$s</string>
+    <string name="hg_cooldown_remaining">Cooldown: %1$.1f seconds</string>
+    <string name="hg_dismiss">Dismiss</string>
+    <string name="hg_migration_notice">Shake now toggles mute during calls. Nod no longer unmutes. Change these assignments in Call Actions.</string>
+    <string name="hg_permission_description">Use configured head gestures to answer or decline calls.</string>
+    <string name="hg_stop_announcements">Shake to stop spoken announcements</string>
+    <string name="hg_stop_announcements_help">While speech is playing, shake to stop it instead of running the assigned Gym or normal action. Calls take priority. Requires Head Gestures to be enabled.</string>
+    <string name="hg_advanced_diagnostics">Advanced and diagnostics</string>
+</resources>

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="hg_nod">Νεύμα (ναι)</string>
+    <string name="hg_shake">Κούνημα κεφαλιού (όχι)</string>
+    <string name="hg_do_nothing">Καμία ενέργεια</string>
+    <string name="hg_none">Κανένα</string>
+    <string name="hg_configuration">Ρύθμιση χειρονομιών κεφαλιού</string>
+    <string name="hg_call_actions">Ενέργειες κλήσης</string>
+    <string name="hg_decline_call">Απόρριψη κλήσης</string>
+    <string name="hg_head_gesture">Χειρονομία κεφαλιού</string>
+    <string name="hg_stem_press">Πάτημα στελέχους</string>
+    <string name="hg_gym_controls">Χειριστήρια γυμναστηρίου</string>
+    <string name="hg_gym_tuning">Ρύθμιση χειρονομιών γυμναστηρίου</string>
+    <string name="hg_separate_gym">Χρήση ξεχωριστής ρύθμισης γυμναστηρίου</string>
+    <string name="hg_tuning_profile">Προφίλ ρύθμισης</string>
+    <string name="hg_normal">Κανονικό</string>
+    <string name="hg_gym_shared">Η λειτουργία γυμναστηρίου χρησιμοποιεί την κανονική ρύθμιση. Ενεργοποιήστε ξεχωριστή ρύθμιση για να την αλλάξετε.</string>
+    <string name="hg_amplitude">Εύρος κίνησης (σχετικές μονάδες αισθητήρα)</string>
+    <string name="hg_repetitions">Απαιτούμενες επαναλήψεις</string>
+    <string name="hg_cooldown">Αναμονή μεταξύ ενεργειών</string>
+    <string name="hg_seconds">%1$.1f δευτερόλεπτα</string>
+    <string name="hg_reset_tuning">Επαναφορά ρύθμισης</string>
+    <string name="hg_stop_test">Διακοπή δοκιμής</string>
+    <string name="hg_tuning_help">Μεγαλύτερο εύρος και περισσότερες επαναλήψεις απαιτούν πιο συνειδητές κινήσεις. Μία επανάληψη είναι πλήρης κίνηση μπρος-πίσω με επιστροφή στην ουδέτερη θέση.</string>
+    <string name="hg_test_help">Δοκιμάστε με ασφάλεια: οι εκχωρημένες ενέργειες αναστέλλονται κατά τη δοκιμή. Μια πραγματική κλήση τερματίζει τη δοκιμή. Φορέστε τουλάχιστον ένα AirPod συνδεδεμένο σε αυτό το τηλέφωνο.</string>
+    <string name="hg_test_progress">%1$s: εύρος %2$d · επαναλήψεις %3$d/%4$d</string>
+    <string name="hg_detected">Ανιχνεύτηκε: %1$s</string>
+    <string name="hg_cooldown_remaining">Αναμονή: %1$.1f δευτερόλεπτα</string>
+    <string name="hg_dismiss">Κλείσιμο</string>
+    <string name="hg_migration_notice">Το κούνημα κεφαλιού εναλλάσσει πλέον τη σίγαση στις κλήσεις. Το νεύμα δεν αναιρεί πλέον τη σίγαση. Αλλάξτε τις εκχωρήσεις στις Ενέργειες κλήσης.</string>
+    <string name="hg_permission_description">Χρησιμοποιήστε τις ρυθμισμένες χειρονομίες κεφαλιού για αποδοχή ή απόρριψη κλήσεων.</string>
+    <string name="hg_stop_announcements">Κούνημα κεφαλιού για διακοπή εκφωνήσεων</string>
+    <string name="hg_stop_announcements_help">Κατά την εκφώνηση, κουνήστε το κεφάλι για να τη σταματήσετε αντί να εκτελεστεί η κανονική ενέργεια ή η ενέργεια γυμναστηρίου. Οι κλήσεις έχουν προτεραιότητα. Απαιτείται ενεργοποίηση των χειρονομιών κεφαλιού.</string>
+    <string name="hg_advanced_diagnostics">Προηγμένες επιλογές και διαγνωστικά</string>
+</resources>

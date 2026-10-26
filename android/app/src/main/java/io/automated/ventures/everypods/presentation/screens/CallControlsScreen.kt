@@ -34,7 +34,7 @@ fun CallControlsScreen(viewModel: AirPodsViewModel) {
     val bytes = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.CALL_MANAGEMENT_CONFIG]?.take(2)?.toByteArray() ?: byteArrayOf(0x00, 0x00)
     val flipped = try { bytes[1] == 0x02.toByte() } catch (_: Exception) { false }
     
-    StyledScaffold(title = stringResource(R.string.ui_call_controls)) { topPadding, hazeState, bottomPadding ->
+    StyledScaffold(title = stringResource(R.string.hg_call_actions)) { topPadding, hazeState, bottomPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -48,6 +48,9 @@ fun CallControlsScreen(viewModel: AirPodsViewModel) {
             CallControlSettings(
                 hazeState = remember { HazeState() },
                 flipped = flipped,
+                enabled = state.aacpAvailable,
+                gesturesEnabled = state.capabilities.contains(io.automated.ventures.everypods.data.Capability.HEAD_GESTURES),
+                gestureEditingEnabled = state.isPremium,
                 onCallControlValueChanged = {
                     viewModel.setControlCommandValue(
                         AACPManager.Companion.ControlCommandIdentifiers.CALL_MANAGEMENT_CONFIG,

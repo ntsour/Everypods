@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="hg_nod">Hochement (oui)</string>
+    <string name="hg_shake">Mouvement latéral (non)</string>
+    <string name="hg_do_nothing">Ne rien faire</string>
+    <string name="hg_none">Aucun</string>
+    <string name="hg_configuration">Configuration des gestes de la tête</string>
+    <string name="hg_call_actions">Actions pendant les appels</string>
+    <string name="hg_decline_call">Refuser un appel</string>
+    <string name="hg_head_gesture">Geste de la tête</string>
+    <string name="hg_stem_press">Pression sur la tige</string>
+    <string name="hg_gym_controls">Commandes de sport</string>
+    <string name="hg_gym_tuning">Réglage des gestes pour le sport</string>
+    <string name="hg_separate_gym">Utiliser un réglage distinct pour le sport</string>
+    <string name="hg_tuning_profile">Profil de réglage</string>
+    <string name="hg_normal">Normal</string>
+    <string name="hg_gym_shared">Le mode sport utilise le réglage normal. Activez un réglage distinct pour le modifier.</string>
+    <string name="hg_amplitude">Amplitude du mouvement (unités relatives du capteur)</string>
+    <string name="hg_repetitions">Répétitions nécessaires</string>
+    <string name="hg_cooldown">Délai entre les actions</string>
+    <string name="hg_seconds">%1$.1f secondes</string>
+    <string name="hg_reset_tuning">Réinitialiser le réglage</string>
+    <string name="hg_stop_test">Arrêter le test</string>
+    <string name="hg_tuning_help">Une amplitude plus élevée et davantage de répétitions nécessitent des mouvements plus délibérés. Une répétition est un aller-retour complet avec retour à la position neutre.</string>
+    <string name="hg_test_help">Testez les gestes sans risque : les actions attribuées sont suspendues pendant le test. Un appel réel termine le test. Portez au moins un AirPod connecté à ce téléphone.</string>
+    <string name="hg_test_progress">%1$s : amplitude %2$d · répétitions %3$d/%4$d</string>
+    <string name="hg_detected">Détecté : %1$s</string>
+    <string name="hg_cooldown_remaining">Délai : %1$.1f secondes</string>
+    <string name="hg_dismiss">Fermer</string>
+    <string name="hg_migration_notice">Le mouvement latéral active ou désactive désormais le micro pendant les appels. Le hochement ne réactive plus le micro. Modifiez les attributions dans Actions pendant les appels.</string>
+    <string name="hg_permission_description">Utilisez les gestes de la tête configurés pour accepter ou refuser les appels.</string>
+    <string name="hg_stop_announcements">Secouer la tête pour arrêter les annonces vocales</string>
+    <string name="hg_stop_announcements_help">Pendant une annonce, secouez la tête pour l’arrêter au lieu d’exécuter l’action normale ou de sport attribuée. Les appels sont prioritaires. Les gestes de la tête doivent être activés.</string>
+    <string name="hg_advanced_diagnostics">Options avancées et diagnostics</string>
+</resources>
