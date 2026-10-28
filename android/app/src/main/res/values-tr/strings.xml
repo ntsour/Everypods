@@ -590,7 +590,7 @@
 
 <string name="hrm_no_data">Ölçüm alınamadı. AirPods’un kulağınıza oturuşunu kontrol edip yeniden deneyin.</string>
 
-<string name="hrm_lost">Bağlantı kesildi. Yeniden bağlanıp Başlat’a dokunun.</string>
+<string name="hrm_lost">Kalp atış hızı izleme bağlantısını kaybetti. Gerekirse AirPods’u yeniden bağlayın ve izlemeyi tekrar başlatın.</string>
 
 <string name="hrm_device_changed">Bağlı AirPods değişti. Yeni bir oturum için Başlat’a dokunun.</string>
 

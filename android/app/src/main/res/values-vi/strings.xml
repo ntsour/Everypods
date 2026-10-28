@@ -590,7 +590,7 @@
 
 <string name="hrm_no_data">Không nhận được số đo. Kiểm tra độ vừa vặn của AirPods rồi thử lại.</string>
 
-<string name="hrm_lost">Mất kết nối. Kết nối lại rồi nhấn Bắt đầu.</string>
+<string name="hrm_lost">Tính năng theo dõi nhịp tim đã mất kết nối. Hãy kết nối lại AirPods nếu cần, sau đó khởi động lại tính năng theo dõi.</string>
 
 <string name="hrm_device_changed">AirPods được kết nối đã thay đổi. Nhấn Bắt đầu để mở phiên mới.</string>
 

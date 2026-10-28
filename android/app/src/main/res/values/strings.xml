@@ -598,7 +598,7 @@
 
 <string name="hrm_no_data">No readings received. Check the fit of your AirPods and retry.</string>
 
-<string name="hrm_lost">Connection lost. Reconnect and press Start.</string>
+<string name="hrm_lost">Heart rate monitoring lost its connection. Reconnect your AirPods if needed, then start heart rate monitoring again.</string>
 
 <string name="hrm_device_changed">Connected AirPods changed. Press Start to begin a new session.</string>
 
