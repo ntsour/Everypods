@@ -1025,4 +1025,6 @@ Pedidos do protocolo: %4$d</string>
     <string name="ui_horizontal_gesture_stops_announcement">Balance a cabeça de um lado para o outro enquanto um anúncio está sendo reproduzido para pará-lo.</string>
     <string name="ui_gym_mode_head_gesture_actions">Com os gestos de cabeça ativados, acene para iniciar, pausar ou retomar o temporizador e balance a cabeça de um lado para o outro para o reiniciar. Os gestos de chamada recebida e de anúncio têm prioridade.</string>
     <string name="ui_control_gym_timer">Controlar o temporizador de ginásio</string>
+    <string name="permission_local_network">Rede local</string>
+    <string name="audio_relay_network_options">Opções de rede · %1$s</string>
 </resources>

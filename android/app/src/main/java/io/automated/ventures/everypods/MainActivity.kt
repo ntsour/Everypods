@@ -822,6 +822,7 @@ fun Main(gymTimerNavigationRequest: Int = 0, heartRateNavigationRequest: Int = 0
                                 autoSetup = entry.arguments?.getBoolean("setup") == true,
                                 connectionType = entry.arguments?.getString("type") ?: "wifi",
                                 onSetupComplete = { navController.popBackStack() },
+                                onOpenPermissions = { navController.navigate("permissions") },
                                 onForgetPeer = {
                                     val connections = io.automated.ventures.everypods.relay.DeviceConnectionStore(context)
                                     if (entry.arguments?.getString("type") == "bt") {

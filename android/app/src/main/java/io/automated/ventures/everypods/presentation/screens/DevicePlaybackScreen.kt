@@ -96,6 +96,7 @@ fun DevicePlaybackScreen(
     autoSetup: Boolean = false,
     connectionType: String = "wifi",
     onSetupComplete: () -> Unit = {},
+    onOpenPermissions: () -> Unit,
     onForgetPeer: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -105,9 +106,8 @@ fun DevicePlaybackScreen(
     val mode = if (connectionType == "bt") MODE_BLUETOOTH else MODE_WIFI
     var muteLocalPlayback by remember(peerMac) { mutableStateOf(preferences.getBoolean(mutePreferenceKey, true)) }
     var confirmRemove by remember(peerMac) { mutableStateOf(false) }
-    val networkPreferenceKey = remember(peerMac) { "audio_relay_network_${peerMac.uppercase(Locale.ROOT)}" }
     val allowIncomingKey = remember(peerMac) { "audio_relay_allow_${peerMac.uppercase(Locale.ROOT)}" }
-    var network by remember(peerMac) { mutableStateOf(preferences.getString(networkPreferenceKey, MODE_AUTO) ?: MODE_AUTO) }
+    var network by remember(peerMac) { mutableStateOf(io.automated.ventures.everypods.relay.RelayNetworkSettings.load(preferences, peerMac)) }
     var allowIncomingAudio by remember(peerMac) { mutableStateOf(preferences.getBoolean(allowIncomingKey, true)) }
     var tuning by remember(peerMac) { mutableStateOf(RelayAudioTuning.load(preferences, peerMac)) }
     var showTuning by remember(peerMac) { mutableStateOf(false) }
@@ -132,7 +132,19 @@ fun DevicePlaybackScreen(
     var showBluetoothConfirmation by remember { mutableStateOf(false) }
     var pendingCapture by remember { mutableStateOf(false) }
     var projectionHandled by remember { mutableStateOf(false) }
-    var localNetworkDenied by remember { mutableStateOf(false) }
+    var localNetworkDenied by remember { mutableStateOf(!io.automated.ventures.everypods.relay.RelayNetworkPermission.granted(context)) }
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, peerMac, localAirPodsConnected) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                localNetworkDenied = !io.automated.ventures.everypods.relay.RelayNetworkPermission.granted(context)
+                network = io.automated.ventures.everypods.relay.RelayNetworkSettings.load(preferences, peerMac)
+                if (!localNetworkDenied && localAirPodsConnected) relayService?.prepareReceiver(peerMac)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     val globalServiceState by (relayService?.state ?: remember { kotlinx.coroutines.flow.MutableStateFlow(RelayUiState()) }).collectAsState()
     val peerVerification = globalServiceState.peerVerifications[peerMac.uppercase(Locale.ROOT)]
     val serviceState = if (globalServiceState.peerMac.equals(peerMac, true)) globalServiceState else RelayUiState(
@@ -228,11 +240,14 @@ fun DevicePlaybackScreen(
         }
     }
 
-    LaunchedEffect(serviceState.networkMode) {
-        serviceState.networkMode?.let { selected ->
-            network = selected
-            preferences.edit().putString(networkPreferenceKey, selected).apply()
-        }
+    // Negotiated/fallback routes are session status, never the saved policy.
+
+    fun selectNetwork(selected: String) {
+        if (network == selected) return
+        // Options for an idle peer must not stop another peer's active relay.
+        if (globalServiceState.peerMac.equals(peerMac, true)) relayService?.stopRelay()
+        network = selected
+        io.automated.ventures.everypods.relay.RelayNetworkSettings.save(preferences, peerMac, selected)
     }
 
     fun beginCapture() {
@@ -349,16 +364,24 @@ fun DevicePlaybackScreen(
                 Button(onClick = ::requestBluetoothHandover, enabled = peer.connected) { Text(stringResource(R.string.audio_relay_move_airpods_here)) }
             }
 
-            // Starting from Home uses the saved per-peer network policy
-            // immediately. Only expose network setup as recovery when a relay
-            // attempt has failed; normal starts should go straight to connect
-            // and the Android capture-consent flow.
-            if (mode != MODE_BLUETOOTH && serviceState.stage == RelayStage.FAILED) {
+            // Keep recovery controls discoverable even after failure state is cleared.
+            // Automatic stays the default; an explicit override applies to the next start.
+            if (mode != MODE_BLUETOOTH) {
+                if (io.automated.ventures.everypods.relay.RelayNetworkPermission.required()) SettingsGroup {
+                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(stringResource(R.string.permission_local_network), color = bodyColor)
+                        Text(stringResource(if (localNetworkDenied) R.string.permission_tap_to_grant else R.string.permission_granted), color = secondaryColor)
+                        Text(stringResource(R.string.audio_relay_local_network_denied), color = secondaryColor)
+                        TextButton(onClick = onOpenPermissions) {
+                            Text(stringResource(R.string.ui_manage_permissions))
+                        }
+                    }
+                }
                 SettingsHeading(stringResource(R.string.audio_relay_network_heading))
                 SettingsGroup {
-                    PlaybackModeRow(stringResource(R.string.audio_relay_network_auto), stringResource(R.string.audio_relay_network_auto_desc), network == MODE_AUTO, dark) { if (network != MODE_AUTO) relayService?.stopRelay(); network = MODE_AUTO; preferences.edit().putString(networkPreferenceKey, MODE_AUTO).apply() }
-                    PlaybackModeRow(stringResource(R.string.audio_relay_shared_wifi), stringResource(R.string.audio_relay_shared_wifi_desc), network == MODE_WIFI, dark) { if (network != MODE_WIFI) relayService?.stopRelay(); network = MODE_WIFI; preferences.edit().putString(networkPreferenceKey, MODE_WIFI).apply() }
-                    PlaybackModeRow(stringResource(R.string.audio_relay_device_hotspot), stringResource(R.string.audio_relay_hotspot_desc), network == "hotspot", dark) { if (network != "hotspot") relayService?.stopRelay(); network = "hotspot"; preferences.edit().putString(networkPreferenceKey, "hotspot").apply() }
+                    PlaybackModeRow(stringResource(R.string.audio_relay_network_auto), stringResource(R.string.audio_relay_network_auto_desc), network == MODE_AUTO, dark) { selectNetwork(MODE_AUTO) }
+                    PlaybackModeRow(stringResource(R.string.audio_relay_shared_wifi), stringResource(R.string.audio_relay_shared_wifi_desc), network == MODE_WIFI, dark) { selectNetwork(MODE_WIFI) }
+                    PlaybackModeRow(stringResource(R.string.audio_relay_device_hotspot), stringResource(R.string.audio_relay_hotspot_desc), network == "hotspot", dark) { selectNetwork("hotspot") }
                 }
                 TextButton(onClick = {
                     val action = if (network == "hotspot" && isReceiver) "android.settings.TETHER_SETTINGS" else android.provider.Settings.ACTION_WIFI_SETTINGS
@@ -498,7 +521,10 @@ fun DevicePlaybackScreen(
                 }
             }
             if (mode != MODE_BLUETOOTH) {
-                if (isReceiver && serviceState.stage == RelayStage.FAILED) OutlinedButton(onClick = { relayService?.prepareReceiver(peerMac) }) { Text(stringResource(R.string.audio_relay_retry)) }
+                if (isReceiver && serviceState.stage == RelayStage.FAILED) OutlinedButton(onClick = {
+                    if (io.automated.ventures.everypods.relay.RelayNetworkPermission.granted(context)) relayService?.prepareReceiver(peerMac)
+                    else localNetworkLauncher.launch(io.automated.ventures.everypods.relay.RelayNetworkPermission.PERMISSION)
+                }) { Text(stringResource(R.string.audio_relay_retry)) }
                 if (serviceState.role != RelayRole.NONE && serviceState.stage in setOf(RelayStage.WAITING_FOR_AUDIO, RelayStage.STREAMING, RelayStage.BUFFERING, RelayStage.SUSPENDED, RelayStage.CONNECTING)) {
                     Button(onClick = { relayService?.stopRelay() }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
                         Text(stringResource(R.string.audio_relay_stop))

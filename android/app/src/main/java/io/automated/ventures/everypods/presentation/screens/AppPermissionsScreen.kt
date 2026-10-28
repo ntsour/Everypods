@@ -96,6 +96,7 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
     }
 
     // ── State — refreshed every second ───────────────────────────────────
+    var localNetworkGranted by remember { mutableStateOf(false) }
     var btGranted           by remember { mutableStateOf(false) }
     var locationGranted     by remember { mutableStateOf(false) }
     var notifGranted        by remember { mutableStateOf(false) }
@@ -105,6 +106,7 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
     var gymLocationStep     by remember { mutableStateOf(GymLocationPermission.step(context)) }
 
     fun refreshAll() {
+        localNetworkGranted = io.automated.ventures.everypods.relay.RelayNetworkPermission.granted(context)
         btGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
             isGranted(Manifest.permission.BLUETOOTH_CONNECT) && isGranted(Manifest.permission.BLUETOOTH_SCAN)
         else isGranted(Manifest.permission.BLUETOOTH)
@@ -227,6 +229,14 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
                     else
                         grantRuntime(arrayOf(Manifest.permission.BLUETOOTH, Manifest.permission.BLUETOOTH_ADMIN))
                 }
+                if (io.automated.ventures.everypods.relay.RelayNetworkPermission.required()) {
+                    RowDivider()
+                    PermissionRow(
+                        title = stringResource(R.string.permission_local_network),
+                        description = stringResource(R.string.audio_relay_local_network_denied),
+                        granted = localNetworkGranted, dark = dark, accent = accent, green = green
+                    ) { grantRuntime(arrayOf(io.automated.ventures.everypods.relay.RelayNetworkPermission.PERMISSION)) }
+                }
                 if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
                     RowDivider()
                     PermissionRow(
@@ -255,7 +265,7 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
             // ── Grant all outstanding permissions ────────────────────────
             val locationNeeded = Build.VERSION.SDK_INT < Build.VERSION_CODES.S && !locationGranted
             val notifNeeded = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !notifGranted
-            val anyCriticalMissing = !btGranted || locationNeeded || notifNeeded || !phoneGranted
+            val anyCriticalMissing = !btGranted || locationNeeded || notifNeeded || !phoneGranted || !localNetworkGranted
             if (anyCriticalMissing) {
                 Button(
                     onClick = {
@@ -269,6 +279,7 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
                                     add(Manifest.permission.BLUETOOTH_ADMIN)
                                 }
                             }
+                            if (!localNetworkGranted) add(io.automated.ventures.everypods.relay.RelayNetworkPermission.PERMISSION)
                             if (locationNeeded) add(Manifest.permission.ACCESS_FINE_LOCATION)
                             if (notifNeeded) add(Manifest.permission.POST_NOTIFICATIONS)
                             if (!phoneGranted) {

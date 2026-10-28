@@ -990,4 +990,6 @@
     <string name="ui_horizontal_gesture_stops_announcement">Κούνησε το κεφάλι αριστερά και δεξιά ενώ ακούγεται μια εκφώνηση για να τη σταματήσεις.</string>
     <string name="ui_gym_mode_head_gesture_actions">Με ενεργές τις χειρονομίες κεφαλής, γνέψε καταφατικά για να ξεκινήσεις, να διακόψεις προσωρινά ή να συνεχίσεις το χρονόμετρο και κούνησε το κεφάλι αριστερά-δεξιά για επαναφορά. Οι χειρονομίες εισερχόμενης κλήσης και εκφώνησης έχουν προτεραιότητα.</string>
     <string name="ui_control_gym_timer">Έλεγχος χρονομέτρου γυμναστικής</string>
+    <string name="permission_local_network">Τοπικό δίκτυο</string>
+    <string name="audio_relay_network_options">Επιλογές δικτύου · %1$s</string>
 </resources>

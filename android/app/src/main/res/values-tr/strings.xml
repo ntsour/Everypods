@@ -1025,4 +1025,6 @@ Protokol istekleri: %4$d</string>
     <string name="ui_horizontal_gesture_stops_announcement">Duyuru okunurken başını sağa sola sallayarak duyuruyu durdur.</string>
     <string name="ui_gym_mode_head_gesture_actions">Baş hareketleri açıkken başını öne eğerek zamanlayıcıyı başlat, duraklat veya sürdür, sağa sola sallayarak sıfırla. Gelen arama ve sesli duyuru hareketleri önceliklidir.</string>
     <string name="ui_control_gym_timer">Spor zamanlayıcısını kontrol et</string>
+    <string name="permission_local_network">Yerel ağ</string>
+    <string name="audio_relay_network_options">Ağ seçenekleri · %1$s</string>
 </resources>

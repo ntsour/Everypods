@@ -83,6 +83,17 @@ fun AudioRelayHomeSurface(
         onDispose { if (bound) context.unbindService(connection) }
     }
     val state by (relay?.state ?: remember { kotlinx.coroutines.flow.MutableStateFlow(RelayUiState()) }).collectAsState()
+    var localNetworkGranted by remember { mutableStateOf(io.automated.ventures.everypods.relay.RelayNetworkPermission.granted(context)) }
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                localNetworkGranted = io.automated.ventures.everypods.relay.RelayNetworkPermission.granted(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     var pendingCaptureMac by remember { mutableStateOf<String?>(null) }
     var capturePromptedMac by remember { mutableStateOf<String?>(null) }
     val preferences = remember { context.getSharedPreferences("settings", Context.MODE_PRIVATE) }
@@ -104,6 +115,7 @@ fun AudioRelayHomeSurface(
         }
     }
     val localNetworkLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        localNetworkGranted = granted
         val mac = pendingCaptureMac
         if (granted && mac != null) {
             val startIntent = Intent().setClassName(context, "io.automated.ventures.everypods.relay.RelayPreviewService")
@@ -138,8 +150,8 @@ fun AudioRelayHomeSurface(
             } else recordingPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
     }
-    androidx.compose.runtime.LaunchedEffect(relay, localAirPodsConnected, peers) {
-        if (localAirPodsConnected) {
+    androidx.compose.runtime.LaunchedEffect(relay, localAirPodsConnected, peers, localNetworkGranted) {
+        if (localAirPodsConnected && localNetworkGranted) {
             val preferences = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
             val trustedSender = peers.firstOrNull { candidate ->
                 candidate.connected && relay?.isPeerTrusted(candidate.mac) == true &&
@@ -205,6 +217,12 @@ fun AudioRelayHomeSurface(
                         }
                     }
                 }
+                if (!localNetworkGranted) {
+                    Text(stringResource(R.string.audio_relay_local_network_denied), color = body)
+                    TextButton(onClick = { navController.navigate("permissions") }) {
+                        Text(stringResource(R.string.ui_manage_permissions))
+                    }
+                }
                 if (state.pendingSenderMac != null && localAirPodsConnected) {
                     Text(stringResource(R.string.audio_relay_switch_request, pendingName, peerName), color = body)
                     Column {
@@ -262,6 +280,11 @@ fun AudioRelayHomeSurface(
                         else -> stringResource(R.string.audio_relay_start_detail, candidate.name)
                     }
                     Text(detail, color = body.copy(alpha = .65f))
+                }
+                wifiPeers.forEach { candidate ->
+                    TextButton(onClick = { navController.navigate("device_playback/${android.net.Uri.encode(candidate.mac)}") }) {
+                        Text(stringResource(R.string.audio_relay_network_options, candidate.name))
+                    }
                 }
                 if (!localAirPodsConnected && !active && wifiPeers.isEmpty()) {
                     Text(stringResource(R.string.connection_add_wifi_hint), color = body.copy(alpha = .65f))

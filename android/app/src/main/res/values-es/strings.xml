@@ -1027,4 +1027,6 @@ Solicitudes del protocolo: %4$d</string>
     <string name="ui_horizontal_gesture_stops_announcement">Mueve la cabeza de izquierda a derecha mientras se reproduce un anuncio para detenerlo.</string>
     <string name="ui_gym_mode_head_gesture_actions">Con los gestos de cabeza activados, asiente para iniciar, pausar o reanudar el temporizador y mueve la cabeza de lado a lado para restablecerlo. Los gestos de llamada entrante y de anuncios tienen prioridad.</string>
     <string name="ui_control_gym_timer">Controlar el temporizador de gimnasio</string>
+    <string name="permission_local_network">Red local</string>
+    <string name="audio_relay_network_options">Opciones de red · %1$s</string>
 </resources>

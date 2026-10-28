@@ -1024,4 +1024,6 @@ Protokollanfragen: %4$d</string>
     <string name="ui_horizontal_gesture_stops_announcement">Schüttle den Kopf während einer Ansage von links nach rechts, um sie zu stoppen.</string>
     <string name="ui_gym_mode_head_gesture_actions">Wenn Kopfgesten aktiviert sind, starte, pausiere oder setze den Timer mit einem Nicken fort und setze ihn mit einer Links-rechts-Bewegung zurück. Gesten für eingehende Anrufe und Ansagen haben Vorrang.</string>
     <string name="ui_control_gym_timer">Gym-Timer steuern</string>
+    <string name="permission_local_network">Lokales Netzwerk</string>
+    <string name="audio_relay_network_options">Netzwerkoptionen · %1$s</string>
 </resources>

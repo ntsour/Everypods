@@ -1025,4 +1025,6 @@ Yêu cầu giao thức: %4$d</string>
     <string name="ui_horizontal_gesture_stops_announcement">Lắc đầu sang trái rồi sang phải khi EveryPods đang đọc thông báo để dừng lại.</string>
     <string name="ui_gym_mode_head_gesture_actions">Khi bật Cử chỉ đầu, gật đầu để bắt đầu, tạm dừng hoặc tiếp tục bộ hẹn giờ, lắc đầu sang trái phải để đặt lại. Cử chỉ cho cuộc gọi đến và thông báo bằng giọng nói được ưu tiên.</string>
     <string name="ui_control_gym_timer">Điều khiển bộ hẹn giờ tập luyện</string>
+    <string name="permission_local_network">Mạng cục bộ</string>
+    <string name="audio_relay_network_options">Tùy chọn mạng · %1$s</string>
 </resources>
