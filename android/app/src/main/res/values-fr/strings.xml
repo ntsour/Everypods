@@ -1025,4 +1025,6 @@ Requêtes du protocole : %4$d</string>
     <string name="ui_horizontal_gesture_stops_announcement">Secouez la tête de gauche à droite pendant une annonce pour l’arrêter.</string>
     <string name="ui_gym_mode_head_gesture_actions">Lorsque les gestes de la tête sont activés, hochez la tête pour démarrer, mettre en pause ou reprendre le minuteur, et secouez-la de gauche à droite pour le réinitialiser. Les gestes d’appel entrant et d’annonce sont prioritaires.</string>
     <string name="ui_control_gym_timer">Contrôler le minuteur de sport</string>
+    <string name="permission_local_network">Réseau local</string>
+    <string name="audio_relay_network_options">Options réseau · %1$s</string>
 </resources>

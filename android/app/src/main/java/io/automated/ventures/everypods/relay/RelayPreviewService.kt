@@ -161,6 +161,15 @@ class RelayPreviewService : Service(), RelaySessionApi {
                     runCatching { RelaySignalCodec.decode(payload) }
                         .onSuccess {
                             Log.d(TAG, "Received authenticated WebRTC signal: ${it.javaClass.simpleName}")
+                            if (it is WebRtcRelayTransport.Signal.RequestPath || it is WebRtcRelayTransport.Signal.OfferPath ||
+                                it is WebRtcRelayTransport.Signal.ConfirmPath || it is WebRtcRelayTransport.Signal.PathUnavailable) {
+                                if (!requireLocalNetwork(mac)) {
+                                    // A rejection must not bounce forever if both devices lack permission.
+                                    if (it !is WebRtcRelayTransport.Signal.PathUnavailable)
+                                        sendNetworkSignal(mac, WebRtcRelayTransport.Signal.PathUnavailable)
+                                    return@launch
+                                }
+                            }
                             runCatching { receiveNetworkSignal(mac, it) }
                                 .onFailure { error ->
                                     Log.w(TAG, "Selected relay network setup failed", error)
@@ -214,8 +223,8 @@ class RelayPreviewService : Service(), RelaySessionApi {
                     if (mutableState.value.role == RelayRole.SOURCE) {
                         networkNegotiating = true
                         armNetworkSetupTimeout(mac)
-                        networkPolicy = getSharedPreferences("settings", MODE_PRIVATE)
-                            .getString("audio_relay_network_${mac.uppercase()}", "auto") ?: "auto"
+                        if (!requireLocalNetwork(mac)) return@launch
+                        networkPolicy = RelayNetworkSettings.load(getSharedPreferences("settings", MODE_PRIVATE), mac)
                         activeTuning = RelayAudioTuning.load(getSharedPreferences("settings", MODE_PRIVATE), mac)
                         Log.i(TAG, "Relay audio profile selected: $activeTuning")
                         triedHotspotFallback = false
@@ -363,6 +372,7 @@ class RelayPreviewService : Service(), RelaySessionApi {
 
     override fun prepareReceiver(peerMac: String) {
         if (ownershipRole(peerMac) != RelayRole.RECEIVER) return
+        if (!requireLocalNetwork(peerMac)) return
         if (mutableState.value.stage in setOf(RelayStage.CONNECTING, RelayStage.VERIFYING, RelayStage.TRUSTED, RelayStage.WAITING_FOR_AUDIO, RelayStage.STREAMING, RelayStage.BUFFERING, RelayStage.SUSPENDED)) return
         mutableState.value = RelayUiState(role = RelayRole.RECEIVER, stage = RelayStage.WAITING_FOR_SOURCE)
         controller?.startListening()
@@ -379,6 +389,7 @@ class RelayPreviewService : Service(), RelaySessionApi {
     }
 
     override fun startSource(peerMac: String) {
+        if (!requireLocalNetwork(peerMac)) return
         if (!isPeerTrusted(peerMac)) {
             fail(peerMac, getString(R.string.audio_relay_peer_not_authorized))
             return
@@ -482,6 +493,7 @@ class RelayPreviewService : Service(), RelaySessionApi {
         check(sourceSessionRequested && state.role == RelayRole.SOURCE && state.captureApprovalReady) { getString(R.string.audio_relay_connect_airpods) }
         check(audioCapture == null) { "Audio capture is already active" }
         val mac = checkNotNull(state.peerMac)
+        if (!requireLocalNetwork(mac)) return
         check(ownershipRole(mac) == RelayRole.SOURCE) { getString(R.string.audio_relay_ownership_changed) }
         promote(ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
         val tuning = activeTuning
@@ -1102,13 +1114,19 @@ class RelayPreviewService : Service(), RelaySessionApi {
     }
 
     private fun acceptPathRequest(mac: String, signal: WebRtcRelayTransport.Signal.RequestPath) {
+        if (!requireLocalNetwork(mac)) {
+            sendNetworkSignal(mac, WebRtcRelayTransport.Signal.PathUnavailable)
+            return
+        }
         // A fresh authenticated Start reserves the receiver before route negotiation.
         transports.keys.toList().forEach(::closeTransport)
-        val path = RelayNetworkPath.receiver(this, signal.mode)
+        networkPolicy = RelayNetworkSettings.receiverMode(signal.mode,
+            RelayNetworkSettings.load(getSharedPreferences("settings", MODE_PRIVATE), mac))
+        val path = RelayNetworkPath.receiver(this, networkPolicy)
         selectedNetworkPath = path
         networkNegotiating = true
         mutableState.value = mutableState.value.copy(peerMac = mac, role = RelayRole.RECEIVER,
-            stage = RelayStage.CONNECTING, networkMode = signal.mode, reason = null,
+            stage = RelayStage.CONNECTING, networkMode = networkPolicy, reason = null,
             reservationExpiresAtMillis = System.currentTimeMillis() + RESERVATION_TIMEOUT_MS)
         reservationTimeout?.cancel()
         reservationTimeout = scope.launch {
@@ -1118,7 +1136,7 @@ class RelayPreviewService : Service(), RelaySessionApi {
             }
         }
         armNetworkSetupTimeout(mac)
-        Log.i(TAG, "Network requested: mode=${signal.mode} interface=${path.interfaceName} address=${path.address}/${path.prefix}")
+        Log.i(TAG, "Network requested: mode=$networkPolicy interface=${path.interfaceName} address=${path.address}/${path.prefix}")
         sendNetworkSignal(mac, WebRtcRelayTransport.Signal.OfferPath(path.address, path.prefix, activeTuning))
     }
 
@@ -1128,6 +1146,7 @@ class RelayPreviewService : Service(), RelaySessionApi {
     ) RelayRole.RECEIVER else RelayRole.NONE
 
     private fun startTransport(mac: String, path: RelayNetworkPath, peerAddress: String, tuning: RelayAudioTuning = activeTuning) {
+        if (!requireLocalNetwork(mac)) return
         Log.i(TAG, "Starting pinned WebRTC transport: ${path.interfaceName} ${path.address} -> $peerAddress")
         transports.keys.toList().forEach(::closeTransport)
         lateinit var transport: WebRtcRelayTransport
@@ -1184,6 +1203,12 @@ class RelayPreviewService : Service(), RelaySessionApi {
                 }
             }
         }
+    }
+
+    private fun requireLocalNetwork(mac: String): Boolean {
+        if (RelayNetworkPermission.granted(this)) return true
+        fail(mac, getString(R.string.audio_relay_local_network_denied), notifyPeer = false)
+        return false
     }
 
     private fun fail(mac: String, reason: String, notifyPeer: Boolean = false) {

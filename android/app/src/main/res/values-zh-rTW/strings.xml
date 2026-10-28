@@ -1025,4 +1025,6 @@
     <string name="ui_horizontal_gesture_stops_announcement">EveryPods 播報時左右搖頭即可停止播報。</string>
     <string name="ui_gym_mode_head_gesture_actions">啟用頭部手勢後，點頭可啟動、暫停或繼續計時器，左右搖頭可重設計時器。來電和語音播報手勢會優先處理。</string>
     <string name="ui_control_gym_timer">控制健身計時器</string>
+    <string name="permission_local_network">區域網路</string>
+    <string name="audio_relay_network_options">網路選項 · %1$s</string>
 </resources>

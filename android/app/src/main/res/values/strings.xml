@@ -1042,4 +1042,6 @@ Protocol requests: %4$d</string>
     <string name="ui_horizontal_gesture_stops_announcement">Shake your head left to right while EveryPods is speaking to stop the announcement.</string>
     <string name="ui_gym_mode_head_gesture_actions">With Head Gestures enabled, nod to start, pause, or resume the timer and shake your head left to right to reset it. Incoming-call and spoken-announcement gestures take priority.</string>
     <string name="ui_control_gym_timer">Control Gym timer</string>
+    <string name="permission_local_network">Local network</string>
+    <string name="audio_relay_network_options">Network options · %1$s</string>
 </resources>
