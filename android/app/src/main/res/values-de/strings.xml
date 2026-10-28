@@ -589,7 +589,7 @@
 
 <string name="hrm_no_data">Keine Messwerte empfangen. Prüfe den Sitz deiner AirPods und versuche es erneut.</string>
 
-<string name="hrm_lost">Verbindung verloren. Verbinde erneut und tippe auf Starten.</string>
+<string name="hrm_lost">Die Herzfrequenzüberwachung hat die Verbindung verloren. Verbinde deine AirPods bei Bedarf erneut und starte die Überwachung neu.</string>
 
 <string name="hrm_device_changed">Die verbundenen AirPods haben sich geändert. Tippe auf Starten für eine neue Sitzung.</string>
 

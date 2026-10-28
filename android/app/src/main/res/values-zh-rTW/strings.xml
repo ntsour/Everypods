@@ -590,7 +590,7 @@
 
 <string name="hrm_no_data">未收到讀數。請檢查 AirPods 的佩戴情況後重試。</string>
 
-<string name="hrm_lost">連線已中斷。請重新連接並點按開始。</string>
+<string name="hrm_lost">心率監測連線已中斷。如有需要，請重新連接 AirPods，然後重新開始心率監測。</string>
 
 <string name="hrm_device_changed">已連接的 AirPods 已變更。點按開始以啟動新工作階段。</string>
 
