@@ -104,10 +104,14 @@ fun HeartRateCaseControl(viewModel: AirPodsViewModel) {
         }
         else -> R.string.hrm_share_server
     }
+    // Returning to Home recreates this control while the service can still hold an old
+    // error. Only announce changes observed while the control is on screen.
+    var failureObserved by remember { mutableStateOf(false) }
     LaunchedEffect(failureText, sharing.recovering) {
-        if (failureText != null && !sharing.recovering) {
+        if (failureObserved && failureText != null && !sharing.recovering) {
             Toast.makeText(context, failureText, Toast.LENGTH_LONG).show()
         }
+        failureObserved = true
     }
     val status = when {
         sharing.recovering || session.status == HeartRateStatus.RECOVERING -> stringResource(R.string.hrs_reconnecting)

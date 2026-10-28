@@ -590,7 +590,7 @@
 
 <string name="hrm_no_data">No se recibieron lecturas. Comprueba el ajuste de tus AirPods y reintenta.</string>
 
-<string name="hrm_lost">Conexión perdida. Reconecta y pulsa Iniciar.</string>
+<string name="hrm_lost">La monitorización de la frecuencia cardíaca perdió la conexión. Si es necesario, vuelve a conectar los AirPods y reinicia la monitorización.</string>
 
 <string name="hrm_device_changed">Han cambiado los AirPods conectados. Pulsa Iniciar para empezar otra sesión.</string>
 
