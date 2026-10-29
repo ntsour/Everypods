@@ -1027,4 +1027,5 @@
     <string name="ui_control_gym_timer">Керування таймером тренування</string>
     <string name="permission_local_network">Локальна мережа</string>
     <string name="audio_relay_network_options">Параметри мережі · %1$s</string>
+    <string name="hrm_stopped_in_case">Моніторинг пульсу зупинено — AirPods у футлярі.</string>
 </resources>

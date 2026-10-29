@@ -62,6 +62,18 @@ fun controlActionLabel(action: StemAction?): String = stringResource(when (actio
     StemAction.GYM_TIMER_RESET -> R.string.action_timer_reset
 })
 
+/** Gym stems and head gestures offer the same actions and use executeControlAction. */
+@Composable
+fun gymControlActionOptions(): List<Pair<StemAction, String>> = listOf(
+    StemAction.PLAY_PAUSE,
+    StemAction.NEXT_TRACK,
+    StemAction.PREVIOUS_TRACK,
+    StemAction.CYCLE_NOISE_CONTROL_MODES,
+    StemAction.GYM_TIMER_START_STOP,
+    StemAction.GYM_TIMER_LAP,
+    StemAction.GYM_TIMER_RESET,
+).map { it to controlActionLabel(it) }
+
 /** Shared settings typography matches the Android UI contract, independent of dynamic colors. */
 @Composable
 fun gestureLabelStyle() = TextStyle(fontFamily = FontFamily(Font(R.font.sf_pro)), fontSize = 16.sp,
@@ -73,9 +85,9 @@ fun gestureSupportingStyle() = gestureLabelStyle().copy(fontSize = 13.sp,
 
 /** One inline settings row; the dropdown is a modal, not a nested settings card. */
 @Composable
-fun <T> GestureSettingPicker(title: String, value: T, options: List<Pair<T, String>>, enabled: Boolean = true, onSelect: (T) -> Unit) {
+fun <T> GestureSettingPicker(title: String, value: T, options: List<Pair<T, String>>, enabled: Boolean = true, valueLabel: String? = null, onSelect: (T) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
-    val selectedLabel = options.firstOrNull { it.first == value }?.second.orEmpty()
+    val selectedLabel = valueLabel ?: options.firstOrNull { it.first == value }?.second.orEmpty()
     val labelStyle = gestureLabelStyle()
     val supportingStyle = gestureSupportingStyle()
     val dark = isSystemInDarkTheme()
@@ -136,11 +148,14 @@ fun HeadGestureActions(gym: Boolean = false, enabled: Boolean = true, onMasterCh
             onCheckedChange = { HeadGesturePrefs.setShakeStopsAnnouncements(prefs, it) },
             enabled = enabled,
         )
-        val actions = listOf<StemAction?>(null) + StemAction.entries
-        val options = actions.map { it to controlActionLabel(it) }
+        val options: List<Pair<StemAction?, String>> =
+            listOf(null to controlActionLabel(null)) + if (gym) gymControlActionOptions()
+            else StemAction.entries.map { it to controlActionLabel(it) }
         HeadGesture.entries.forEach { gesture ->
-            GestureSettingPicker(headGestureLabel(gesture), (if (gym) settings.gym else settings.normal)[gesture], options,
-                enabled = enabled, onSelect = { HeadGesturePrefs.setAction(prefs, gesture, gym, it) })
+            val action = (if (gym) settings.gym else settings.normal)[gesture]
+            GestureSettingPicker(headGestureLabel(gesture), action, options,
+                enabled = enabled, valueLabel = controlActionLabel(action),
+                onSelect = { HeadGesturePrefs.setAction(prefs, gesture, gym, it) })
         }
     }
     if (!gym && gymActive) {

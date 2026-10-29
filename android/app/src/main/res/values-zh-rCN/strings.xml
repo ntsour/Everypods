@@ -1026,4 +1026,5 @@
     <string name="ui_control_gym_timer">控制健身计时器</string>
     <string name="permission_local_network">本地网络</string>
     <string name="audio_relay_network_options">网络选项 · %1$s</string>
+    <string name="hrm_stopped_in_case">心率监测已停止 — AirPods 已放入充电盒。</string>
 </resources>

@@ -1027,4 +1027,5 @@ Richieste protocollo: %4$d</string>
     <string name="ui_control_gym_timer">Controlla il timer palestra</string>
     <string name="permission_local_network">Rete locale</string>
     <string name="audio_relay_network_options">Opzioni di rete · %1$s</string>
+    <string name="hrm_stopped_in_case">Monitoraggio della frequenza cardiaca interrotto — gli AirPods sono nella custodia.</string>
 </resources>

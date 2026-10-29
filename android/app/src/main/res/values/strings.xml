@@ -1044,4 +1044,5 @@ Protocol requests: %4$d</string>
     <string name="ui_control_gym_timer">Control Gym timer</string>
     <string name="permission_local_network">Local network</string>
     <string name="audio_relay_network_options">Network options · %1$s</string>
+    <string name="hrm_stopped_in_case">Heart rate stopped — AirPods are in the case.</string>
 </resources>

@@ -148,7 +148,7 @@ fun HeartRateScreen(viewModel: AirPodsViewModel, navController: NavController) {
                             }
                         }
                         Text(stringResource(if (sharing.recovering) R.string.hrs_reconnecting else when (session.status) {
-                            HeartRateStatus.STOPPED -> R.string.hrm_stopped
+                            HeartRateStatus.STOPPED -> if (session.stopReason == io.automated.ventures.everypods.bluetooth.hrm.HeartRateStopReason.AIRPODS_IN_CASE) R.string.hrm_stopped_in_case else R.string.hrm_stopped
                             HeartRateStatus.WAITING -> R.string.hrm_waiting
                             HeartRateStatus.LIVE -> R.string.hrm_live
                             HeartRateStatus.STALE -> R.string.hrm_stale

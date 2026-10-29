@@ -6,12 +6,14 @@ import kotlinx.coroutines.flow.asStateFlow
 
 enum class HeartRateStatus { STOPPED, WAITING, LIVE, STALE, RECOVERING, ERROR }
 enum class HeartRateFailure { UNSUPPORTED, NO_CONNECTION, NOT_OWNER, SEND_FAILED, NO_DATA, CONNECTION_LOST, DEVICE_CHANGED }
+enum class HeartRateStopReason { AIRPODS_IN_CASE }
 data class HeartRateSessionState(
     val status: HeartRateStatus = HeartRateStatus.STOPPED,
     val bpm: Int? = null,
     val sampleTimeMillis: Long? = null,
     val failure: HeartRateFailure? = null,
     val serviceId: Int? = null,
+    val stopReason: HeartRateStopReason? = null,
 ) {
     val running get() = status == HeartRateStatus.WAITING || status == HeartRateStatus.LIVE || status == HeartRateStatus.STALE
 }
@@ -72,15 +74,31 @@ class HeartRateSession(
         mutable.value = HeartRateSessionState(HeartRateStatus.RECOVERING)
     }
 
-    @Synchronized fun stop(failure: HeartRateFailure? = null, connectionUsable: Boolean = true) {
+    @Synchronized fun stop(failure: HeartRateFailure? = null, connectionUsable: Boolean = true,
+        stopReason: HeartRateStopReason? = null) {
         val activeService = service
         service = null
         val sent = activeService == null || !connectionUsable ||
             runCatching { send(activeService, 0) }.getOrDefault(false)
         mutable.value = HeartRateSessionState(
-            status = if (failure != null || !sent) HeartRateStatus.ERROR else HeartRateStatus.STOPPED,
-            failure = failure ?: if (!sent) HeartRateFailure.SEND_FAILED else null,
+            status = if (stopReason != null) HeartRateStatus.STOPPED else
+                if (failure != null || !sent) HeartRateStatus.ERROR else HeartRateStatus.STOPPED,
+            failure = if (stopReason != null) null else failure ?: if (!sent) HeartRateFailure.SEND_FAILED else null,
+            stopReason = stopReason,
         )
         sampled = false
+    }
+
+    /** A completed connection failure belongs to the previous connection, not the new one. */
+    @Synchronized fun connectionRestored() {
+        if (mutable.value.status == HeartRateStatus.ERROR && mutable.value.failure in setOf(
+                HeartRateFailure.CONNECTION_LOST, HeartRateFailure.NO_CONNECTION, HeartRateFailure.NO_DATA)) {
+            mutable.value = HeartRateSessionState()
+        }
+    }
+
+    @Synchronized fun caseStorageEnded() {
+        if (mutable.value.status == HeartRateStatus.STOPPED && mutable.value.stopReason == HeartRateStopReason.AIRPODS_IN_CASE)
+            mutable.value = HeartRateSessionState()
     }
 }

@@ -121,4 +121,64 @@ class HeartRateSessionTest {
         assertTrue(start())
         assertEquals(HeartRateStatus.WAITING, session.state.value.status)
     }
+
+    @Test fun `case storage ends a live session quietly even if the final command fails`() {
+        start()
+        session.sample(72)
+        writesSucceed = false
+        session.stop(stopReason = HeartRateStopReason.AIRPODS_IN_CASE)
+        assertEquals(84 to 0, commands.last())
+        assertEquals(HeartRateStatus.STOPPED, session.state.value.status)
+        assertEquals(HeartRateStopReason.AIRPODS_IN_CASE, session.state.value.stopReason)
+        assertNull(session.state.value.failure)
+        assertNull(session.state.value.bpm)
+        assertFalse(session.sample(90))
+        session.connectionRestored()
+        assertEquals(HeartRateStopReason.AIRPODS_IN_CASE, session.state.value.stopReason)
+        writesSucceed = true
+        assertTrue(start())
+        assertNull(session.state.value.stopReason)
+        assertNull(session.state.value.failure)
+    }
+
+    @Test fun `case storage clears a recovery or expired failure without reviving old samples`() {
+        for (recovering in listOf(false, true)) {
+            start()
+            session.stop(HeartRateFailure.CONNECTION_LOST, false)
+            if (recovering) session.markRecovering()
+            session.stop(connectionUsable = false, stopReason = HeartRateStopReason.AIRPODS_IN_CASE)
+            now += 70_000
+            session.tick()
+            assertFalse(session.sample(80))
+            assertNull(session.state.value.failure)
+            assertEquals(HeartRateStatus.STOPPED, session.state.value.status)
+        }
+    }
+
+    @Test fun `reconnect clears completed connection errors but preserves recovery and actionable failures`() {
+        for (failure in listOf(HeartRateFailure.CONNECTION_LOST, HeartRateFailure.NO_DATA, HeartRateFailure.NO_CONNECTION)) {
+            session.stop(failure, false)
+            session.connectionRestored()
+            assertEquals(HeartRateSessionState(), session.state.value)
+        }
+        session.markRecovering()
+        session.connectionRestored()
+        assertEquals(HeartRateStatus.RECOVERING, session.state.value.status)
+        session.stop(HeartRateFailure.NOT_OWNER, false)
+        session.connectionRestored()
+        assertEquals(HeartRateFailure.NOT_OWNER, session.state.value.failure)
+    }
+
+    @Test fun `removal clears the case explanation without restarting monitoring`() {
+        start()
+        session.stop(stopReason = HeartRateStopReason.AIRPODS_IN_CASE)
+        val commandCount = commands.size
+        session.caseStorageEnded()
+        assertEquals(HeartRateSessionState(), session.state.value)
+        assertEquals(commandCount, commands.size)
+        assertFalse(session.sample(80))
+        start()
+        session.caseStorageEnded()
+        assertEquals(HeartRateStatus.WAITING, session.state.value.status)
+    }
 }
