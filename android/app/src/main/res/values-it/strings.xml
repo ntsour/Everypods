@@ -467,7 +467,7 @@
     <string name="ui_title_and_body">Titolo e corpo</string>
     <string name="ui_title_only">Solo titolo</string>
     <string name="ui_unable_to_connect_to_airpods_o">Impossibile connettersi agli AirPods tramite L2CAP</string>
-    <string name="ui_use_after_lid_open_didn_t_auto">L\'uso dopo l\'apertura del coperchio non si connette automaticamente; salva i registri recenti del coperchio/BT.</string>
+    <string name="ui_use_after_lid_open_didn_t_auto">Esporta la cronologia separata della custodia e delle connessioni automatiche, conservata per almeno 48 ore anche dopo il riavvio dell’app.</string>
     <string name="ui_velocity">Velocità</string>
     <string name="ui_vertical">Verticale</string>
     <string name="ui_voice">Voce</string>

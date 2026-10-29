@@ -138,7 +138,11 @@ class PopupWindow(
                 updateBatteryStatus(batteryNotification)
 
                 val vid = mView.findViewById<VideoView>(R.id.video)
-                vid.setAudioFocusRequest(AudioManager.AUDIOFOCUS_NONE)
+                UiVideoPlayback.configure(vid)
+                vid.setOnPreparedListener { player ->
+                    player.setVolume(0f, 0f)
+                    io.automated.ventures.everypods.utils.LidAutoconnectDiagnostics.logEvent("ui_video_start", mapOf("component" to "popup", "usage" to "sonification"))
+                }
                 vid.setVideoPath("android.resource://${mView.context.packageName}/" + R.raw.connected)
                 vid.resolveAdjustedSize(vid.width, vid.height)
                 vid.start()

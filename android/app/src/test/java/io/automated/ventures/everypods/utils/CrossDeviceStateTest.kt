@@ -150,4 +150,19 @@ class CrossDeviceStateTest {
         CrossDevice.processPacket(CrossDevicePackets.REQUEST_HANDOVER.packet, aa, context)
         assertTrue(CrossDevice.holders.isEmpty())
     }
+    @Test fun `coalesced and fragmented legacy status packets reach real ownership handling`() {
+        val decoder = io.automated.ventures.everypods.utils.peer.LegacyPeerStreamDecoder()
+        val wire = CrossDevicePackets.AIRPODS_CONNECTED.packet +
+            CrossDevicePackets.REQUEST_CONNECTION_STATUS.packet + CrossDevicePackets.AIRPODS_DISCONNECTED.packet
+        val observed = mutableListOf<Boolean>()
+        wire.forEach { byte ->
+            decoder.feed(byteArrayOf(byte)).forEach { packet ->
+                CrossDevice.processPacket(packet, aa, context)
+                observed += aa in CrossDevice.holders
+            }
+        }
+        assertEquals(listOf(true, true, false), observed)
+        assertTrue(CrossDevice.peerStatusReceivedAt(aa) != null)
+    }
+
 }

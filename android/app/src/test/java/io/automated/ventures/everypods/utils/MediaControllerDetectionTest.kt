@@ -135,4 +135,57 @@ class MediaControllerDetectionTest {
         main.idleFor(Duration.ofMillis(120))
         assertTrue(messages().any { it.contains("AirPods service unavailable; trigger=playback callback") })
     }
+    @Test fun peerYieldPausesUserStartedPlaybackAndStopsOldReplayWatch() {
+        shadowOf(audio).setIsMusicActive(true)
+        MediaController.userPlayedTheMedia = true
+        MediaController.armPendingMusicTakeover("00:11:22:33:44:55")
+        MediaController.restartRouteLandPoller()
+        MediaController.yieldPlaybackToPeer()
+        main.idle()
+        assertTrue(messages().any { it.contains("DISPATCHING PAUSE KEY EVENT") })
+        assertTrue(MediaController.iPausedTheMedia)
+        shadowOf(audio).setIsMusicActive(false)
+        main.idleFor(Duration.ofSeconds(20))
+        assertFalse(messages().any { it.contains("re-issuing play") })
+        assertFalse(messages().any { it.contains("Sending play with") })
+    }
+
+    @Test fun peerYieldBaselinesContinuingPlaybackButAllowsLaterFreshUserPlay() {
+        shadowOf(audio).setIsMusicActive(true)
+        val attrs = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).build()
+        shadowOf(audio).setActivePlaybackConfigurationsFor(listOf(attrs))
+        MediaController.yieldPlaybackToPeer()
+        main.idleFor(Duration.ofSeconds(2))
+        ShadowLog.clear()
+        MediaController.cb.onPlaybackConfigChanged(audio.activePlaybackConfigurations.toMutableList())
+        main.idleFor(Duration.ofMillis(120))
+        assertFalse(messages().any { it.contains("AirPods service unavailable") })
+        shadowOf(audio).setIsMusicActive(false)
+        MediaController.cb.onPlaybackConfigChanged(mutableListOf())
+        main.idleFor(Duration.ofMillis(120))
+        shadowOf(audio).setIsMusicActive(true)
+        MediaController.cb.onPlaybackConfigChanged(audio.activePlaybackConfigurations.toMutableList())
+        main.idleFor(Duration.ofMillis(120))
+        assertTrue(messages().any { it.contains("AirPods service unavailable; trigger=playback callback") })
+    }
+
+    @Test fun decorativeUiVideoDoesNotTriggerAUserMediaTakeover() {
+        val attrs = io.automated.ventures.everypods.presentation.overlays.UiVideoPlayback.attributes()
+        assertEquals(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION, attrs.usage)
+        assertEquals(AudioAttributes.CONTENT_TYPE_SONIFICATION, attrs.contentType)
+        assertFalse(MediaController.isUserMediaPlayback(attrs.usage, attrs.contentType))
+        shadowOf(audio).setIsMusicActive(true)
+        shadowOf(audio).setActivePlaybackConfigurationsFor(listOf(attrs))
+        MediaController.cb.onPlaybackConfigChanged(audio.activePlaybackConfigurations.toMutableList())
+        main.idleFor(Duration.ofSeconds(2))
+        assertFalse(messages().any { it.contains("AirPods service unavailable") || it.contains("requesting takeOver") })
+    }
+
+    @Test fun obsoletePeerYieldCannotPauseANewerLocalIntent() {
+        shadowOf(audio).setIsMusicActive(true)
+        MediaController.yieldPlaybackToPeer(stillCurrent = { false })
+        main.idle()
+        assertFalse(messages().any { it.contains("DISPATCHING PAUSE KEY EVENT") })
+    }
+
 }

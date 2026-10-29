@@ -375,9 +375,11 @@ class IslandWindow(private val context: Context) {
 
         val videoView = islandView.findViewById<VideoView>(R.id.island_video_view)
         val videoUri = "android.resource://${context.packageName}/${R.raw.island}".toUri()
-        videoView.setAudioFocusRequest(AudioManager.AUDIOFOCUS_NONE)
+        UiVideoPlayback.configure(videoView)
         videoView.setVideoURI(videoUri)
         videoView.setOnPreparedListener { mediaPlayer ->
+            mediaPlayer.setVolume(0f, 0f)
+            io.automated.ventures.everypods.utils.LidAutoconnectDiagnostics.logEvent("ui_video_start", mapOf("component" to "island", "usage" to "sonification"))
             mediaPlayer.isLooping = true
             videoView.start()
         }

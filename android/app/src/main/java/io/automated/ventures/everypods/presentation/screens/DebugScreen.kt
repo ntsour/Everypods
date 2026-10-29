@@ -68,6 +68,8 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -398,31 +400,35 @@ fun DebugScreen(navController: NavController) {
                     Button(
                         onClick = {
                             val empty = LidAutoconnectDiagnostics.isBufferEmpty()
-                            val file = LidAutoconnectDiagnostics.writeFailureReport(context)
-                            val uri = FileProvider.getUriForFile(
-                                context,
-                                "${context.packageName}.provider",
-                                file
-                            )
-                            val share = Intent(Intent.ACTION_SEND).apply {
-                                type = "text/plain"
-                                putExtra(Intent.EXTRA_STREAM, uri)
-                                putExtra(Intent.EXTRA_SUBJECT, "EveryPods lid-open failure report")
-                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            }
-                            try {
-                                context.startActivity(Intent.createChooser(share, shareLidReportLabel))
-                                Toast.makeText(
+                            coroutineScope.launch {
+                                val file = withContext(Dispatchers.IO) {
+                                    LidAutoconnectDiagnostics.writeFailureReport(context)
+                                }
+                                val uri = FileProvider.getUriForFile(
                                     context,
-                                    if (empty) reportSharedEmptyLabel else reportReadyLabel,
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            } catch (e: Exception) {
-                                Toast.makeText(
-                                    context,
-                                    reportSavedTemplate.format(file.name),
-                                    Toast.LENGTH_LONG
-                                ).show()
+                                    "${context.packageName}.provider",
+                                    file
+                                )
+                                val share = Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(Intent.EXTRA_STREAM, uri)
+                                    putExtra(Intent.EXTRA_SUBJECT, "EveryPods lid-open failure report")
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                try {
+                                    context.startActivity(Intent.createChooser(share, shareLidReportLabel))
+                                    Toast.makeText(
+                                        context,
+                                        if (empty) reportSharedEmptyLabel else reportReadyLabel,
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                } catch (e: Exception) {
+                                    Toast.makeText(
+                                        context,
+                                        reportSavedTemplate.format(file.name),
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
                             }
                         },
                         colors = ButtonDefaults.buttonColors(

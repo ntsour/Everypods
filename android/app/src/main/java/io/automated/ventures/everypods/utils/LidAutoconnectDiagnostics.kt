@@ -20,6 +20,8 @@ package io.automated.ventures.everypods.utils
 
 import android.content.Context
 import android.os.Build
+import android.os.SystemClock
+import java.util.concurrent.Executors
 import android.util.Log
 import io.automated.ventures.everypods.BuildConfig
 import java.io.File
@@ -30,15 +32,27 @@ import java.util.TimeZone
 import java.util.concurrent.ConcurrentLinkedDeque
 
 /**
- * In-memory ring + last-attempt snapshot for lid-open autoconnect diagnostics.
- * Lines matching LidLease / relevant Conn / BLE lid are kept for ~5 minutes or
- * the last ~200 entries so the Debug "Report lid-open connect failure" button
- * can export without relying on logcat.
+ * Persistent, separate 48-hour case/connection journal plus a small live snapshot.
+ * Export is independent of logcat and survives process death and app updates.
  */
 object LidAutoconnectDiagnostics {
     private const val TAG = "AirPodsService"
     private const val MARKER = "<LogCollector:LidLease>"
     private const val CONN_MARKER = "<LogCollector:Conn>"
+    private val journalExecutor = Executors.newSingleThreadExecutor { task ->
+        Thread(task, "case-connection-journal").apply { isDaemon = true }
+    }
+    @Volatile private var journal: CaseConnectionJournal? = null
+    @Volatile private var journalError: String? = null
+
+    @Synchronized
+    fun initialize(context: Context) {
+        if (journal != null) return
+        journal = CaseConnectionJournal(File(context.filesDir, "case-connection-history"))
+        logEvent("process_start", mapOf("version" to BuildConfig.VERSION_NAME,
+            "sdk" to Build.VERSION.SDK_INT, "pid" to android.os.Process.myPid()))
+    }
+
     private const val MAX_LINES = 200
     private const val MAX_AGE_MS = 5 * 60_000L
 
@@ -79,6 +93,25 @@ object LidAutoconnectDiagnostics {
     private data class RingEntry(val wallClockMs: Long, val line: String)
 
     private val ring = ConcurrentLinkedDeque<RingEntry>()
+    private var caseCycle = 0L
+    private var bleSignature: String? = null
+    private var bleLastRecordedAt = 0L
+    private var blePackets = 0L
+
+    /** Log transitions immediately, plus a once-per-minute observation heartbeat. */
+    @Synchronized
+    fun recordBleObservation(leftInEar: Boolean, rightInEar: Boolean,
+                             leftCharging: Boolean, rightCharging: Boolean, connectionState: String) {
+        blePackets++
+        val signature = "$leftInEar/$rightInEar/$leftCharging/$rightCharging/$connectionState"
+        val now = SystemClock.elapsedRealtime()
+        if (signature == bleSignature && now - bleLastRecordedAt < 60_000L) return
+        bleSignature = signature
+        bleLastRecordedAt = now
+        logEvent("ble_observation", mapOf("leftInEar" to leftInEar, "rightInEar" to rightInEar,
+            "leftCharging" to leftCharging, "rightCharging" to rightCharging,
+            "connectionState" to connectionState, "packets" to blePackets))
+    }
     @Volatile
     var snapshot: LastLidAttemptSnapshot = LastLidAttemptSnapshot()
         private set
@@ -103,6 +136,17 @@ object LidAutoconnectDiagnostics {
         val now = System.currentTimeMillis()
         ring.addLast(RingEntry(now, safeLine))
         pruneLocked(now)
+        val elapsed = SystemClock.elapsedRealtime()
+        val destination = journal ?: return
+        journalExecutor.execute {
+            try {
+                destination.append(now, elapsed, safeLine)
+                journalError = null
+            } catch (e: Exception) {
+                journalError = e.javaClass.simpleName
+                Log.e(TAG, "Case connection history write failed", e)
+            }
+        }
     }
 
     private fun isRelevant(line: String): Boolean {
@@ -122,9 +166,11 @@ object LidAutoconnectDiagnostics {
      * Log a structured LidLease event, update the snapshot, and keep the ring.
      * [fields] are rendered as `k=v` on one line.
      */
+    @Synchronized
     fun logEvent(event: String, fields: Map<String, Any?> = emptyMap()) {
+        if (event == "lid_open") caseCycle++
         val sb = StringBuilder()
-        sb.append(MARKER).append(' ').append(event)
+        sb.append(MARKER).append(' ').append(event).append(" cycle=").append(caseCycle)
         for ((k, v) in fields) {
             if (v == null) continue
             sb.append(' ').append(k).append('=').append(v)
@@ -155,6 +201,9 @@ object LidAutoconnectDiagnostics {
         Log.d(TAG, line)
         recordRawLine(line)
     }
+
+    fun fingerprint(value: String): String = java.security.MessageDigest.getInstance("SHA-256")
+        .digest(value.toByteArray(Charsets.UTF_8)).take(6).joinToString("") { "%02x".format(it) }
 
     private fun redactIdentifiers(value: String): String = value
         .replace(Regex("(?i)([0-9a-f]{2}:){5}[0-9a-f]{2}"), "[redacted-mac]")
@@ -229,6 +278,7 @@ object LidAutoconnectDiagnostics {
      * Returns the file (always written, even if ring is empty).
      */
     fun writeFailureReport(context: Context): File {
+        initialize(context)
         val logsDir = File(context.filesDir, "logs").apply { mkdirs() }
         val ts = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
         val file = File(logsDir, "lid_open_failure_$ts.txt")
@@ -246,7 +296,7 @@ object LidAutoconnectDiagnostics {
             appendLine("ringCount=${lines.size}")
             appendLine()
             appendLine("=== SNAPSHOT ===")
-            append(snapshot.prettyPrint())
+            append(redactIdentifiers(snapshot.prettyPrint()))
             appendLine()
             appendLine("=== RING_BUFFER (oldest-first) ===")
             if (lines.isEmpty()) {
@@ -255,6 +305,20 @@ object LidAutoconnectDiagnostics {
                 lines.forEach { appendLine(it) }
             }
         })
+        // Run on the same executor so all preceding events are included, streaming
+        // segments to avoid loading 48 hours of history into memory.
+        journalExecutor.submit {
+            file.appendText("\n=== PERSISTENT CASE / CONNECTION HISTORY (48h minimum) ===\n")
+            file.appendText("journalWriteError=${journalError ?: "none"}\n")
+            file.appendText("=== LIVE SNAPSHOT (identifiers redacted) ===\n" +
+                redactIdentifiers(snapshot.prettyPrint()) + "\n")
+            file.appendText("=== EVENTS ===\n")
+            file.appendText("timestamps=wall-clock Unix ms and monotonic elapsed ms; process_start marks restarts\n")
+            file.appendText("retention=48h minimum; no line-count or size eviction\n")
+            java.io.FileOutputStream(file, true).bufferedWriter().use { writer ->
+                journal?.copyTo(writer)
+            }
+        }.get()
         return file
     }
 }

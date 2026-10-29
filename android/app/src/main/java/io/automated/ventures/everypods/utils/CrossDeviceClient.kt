@@ -230,7 +230,8 @@ object CrossDeviceClient {
                             outbound.close()
                         }
                     }
-                    val connectedAtElapsedMs = peerSupervisor.elapsedRealtime()
+                    val liveness = io.automated.ventures.everypods.utils.peer.LegacyPeerLiveness(peerSupervisor.elapsedRealtime())
+                    val decoder = io.automated.ventures.everypods.utils.peer.LegacyPeerStreamDecoder()
                     Log.d(TAG, "[$peerMac] connected (name='$peerName')")
 
                     val svc = ServiceManager.getService()
@@ -264,8 +265,9 @@ object CrossDeviceClient {
                                 s.runCatching { close() }
                                 break
                             }
-                            val lastStatus = CrossDevice.peerStatusReceivedAt(peerMac) ?: connectedAtElapsedMs
-                            if (peerSupervisor.elapsedRealtime() - lastStatus > 45_000L) {
+                            if (liveness.expired(peerSupervisor.elapsedRealtime())) {
+                                LidAutoconnectDiagnostics.logConnectionEvent("legacy_client", "timeout", mapOf(
+                                    "ageMs" to liveness.responseAgeMs(peerSupervisor.elapsedRealtime())))
                                 Log.w(TAG, "[$peerMac] heartbeat status expired; closing stale RFCOMM link")
                                 s.runCatching { close() }
                                 break
@@ -283,7 +285,13 @@ object CrossDeviceClient {
                         }
                         if (n == -1) break
                         if (!isActive || links[link.mac] !== link || link.socket !== s) break
-                        CrossDevice.processPacket(buf.copyOf(n), link.mac)
+                        for (packet in decoder.feed(buf.copyOf(n))) {
+                            if (packet.contentEquals(CrossDevicePackets.AIRPODS_CONNECTED.packet) ||
+                                packet.contentEquals(CrossDevicePackets.AIRPODS_DISCONNECTED.packet)) {
+                                liveness.onStatusResponse(peerSupervisor.elapsedRealtime())
+                            }
+                            CrossDevice.processPacket(packet, link.mac)
+                        }
                     }
 
                     keepAliveJob.cancel()

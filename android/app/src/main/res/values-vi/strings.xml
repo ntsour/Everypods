@@ -467,7 +467,7 @@
     <string name="ui_title_and_body">Tiêu đề và nội dung</string>
     <string name="ui_title_only">Chỉ tiêu đề</string>
     <string name="ui_unable_to_connect_to_airpods_o">Không thể kết nối với AirPods qua L2CAP</string>
-    <string name="ui_use_after_lid_open_didn_t_auto">Sử dụng sau khi mở nắp không tự động kết nối; lưu nhật ký nắp/BT gần đây.</string>
+    <string name="ui_use_after_lid_open_didn_t_auto">Xuất lịch sử riêng về hộp sạc và kết nối tự động, được lưu ít nhất 48 giờ kể cả sau khi khởi động lại ứng dụng.</string>
     <string name="ui_velocity">vận tốc</string>
     <string name="ui_vertical">Dọc</string>
     <string name="ui_voice">Giọng nói</string>

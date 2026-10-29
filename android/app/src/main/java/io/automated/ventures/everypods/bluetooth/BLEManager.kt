@@ -190,6 +190,7 @@ class BLEManager(private val context: Context) {
     private fun startScanningInternal(reason: String) {
         cancelPendingScanRetry()
         try {
+            io.automated.ventures.everypods.utils.LidAutoconnectDiagnostics.logEvent("scan_start", mapOf("reason" to reason))
             Log.d(TAG, "Starting BLE scanner reason=$reason")
 
             val btManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
@@ -257,6 +258,7 @@ class BLEManager(private val context: Context) {
                 }
 
                 override fun onScanFailed(errorCode: Int) {
+                    io.automated.ventures.everypods.utils.LidAutoconnectDiagnostics.logEvent("scan_failed", mapOf("errorCode" to errorCode))
                     Log.e(TAG, "BLE scan failed with error code: $errorCode")
                     scanCallbackActive = false
                     mScanCallback = null
@@ -276,6 +278,7 @@ class BLEManager(private val context: Context) {
             cleanupHandler.removeCallbacks(cleanupRunnable)
             cleanupHandler.postDelayed(cleanupRunnable, CLEANUP_INTERVAL_MS)
         } catch (t: Throwable) {
+            io.automated.ventures.everypods.utils.LidAutoconnectDiagnostics.logEvent("scan_exception", mapOf("reason" to reason, "error" to t.javaClass.simpleName))
             Log.e(TAG, "Error starting BLE scanner reason=$reason", t)
             scanCallbackActive = false
             if (scanningDesired) {
@@ -321,6 +324,7 @@ class BLEManager(private val context: Context) {
 
     @SuppressLint("MissingPermission")
     fun stopScanning() {
+        io.automated.ventures.everypods.utils.LidAutoconnectDiagnostics.logEvent("scan_stop")
         scanningDesired = false
         cancelPendingScanRetry()
         try {

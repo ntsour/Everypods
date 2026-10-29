@@ -467,7 +467,7 @@
     <string name="ui_title_and_body">Başlık ve gövde</string>
     <string name="ui_title_only">Yalnızca başlık</string>
     <string name="ui_unable_to_connect_to_airpods_o">L2CAP üzerinden AirPod\'lara bağlanılamıyor</string>
-    <string name="ui_use_after_lid_open_didn_t_auto">Kapak açıldıktan sonra kullanın otomatik olarak bağlanmadı; son kapak/BT günlüklerini kaydeder.</string>
+    <string name="ui_use_after_lid_open_didn_t_auto">Kutu ve otomatik bağlantı geçmişini ayrı olarak dışa aktarır. Geçmiş, uygulama yeniden başlatılsa bile en az 48 saat saklanır.</string>
     <string name="ui_velocity">Hız</string>
     <string name="ui_vertical">Dikey</string>
     <string name="ui_voice">Ses</string>

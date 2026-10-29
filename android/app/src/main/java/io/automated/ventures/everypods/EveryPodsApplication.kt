@@ -16,6 +16,7 @@ import io.automated.ventures.everypods.services.ServiceManager
 
 class EveryPodsApplication: Application(), DefaultLifecycleObserver {
     override fun onCreate() {
+        io.automated.ventures.everypods.utils.LidAutoconnectDiagnostics.initialize(this)
         android.util.Log.i(
             io.automated.ventures.everypods.startup.StartupGate.TAG,
             "process start pid=${android.os.Process.myPid()} version=${BuildConfig.VERSION_NAME}(${BuildConfig.VERSION_CODE}) " +

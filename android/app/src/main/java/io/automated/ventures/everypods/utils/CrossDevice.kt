@@ -278,6 +278,7 @@ object CrossDevice {
     /** Start a short-lived, all-peer grant round for one current lid-open intent. */
     fun beginPassiveAcquisition(lastOwnerEligible: Boolean, enabled: Boolean, lidOpen: Boolean): Boolean {
         fun blocked(reason: String): Boolean {
+            LidAutoconnectDiagnostics.logEvent("passive_blocked", mapOf("reason" to reason))
             Log.d(TAG, "passive acquisition blocked reason=$reason")
             return false
         }
@@ -313,24 +314,47 @@ object CrossDevice {
             peers = peers,
         ).orEmpty()
         if (frames.isEmpty()) return blocked("coordinator_rejected_or_unavailable")
-        sendV2ToConfiguredPeers(PeerV2Message.encode(PeerV2Frame.Type.SNAPSHOT, snapshot))
+        sendV2ToConfiguredPeers(PeerV2Message.encode(PeerV2Frame.Type.SNAPSHOT, localSnapshot()))
         dispatchAcquisitionFrames(frames)
-        return true
+        return if (frames.any { it.type == PeerV2Frame.Type.ACQUIRE_REQUEST }) true
+            else blocked("coordinator_rejected_after_cancellation_replay")
     }
 
     fun refreshPassiveOwnership() {
+        dispatchAcquisitionFrames(passiveAcquisitionProtocol?.replayCancellations().orEmpty())
         sendV2ToConfiguredPeers(PeerV2Message.encode(PeerV2Frame.Type.PING,
             mapOf("nonce" to java.util.UUID.randomUUID().toString())))
     }
 
     fun cancelPassiveAcquisition() {
-        dispatchAcquisitionFrames(passiveAcquisitionProtocol?.cancel().orEmpty())
+        passiveAcquisitionProtocol?.cancel()
+        // authorizeConnect may already have made the cancellation transition.
+        // Replay its terminal proof even when a second cancel is idempotent.
+        dispatchAcquisitionFrames(passiveAcquisitionProtocol?.replayCancellations().orEmpty())
+    }
+
+    fun passiveCommandIsCurrent(event: PassiveAcquisitionCoordinator.Event.ReadyToConnect): Boolean =
+        passiveAcquisitionCoordinator?.commandIsCurrent(event.requestId, event.generation) == true
+
+    fun rejectPassiveCommand(event: PassiveAcquisitionCoordinator.Event.ReadyToConnect) {
+        dispatchAcquisitionFrames(passiveAcquisitionProtocol?.rejectedCommand(event).orEmpty())
+    }
+
+    fun observePassiveA2dpState(state: Int) {
+        val coordinator = passiveAcquisitionCoordinator ?: return
+        when (state) {
+            android.bluetooth.BluetoothProfile.STATE_CONNECTING -> coordinator.observeConnecting()
+            android.bluetooth.BluetoothProfile.STATE_DISCONNECTED -> {
+                val frames = passiveAcquisitionProtocol?.terminalProfileFailure().orEmpty()
+                dispatchAcquisitionFrames(frames)
+            }
+        }
     }
 
     /** Resolve an in-flight requester reservation only after actual headset ownership is observed. */
     fun confirmPassiveAcquisitionIfHeld() {
         val service = ServiceManager.getService() ?: return
-        if (!service.holdsAirPods()) return
+        if (!service.hasConfirmedPassiveAudioConnection()) return
         val coordinator = passiveAcquisitionCoordinator ?: return
         val current = coordinator.currentIntent()
         if (current?.phase == PassiveAcquisitionCoordinator.Phase.IN_PROGRESS) {
@@ -344,6 +368,7 @@ object CrossDevice {
         event: PassiveAcquisitionCoordinator.Event.ReadyToConnect,
         lidOpen: Boolean,
         enabled: Boolean,
+        issueCommand: Boolean = false,
     ): Boolean {
         val service = ServiceManager.getService() ?: return false
         val target = service.macAddress.takeIf { it.isNotBlank() } ?: return false
@@ -363,11 +388,12 @@ object CrossDevice {
             headsetId = headsetId,
             membership = membership,
             peers = peers,
+            issueCommand = issueCommand,
         ) == true
         val currentIntent = passiveAcquisitionCoordinator?.currentIntent()
         if (!authorized && currentIntent?.requestId == event.requestId &&
             currentIntent.phase == PassiveAcquisitionCoordinator.Phase.CANCELLED) {
-            dispatchAcquisitionFrames(passiveAcquisitionProtocol?.cancel().orEmpty())
+            dispatchAcquisitionFrames(passiveAcquisitionProtocol?.replayCancellations().orEmpty())
         }
         return authorized
     }
@@ -394,6 +420,12 @@ object CrossDevice {
         val result = passiveAcquisitionProtocol?.receive(remoteId, remoteSessionId, frame,
             localStatus, membership, currentRevisions) ?: return
         Log.d(TAG, "passive acquisition received=$type replies=${result.replies.map { PeerV2Message.decode(it).let { message -> message.type to message.fields["reason"] } }} ready=${result.readyToConnect != null}")
+        LidAutoconnectDiagnostics.logEvent("passive_receive", mapOf("type" to type,
+            "ready" to (result.readyToConnect != null),
+            "request" to LidAutoconnectDiagnostics.fingerprint(fields["requestId"]?.toString().orEmpty()),
+            "reason" to fields["reason"],
+            "participantPhase" to passiveAcquisitionCoordinator?.currentReservation()?.phase,
+            "participantRequest" to passiveAcquisitionCoordinator?.currentReservation()?.requestId?.let(LidAutoconnectDiagnostics::fingerprint)))
         dispatchAcquisitionFrames(result.replies)
         result.readyToConnect?.let { passiveAcquisitionReady?.invoke(it) }
     }
@@ -458,6 +490,9 @@ object CrossDevice {
         val byId = membersByMac?.entries?.associate { it.value to it.key }.orEmpty()
         frames.forEach { frame ->
             val message = runCatching { PeerV2Message.decode(frame) }.getOrNull() ?: return@forEach
+            LidAutoconnectDiagnostics.logEvent("passive_send", mapOf("type" to message.type,
+                "request" to LidAutoconnectDiagnostics.fingerprint(message.fields["requestId"]?.toString().orEmpty()),
+                "reason" to message.fields["reason"]))
             val targetIds = when (frame.type) {
                 PeerV2Frame.Type.ACQUIRE_REQUEST, PeerV2Frame.Type.ACQUIRE_CANCEL -> byId.keys
                 PeerV2Frame.Type.ACQUIRE_START -> setOfNotNull(message.fields["grantorId"] as? String)
@@ -774,10 +809,16 @@ object CrossDevice {
             "lastOwnerRevision" to null,
             "acquisition" to acquisitionSnapshot(),
         )
-        return state + mapOf(
+        val snapshot = state + mapOf(
             "sessionId" to (processSessionId ?: error("session_unavailable")),
             "revision" to v2SnapshotRevision.forState(state),
         )
+        if (held == true && service?.hasConfirmedPassiveAudioConnection() == true) {
+            passiveAcquisitionCoordinator?.currentIntent()?.let { current ->
+                passiveAcquisitionCoordinator?.requesterResolve(current.requestId, true)
+            }
+        }
+        return snapshot
     }
 
     private fun acquisitionSnapshot(): Map<String, Any?>? {
@@ -825,12 +866,18 @@ object CrossDevice {
             address, snapshot["headsetId"] as? String, remoteSession,
             snapshot["revision"] as? Long ?: return false, ownership, audioUse,
         )
+        LidAutoconnectDiagnostics.logEvent("peer_snapshot", mapOf("accepted" to accepted,
+            "peer" to address, "ownership" to ownership, "audioUse" to audioUse,
+            "revision" to snapshot["revision"]))
         if (!accepted) return false
         val localHeadset = ServiceManager.getService()?.macAddress?.takeIf { it.isNotBlank() }
             ?.let { PeerIdentityStore.headsetIdFromAddress(it) }
         if (localHeadset != null && snapshot["headsetId"] == localHeadset) {
             if (ownership == PeerOwnership.RELEASED) holders.removeIf { it.equals(address, true) }
             if (ownership == PeerOwnership.HELD) holders.add(address.uppercase())
+        }
+        if (ownership == PeerOwnership.HELD && localHeadset != null && snapshot["headsetId"] == localHeadset) {
+            passiveAcquisitionCoordinator?.observePeerHeld(expectedInstallId, localHeadset)
         }
         val acquisition = snapshot["acquisition"] as? Map<*, *>
         val requestId = acquisition?.get("requestId") as? String
@@ -880,7 +927,14 @@ object CrossDevice {
         processSessionId = identity.sessionId
         if (passiveAcquisitionCoordinator == null || passiveCoordinatorInstallationId != identity.installationId) {
             val clock = ElapsedClock { SystemClock.elapsedRealtime() }
-            passiveAcquisitionCoordinator = PassiveAcquisitionCoordinator(identity.installationId, clock)
+            passiveAcquisitionCoordinator = PassiveAcquisitionCoordinator(identity.installationId, clock).apply {
+                transitionListener = { event ->
+                    LidAutoconnectDiagnostics.logEvent("reservation_transition", mapOf(
+                        "role" to event.role, "request" to LidAutoconnectDiagnostics.fingerprint(event.requestId),
+                        "phase" to event.phase, "reason" to event.reason, "commandIssued" to event.commandIssued,
+                    ))
+                }
+            }
         }
         passiveCoordinatorInstallationId = identity.installationId
         passiveCoordinatorSessionId = identity.sessionId
@@ -1044,15 +1098,14 @@ object CrossDevice {
         // handovers and Android Doze will eventually drop the idle ACL. Pinging the
         // peer every 20 s keeps it alive. The peer's CrossDeviceClient already
         // replies to REQUEST_CONNECTION_STATUS, so no protocol change is needed.
-        val connectedAtElapsedMs = SystemClock.elapsedRealtime()
+        val liveness = io.automated.ventures.everypods.utils.peer.LegacyPeerLiveness(SystemClock.elapsedRealtime())
+        val decoder = io.automated.ventures.everypods.utils.peer.LegacyPeerStreamDecoder()
+        LidAutoconnectDiagnostics.logConnectionEvent("legacy_server", "opened")
         val keepAliveJob: Job = clientScope.launch {
             while (true) {
                 delay(SERVER_KEEPALIVE_INTERVAL_MS)
                 if (!clientSockets.contains(socket)) break
-                val ok = runCatching {
-                    socket.outputStream.write(CrossDevicePackets.REQUEST_CONNECTION_STATUS.packet)
-                    socket.outputStream.flush()
-                }.isSuccess
+                val ok = sendToSocket(socket, CrossDevicePackets.REQUEST_CONNECTION_STATUS.packet)
 
                 if (!ok) {
                     // W5: a failed write means the link is dying. A GAP in these
@@ -1060,8 +1113,9 @@ object CrossDevice {
                     Log.w(TAG, "Server keep-alive ping FAILED → $addr (link dying)")
                     break
                 }
-                val lastStatus = peerStatusReceivedAt(addr) ?: connectedAtElapsedMs
-                if (SystemClock.elapsedRealtime() - lastStatus > 45_000L) {
+                if (liveness.expired(SystemClock.elapsedRealtime())) {
+                    LidAutoconnectDiagnostics.logConnectionEvent("legacy_server", "timeout", mapOf(
+                        "ageMs" to liveness.responseAgeMs(SystemClock.elapsedRealtime())))
                     Log.w(TAG, "Server heartbeat status expired → $addr (closing stale link)")
                     socket.runCatching { close() }
                     break
@@ -1079,10 +1133,18 @@ object CrossDevice {
                 break
             }
             if (bytes == -1) break
-            processPacket(buffer.copyOf(bytes), addr)
+            for (packet in decoder.feed(buffer.copyOf(bytes))) {
+                if (packet.contentEquals(CrossDevicePackets.AIRPODS_CONNECTED.packet) ||
+                    packet.contentEquals(CrossDevicePackets.AIRPODS_DISCONNECTED.packet)) {
+                    liveness.onStatusResponse(SystemClock.elapsedRealtime())
+                }
+                processPacket(packet, addr)
+            }
         }
 
         keepAliveJob.cancel()
+        LidAutoconnectDiagnostics.logConnectionEvent("legacy_server", "closed", mapOf(
+            "ageMs" to liveness.responseAgeMs(SystemClock.elapsedRealtime())))
         socket.runCatching { close() }
         clientSockets.remove(socket)
         onPeerTransportDisconnected(addr)
@@ -1278,15 +1340,24 @@ object CrossDevice {
         }
     }
 
-    private fun sendToSocket(socket: BluetoothSocket, data: ByteArray, onFail: (() -> Unit)? = null) {
+    // Never hold the BluetoothSocket monitor across a blocking write: close()
+    // needs that monitor to interrupt dead I/O. Weak keys avoid retaining old links.
+    private val legacyWriteLocks = java.util.WeakHashMap<BluetoothSocket, Any>()
+
+    private fun sendToSocket(socket: BluetoothSocket, data: ByteArray, onFail: (() -> Unit)? = null): Boolean {
         val hex = data.joinToString("") { "%02x".format(it) }
         try {
-            socket.outputStream.write(data)
-            socket.outputStream.flush()
+            val writeLock = synchronized(legacyWriteLocks) { legacyWriteLocks.getOrPut(socket) { Any() } }
+            synchronized(writeLock) {
+                socket.outputStream.write(data)
+                socket.outputStream.flush()
+            }
             Log.d(TAG, "Sent to ${socket.remoteDevice.address}: $hex")
+            return true
         } catch (e: IOException) {
             Log.w(TAG, "Failed to send to ${socket.remoteDevice.address}: ${e.message}")
             onFail?.invoke()
+            return false
         }
     }
 
