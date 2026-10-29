@@ -83,6 +83,13 @@ object AudioLeasePrefs {
 
     fun leaseEverSet(ctx: Context): Boolean = leaseEverSet(prefs(ctx))
 
+    /** CONNECTING is not ownership; failed attempts leave the last holder intact. */
+    fun observeA2dpState(prefs: SharedPreferences, state: Int) {
+        if (state == android.bluetooth.BluetoothProfile.STATE_CONNECTED) {
+            claimLease(prefs, "a2dp_connected")
+        }
+    }
+
     fun claimLease(prefs: SharedPreferences, reason: String) {
         val id = UUID.randomUUID().toString()
         val now = System.currentTimeMillis()

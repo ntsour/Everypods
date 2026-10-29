@@ -162,6 +162,7 @@ object MediaController {
             }
             // Music dropped — re-issue play (auto-pause from the late route change).
             Log.d("MediaController", "routeLandPoller: music not active at ${elapsedMs}ms (check $checkCount), re-issuing play")
+            LidAutoconnectDiagnostics.logEvent("route_recovery_play", mapOf("ageMs" to elapsedMs, "check" to checkCount))
             sendPlay(force = true)
             // Schedule next check with arithmetic backoff.
             handler.postDelayed(this, delay)
@@ -188,6 +189,7 @@ object MediaController {
     /** Called by AirPodsService.takeOver() right before it actually invokes connectAudio(). */
     fun armPendingMusicTakeover(mac: String) {
         if (mac.isEmpty()) return
+        suppressRouteLandRestartUntilMs = 0L
         pendingMusicTakeoverForMac = mac
         pendingMusicTakeoverSetAt = System.currentTimeMillis()
         // Clear the "we paused this device's media" flag. By definition, if we're
@@ -210,12 +212,13 @@ object MediaController {
      * playback callback after a future play press is treated as a fresh
      * false→true transition instead of being suppressed by a stale `true`.
      */
-    fun resetMusicActiveState() {
+    fun resetMusicActiveState(preserveCurrentPlayback: Boolean = false) {
         if (lastKnownIsMusicActive != null) {
             Log.d("MediaController", "resetMusicActiveState (was: $lastKnownIsMusicActive)")
         }
-        lastKnownIsMusicActive = null
-        startDetector.rearm(false)
+        val baseline = preserveCurrentPlayback && this::audioManager.isInitialized && audioManager.isMusicActive
+        lastKnownIsMusicActive = if (preserveCurrentPlayback) baseline else null
+        startDetector.rearm(baseline)
     }
 
     fun onRelayHandoverSuppressionChanged(suppressed: Boolean, reason: String) {
@@ -264,6 +267,26 @@ object MediaController {
             "MediaController",
             "  → suppress routeLand restart for ${PASSIVE_CONNECT_ROUTELAND_SUPPRESS_MS}ms"
         )
+    }
+
+    /** A peer's newer intent ends all recovery work for our previous playback. */
+    fun yieldPlaybackToPeer(stillCurrent: () -> Boolean = { true }, onYield: () -> Unit = {}) {
+        val reset = Runnable {
+            if (!stillCurrent()) {
+                LidAutoconnectDiagnostics.logEvent("media_peer_yield_superseded")
+                return@Runnable
+            }
+            onYield()
+            clearAutoPlayForPassiveConnect("peer_yield")
+            lastPlayWithReplay = false
+            cancelMediaVerification()
+            handler.removeCallbacks(processLatestPlayback)
+            playbackCallbackPending = false
+            sendPause(force = true)
+            resetMusicActiveState(preserveCurrentPlayback = true)
+            LidAutoconnectDiagnostics.logEvent("media_peer_yield", mapOf("active" to audioManager.isMusicActive))
+        }
+        if (Looper.myLooper() == handler.looper) reset.run() else handler.post(reset)
     }
 
     /**
@@ -586,6 +609,10 @@ object MediaController {
             lastMediaTakeoverRequestAt?.let { now - it < 750L } == true -> "duplicate start event"
             else -> null
         }
+        LidAutoconnectDiagnostics.logEvent("media_takeover_decision", mapOf(
+            "trigger" to reason, "decision" to if (rejection == null) "candidate" else "skip",
+            "reason" to rejection, "active" to audioManager.isMusicActive,
+        ))
         if (rejection != null) {
             Log.i("MediaController", "Media handover skipped: $rejection; trigger=$reason emitting=${shouldSuppressAutomaticTakeoverForRelay()} receiverPlayback=$relayAudioPlaybackActive")
             return
@@ -598,6 +625,7 @@ object MediaController {
         val changedAt = io.automated.ventures.everypods.services.AirPodsService.lastA2dpStateChangeMs
         if (changedAt > 0L && System.currentTimeMillis() - changedAt <
             io.automated.ventures.everypods.services.AirPodsService.A2DP_STATE_FLUX_WINDOW_MS) {
+            LidAutoconnectDiagnostics.logEvent("media_takeover_decision", mapOf("trigger" to reason, "decision" to "skip", "reason" to "route_flux"))
             Log.i("MediaController", "Media handover skipped: Bluetooth route changing; trigger=$reason")
             return
         }
@@ -607,6 +635,7 @@ object MediaController {
         // A pause remembered from yielding to a peer must not veto the user's Play.
         iPausedTheMedia = false
         Log.i("MediaController", "Media start verified; requesting takeOver(music); trigger=$reason")
+        LidAutoconnectDiagnostics.logEvent("media_takeover_decision", mapOf("trigger" to reason, "decision" to "takeover"))
         service.takeOver("music")
     }
 

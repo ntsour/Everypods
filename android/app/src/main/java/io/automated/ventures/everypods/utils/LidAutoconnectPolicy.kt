@@ -8,6 +8,17 @@ package io.automated.ventures.everypods.utils
  * Retrying in that state only creates an A2DP tug-of-war.
  */
 object LidAutoconnectPolicy {
+    /** Closing an empty case after removing the buds must not cancel the connect. */
+    fun preserveRecoveryAfterClose(nowMs: Long, deadlineMs: Long, bothBudsCharging: Boolean): Boolean =
+        nowMs < deadlineMs && !bothBudsCharging
+
+    /** A callback from a cancelled/replaced cycle must never issue a headset command. */
+    fun mayIssueDeferredConnect(
+        nowMs: Long, requestedDeadlineMs: Long, activeDeadlineMs: Long, active: Boolean,
+        enabled: Boolean, peerHolding: Boolean, peerCooldownUntilMs: Long, contentionUntilMs: Long,
+    ): Boolean = active && enabled && !peerHolding && requestedDeadlineMs == activeDeadlineMs &&
+        nowMs < activeDeadlineMs && nowMs >= peerCooldownUntilMs && nowMs >= contentionUntilMs
+
     const val CONTESTED_CONNECTION_WINDOW_MS = 8_000L
     const val CONTENTION_COOLDOWN_MS = 15_000L
 

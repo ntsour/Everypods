@@ -467,7 +467,7 @@
     <string name="ui_title_and_body">Título y cuerpo</string>
     <string name="ui_title_only">Solo título</string>
     <string name="ui_unable_to_connect_to_airpods_o">No se puede conectar a AirPods a través de L2CAP</string>
-    <string name="ui_use_after_lid_open_didn_t_auto">Úsalo si los AirPods no se conectaron al abrir el estuche. Guarda los registros recientes del estuche y de Bluetooth.</string>
+    <string name="ui_use_after_lid_open_didn_t_auto">Exporta el historial independiente del estuche y de conexión automática, conservado al menos 48 horas incluso al reiniciar la app.</string>
     <string name="ui_velocity">Velocidad</string>
     <string name="ui_vertical">Vertical</string>
     <string name="ui_voice">Voz</string>

@@ -18,9 +18,10 @@ class PeerAcquisitionProtocol(
         localSnapshotRevision: Long,
         peers: Map<String, PassiveAcquisitionCoordinator.PeerStatus>,
     ): List<PeerV2Frame.Frame> {
+        coordinator.cancelExpiredPreparation()
         val event = coordinator.begin(headsetId, localSessionId(), membership,
             localUnowned, lastOwnerEligible, lidOpen, enabled, localSnapshotRevision, peers)
-        return if (event is PassiveAcquisitionCoordinator.Event.Request) frames(listOf(event)) else emptyList()
+        return frames(coordinator.pendingCancellations()) + if (event is PassiveAcquisitionCoordinator.Event.Request) frames(listOf(event)) else emptyList()
     }
 
     fun receive(
@@ -70,7 +71,7 @@ class PeerAcquisitionProtocol(
                 require(f.getValue("requesterId") == authenticatedPeerId &&
                     f.getValue("requesterSessionId") == authenticatedPeerSessionId) { "cancel_identity_mismatch" }
                 coordinator.participantCancel(f.getValue("requestId") as String,
-                    authenticatedPeerId, authenticatedPeerSessionId)
+                    authenticatedPeerId, authenticatedPeerSessionId, f.getValue("membershipDigest") as String)
                 return Result(emptyList())
             }
             PeerV2Frame.Type.ACQUIRE_GRANT -> {
@@ -98,6 +99,13 @@ class PeerAcquisitionProtocol(
     }
 
     fun cancel(): List<PeerV2Frame.Frame> = frames(coordinator.cancelIntent())
+
+    fun replayCancellations(): List<PeerV2Frame.Frame> = frames(coordinator.pendingCancellations())
+
+    fun rejectedCommand(event: PassiveAcquisitionCoordinator.Event.ReadyToConnect): List<PeerV2Frame.Frame> =
+        frames(coordinator.rejectCommand(event.requestId, event.generation))
+
+    fun terminalProfileFailure(): List<PeerV2Frame.Frame> = frames(coordinator.failAfterProfileDisconnect())
 
     private fun participantReply(event: PassiveAcquisitionCoordinator.Event, request: Map<String, Any?>): PeerV2Frame.Frame = when (event) {
         is PassiveAcquisitionCoordinator.Event.Grant -> PeerV2Message.encode(PeerV2Frame.Type.ACQUIRE_GRANT,

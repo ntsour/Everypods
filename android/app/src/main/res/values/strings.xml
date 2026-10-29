@@ -389,7 +389,7 @@
     <string name="ui_permissions">Permissions</string>
     <string name="ui_reconnect_to_peer">Reconnect to peer</string>
     <string name="ui_report_lid_open_connect_failur">Report lid-open connect failure</string>
-    <string name="ui_use_after_lid_open_didn_t_auto">Use after lid open didn\'t auto-connect; saves recent lid/BT logs.</string>
+    <string name="ui_use_after_lid_open_didn_t_auto">Exports the separate case and automatic connection history, retained for at least 48 hours across app restarts.</string>
     <string name="ui_5_second_start_countdown">5-second start countdown</string>
     <string name="ui_all_apps_enabled_by_default_di">All apps enabled by default. Disable specific apps you don\'t want announced.</string>
     <string name="ui_alternate_stem_actions_for_wor">Alternate stem actions for workouts</string>

@@ -388,7 +388,7 @@
     <string name="ui_permissions">Άδειες</string>
     <string name="ui_reconnect_to_peer">Επανασύνδεση στην άλλη συσκευή</string>
     <string name="ui_report_lid_open_connect_failur">Αναφορά αποτυχίας σύνδεσης με άνοιγμα θήκης</string>
-    <string name="ui_use_after_lid_open_didn_t_auto">Χρησιμοποιήστε το αν το άνοιγμα της θήκης δεν προκάλεσε αυτόματη σύνδεση. Αποθηκεύει πρόσφατα αρχεία καταγραφής θήκης και Bluetooth.</string>
+    <string name="ui_use_after_lid_open_didn_t_auto">Εξάγει το ξεχωριστό ιστορικό θήκης και αυτόματης σύνδεσης, που διατηρείται για τουλάχιστον 48 ώρες ακόμη και μετά την επανεκκίνηση της εφαρμογής.</string>
     <string name="ui_5_second_start_countdown">Αντίστροφη μέτρηση 5 δευτερολέπτων πριν την έναρξη</string>
     <string name="ui_all_apps_enabled_by_default_di">Όλες οι εφαρμογές είναι ενεργές από προεπιλογή. Απενεργοποιήστε όσες δεν θέλετε να εκφωνούνται.</string>
     <string name="ui_alternate_stem_actions_for_wor">Εναλλακτικά χειριστήρια ακουστικών για προπόνηση</string>

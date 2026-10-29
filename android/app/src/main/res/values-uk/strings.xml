@@ -467,7 +467,7 @@
     <string name="ui_title_and_body">Заголовок і текст</string>
     <string name="ui_title_only">Лише заголовок</string>
     <string name="ui_unable_to_connect_to_airpods_o">Неможливо підключитися до AirPods через L2CAP</string>
-    <string name="ui_use_after_lid_open_didn_t_auto">Використовуйте після того, як відкрита кришка не підключилася автоматично; зберігає останні журнали lid/BT.</string>
+    <string name="ui_use_after_lid_open_didn_t_auto">Експортує окрему історію футляра й автоматичних підключень, яка зберігається щонайменше 48 годин навіть після перезапуску застосунку.</string>
     <string name="ui_velocity">швидкість</string>
     <string name="ui_vertical">Вертикальний</string>
     <string name="ui_voice">Голос</string>

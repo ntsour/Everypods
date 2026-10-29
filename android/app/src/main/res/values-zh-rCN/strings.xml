@@ -466,7 +466,7 @@
     <string name="ui_title_and_body">标题和正文</string>
     <string name="ui_title_only">仅标题</string>
     <string name="ui_unable_to_connect_to_airpods_o">无法通过 L2CAP 连接到 AirPods</string>
-    <string name="ui_use_after_lid_open_didn_t_auto">使用后打开盖子没有自动连接；保存最近的盖子/BT 日志。</string>
+    <string name="ui_use_after_lid_open_didn_t_auto">导出独立保存的充电盒和自动连接历史记录，至少保留 48 小时，重启应用后仍可查看。</string>
     <string name="ui_velocity">速度</string>
     <string name="ui_vertical">垂直</string>
     <string name="ui_voice">语音</string>

@@ -467,7 +467,7 @@
     <string name="ui_title_and_body">Título e corpo</string>
     <string name="ui_title_only">Somente título</string>
     <string name="ui_unable_to_connect_to_airpods_o">Não é possível conectar-se aos AirPods via L2CAP</string>
-    <string name="ui_use_after_lid_open_didn_t_auto">Use após a tampa aberta não se conectar automaticamente; salva registros recentes do lid/BT.</string>
+    <string name="ui_use_after_lid_open_didn_t_auto">Exporta o histórico separado do estojo e das ligações automáticas, guardado durante pelo menos 48 horas mesmo após reiniciar a aplicação.</string>
     <string name="ui_velocity">Velocidade</string>
     <string name="ui_vertical">Verticais</string>
     <string name="ui_voice">Voz</string>

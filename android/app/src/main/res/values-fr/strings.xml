@@ -467,7 +467,7 @@
     <string name="ui_title_and_body">Titre et corps</string>
     <string name="ui_title_only">Titre uniquement</string>
     <string name="ui_unable_to_connect_to_airpods_o">Impossible de se connecter aux AirPods via L2CAP</string>
-    <string name="ui_use_after_lid_open_didn_t_auto">L\'utilisation après l\'ouverture du couvercle ne s\'est pas automatiquement connectée ; enregistre les journaux récents du couvercle/BT.</string>
+    <string name="ui_use_after_lid_open_didn_t_auto">Exporte l’historique distinct du boîtier et des connexions automatiques, conservé au moins 48 heures même après le redémarrage de l’application.</string>
     <string name="ui_velocity">Vitesse</string>
     <string name="ui_vertical">Verticale</string>
     <string name="ui_voice">Voix</string>

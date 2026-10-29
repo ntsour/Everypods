@@ -455,7 +455,7 @@
     <string name="ui_title_and_body">Titel und Text</string>
     <string name="ui_title_only">Nur Titel</string>
     <string name="ui_unable_to_connect_to_airpods_o">Es kann keine Verbindung zu AirPods über L2CAP hergestellt werden</string>
-    <string name="ui_use_after_lid_open_didn_t_auto">Bei Verwendung nach dem Öffnen des Deckels wurde keine automatische Verbindung hergestellt; Speichert aktuelle Lid/BT-Protokolle.</string>
+    <string name="ui_use_after_lid_open_didn_t_auto">Exportiert den separaten Verlauf von Case und automatischen Verbindungen. Er bleibt auch nach App-Neustarts mindestens 48 Stunden erhalten.</string>
     <string name="ui_velocity">Geschwindigkeit</string>
     <string name="ui_vertical">Vertikal</string>
     <string name="ui_voice">Stimme</string>
