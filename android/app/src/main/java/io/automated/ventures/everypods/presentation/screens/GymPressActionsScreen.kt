@@ -43,6 +43,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.navigation.NavController
 import io.automated.ventures.everypods.presentation.components.HeadGestureActions
+import io.automated.ventures.everypods.presentation.components.gymControlActionOptions
 import io.automated.ventures.everypods.data.HeadGesture
 import io.automated.ventures.everypods.data.Capability
 import io.automated.ventures.everypods.utils.HeadGesturePrefs
@@ -94,16 +95,8 @@ fun GymPressActionsScreen(viewModel: AirPodsViewModel, navController: NavControl
         Triple(stringResource(R.string.press_and_hold_airpods),   AACPManager.Companion.StemPressType.LONG_PRESS,    StemAction.GYM_TIMER_RESET),
     )
 
-    val actionOptions = listOf(
-        StemAction.PLAY_PAUSE              to stringResource(R.string.action_play_pause),
-        StemAction.NEXT_TRACK              to stringResource(R.string.action_next_track),
-        StemAction.PREVIOUS_TRACK          to stringResource(R.string.action_previous_track),
-        StemAction.CYCLE_NOISE_CONTROL_MODES to stringResource(R.string.noise_control),
-        // Gym Mode On/Off is owned by AirPods Controls long-press only (per bud).
-        StemAction.GYM_TIMER_START_STOP    to stringResource(R.string.action_timer_start_stop),
-        StemAction.GYM_TIMER_LAP           to stringResource(R.string.action_timer_lap),
-        StemAction.GYM_TIMER_RESET         to stringResource(R.string.action_timer_reset),
-    )
+    // Gym Mode On/Off is owned by AirPods Controls long-press only (per bud).
+    val actionOptions = gymControlActionOptions()
     // Display names for the Controls long-press shown in "Same as Controls: …".
     val controlsActionNames = mapOf(
         StemAction.PLAY_PAUSE                to stringResource(R.string.action_play_pause),

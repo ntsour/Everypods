@@ -116,6 +116,7 @@ fun HeartRateCaseControl(viewModel: AirPodsViewModel) {
     val status = when {
         sharing.recovering || session.status == HeartRateStatus.RECOVERING -> stringResource(R.string.hrs_reconnecting)
         failureText != null -> stringResource(failureText)
+        session.stopReason == io.automated.ventures.everypods.bluetooth.hrm.HeartRateStopReason.AIRPODS_IN_CASE -> stringResource(R.string.hrm_stopped_in_case)
         !ui.aacpAvailable -> stringResource(R.string.requires_aacp_message)
         !ready && !active -> stringResource(R.string.hrm_connection)
         bpm != null -> stringResource(R.string.hrm_bpm, bpm)

@@ -992,4 +992,5 @@
     <string name="ui_control_gym_timer">Έλεγχος χρονομέτρου γυμναστικής</string>
     <string name="permission_local_network">Τοπικό δίκτυο</string>
     <string name="audio_relay_network_options">Επιλογές δικτύου · %1$s</string>
+    <string name="hrm_stopped_in_case">Η παρακολούθηση καρδιακών παλμών σταμάτησε — τα AirPods είναι στη θήκη.</string>
 </resources>

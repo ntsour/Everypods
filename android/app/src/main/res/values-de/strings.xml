@@ -1026,4 +1026,5 @@ Protokollanfragen: %4$d</string>
     <string name="ui_control_gym_timer">Gym-Timer steuern</string>
     <string name="permission_local_network">Lokales Netzwerk</string>
     <string name="audio_relay_network_options">Netzwerkoptionen · %1$s</string>
+    <string name="hrm_stopped_in_case">Herzfrequenzüberwachung beendet — AirPods sind im Case.</string>
 </resources>

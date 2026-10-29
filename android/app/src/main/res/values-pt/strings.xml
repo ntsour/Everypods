@@ -1027,4 +1027,5 @@ Pedidos do protocolo: %4$d</string>
     <string name="ui_control_gym_timer">Controlar o temporizador de ginásio</string>
     <string name="permission_local_network">Rede local</string>
     <string name="audio_relay_network_options">Opções de rede · %1$s</string>
+    <string name="hrm_stopped_in_case">Monitorização da frequência cardíaca terminada — os AirPods estão no estojo.</string>
 </resources>

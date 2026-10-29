@@ -1027,4 +1027,5 @@ Yêu cầu giao thức: %4$d</string>
     <string name="ui_control_gym_timer">Điều khiển bộ hẹn giờ tập luyện</string>
     <string name="permission_local_network">Mạng cục bộ</string>
     <string name="audio_relay_network_options">Tùy chọn mạng · %1$s</string>
+    <string name="hrm_stopped_in_case">Đã dừng theo dõi nhịp tim — AirPods đang ở trong hộp.</string>
 </resources>

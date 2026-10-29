@@ -87,4 +87,43 @@ class HeadGestureControlsTest {
         assertFalse(HeadGesturePrefs.read(prefs).shakeStopsAnnouncements)
     }
 
+    @Test fun gymGesturesOfferAndPersistAllTimerActions() {
+        val context = isolatedContext()
+        val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+        compose.setContent {
+            CompositionLocalProvider(LocalContext provides context) {
+                MaterialTheme {
+                    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                        HeadGestureActions(gym = true)
+                    }
+                }
+            }
+        }
+        for (gesture in HeadGesture.entries) {
+            for (action in listOf(StemAction.GYM_TIMER_START_STOP, StemAction.GYM_TIMER_LAP, StemAction.GYM_TIMER_RESET)) {
+                val settings = HeadGesturePrefs.read(prefs)
+                val selected = settings.gym[gesture]
+                val selectedLabel = context.getString(when (selected) {
+                    StemAction.GYM_TIMER_START_STOP -> R.string.action_timer_start_stop
+                    StemAction.GYM_TIMER_LAP -> R.string.action_timer_lap
+                    StemAction.GYM_TIMER_RESET -> R.string.action_timer_reset
+                    else -> R.string.hg_do_nothing
+                })
+                val gestureLabel = context.getString(if (gesture == HeadGesture.NOD) R.string.hg_nod else R.string.hg_shake)
+                compose.onNodeWithContentDescription("$gestureLabel: $selectedLabel").performScrollTo().performClick()
+                val actionLabel = context.getString(when (action) {
+                    StemAction.GYM_TIMER_START_STOP -> R.string.action_timer_start_stop
+                    StemAction.GYM_TIMER_LAP -> R.string.action_timer_lap
+                    else -> R.string.action_timer_reset
+                })
+                compose.onNode(hasText(actionLabel) and hasAnyAncestor(isPopup())).performScrollTo().performClick()
+                compose.waitForIdle()
+                assertEquals(action, HeadGesturePrefs.read(prefs).gym[gesture])
+                assertEquals(HeadGestureDispatch.Action(action),
+                    HeadGesturePrefs.read(prefs).copy(enabled = true).resolve(gesture, HeadGestureContext.GYM))
+                assertNull(HeadGesturePrefs.read(prefs).normal[gesture])
+            }
+        }
+    }
+
 }
