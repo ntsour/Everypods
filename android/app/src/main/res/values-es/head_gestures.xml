@@ -33,4 +33,11 @@
     <string name="hg_stop_announcements_help">Mientras se reproduce un anuncio, niega con la cabeza para detenerlo en lugar de ejecutar la acción asignada del gimnasio o normal. Las llamadas tienen prioridad. Requiere activar Gestos de cabeza.</string>
     <string name="hg_advanced_diagnostics">Opciones avanzadas y diagnóstico</string>
     <string name="hg_gym_active_hint">El modo gimnasio está activo. Estas asignaciones normales están en pausa. Configura los gestos de cabeza en Controles del gimnasio.</string>
+    <string name="hg_max_phase_gap">Intervalo máximo entre movimientos</string>
+    <string name="hg_max_duration">Duración máxima del gesto</string>
+    <string name="hg_milliseconds">%1$d ms</string>
+    <string name="hg_speed_help">Los límites más bajos requieren movimientos más rápidos. El intervalo limita el tiempo entre las fases del movimiento; la duración limita toda la secuencia. Las secuencias lentas o incompletas se descartan.</string>
+    <string name="hg_axis_dominance">Exigencia de dirección</string>
+    <string name="hg_axis_ratio">%1$.1f×</string>
+    <string name="hg_direction_help">La amplitud del movimiento principal debe superar la del eje secundario por este factor. Los valores más altos rechazan más movimientos diagonales, pero requieren gestos más rectos.</string>
 </resources>

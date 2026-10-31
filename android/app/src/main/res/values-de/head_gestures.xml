@@ -33,4 +33,11 @@
     <string name="hg_stop_announcements_help">Schüttle während einer Ansage den Kopf, um sie zu stoppen, statt die zugewiesene Trainings- oder normale Aktion auszuführen. Anrufe haben Vorrang. Kopfgesten müssen aktiviert sein.</string>
     <string name="hg_advanced_diagnostics">Erweitert und Diagnose</string>
     <string name="hg_gym_active_hint">Der Trainingsmodus ist aktiv. Diese normalen Zuordnungen sind pausiert. Konfiguriere Kopfgesten in der Training-Steuerung.</string>
+    <string name="hg_max_phase_gap">Maximaler Bewegungsabstand</string>
+    <string name="hg_max_duration">Maximale Gestendauer</string>
+    <string name="hg_milliseconds">%1$d ms</string>
+    <string name="hg_speed_help">Niedrigere Grenzen erfordern schnellere Bewegungen. Der Abstand begrenzt die Zeit zwischen Bewegungsphasen; die Dauer begrenzt die gesamte Folge. Langsame oder unvollständige Folgen werden verworfen.</string>
+    <string name="hg_axis_dominance">Richtungsstrenge</string>
+    <string name="hg_axis_ratio">%1$.1f×</string>
+    <string name="hg_direction_help">Der Bewegungsbereich auf der Hauptachse muss um diesen Faktor größer sein als auf der Nebenachse. Höhere Werte verwerfen mehr diagonale Bewegungen, erfordern aber geradere Gesten.</string>
 </resources>

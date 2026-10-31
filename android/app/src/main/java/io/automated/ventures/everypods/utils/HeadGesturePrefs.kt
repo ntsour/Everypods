@@ -90,6 +90,9 @@ object HeadGesturePrefs {
         prefs.getInt(tuningKey(gesture, gym, "amplitude"), 800),
         prefs.getInt(tuningKey(gesture, gym, "repetitions"), 2),
         prefs.getInt(tuningKey(gesture, gym, "cooldown"), 2000),
+        prefs.getInt(tuningKey(gesture, gym, "max_phase_gap"), 1500),
+        prefs.getInt(tuningKey(gesture, gym, "max_duration"), 6000),
+        prefs.getInt(tuningKey(gesture, gym, "axis_dominance"), 150),
     ).validated()
 
     private fun writeTuning(edit: SharedPreferences.Editor, gesture: HeadGesture, gym: Boolean, tuning: GestureTuning) {
@@ -97,6 +100,9 @@ object HeadGesturePrefs {
         edit.putInt(tuningKey(gesture, gym, "amplitude"), valid.amplitude)
             .putInt(tuningKey(gesture, gym, "repetitions"), valid.repetitions)
             .putInt(tuningKey(gesture, gym, "cooldown"), valid.cooldownMs)
+            .putInt(tuningKey(gesture, gym, "max_phase_gap"), valid.maxPhaseGapMs)
+            .putInt(tuningKey(gesture, gym, "max_duration"), valid.maxDurationMs)
+            .putInt(tuningKey(gesture, gym, "axis_dominance"), valid.axisDominancePercent)
     }
 
     fun setTuning(prefs: SharedPreferences, gesture: HeadGesture, gym: Boolean, tuning: GestureTuning) {

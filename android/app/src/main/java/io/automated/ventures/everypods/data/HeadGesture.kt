@@ -4,11 +4,21 @@ enum class HeadGesture { NOD, SHAKE }
 enum class HeadGestureCallAction { ANSWER, DECLINE, MUTE_TOGGLE, HANG_UP }
 enum class HeadGestureContext { RINGING, ACTIVE_CALL, TEST, GYM, NORMAL }
 
-data class GestureTuning(val amplitude: Int = 800, val repetitions: Int = 2, val cooldownMs: Int = 2000) {
+data class GestureTuning(
+    val amplitude: Int = 800,
+    val repetitions: Int = 2,
+    val cooldownMs: Int = 2000,
+    val maxPhaseGapMs: Int = 1500,
+    val maxDurationMs: Int = 6000,
+    val axisDominancePercent: Int = 150,
+) {
     fun validated() = GestureTuning(
         ((amplitude.coerceIn(200, 2000) + 50) / 100) * 100,
         repetitions.coerceIn(1, 4),
         ((cooldownMs.coerceIn(500, 5000) + 250) / 500) * 500,
+        ((maxPhaseGapMs.coerceIn(200, 1500) + 50) / 100) * 100,
+        ((maxDurationMs.coerceIn(500, 6000) + 125) / 250) * 250,
+        ((axisDominancePercent.coerceIn(150, 400) + 25) / 50) * 50,
     )
 }
 

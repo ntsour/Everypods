@@ -33,4 +33,11 @@
     <string name="hg_stop_announcements_help">While speech is playing, shake to stop it instead of running the assigned Gym or normal action. Calls take priority. Requires Head Gestures to be enabled.</string>
     <string name="hg_advanced_diagnostics">Advanced and diagnostics</string>
     <string name="hg_gym_active_hint">Gym mode is active. These normal assignments are paused. Configure head gestures in Gym controls.</string>
+    <string name="hg_max_phase_gap">Maximum movement gap</string>
+    <string name="hg_max_duration">Maximum gesture duration</string>
+    <string name="hg_milliseconds">%1$d ms</string>
+    <string name="hg_speed_help">Lower limits require faster movements. The gap limits the time between movement phases; duration limits the whole sequence. Slow or incomplete sequences are discarded.</string>
+    <string name="hg_axis_dominance">Direction strictness</string>
+    <string name="hg_axis_ratio">%1$.1f×</string>
+    <string name="hg_direction_help">The movement range on the main axis must be this many times the range on the other axis. Higher values reject more diagonal movements, but require straighter gestures.</string>
 </resources>
