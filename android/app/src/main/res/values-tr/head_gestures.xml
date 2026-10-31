@@ -33,4 +33,11 @@
     <string name="hg_stop_announcements_help">Konuşma sırasında, atanmış spor veya normal işlemi çalıştırmak yerine durdurmak için başınızı yana sallayın. Aramalar önceliklidir. Baş hareketlerinin etkin olması gerekir.</string>
     <string name="hg_advanced_diagnostics">Gelişmiş ayarlar ve tanılama</string>
     <string name="hg_gym_active_hint">Spor modu etkin. Bu normal atamalar duraklatıldı. Baş hareketlerini Spor Kontrolleri bölümünde yapılandırın.</string>
+    <string name="hg_max_phase_gap">En uzun hareket aralığı</string>
+    <string name="hg_max_duration">En uzun hareket dizisi süresi</string>
+    <string name="hg_milliseconds">%1$d ms</string>
+    <string name="hg_speed_help">Daha düşük sınırlar daha hızlı hareketler gerektirir. Aralık, hareket aşamaları arasındaki süreyi; toplam süre ise tüm diziyi sınırlar. Yavaş veya eksik diziler yok sayılır.</string>
+    <string name="hg_axis_dominance">Yön hassasiyeti</string>
+    <string name="hg_axis_ratio">%1$.1f×</string>
+    <string name="hg_direction_help">Ana eksendeki hareket aralığı, diğer eksendekinin bu katı kadar olmalıdır. Daha yüksek değerler daha fazla çapraz hareketi reddeder, ancak daha düz hareketler gerektirir.</string>
 </resources>

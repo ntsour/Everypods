@@ -33,4 +33,11 @@
     <string name="hg_stop_announcements_help">Durante un annuncio, scuoti la testa per interromperlo anziché eseguire l’azione normale o della palestra assegnata. Le chiamate hanno la priorità. I gesti della testa devono essere attivi.</string>
     <string name="hg_advanced_diagnostics">Opzioni avanzate e diagnostica</string>
     <string name="hg_gym_active_hint">La modalità palestra è attiva. Queste assegnazioni normali sono sospese. Configura i gesti in Controlli palestra.</string>
+    <string name="hg_max_phase_gap">Intervallo massimo tra movimenti</string>
+    <string name="hg_max_duration">Durata massima del gesto</string>
+    <string name="hg_milliseconds">%1$d ms</string>
+    <string name="hg_speed_help">Limiti più bassi richiedono movimenti più rapidi. L’intervallo limita il tempo tra le fasi del movimento; la durata limita l’intera sequenza. Le sequenze lente o incomplete vengono scartate.</string>
+    <string name="hg_axis_dominance">Rigidità della direzione</string>
+    <string name="hg_axis_ratio">%1$.1f×</string>
+    <string name="hg_direction_help">L’ampiezza del movimento sull’asse principale deve essere questo numero di volte quella sull’asse secondario. Valori più alti scartano più movimenti diagonali, ma richiedono gesti più dritti.</string>
 </resources>
