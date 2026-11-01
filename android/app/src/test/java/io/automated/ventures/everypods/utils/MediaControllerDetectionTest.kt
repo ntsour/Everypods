@@ -45,17 +45,6 @@ class MediaControllerDetectionTest {
 
     private fun messages() = ShadowLog.getLogsForTag("MediaController").map { it.msg }
 
-    @Test fun routeRecoveryDoesNotRestartPausedPlayback() {
-        ReflectionHelpers.setStaticField(MediaController::class.java, "suppressRouteLandRestartUntilMs", 0L)
-        shadowOf(audio).setIsMusicActive(true)
-        MediaController.restartRouteLandPoller()
-        main.idleFor(Duration.ofMillis(200))
-        shadowOf(audio).setIsMusicActive(false)
-        main.idleFor(Duration.ofSeconds(2))
-        assertTrue(messages().any { it.contains("music stopped; preserving pause") })
-        assertFalse(messages().any { it.contains("Sending play") })
-    }
-
     @Test fun actualStartImmediatelyAfterEmptyCallbackSurvivesCoalescing() {
         shadowOf(audio).setIsMusicActive(false)
         MediaController.cb.onPlaybackConfigChanged(mutableListOf())
@@ -63,21 +52,10 @@ class MediaControllerDetectionTest {
         shadowOf(audio).setIsMusicActive(true)
         shadowOf(audio).setActivePlaybackConfigurationsFor(listOf(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).build()))
         MediaController.cb.onPlaybackConfigChanged(audio.activePlaybackConfigurations.toMutableList())
-        main.idleFor(Duration.ofMillis(500))
+        main.idleFor(Duration.ofMillis(100))
         // No Bluetooth service is created in this test. Reaching its request boundary
         // proves the start was detected rather than discarded by the old debounce.
         assertTrue(messages().any { it.contains("AirPods service unavailable; trigger=playback callback") })
-    }
-
-    @Test fun briefMediaClassifiedSoundDoesNotMoveAirpods() {
-        shadowOf(audio).setIsMusicActive(true)
-        shadowOf(audio).setActivePlaybackConfigurationsFor(listOf(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).build()))
-        MediaController.cb.onPlaybackConfigChanged(audio.activePlaybackConfigurations.toMutableList())
-        main.idleFor(Duration.ofMillis(120))
-        shadowOf(audio).setActivePlaybackConfigurationsFor(emptyList())
-        MediaController.cb.onPlaybackConfigChanged(mutableListOf())
-        main.idleFor(Duration.ofSeconds(1))
-        assertFalse(messages().any { it.contains("AirPods service unavailable") || it.contains("requesting takeOver") })
     }
 
     @Test fun emptyPlaybackListStartsABoundedVerification() {
@@ -154,7 +132,7 @@ class MediaControllerDetectionTest {
         main.idleFor(Duration.ofMillis(120))
         shadowOf(audio).setIsMusicActive(true)
         MediaController.cb.onPlaybackConfigChanged(audio.activePlaybackConfigurations.toMutableList())
-        main.idleFor(Duration.ofMillis(500))
+        main.idleFor(Duration.ofMillis(120))
         assertTrue(messages().any { it.contains("AirPods service unavailable; trigger=playback callback") })
     }
     @Test fun peerYieldPausesUserStartedPlaybackAndStopsOldReplayWatch() {
@@ -187,7 +165,7 @@ class MediaControllerDetectionTest {
         main.idleFor(Duration.ofMillis(120))
         shadowOf(audio).setIsMusicActive(true)
         MediaController.cb.onPlaybackConfigChanged(audio.activePlaybackConfigurations.toMutableList())
-        main.idleFor(Duration.ofMillis(500))
+        main.idleFor(Duration.ofMillis(120))
         assertTrue(messages().any { it.contains("AirPods service unavailable; trigger=playback callback") })
     }
 

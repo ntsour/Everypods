@@ -7214,6 +7214,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             if (!lidOpenState || now >= passiveRecoveryDeadlineMs) {
                 lidOpenState = true
                 maybeScheduleLidAutoconnect()
+            } else {
+                // A fresh peer observation can arrive after an earlier check saw
+                // a transient A2DP connection. Wake the active episode to check again.
+                scheduleLidAutoconnectRetry("fresh_remote_evidence", 0L)
             }
         }
     }
@@ -7545,6 +7549,26 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         )
     }
 
+    /** Recheck within the existing case-open budget without extending its deadline. */
+    private fun scheduleLidAutoconnectRetry(reason: String, delayMs: Long) {
+        val deadline = passiveRecoveryDeadlineMs
+        if (!lidOpenState || deadline == 0L || SystemClock.elapsedRealtime() >= deadline ||
+            pendingLidAutoconnectRunnable != null) return
+        if (macAddress.isBlank() || !AudioLeasePrefs.isLeaseHolder(sharedPreferences)) return
+        val evidence = offlineAudioEvidence(macAddress, null)
+        if (!evidence.fresh || evidence.budsStored) return
+        val runnable = Runnable {
+            if (passiveRecoveryDeadlineMs == deadline) {
+                pendingLidAutoconnectRunnable = null
+                try { runLidAutoconnectAttempt() }
+                finally { releaseCaseWakeIfIdle(deadline) }
+            }
+        }
+        pendingLidAutoconnectRunnable = runnable
+        lidAutoconnectHandler.postDelayed(runnable, delayMs)
+        LidAutoconnectDiagnostics.logEvent("retry_schedule", mapOf("reason" to reason, "delayMs" to delayMs))
+    }
+
     @SuppressLint("MissingPermission")
     private fun runLidAutoconnectAttempt() {
         if (!lidOpenState || SystemClock.elapsedRealtime() >= passiveRecoveryDeadlineMs) {
@@ -7595,6 +7619,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         if (shared && nowElapsed < lidAutoconnectContentionUntilMs) return
         if (isA2dpConnected()) {
             LidAutoconnectDiagnostics.logEvent("skip", mapOf("reason" to "already_holds"))
+            // A2DP may be in the process of disconnecting from a competing
+            // device. Keep checking during this episode so that transient
+            // connectivity does not consume the only reconnect attempt.
+            scheduleLidAutoconnectRetry("a2dp_still_connected", 1_200L)
             return
         }
         if (shared && CrossDevice.isAvailable) {
