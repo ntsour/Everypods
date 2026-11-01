@@ -21,7 +21,7 @@ class GestureDetector(private val clock: () -> Long = { System.nanoTime() / 1_00
         var max = 0
         fun clear() { firstSign = 0; opposite = false; count = 0; started = null; lastExcursion = 0; min = 0; max = 0 }
         fun sample(value: Int, tuning: GestureTuning, now: Long) {
-            if (started != null && (now - lastExcursion > 1500 || now - started!! > 6000)) clear()
+            if (started != null && (now - lastExcursion > tuning.maxPhaseGapMs || now - started!! > tuning.maxDurationMs)) clear()
             val hadOpposite = opposite
             val cycleSign = firstSign
             if (abs(value) >= tuning.amplitude) {
@@ -95,8 +95,8 @@ class GestureDetector(private val clock: () -> Long = { System.nanoTime() / 1_00
             shake.min = minOf(shake.min, horizontal); shake.max = maxOf(shake.max, horizontal)
         } else { nod.clear(); shake.clear() }
         val winner = when {
-            nod.count >= nodTuning.repetitions && nod.max - nod.min >= (shake.max - shake.min) * 1.5 -> HeadGesture.NOD
-            shake.count >= shakeTuning.repetitions && shake.max - shake.min >= (nod.max - nod.min) * 1.5 -> HeadGesture.SHAKE
+            nod.count >= nodTuning.repetitions && (nod.max - nod.min) * 100 >= (shake.max - shake.min) * nodTuning.axisDominancePercent -> HeadGesture.NOD
+            shake.count >= shakeTuning.repetitions && (shake.max - shake.min) * 100 >= (nod.max - nod.min) * shakeTuning.axisDominancePercent -> HeadGesture.SHAKE
             else -> null
         }
         status = Status(Progress(maxOf(abs(nod.min), abs(nod.max)), nod.count), Progress(maxOf(abs(shake.min), abs(shake.max)), shake.count), detected)

@@ -33,4 +33,11 @@
     <string name="hg_stop_announcements_help">Pendant une annonce, secouez la tête pour l’arrêter au lieu d’exécuter l’action normale ou de sport attribuée. Les appels sont prioritaires. Les gestes de la tête doivent être activés.</string>
     <string name="hg_advanced_diagnostics">Options avancées et diagnostics</string>
     <string name="hg_gym_active_hint">Le mode sport est actif. Ces attributions normales sont suspendues. Configurez les gestes dans Commandes de sport.</string>
+    <string name="hg_max_phase_gap">Intervalle maximal entre mouvements</string>
+    <string name="hg_max_duration">Durée maximale du geste</string>
+    <string name="hg_milliseconds">%1$d ms</string>
+    <string name="hg_speed_help">Des limites plus basses exigent des mouvements plus rapides. L’intervalle limite le temps entre les phases du mouvement ; la durée limite toute la séquence. Les séquences lentes ou incomplètes sont ignorées.</string>
+    <string name="hg_axis_dominance">Rigueur de direction</string>
+    <string name="hg_axis_ratio">%1$.1f×</string>
+    <string name="hg_direction_help">L’amplitude du mouvement sur l’axe principal doit être ce nombre de fois celle de l’axe secondaire. Des valeurs plus élevées rejettent davantage de mouvements diagonaux, mais exigent des gestes plus droits.</string>
 </resources>
