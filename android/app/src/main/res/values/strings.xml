@@ -453,7 +453,7 @@
     <string name="ui_pop_up_animations">Pop-up Animations</string>
     <string name="ui_press_actions">Press Actions</string>
     <string name="ui_read_incoming_notifications_an">Read incoming notifications and callers aloud through the AirPods.</string>
-    <string name="ui_required_for_bluetooth_scannin">Required for Bluetooth scanning on Android 11 and below</string>
+    <string name="ui_required_for_bluetooth_scannin">Some phones require Location permission to deliver nearby AirPods Bluetooth advertisements. EveryPods uses these scans to detect AirPods; the scans do not collect or store your location.</string>
     <string name="ui_resume_media_after_call">Resume media after call</string>
     <string name="ui_right_bud">Right</string>
     <string name="ui_send_head_tracking_data_to_the">Send head-tracking data to the AirPods on connect. Off by default — enable only if you use head-gesture controls.</string>

@@ -419,7 +419,7 @@
     <string name="ui_remove_device">移除设备</string>
     <string name="ui_report_bugs_or_request_feature">在 GitHub 上报告错误或请求功能。</string>
     <string name="ui_report_lid_open_connect_failur">报告开盖连接失败</string>
-    <string name="ui_required_for_bluetooth_scannin">Android 11 及更低版本上需要蓝牙扫描</string>
+    <string name="ui_required_for_bluetooth_scannin">部分手机需要位置权限才能接收附近 AirPods 的蓝牙广播。EveryPods 使用这些扫描来检测 AirPods；扫描不会收集或存储您的位置信息。</string>
     <string name="ui_reset">重置</string>
     <string name="ui_reset_to_defaults">重置为默认值</string>
     <string name="ui_rest">休息</string>
