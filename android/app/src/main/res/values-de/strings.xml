@@ -408,7 +408,7 @@
     <string name="ui_remove_device">Gerät entfernen</string>
     <string name="ui_report_bugs_or_request_feature">Melden Sie Fehler oder fordern Sie Funktionen auf GitHub an.</string>
     <string name="ui_report_lid_open_connect_failur">Melden Sie einen Verbindungsfehler beim Öffnen des Deckels</string>
-    <string name="ui_required_for_bluetooth_scannin">Erforderlich für Bluetooth-Scannen unter Android 11 und niedriger</string>
+    <string name="ui_required_for_bluetooth_scannin">Manche Smartphones benötigen den Standortzugriff, um Bluetooth-Signale von AirPods in der Nähe zu empfangen. EveryPods nutzt diese Scans zur AirPods-Erkennung; dabei wird dein Standort weder erfasst noch gespeichert.</string>
     <string name="ui_reset">ZURÜCKSETZEN</string>
     <string name="ui_reset_to_defaults">Auf Standardeinstellungen zurücksetzen</string>
     <string name="ui_rest">Ruhe dich aus</string>

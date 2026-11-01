@@ -265,6 +265,10 @@ object CrossDevice {
         v2ReadySessions[mac.uppercase()] = sessionId
         v2ReadySockets[mac.uppercase()] = socket
         if (acquisitionCapable) v2AcquisitionCapable.add(mac.uppercase()) else v2AcquisitionCapable.remove(mac.uppercase())
+        // A listener that failed transiently gets another chance when an existing
+        // peer session becomes ready; no separate retry loop is needed.
+        remoteCaseTransport?.start()
+        ServiceManager.getService()?.retryRecentRemoteCaseObservation()
     }
 
     internal fun observeRemoteV2Snapshot(mac: String, helloSessionId: String, snapshot: Map<String, Any?>): Boolean {
@@ -333,6 +337,21 @@ object CrossDevice {
         dispatchAcquisitionFrames(passiveAcquisitionProtocol?.replayCancellations().orEmpty())
     }
 
+    /** Snapshot for binding an audio attempt to the existing wire reservation. */
+    fun pendingPassiveRequest(): Pair<String, String>? {
+        val intent = passiveAcquisitionCoordinator?.currentIntent() ?: return null
+        if (intent.phase !in setOf(PassiveAcquisitionCoordinator.Phase.PREPARING,
+                PassiveAcquisitionCoordinator.Phase.STARTING,
+                PassiveAcquisitionCoordinator.Phase.IN_PROGRESS) || intent.connectIssued ||
+            SystemClock.elapsedRealtime() >= intent.expiresAtElapsedMs) return null
+        return intent.requestId to intent.headsetId
+    }
+
+    /** Atomic identity check is performed inside the reservation coordinator. */
+    fun cancelPassiveRequest(requestId: String, headsetId: String) {
+        dispatchAcquisitionFrames(passiveAcquisitionProtocol?.cancelMatching(requestId, headsetId).orEmpty())
+    }
+
     fun passiveCommandIsCurrent(event: PassiveAcquisitionCoordinator.Event.ReadyToConnect): Boolean =
         passiveAcquisitionCoordinator?.commandIsCurrent(event.requestId, event.generation) == true
 
@@ -359,7 +378,9 @@ object CrossDevice {
         val current = coordinator.currentIntent()
         if (current?.phase == PassiveAcquisitionCoordinator.Phase.IN_PROGRESS) {
             sendV2ToConfiguredPeers(PeerV2Message.encode(PeerV2Frame.Type.SNAPSHOT, localSnapshot()))
-            coordinator.requesterResolve(current.requestId, true)
+            if (coordinator.requesterResolve(current.requestId, true)) {
+                dispatchAcquisitionFrames(passiveAcquisitionProtocol?.replayCancellations().orEmpty())
+            }
             sendV2ToConfiguredPeers(PeerV2Message.encode(PeerV2Frame.Type.SNAPSHOT, localSnapshot()))
         }
     }
@@ -370,16 +391,23 @@ object CrossDevice {
         enabled: Boolean,
         issueCommand: Boolean = false,
     ): Boolean {
-        val service = ServiceManager.getService() ?: return false
-        val target = service.macAddress.takeIf { it.isNotBlank() } ?: return false
-        val headsetId = runCatching { PeerIdentityStore.headsetIdFromAddress(target) }.getOrNull() ?: return false
-        val current = runCatching { localSnapshot() }.getOrNull() ?: return false
-        if (current["ownership"] != "released" || current["audioUse"] != "idle") return false
-        val membershipByMac = configuredInstallationIds() ?: return false
-        val localId = installationId ?: return false
+        fun invalidate(reason: String): Boolean {
+            LidAutoconnectDiagnostics.logEvent("passive_authorization_invalid", mapOf("reason" to reason))
+            // Matching cancellation cannot release a command already handed to Android.
+            cancelPassiveRequest(event.requestId, event.headsetId)
+            return false
+        }
+        val service = ServiceManager.getService() ?: return invalidate("service_unavailable")
+        val target = service.macAddress.takeIf { it.isNotBlank() } ?: return invalidate("headset_unavailable")
+        val headsetId = runCatching { PeerIdentityStore.headsetIdFromAddress(target) }.getOrNull()
+            ?: return invalidate("headset_identity_unavailable")
+        val current = runCatching { localSnapshot() }.getOrNull() ?: return invalidate("local_snapshot_unavailable")
+        if (current["ownership"] != "released" || current["audioUse"] != "idle") return invalidate("local_not_idle")
+        val membershipByMac = configuredInstallationIds() ?: return invalidate("membership_unavailable")
+        val localId = installationId ?: return invalidate("local_identity_unavailable")
         val membership = membershipByMac.values.toSet() + localId
-        if (membership.size != configuredPeers.size + 1) return false
-        val peers = passivePeerStatuses(headsetId, membershipByMac) ?: return false
+        if (membership.size != configuredPeers.size + 1) return invalidate("membership_changed")
+        val peers = passivePeerStatuses(headsetId, membershipByMac) ?: return invalidate("peer_snapshot_unavailable")
         val authorized = passiveAcquisitionCoordinator?.authorizeConnect(
             requestId = event.requestId,
             generationAtCall = event.generation,
@@ -388,6 +416,7 @@ object CrossDevice {
             headsetId = headsetId,
             membership = membership,
             peers = peers,
+            localSnapshotRevision = current["revision"] as? Long ?: return invalidate("local_revision_unavailable"),
             issueCommand = issueCommand,
         ) == true
         val currentIntent = passiveAcquisitionCoordinator?.currentIntent()
@@ -464,10 +493,13 @@ object CrossDevice {
         headsetId: String,
         membersByMac: Map<String, String>,
     ): Map<String, PassiveAcquisitionCoordinator.PeerStatus>? {
-        val observations = peerOwnershipStore.observations()
+        // Reservations and the final command authorization must never reuse a
+        // cached RELEASED snapshot after its freshness window has elapsed.
+        val observations = peerOwnershipStore.freshObservations(headsetId) ?: return null
         val result = linkedMapOf<String, PassiveAcquisitionCoordinator.PeerStatus>()
         membersByMac.forEach { (mac, id) ->
-            val observation = observations[mac] ?: run {
+            if (!v2AcquisitionCapable.contains(mac.uppercase())) return null
+            val observation = observations[mac.uppercase()] ?: run {
                 Log.d(TAG, "passive acquisition missing snapshot peer=$mac")
                 return null
             }
@@ -537,6 +569,63 @@ object CrossDevice {
     private val v2InboundQueues = ConcurrentHashMap<BluetoothSocket, Channel<ByteArray>>()
     private val v2ReadySessions = ConcurrentHashMap<String, String>()
     private val v2ReadySockets = ConcurrentHashMap<String, BluetoothSocket>()
+    @Volatile private var remoteCaseTransport: io.automated.ventures.everypods.utils.peer.RemoteCaseBluetoothTransport? = null
+
+    private fun remoteCasePeerSession(address: String): UUID? {
+        val mac = address.uppercase()
+        if (!isEnabled || configuredPeers.none { it.equals(mac, true) } ||
+            v2ReadySockets[mac]?.let { runCatching { it.isConnected }.getOrDefault(false) } != true) return null
+        val session = v2ReadySessions[mac] ?: return null
+        return runCatching { UUID.fromString(session) }.getOrNull()
+    }
+
+    internal fun isRemoteCaseEvidenceCurrent(address: String, session: UUID, observation: UUID, nowMs: Long): Boolean {
+        val transport = remoteCaseTransport ?: return false
+        return remoteCasePeerSession(address) == session && !transport.isWithdrawn(address, session, observation, nowMs)
+    }
+
+    fun publishRemoteCaseObservation(observation: io.automated.ventures.everypods.utils.peer.RemoteCaseEvidenceExchange.Observation) {
+        remoteCaseTransport?.publish(observation)
+    }
+
+    fun publishRemoteCaseWithdrawal(message: io.automated.ventures.everypods.utils.peer.RemoteCaseEvidenceMessage.Message.Withdrawal) {
+        remoteCaseTransport?.publishWithdrawal(message)
+    }
+
+    @Synchronized private fun startRemoteCaseTransport(adapter: android.bluetooth.BluetoothAdapter) {
+        if (configuredPeers.isEmpty()) { stopRemoteCaseTransport(); return }
+        remoteCaseTransport?.let { it.start(); return }
+        val transport = io.automated.ventures.everypods.utils.peer.RemoteCaseBluetoothTransport(adapter,
+            object : io.automated.ventures.everypods.utils.peer.RemoteCaseBluetoothTransport.Hooks {
+                override fun peers(): Set<String> = if (isEnabled) configuredPeers.mapTo(mutableSetOf()) { it.uppercase() } else emptySet()
+                override fun peerSession(address: String): UUID? = remoteCasePeerSession(address)
+                override fun currentObservation(id: UUID) = ServiceManager.getService()?.currentRemoteCaseObservation(id)
+                override fun receiverState(address: String) = ServiceManager.getService()?.remoteCaseReceiverState(remoteCasePeerSession(address))
+                override fun onAccepted(evidence: io.automated.ventures.everypods.utils.peer.RemoteCaseEvidenceExchange.Accepted) {
+                    ServiceManager.getService()?.acceptRemoteCaseEvidence(evidence)
+                }
+                override fun onWithdrawal(address: String, message: io.automated.ventures.everypods.utils.peer.RemoteCaseEvidenceMessage.Message.Withdrawal) {
+                    ServiceManager.getService()?.withdrawRemoteCaseEvidence(address, message)
+                }
+            }, acquireWake = { timeoutMs ->
+                val context = ServiceManager.getService()?.applicationContext
+                if (context == null) null else {
+                    val manager = context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+                    val wakeLock = manager.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "EveryPods:RemoteCase")
+                    wakeLock.acquire(timeoutMs)
+                    io.automated.ventures.everypods.utils.peer.RemoteCaseBluetoothTransport.WakeLease {
+                        if (wakeLock.isHeld) wakeLock.release()
+                    }
+                }
+            })
+        remoteCaseTransport = transport
+        transport.start()
+    }
+
+    @Synchronized private fun stopRemoteCaseTransport() {
+        remoteCaseTransport?.close()
+        remoteCaseTransport = null
+    }
     private val v2AcquisitionCapable = ConcurrentHashMap.newKeySet<String>()
     private class ListenerEndpoint(val name: String, val uuid: UUID) {
         val generation = AtomicLong(0L)
@@ -798,9 +887,8 @@ object CrossDevice {
         val service = ServiceManager.getService()
         val targetAddress = service?.macAddress?.takeIf { it.isNotBlank() }
         val targetId = targetAddress?.let { runCatching { PeerIdentityStore.headsetIdFromAddress(it) }.getOrNull() }
-        val held = service?.holdsAirPods()
+        val ownership = service?.peerAudioOwnership()?.name?.lowercase() ?: "unknown"
         val audioUse = service?.peerAudioUse() ?: PeerAudioUse.UNKNOWN
-        val ownership = when (held) { true -> "held"; false -> "released"; null -> "unknown" }
         val state = mapOf(
             "headsetId" to targetId,
             "ownership" to ownership,
@@ -813,9 +901,11 @@ object CrossDevice {
             "sessionId" to (processSessionId ?: error("session_unavailable")),
             "revision" to v2SnapshotRevision.forState(state),
         )
-        if (held == true && service?.hasConfirmedPassiveAudioConnection() == true) {
+        if (ownership == "held" && service?.hasConfirmedPassiveAudioConnection() == true) {
             passiveAcquisitionCoordinator?.currentIntent()?.let { current ->
-                passiveAcquisitionCoordinator?.requesterResolve(current.requestId, true)
+                if (passiveAcquisitionCoordinator?.requesterResolve(current.requestId, true) == true) {
+                    dispatchAcquisitionFrames(passiveAcquisitionProtocol?.replayCancellations().orEmpty())
+                }
             }
         }
         return snapshot
@@ -879,12 +969,9 @@ object CrossDevice {
         if (ownership == PeerOwnership.HELD && localHeadset != null && snapshot["headsetId"] == localHeadset) {
             passiveAcquisitionCoordinator?.observePeerHeld(expectedInstallId, localHeadset)
         }
-        val acquisition = snapshot["acquisition"] as? Map<*, *>
-        val requestId = acquisition?.get("requestId") as? String
-        val requesterId = acquisition?.get("requesterId") as? String
-        if (ownership == PeerOwnership.HELD && requesterId == expectedInstallId && requestId != null) {
-            passiveAcquisitionCoordinator?.participantResolve(requestId, true)
-        }
+        // The v2 HELD field also includes AACP-only ownership. It cannot prove
+        // that an acknowledged A2DP command has completed; the requester sends
+        // an authenticated terminal release after observing the profile result.
         return true
     }
 
@@ -1052,9 +1139,11 @@ object CrossDevice {
         v2Endpoint.permissionRequired = false
         if (!legacyEndpoint.running) startEndpoint(adapter, legacyEndpoint)
         if (!v2Endpoint.running) startEndpoint(adapter, v2Endpoint)
+        startRemoteCaseTransport(adapter)
     }
 
     private fun invalidateServerGeneration() {
+        stopRemoteCaseTransport()
         stopEndpoint(legacyEndpoint)
         stopEndpoint(v2Endpoint)
     }
@@ -1454,6 +1543,7 @@ object CrossDevice {
         isEnabled = false
         stopEndpoint(legacyEndpoint)
         stopEndpoint(v2Endpoint)
+        stopRemoteCaseTransport()
         peerAudioActive = false
         batteryBytes = byteArrayOf()
         ancBytes = byteArrayOf()

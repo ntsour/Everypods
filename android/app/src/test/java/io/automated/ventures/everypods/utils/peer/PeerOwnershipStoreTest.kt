@@ -3,6 +3,8 @@ package io.automated.ventures.everypods.utils.peer
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertNotNull
 import org.junit.Test
 
 class PeerOwnershipStoreTest {
@@ -10,6 +12,15 @@ class PeerOwnershipStoreTest {
     private val store = PeerOwnershipStore(ElapsedClock { now }, freshnessMs = 35L)
     private val peers = setOf("AA", "BB", "CC")
     private val headset = "headset-1"
+
+    @Test fun `peer ownership requires a settled audio profile`() {
+        assertEquals(PeerOwnership.HELD, headsetAudioOwnership(true, false))
+        assertEquals(PeerOwnership.HELD, headsetAudioOwnership(true, true))
+        assertEquals(PeerOwnership.RELEASED, headsetAudioOwnership(false, false))
+        assertEquals(PeerOwnership.UNKNOWN, headsetAudioOwnership(false, true))
+        assertEquals(PeerOwnership.UNKNOWN, headsetAudioOwnership(null, false))
+        assertEquals(PeerOwnership.UNKNOWN, headsetAudioOwnership(null, true))
+    }
 
     @Test fun `confirmed disconnected headset is idle but uncertain route or AACP remains unknown`() {
         assertEquals(PeerAudioUse.IDLE, disconnectedHeadsetAudioUse(true, false))
@@ -59,6 +70,20 @@ class PeerOwnershipStoreTest {
         assertFalse(store.observe(observation("AA", receivedAt = 100L, revision = 2)))
         assertTrue(store.observe(observation("AA", revision = 2, target = null)))
         assertFalse(store.allConfiguredPeersFresh())
+    }
+
+    @Test
+    fun `authoritative lookup rejects expired missing and wrong-headset observations`() {
+        store.configure(peers)
+        peers.forEach(::observe)
+        assertEquals(peers, store.freshObservations(headset)!!.keys)
+        assertNull(store.freshObservations("other-headset"))
+        now = 136L
+        assertNull(store.freshObservations(headset))
+        peers.forEach { assertTrue(store.observe(observation(it, receivedAt = now))) }
+        assertNotNull(store.freshObservations(headset))
+        store.invalidate("BB")
+        assertNull(store.freshObservations(headset))
     }
 
     @Test

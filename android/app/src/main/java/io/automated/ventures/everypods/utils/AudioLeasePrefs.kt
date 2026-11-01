@@ -21,6 +21,7 @@ package io.automated.ventures.everypods.utils
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
+import androidx.core.content.edit
 import java.util.UUID
 
 /**
@@ -58,18 +59,107 @@ object AudioLeasePrefs {
 
     fun isFeatureEnabled(ctx: Context): Boolean = isFeatureEnabled(prefs(ctx))
 
-    /**
-     * Seed [DEFAULT_ENABLED] only when the key is absent. No-op if the user (or a
-     * prior install) already wrote true/false.
-     */
-    fun ensureDefaultEnabled(prefs: SharedPreferences) {
-        if (!prefs.contains(KEY_LID_OPEN_LAST_HOLDER_AUTOCONNECT)) {
-            prefs.edit().putBoolean(KEY_LID_OPEN_LAST_HOLDER_AUTOCONNECT, DEFAULT_ENABLED).apply()
-        }
+    private const val KEY_POLICY_REVISION = "lid_open_policy_revision"
+    private const val KEY_POLICY_ORIGIN = "lid_open_policy_origin"
+    private const val KEY_POLICY_RECORDED_VALUE = "lid_open_policy_recorded_value"
+    private const val KEY_POLICY_RECORDED_PERSISTED = "lid_open_policy_recorded_persisted"
+
+    data class PolicySnapshot(
+        val requestedEnabled: Boolean,
+        val effectiveEnabled: Boolean,
+        val overrideReason: String?,
+        val revision: Long,
+        val persisted: Boolean,
+        val origin: String,
+    ) {
+        /** Existing readers mean the user's requested value. */
+        val enabled: Boolean get() = requestedEnabled
     }
 
-    fun setFeatureEnabled(prefs: SharedPreferences, enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_LID_OPEN_LAST_HOLDER_AUTOCONNECT, enabled).apply()
+    /**
+     * Reconcile writes made outside this repository, including while the process
+     * was stopped. Never infer who made an external write or change its value.
+     */
+    @Synchronized fun policySnapshot(prefs: SharedPreferences, overrideReason: String? = null): PolicySnapshot {
+        val requested = isFeatureEnabled(prefs)
+        val persisted = prefs.contains(KEY_LID_OPEN_LAST_HOLDER_AUTOCONNECT)
+        var revision = prefs.getLong(KEY_POLICY_REVISION, 0L)
+        var origin = prefs.getString(KEY_POLICY_ORIGIN, null) ?: "unrecorded"
+        if (!prefs.contains(KEY_POLICY_RECORDED_VALUE) || !prefs.contains(KEY_POLICY_RECORDED_PERSISTED)) {
+            origin = if (persisted) "existing_value" else "implicit_default"
+            prefs.edit {
+                putBoolean(KEY_POLICY_RECORDED_VALUE, requested)
+                putBoolean(KEY_POLICY_RECORDED_PERSISTED, persisted)
+                putString(KEY_POLICY_ORIGIN, origin)
+            }
+        } else {
+            val previous = prefs.getBoolean(KEY_POLICY_RECORDED_VALUE, DEFAULT_ENABLED)
+            val previouslyPersisted = prefs.getBoolean(KEY_POLICY_RECORDED_PERSISTED, false)
+            if (previous != requested || previouslyPersisted != persisted) {
+                revision++
+                origin = "external_refresh"
+                prefs.edit {
+                    putLong(KEY_POLICY_REVISION, revision)
+                    putString(KEY_POLICY_ORIGIN, origin)
+                    putBoolean(KEY_POLICY_RECORDED_VALUE, requested)
+                    putBoolean(KEY_POLICY_RECORDED_PERSISTED, persisted)
+                }
+                LidAutoconnectDiagnostics.logEvent("policy_write", mapOf(
+                    "source" to origin, "previous" to previous, "feature" to requested,
+                    "revision" to revision, "persisted" to persisted))
+            }
+        }
+        val appliedOverride = overrideReason.takeIf { requested }
+        return PolicySnapshot(requested, requested && appliedOverride == null, appliedOverride,
+            revision, persisted, origin)
+    }
+
+    /** Seed the existing default only for a missing key, atomically with its origin. */
+    @Synchronized fun ensureDefaultEnabled(prefs: SharedPreferences) {
+        if (prefs.contains(KEY_LID_OPEN_LAST_HOLDER_AUTOCONNECT)) return
+        val before = policySnapshot(prefs)
+        val revision = before.revision + 1L
+        prefs.edit {
+            putBoolean(KEY_LID_OPEN_LAST_HOLDER_AUTOCONNECT, DEFAULT_ENABLED)
+            putLong(KEY_POLICY_REVISION, revision)
+            putString(KEY_POLICY_ORIGIN, "initialization")
+            putBoolean(KEY_POLICY_RECORDED_VALUE, DEFAULT_ENABLED)
+            putBoolean(KEY_POLICY_RECORDED_PERSISTED, true)
+        }
+        LidAutoconnectDiagnostics.logEvent("policy_write", mapOf(
+            "source" to "initialization", "previous" to before.requestedEnabled,
+            "feature" to DEFAULT_ENABLED, "revision" to revision))
+    }
+
+    /** Observe the persisted policy used by both the settings screen and controller. */
+    fun observePolicy(prefs: SharedPreferences, observer: (PolicySnapshot) -> Unit): AutoCloseable {
+        val last = java.util.concurrent.atomic.AtomicReference<PolicySnapshot?>(null)
+        fun emit() {
+            val snapshot = policySnapshot(prefs)
+            if (last.getAndSet(snapshot) != snapshot) observer(snapshot)
+        }
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == KEY_LID_OPEN_LAST_HOLDER_AUTOCONNECT || key == KEY_POLICY_REVISION || key == null) emit()
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        emit()
+        return AutoCloseable { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
+
+    @Synchronized fun setFeatureEnabled(prefs: SharedPreferences, enabled: Boolean) {
+        val before = policySnapshot(prefs)
+        if (before.persisted && before.requestedEnabled == enabled) return
+        val revision = before.revision + 1L
+        prefs.edit {
+            putBoolean(KEY_LID_OPEN_LAST_HOLDER_AUTOCONNECT, enabled)
+            putLong(KEY_POLICY_REVISION, revision)
+            putString(KEY_POLICY_ORIGIN, "settings_ui")
+            putBoolean(KEY_POLICY_RECORDED_VALUE, enabled)
+            putBoolean(KEY_POLICY_RECORDED_PERSISTED, true)
+        }
+        LidAutoconnectDiagnostics.logEvent("policy_write", mapOf(
+            "source" to "settings_ui", "previous" to before.requestedEnabled,
+            "feature" to enabled, "revision" to revision))
     }
 
     fun isLeaseHolder(prefs: SharedPreferences): Boolean =

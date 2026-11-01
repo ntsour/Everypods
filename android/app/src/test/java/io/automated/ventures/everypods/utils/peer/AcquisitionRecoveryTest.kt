@@ -42,7 +42,7 @@ class AcquisitionRecoveryTest {
         fun authorize(issue: Boolean = true): Boolean {
             val current = requester.currentIntent()!!
             return requester.authorizeConnect(current.requestId, current.generation,
-                true, true, headset, members, peers, issue)
+                true, true, headset, members, peers, 7, issue)
         }
     }
 
@@ -55,7 +55,7 @@ class AcquisitionRecoveryTest {
         pair.outgoing.cancel().forEach(pair::receive)
         assertEquals(PassiveAcquisitionCoordinator.Phase.CANCELLED, pair.participant.currentReservation()!!.phase)
         assertFalse(pair.requester.authorizeConnect(ready.requestId, ready.generation,
-            true, true, headset, members, pair.peers))
+            true, true, headset, members, pair.peers, 7))
         assertNull(pair.outgoing.receive(b, sessionB, delayedAck, status(a, sessionA, 7), members).readyToConnect)
         assertEquals(PeerV2Frame.Type.ACQUIRE_GRANT, pair.begin().flatMap { pair.receive(it).replies }.single().type)
     }
@@ -110,14 +110,25 @@ class AcquisitionRecoveryTest {
         assertEquals(PeerV2Frame.Type.ACQUIRE_GRANT, pair.begin().flatMap { pair.receive(it).replies }.single().type)
     }
 
-    @Test fun `offline ownership resolves original participant without original acquisition ID`() {
+    @Test fun `older peer held report releases preparation but never an acknowledged command`() {
+        val pair = Pair()
+        val request = pair.begin().single()
+        assertEquals(PeerV2Frame.Type.ACQUIRE_GRANT, pair.receive(request).replies.single().type)
+        assertEquals(PassiveAcquisitionCoordinator.Phase.PREPARING, pair.participant.currentReservation()!!.phase)
+        assertFalse(pair.participant.observePeerHeld(id("stranger"), headset))
+        assertTrue(pair.participant.observePeerHeld(a, headset))
+        assertEquals(PassiveAcquisitionCoordinator.Phase.RESOLVED, pair.participant.currentReservation()!!.phase)
+    }
+
+    @Test fun `held alone cannot release an acknowledged in flight participant`() {
         val pair = Pair()
         pair.ready()
         assertFalse(pair.participant.observePeerHeld(id("stranger"), headset))
         assertFalse(pair.participant.observePeerHeld(a, id("another-headset")))
-        assertTrue(pair.participant.observePeerHeld(a, headset))
         assertFalse(pair.participant.observePeerHeld(a, headset))
-        assertEquals(PassiveAcquisitionCoordinator.Phase.RESOLVED, pair.participant.currentReservation()!!.phase)
+        assertEquals(PassiveAcquisitionCoordinator.Phase.IN_PROGRESS, pair.participant.currentReservation()!!.phase)
+        pair.outgoing.cancel().forEach(pair::receive)
+        assertEquals(PassiveAcquisitionCoordinator.Phase.CANCELLED, pair.participant.currentReservation()!!.phase)
     }
 
     @Test fun `cancel must match request requester process session and membership`() {
@@ -162,6 +173,10 @@ class AcquisitionRecoveryTest {
         assertTrue(pair.requester.requesterResolve(current.requestId, true))
         assertFalse(pair.requester.requesterResolve(current.requestId, true))
         assertTrue(pair.outgoing.cancel().isEmpty())
+        val terminalProof = pair.outgoing.replayCancellations()
+        assertEquals(1, terminalProof.size)
+        terminalProof.forEach(pair::receive)
+        assertEquals(PassiveAcquisitionCoordinator.Phase.CANCELLED, pair.participant.currentReservation()!!.phase)
         assertFalse(pair.requester.commandIsCurrent(current.requestId, current.generation))
     }
     @Test fun `explicit OS rejection releases only the exact unstarted committed command`() {
@@ -227,12 +242,23 @@ class AcquisitionRecoveryTest {
         pair.ready()
         val current = pair.requester.currentIntent()!!
         assertFalse(pair.requester.authorizeConnect(current.requestId, current.generation,
-            false, true, headset, members, pair.peers, issueCommand = false))
+            false, true, headset, members, pair.peers, 7, issueCommand = false))
         assertEquals(PassiveAcquisitionCoordinator.Phase.CANCELLED, pair.requester.currentIntent()!!.phase)
         assertTrue(pair.outgoing.cancel().isEmpty())
         val proof = pair.outgoing.replayCancellations()
         assertEquals(1, proof.size)
         proof.forEach(pair::receive)
+        assertEquals(PassiveAcquisitionCoordinator.Phase.CANCELLED, pair.participant.currentReservation()!!.phase)
+    }
+
+    @Test fun `local ownership revision change invalidates ready grant before dispatch`() {
+        val pair = Pair()
+        pair.ready()
+        val ready = pair.requester.currentIntent()!!
+        assertFalse(pair.requester.authorizeConnect(ready.requestId, ready.generation,
+            true, true, headset, members, pair.peers, localSnapshotRevision = 8))
+        assertEquals(PassiveAcquisitionCoordinator.Phase.CANCELLED, pair.requester.currentIntent()!!.phase)
+        pair.outgoing.replayCancellations().forEach(pair::receive)
         assertEquals(PassiveAcquisitionCoordinator.Phase.CANCELLED, pair.participant.currentReservation()!!.phase)
     }
 

@@ -420,7 +420,7 @@
     <string name="ui_remove_device">Xóa thiết bị</string>
     <string name="ui_report_bugs_or_request_feature">Báo cáo lỗi hoặc yêu cầu tính năng trên GitHub.</string>
     <string name="ui_report_lid_open_connect_failur">Báo cáo lỗi kết nối mở nắp</string>
-    <string name="ui_required_for_bluetooth_scannin">Cần thiết để quét Bluetooth trên Android 11 trở xuống</string>
+    <string name="ui_required_for_bluetooth_scannin">Một số điện thoại cần quyền Vị trí để nhận tín hiệu Bluetooth của AirPods ở gần. EveryPods dùng các lần quét này để phát hiện AirPods; việc quét không thu thập hoặc lưu vị trí của bạn.</string>
     <string name="ui_reset">ĐẶT LẠI</string>
     <string name="ui_reset_to_defaults">Đặt lại về mặc định</string>
     <string name="ui_rest">Nghỉ ngơi</string>

@@ -51,7 +51,7 @@ class PeerAcquisitionProtocol(
                     snapshotRevisions = longMap(f.getValue("snapshotRevisions")),
                     currentSnapshotRevisions = currentSnapshotRevisions,
                 )
-                return Result(listOf(participantReply(decision, f)))
+                return Result(frames(coordinator.pendingCancellations()) + participantReply(decision, f))
             }
             PeerV2Frame.Type.ACQUIRE_START -> {
                 require(f.getValue("requesterId") == authenticatedPeerId &&
@@ -90,7 +90,7 @@ class PeerAcquisitionProtocol(
             PeerV2Frame.Type.ACQUIRE_START_ACK -> {
                 require(f.getValue("grantorId") == authenticatedPeerId &&
                     f.getValue("grantorSessionId") == authenticatedPeerSessionId) { "grantor_identity_mismatch" }
-                val ready = coordinator.onStartAck(authenticatedPeerId,
+                val ready = coordinator.onStartAck(authenticatedPeerId, authenticatedPeerSessionId,
                     f.getValue("requestId") as String, f.getValue("grantId") as String)
                 return Result(emptyList(), ready as? PassiveAcquisitionCoordinator.Event.ReadyToConnect)
             }
@@ -99,6 +99,9 @@ class PeerAcquisitionProtocol(
     }
 
     fun cancel(): List<PeerV2Frame.Frame> = frames(coordinator.cancelIntent())
+
+    fun cancelMatching(requestId: String, headsetId: String): List<PeerV2Frame.Frame> =
+        frames(coordinator.cancelMatching(requestId, headsetId))
 
     fun replayCancellations(): List<PeerV2Frame.Frame> = frames(coordinator.pendingCancellations())
 

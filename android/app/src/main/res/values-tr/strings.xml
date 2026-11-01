@@ -420,7 +420,7 @@
     <string name="ui_remove_device">Cihazı kaldır</string>
     <string name="ui_report_bugs_or_request_feature">GitHub\'da hataları bildirin veya özellik isteyin.</string>
     <string name="ui_report_lid_open_connect_failur">Kapak açma bağlantı hatasını bildirin</string>
-    <string name="ui_required_for_bluetooth_scannin">Android 11 ve önceki sürümlerde Bluetooth taraması için gereklidir</string>
+    <string name="ui_required_for_bluetooth_scannin">Bazı telefonların yakındaki AirPods Bluetooth yayınlarını alabilmesi için Konum izni gerekir. EveryPods bu taramaları AirPods\'u algılamak için kullanır; bu taramalar konumunuzu toplamaz veya kaydetmez.</string>
     <string name="ui_reset">SIFIRLAMA</string>
     <string name="ui_reset_to_defaults">Varsayılanlara sıfırla</string>
     <string name="ui_rest">Dinlenme</string>
