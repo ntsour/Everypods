@@ -110,10 +110,9 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
         btGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
             isGranted(Manifest.permission.BLUETOOTH_CONNECT) && isGranted(Manifest.permission.BLUETOOTH_SCAN)
         else isGranted(Manifest.permission.BLUETOOTH)
-        // Location is only needed on Android 11 (API 30) and below for BT scanning.
-        // On API 31+, BLUETOOTH_SCAN with neverForLocation covers this — mark as not-required.
-        locationGranted = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ||
-            isGranted(Manifest.permission.ACCESS_FINE_LOCATION)
+        // Fine location is optional and user-granted, but required for unfiltered
+        // nearby AirPods advertisements on Android 12+; older Android also requires it.
+        locationGranted = isGranted(Manifest.permission.ACCESS_FINE_LOCATION)
         notifGranted        = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) isGranted(Manifest.permission.POST_NOTIFICATIONS) else true
         phoneGranted        = isGranted(Manifest.permission.READ_PHONE_STATE) && isGranted(Manifest.permission.ANSWER_PHONE_CALLS)
         overlayGranted      = Settings.canDrawOverlays(context)
@@ -122,15 +121,6 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
     }
 
     LaunchedEffect(Unit) {
-        // Clear stale permissions_asked flags for permissions that are not relevant on this
-        // Android version (e.g. ACCESS_FINE_LOCATION on API 31+). A stale flag causes the
-        // "permanently denied" branch to fire even though the dialog was never shown.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            context.getSharedPreferences("permissions_asked", Context.MODE_PRIVATE).edit()
-                .remove(Manifest.permission.ACCESS_FINE_LOCATION)
-                .remove(Manifest.permission.ACCESS_COARSE_LOCATION)
-                .apply()
-        }
         refreshAll()
         while (true) {
             kotlinx.coroutines.delay(1000)
@@ -237,7 +227,7 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
                         granted = localNetworkGranted, dark = dark, accent = accent, green = green
                     ) { grantRuntime(arrayOf(io.automated.ventures.everypods.relay.RelayNetworkPermission.PERMISSION)) }
                 }
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+                if (!locationGranted) {
                     RowDivider()
                     PermissionRow(
                         title = stringResource(R.string.ui_location),
@@ -263,7 +253,7 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
             }
 
             // ── Grant all outstanding permissions ────────────────────────
-            val locationNeeded = Build.VERSION.SDK_INT < Build.VERSION_CODES.S && !locationGranted
+            val locationNeeded = !locationGranted
             val notifNeeded = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !notifGranted
             val anyCriticalMissing = !btGranted || locationNeeded || notifNeeded || !phoneGranted || !localNetworkGranted
             if (anyCriticalMissing) {

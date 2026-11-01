@@ -9,6 +9,14 @@ fun interface ElapsedClock {
 enum class PeerOwnership { UNKNOWN, HELD, RELEASED }
 enum class PeerAudioUse { UNKNOWN, IDLE, MEDIA, CALL }
 
+/** Control-channel connectivity alone does not prove audio ownership or release. */
+fun headsetAudioOwnership(profileConnected: Boolean?, aacpConnected: Boolean): PeerOwnership =
+    when (profileConnected) {
+        true -> PeerOwnership.HELD
+        false -> if (aacpConnected) PeerOwnership.UNKNOWN else PeerOwnership.RELEASED
+        null -> PeerOwnership.UNKNOWN
+    }
+
 /** Absence of a route is idle only when the profile query positively confirms it. */
 fun disconnectedHeadsetAudioUse(profileDisconnected: Boolean, aacpConnected: Boolean): PeerAudioUse =
     if (profileDisconnected && !aacpConnected) PeerAudioUse.IDLE else PeerAudioUse.UNKNOWN
@@ -80,6 +88,11 @@ class PeerOwnershipStore(
                 CrossDeviceReconnectPolicy.observationIsFresh(value.receivedAtElapsedMs, now, freshnessMs)
         }
     }
+
+    /** Atomic authoritative lookup; raw observations may be stale and are diagnostics only. */
+    @Synchronized
+    fun freshObservations(headsetId: String): Map<String, PeerObservation>? =
+        if (allConfiguredPeersFresh(headsetId)) current.toMap() else null
 
     /** True only when every configured peer reports this headset released and no active use. */
     @Synchronized

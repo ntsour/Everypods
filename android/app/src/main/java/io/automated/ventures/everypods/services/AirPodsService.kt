@@ -1211,14 +1211,6 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         const val EAR_DATA_FRESHNESS_MS: Long = 10_000L
 
         /**
-         * Backoff schedule for `takeOver()`'s A2DP connect retries. The first attempt
-         * can be rejected while the peer device is still streaming; MIUI also releases
-         * the peer link slowly and may silently no-op the un-privileged connect()
-         * reflection call. Retrying at these offsets lands the handover on one press.
-         */
-        val TAKEOVER_RETRY_DELAYS_MS: LongArray = longArrayOf(1_000L, 2_500L, 4_500L)
-
-        /**
          * Timestamp of the last A2DP profile state transition (connect or disconnect)
          * for the saved AirPods MAC. When another device performs an A2DP handover,
          * our profile state briefly bounces (1→0→1→0). MediaController uses this to
@@ -1274,6 +1266,12 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         override fun onDeviceStatusChanged(
             device: BLEManager.AirPodsStatus, previousStatus: BLEManager.AirPodsStatus?
         ) {
+            val caseNow = SystemClock.elapsedRealtime()
+            submitPassiveBleAvailability(device, caseNow)
+            if (bleConfirmsStored(device, caseNow) && !hasFreshAacpRemovalEvidence(caseNow)) {
+                invalidateRemoteCaseEvidence()
+                if (bleManager.isIdentityVerified(device.address)) withdrawLocalCaseObservations()
+            }
             LidAutoconnectDiagnostics.recordBleObservation(device.isLeftInEar, device.isRightInEar,
                 device.isLeftCharging, device.isRightCharging, device.connectionState)
 
@@ -1299,7 +1297,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     )
                     !a2dpOurs -> Log.d(
                         TAG,
-                        "<LogCollector:Conn> BLE saw AirPods but A2DP isn't ours — another device has them, skip reconnect"
+                        "<LogCollector:Conn> BLE saw AirPods but local A2DP is not confirmed — skip reconnect"
                     )
                     else -> {
                         Log.d(TAG, "<LogCollector:Conn> BLE listener kicking reconnect (BLE state=${device.connectionState})")
@@ -1339,6 +1337,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
         override fun onBroadcastFromNewAddress(device: BLEManager.AirPodsStatus) {
             Log.d(TAG, "New address detected")
+            submitPassiveBleAvailability(device, SystemClock.elapsedRealtime())
             // New address often means the case opened and rotated its MAC.
             // Forward the case battery immediately if it's valid.
             updateCaseBatteryFromBLE()
@@ -1352,7 +1351,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 if (passiveRecoveryDeadlineMs == deadline &&
                     SystemClock.elapsedRealtime() >= deadline) {
                     lidOpenState = false
-                    cancelPendingLidAutoconnect("lid_unknown_expired")
+                    cancelPendingLidAutoconnect("lid_unknown_expired", expire = true)
                     CrossDevice.cancelPassiveAcquisition()
                 }
             }, (deadline - SystemClock.elapsedRealtime()).coerceAtLeast(0L))
@@ -1361,16 +1360,25 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         override fun onLidStateChanged(
             lidOpen: Boolean,
         ) {
+            invalidateRemoteCaseEvidence()
             val status = bleManager.getMostRecentStatus()
+            val now = SystemClock.elapsedRealtime()
+            val aacpStored = confirmedAacpCaseStorage()
+            val bleStored = status?.let { bleConfirmsStored(it, now) } == true && !hasFreshAacpRemovalEvidence(now)
+            if (!lidOpen && bleStored && status?.let { bleManager.isIdentityVerified(it.address) } == true) {
+                withdrawLocalCaseObservations()
+            }
             val retainRecovery = !lidOpen && LidAutoconnectPolicy.preserveRecoveryAfterClose(
-                SystemClock.elapsedRealtime(), passiveRecoveryDeadlineMs,
-                status?.isLeftCharging == true && status.isRightCharging,
+                now, passiveRecoveryDeadlineMs, aacpStored || bleStored,
             )
             lidOpenState = lidOpen || retainRecovery
             if (lidOpen) {
+                status?.observedAtElapsedMs?.let { lastBlePassiveEvidenceMs = it }
+                status?.let(::publishRemoteCaseObservation)
                 Log.d(TAG, "Lid opened")
                 LidAutoconnectDiagnostics.logEvent("lid_open", mapOf(
                     "feature" to AudioLeasePrefs.isFeatureEnabled(sharedPreferences),
+                    "policyRevision" to AudioLeasePrefs.policySnapshot(sharedPreferences).revision,
                     "holder" to AudioLeasePrefs.isLeaseHolder(sharedPreferences),
                     "shared" to (CrossDevice.isEnabled && CrossDevice.configuredPeers.isNotEmpty()),
                     "peerHolding" to CrossDevice.isAvailable,
@@ -1428,13 +1436,12 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         override fun onEarStateChanged(
             device: BLEManager.AirPodsStatus, leftInEar: Boolean, rightInEar: Boolean
         ) {
+            invalidateRemoteCaseEvidence()
             Log.d(TAG, "Ear state changed - Left: $leftInEar, Right: $rightInEar")
             LidAutoconnectDiagnostics.logEvent("ble_ear_state", mapOf("left" to leftInEar, "right" to rightInEar))
-            if ((leftInEar || rightInEar) && !holdsAirPods() &&
-                AudioLeasePrefs.isLeaseHolder(sharedPreferences) && !lidOpenState) {
-                lidOpenState = true
-                maybeScheduleLidAutoconnect()
-            }
+            if (leftInEar || rightInEar) lastBlePassiveEvidenceMs = device.observedAtElapsedMs
+            if (leftInEar || rightInEar) publishRemoteCaseObservation(device)
+            submitPassiveBleAvailability(device, SystemClock.elapsedRealtime())
             gestureHandler.post { reconcileHeadGestures(wearHint = true) }
             if (leftInEar || rightInEar) {
                 io.automated.ventures.everypods.utils.BatteryAlertWatcher.checkAndMaybeAlert(
@@ -1688,13 +1695,6 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 // Missing key only (never overwrite an explicit false).
                 if (!contains("cross_device_enabled")) putBoolean("cross_device_enabled", true)
 
-                // Option 1: lid-open auto-connect for last CrossDevice audio holder.
-                // New installs only (missing key) → ON; existing false stays false.
-                if (!contains(AudioLeasePrefs.KEY_LID_OPEN_LAST_HOLDER_AUTOCONNECT)) putBoolean(
-                    AudioLeasePrefs.KEY_LID_OPEN_LAST_HOLDER_AUTOCONNECT,
-                    AudioLeasePrefs.DEFAULT_ENABLED
-                )
-
                 // One-time migration: existing installs had these two defaulting to
                 // false. On a limited-mode (non-AACP) device the toggle is otherwise
                 // unreachable, so flip them on once. The surfaced UI lets the user
@@ -1723,6 +1723,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             }
         }
 
+        AudioLeasePrefs.ensureDefaultEnabled(sharedPreferences)
         initializeConfig()
 
         externalBroadcastReceiver = object : BroadcastReceiver() {
@@ -1784,26 +1785,19 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         CrossDevice.init(this@AirPodsService)
         CrossDevice.setPassiveAcquisitionReadyListener { ready ->
             Handler(Looper.getMainLooper()).post {
-                val enabled = AudioLeasePrefs.isFeatureEnabled(sharedPreferences)
-                val now = SystemClock.elapsedRealtime()
-                if (now < peerDropCooldownUntilMs || now < lidAutoconnectContentionUntilMs ||
-                    !CrossDevice.authorizePassiveAcquisition(ready, lidOpenState, enabled)) {
-                    LidAutoconnectDiagnostics.logEvent("skip", mapOf("reason" to "passive_grant_expired_or_state_changed"))
-                    CrossDevice.cancelPassiveAcquisition()
+                val binding = audioPeerGrantBridge.ready(ready)
+                if (binding == null || binding.intentId != passiveRecoveryDeadlineMs) {
+                    LidAutoconnectDiagnostics.logEvent("skip", mapOf("reason" to "stale_peer_grant"))
                     return@post
                 }
-                val adapter = getSystemService(BluetoothManager::class.java).adapter
-                val savedDevice = adapter?.bondedDevices?.find { it.address.equals(macAddress, true) }
-                if (savedDevice == null || holdsAirPods()) {
-                    CrossDevice.cancelPassiveAcquisition()
+                if (offlineAudioCoordinator.snapshot.intent?.id == binding.intentId &&
+                    offlineAudioCoordinator.snapshot.phase == io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator.Phase.COORDINATING) {
+                    offlineAudioDriver.onCoordinationChanged(binding.intentId)
                     return@post
                 }
-                lastLidAutoconnectAttemptElapsedMs = SystemClock.elapsedRealtime()
-                lidAutoconnectA2dpConnectedAtMs = 0L
-                MediaController.clearAutoPlayForPassiveConnect("distributed_lid_reservation")
-                LidAutoconnectDiagnostics.logEvent("connect_audio_attempt", mapOf("source" to "distributed_reservation"))
-                connectAudio(this@AirPodsService, savedDevice, lidDiagSource = "lid_distributed", passiveRequest = ready)
-                scheduleLidA2dpOutcomeWatch(savedDevice)
+                // A grant without a matching coordinating audio intent is stale.
+                audioPeerGrantBridge.cancel(binding.intentId)
+                LidAutoconnectDiagnostics.logEvent("skip", mapOf("reason" to "grant_without_audio_intent"))
             }
         }
 
@@ -2167,7 +2161,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 Handler(Looper.getMainLooper()).post {
                     when (hrCaseStorage.report(hrBattery, hrBatteryGeneration, hrBatteryArrival,
                             BluetoothConnectionManager.connectionGeneration())) {
-                        true -> if (heartRateActiveNow() || heartRateState.value.failure != null) stopHeartRateForCaseStorage()
+                        true -> {
+                            invalidateRemoteCaseEvidence()
+                            withdrawLocalCaseObservations()
+                            if (heartRateActiveNow() || heartRateState.value.failure != null) stopHeartRateForCaseStorage()
+                        }
                         false -> heartRateSession.caseStorageEnded()
                         null -> Unit
                     }
@@ -2213,8 +2211,22 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     // case-open and case-close events.
                 } else if (bothChargingNow != prev) {
                     if (bothChargingNow) {
-                        Log.d(TAG, "Battery: both pods now charging (case closed) → disconnectAudio")
-                        disconnectAudio(this@AirPodsService, device)
+                        val status = bleManager.getMostRecentStatus()
+                        val openLid = status?.let {
+                            it.lidOpen && LidAutoconnectPolicy.isFreshBleObservation(
+                                it.observedAtElapsedMs, SystemClock.elapsedRealtime())
+                        } == true
+                        if (openLid) {
+                            // A charging report alone does not imply the lid is closed.
+                            // Case opening is an intentional passive connection trigger.
+                            LidAutoconnectDiagnostics.logEvent("stored_observation_deferred", mapOf("reason" to "fresh_lid_open"))
+                        } else {
+                            Log.d(TAG, "Battery: both pods now charging → disconnectAudio")
+                            lidOpenState = false
+                            cancelPendingLidAutoconnect("buds_stored")
+                            CrossDevice.cancelPassiveAcquisition()
+                            disconnectAudio(this@AirPodsService, device)
+                        }
                     } else {
                         // Flux gate: if A2DP profile state recently changed (e.g.
                         // peer device is taking over), suppress connectAudio so we
@@ -2223,21 +2235,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                         val inFlux = lastA2dpStateChangeMs > 0 && fluxAgeMs < A2DP_STATE_FLUX_WINDOW_MS
                         if (inFlux) {
                             Log.d(TAG, "Battery: case-opened transition but A2DP in flux (${fluxAgeMs}ms) — suppressing connectAudio")
-                        } else if (CrossDevice.isEnabled && CrossDevice.configuredPeers.isNotEmpty()) {
-                            requestSharedPassiveAcquisition("battery_case_open")
-                        } else if (!mayProactivelyConnect()) {
-                            Log.d(TAG, "Battery: case-opened but shared arrangement and not holding A2DP — not grabbing, wait for user intent")
                         } else {
-                            Log.d(TAG, "Battery: pods no longer both charging (case opened) → connectAudio")
-                            LidAutoconnectDiagnostics.logEvent(
-                                "connect_audio_attempt",
-                                mapOf(
-                                    "source" to "battery_case_open",
-                                    "attempt" to "1",
-                                ),
-                            )
-                            MediaController.clearAutoPlayForPassiveConnect("battery_case_opened")
-                            connectAudio(this@AirPodsService, device, lidDiagSource = "battery_case_open")
+                            submitPassiveAacpEvidence("battery_case_open")
                         }
                     }
                 }
@@ -3037,19 +3036,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             }
 
             if (newInEarData.contains(true) && inEarData == listOf(false, false)) {
-                val shared = CrossDevice.isEnabled && CrossDevice.configuredPeers.isNotEmpty()
-                if (shared) {
-                    requestSharedPassiveAcquisition("ear_in")
-                } else if (mayProactivelyConnect()) {
-                    connectAudio(this@AirPodsService, device)
-                    justEnabledA2dp = true
-                    registerA2dpConnectionReceiver()
-                    if (MediaController.getMusicActive()) {
-                        MediaController.userPlayedTheMedia = true
-                    }
-                } else {
-                    Log.d(TAG, "Ear-in but shared arrangement and not holding A2DP — not grabbing, wait for user intent")
-                }
+                submitPassiveAacpEvidence("ear_in")
+                justEnabledA2dp = true
+                registerA2dpConnectionReceiver()
             } else if (newInEarData == listOf(false, false)) {
                 // Only pause when the AirPods are actually the active audio route.
                 // An out-of-ear packet while the pods sit in the case (lid open,
@@ -3419,6 +3408,13 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             }
         }
 
+        if (key == AudioLeasePrefs.KEY_LID_OPEN_LAST_HOLDER_AUTOCONNECT) {
+            val policy = AudioLeasePrefs.policySnapshot(preferences)
+            LidAutoconnectDiagnostics.logEvent("policy_observed", mapOf(
+                "source" to "preference_listener", "feature" to policy.enabled,
+                "revision" to policy.revision, "persisted" to policy.persisted, "origin" to policy.origin,
+            ))
+        }
         if (key in setOf(
                 AudioLeasePrefs.KEY_LID_OPEN_LAST_HOLDER_AUTOCONNECT,
                 "cross_device_enabled", "cross_device_peers", "cross_device_peer_mac",
@@ -3921,12 +3917,128 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
     /** Pending lid-open auto-grab; cancelled if lid closes before connect starts. */
     private var pendingLidAutoconnectRunnable: Runnable? = null
-    private var passiveRecoveryDeadlineMs = 0L
-    private var passiveRecoveryRunnable: Runnable? = null
+    private val audioPeerGrantBridge by lazy {
+        io.automated.ventures.everypods.bluetooth.audio.AudioPeerGrantBridge(
+            io.automated.ventures.everypods.bluetooth.audio.CrossDeviceAudioGrantBackend(
+                lastOwnerEligible = { AudioLeasePrefs.isLeaseHolder(sharedPreferences) && AudioLeasePrefs.leaseEverSet(sharedPreferences) },
+                enabled = { AudioLeasePrefs.isFeatureEnabled(sharedPreferences) },
+                lidOpen = { lidOpenState },
+            )
+        )
+    }
+    private val explicitAudioIntentIds = java.util.concurrent.atomic.AtomicLong(0L)
+    private val explicitAudioTakeoverTokens = java.util.concurrent.ConcurrentHashMap<Long, Long>()
+    private val caseEpisodeWakeGuard by lazy {
+        io.automated.ventures.everypods.bluetooth.audio.EpisodeWakeGuard { timeout ->
+            val lock = getSystemService(android.os.PowerManager::class.java)
+                .newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "EveryPods:CaseReconnect")
+            lock.acquire(timeout)
+            io.automated.ventures.everypods.bluetooth.audio.EpisodeWakeGuard.Lease {
+                if (lock.isHeld) lock.release()
+            }
+        }
+    }
+    private val audioCommandFenceStore by lazy {
+        io.automated.ventures.everypods.bluetooth.audio.AudioCommandFenceStore(
+            getSharedPreferences("audio_command_fence", MODE_PRIVATE))
+    }
+    private val peerRefreshBudget = io.automated.ventures.everypods.bluetooth.audio.PeerRefreshBudget()
+    private val offlineAudioCoordinator = io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator()
+    private val offlineAudioDriver: io.automated.ventures.everypods.bluetooth.audio.AudioConnectionDriver by lazy {
+        io.automated.ventures.everypods.bluetooth.audio.AudioConnectionDriver(offlineAudioCoordinator,
+            object : io.automated.ventures.everypods.bluetooth.audio.AudioConnectionDriver.Port {
+                override fun loadPendingCommand() = audioCommandFenceStore.load().also { pending ->
+                    if (pending != null) LidAutoconnectDiagnostics.logEvent("audio_fence_restored", mapOf(
+                        "observedConnecting" to pending.observedConnecting,
+                        "valid" to (pending.headset.isNotBlank() && pending.token.isNotBlank())))
+                }
+                override fun persistPendingCommand(headset: String) = audioCommandFenceStore.begin(headset).also {
+                    LidAutoconnectDiagnostics.logEvent("audio_fence_persist", mapOf("success" to (it != null)))
+                }
+                override fun markPendingConnecting(token: String) = audioCommandFenceStore.markConnecting(token).also {
+                    LidAutoconnectDiagnostics.logEvent("audio_fence_connecting", mapOf("success" to it))
+                }
+                override fun resolvePendingCommand(token: String) = audioCommandFenceStore.resolve(token).also {
+                    LidAutoconnectDiagnostics.logEvent("audio_fence_resolved", mapOf("success" to it))
+                }
+                override fun evidence(headset: String, intent: io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator.Intent?) = offlineAudioEvidence(headset, intent)
+                override fun query(headset: String, complete: (io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator.Evidence) -> Unit) {
+                    val adapter = getSystemService(BluetoothManager::class.java).adapter
+                    if (adapter == null) { complete(offlineAudioEvidence(headset, offlineAudioCoordinator.snapshot.intent)); return }
+                    io.automated.ventures.everypods.bluetooth.audio.AudioProfileAdapter(
+                        io.automated.ventures.everypods.bluetooth.audio.AndroidAudioProfileBackend(this@AirPodsService, adapter)
+                    ).query(headset) { state -> complete(offlineAudioEvidence(headset, offlineAudioCoordinator.snapshot.intent).copy(profile = state)) }
+                }
+                override fun coordinate(intent: io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator.Intent, commandNumber: Int) {
+                    // Reuse the existing authenticated reservation transport. Refresh on
+                    // a bounded timer while this same intent is still coordinating.
+                    LidAutoconnectDiagnostics.logEvent("audio_coordination", mapOf("intentId" to intent.id, "command" to commandNumber))
+                    val started = requestSharedPassiveAcquisition("audio_coordinator", commandNumber)
+                    if (!started && peerRefreshBudget.take(intent.id, SystemClock.elapsedRealtime())) {
+                        CrossDevice.refreshPassiveOwnership()
+                    }
+                    lidAutoconnectHandler.postDelayed({
+                        if (passiveRecoveryDeadlineMs == intent.id && lidOpenState &&
+                            offlineAudioCoordinator.snapshot.phase == io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator.Phase.COORDINATING) {
+                            offlineAudioDriver.onCoordinationChanged(intent.id)
+                        }
+                    }, 750L)
+                }
+                override fun connect(intentId: Long, headset: String, dispatch: (() -> Boolean, () -> Unit) -> Unit,
+                                     notDispatched: () -> Unit, rejected: () -> Unit, dispatched: () -> Unit) {
+                    val adapter = getSystemService(BluetoothManager::class.java).adapter
+                    val target = runCatching { adapter?.getRemoteDevice(headset) }.getOrNull()
+                    if (target == null) { notDispatched(); return }
+                    val snapshot = offlineAudioCoordinator.snapshot
+                    val commandNumber = snapshot.commands
+                    LidAutoconnectDiagnostics.logEvent("audio_connect_requested", mapOf("intentId" to intentId, "command" to commandNumber))
+                    val passive = snapshot.intent?.trigger == io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator.Trigger.PASSIVE
+                    val shared = CrossDevice.isEnabled && CrossDevice.configuredPeers.isNotEmpty()
+                    val grant = if (passive && shared && !mayRecoverOfflineLastHolder()) audioPeerGrantBridge.readyFor(intentId, commandNumber) else null
+                    if (passive && shared && !mayRecoverOfflineLastHolder() && grant == null) { notDispatched(); return }
+                    connectAudio(this@AirPodsService, target, lidDiagSource = if (passive) "lid" else null, passiveRequest = grant,
+                        takeoverToken = explicitAudioTakeoverTokens[intentId], passiveCommandNumber = commandNumber,
+                        coordinatorDispatch = dispatch,
+                        secondaryProfileDispatch = { command -> offlineAudioDriver.dispatchIfIntentCurrent(intentId, headset, command) },
+                        coordinatorResult = { result ->
+                            LidAutoconnectDiagnostics.logEvent("audio_dispatch_result", mapOf("intentId" to intentId, "command" to commandNumber, "result" to result.name.lowercase()))
+                            when (result) {
+                                io.automated.ventures.everypods.bluetooth.audio.AudioProfileAdapter.DispatchResult.NOT_DISPATCHED -> notDispatched()
+                                io.automated.ventures.everypods.bluetooth.audio.AudioProfileAdapter.DispatchResult.REJECTED -> rejected()
+                                io.automated.ventures.everypods.bluetooth.audio.AudioProfileAdapter.DispatchResult.ALREADY_CONNECTED ->
+                                    offlineAudioDriver.onExistingProfile(intentId, io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator.Profile.CONNECTED)
+                                io.automated.ventures.everypods.bluetooth.audio.AudioProfileAdapter.DispatchResult.ALREADY_CONNECTING ->
+                                    offlineAudioDriver.onExistingProfile(intentId, io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator.Profile.CONNECTING)
+                                else -> dispatched() // Accepted or ambiguous: wait for an actual profile outcome.
+                            }
+                        })
+                }
+                override fun scheduleRetry(intentId: Long, callback: () -> Unit) {
+                    lidAutoconnectHandler.postDelayed(callback, 1_000L)
+                }
+                override fun scheduleDeadline(delayMs: Long, callback: () -> Unit) {
+                    lidAutoconnectHandler.postDelayed(callback, delayMs)
+                }
+                override fun outcome(intentId: Long, result: io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator.Result) {
+                    if (result != io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator.Result.UNRESOLVED) {
+                        explicitAudioTakeoverTokens.remove(intentId)
+                    }
+                    caseEpisodeWakeGuard.release(intentId)
+                    LidAutoconnectDiagnostics.logEvent("audio_coordinator_outcome", mapOf("intentId" to intentId, "reason" to result.name.lowercase()))
+                }
+            })
+    }
+    @Volatile private var lastAacpPassiveEvidenceMs = 0L
+    @Volatile private var lastBlePassiveEvidenceMs = 0L
+    private val remoteCaseRevision = java.util.concurrent.atomic.AtomicLong()
+    private data class LocalCaseObservation(val id: java.util.UUID, val headset: java.util.UUID, val observedAtMs: Long)
+    private val localCaseObservationLock = Any()
+    private val localCaseObservations = LinkedHashMap<java.util.UUID, LocalCaseObservation>()
+    @Volatile private var localCaseObservation: LocalCaseObservation? = null
+    @Volatile private var remoteCaseEvidence: io.automated.ventures.everypods.utils.peer.RemoteCaseEvidenceExchange.Accepted? = null
+    @Volatile private var passiveRecoveryDeadlineMs = 0L
     /** Single pending a2dp_flux follow-up; never more than one at a time. */
     private var pendingFluxRecheckRunnable: Runnable? = null
-    /** Delayed A2DP retries for one passive lid-open attempt. */
-    private val pendingLidAutoconnectRetries = mutableSetOf<Runnable>()
     /** A2DP connect timestamp attributable to the current passive lid attempt. */
     private var lidAutoconnectA2dpConnectedAtMs: Long = 0L
     /** Passive lid attempts are quiet briefly after an ownership contention. */
@@ -4950,6 +5062,13 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     state == BluetoothAdapter.STATE_TURNING_OFF ||
                     state == 15
                 if (classicAudioGone) {
+                    ServiceManager.getService()?.let { svc ->
+                        synchronized(svc.localCaseObservationLock) {
+                            svc.localCaseObservation = null
+                            svc.localCaseObservations.clear()
+                        }
+                        svc.invalidateRemoteCaseEvidence()
+                    }
                     CrossDevice.onBluetoothStateChanged(context, enabled = false)
                     ServiceManager.getService()?.onHeartRateBluetoothAdapterChanged(false)
                     clearLocalConnectionForDisabledAdapter(context, state)
@@ -5082,6 +5201,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                         ))
                         if (action == "android.bluetooth.a2dp.profile.action.CONNECTION_STATE_CHANGED") {
                             CrossDevice.observePassiveA2dpState(connectionState)
+                            ServiceManager.getService()?.observeOfflineAudioProfile(bluetoothDevice.address, connectionState)
                         }
                         // Stamp A2DP transitions for MediaController's flux gate.
                         // Headset transitions don't count — only audio routing matters.
@@ -5268,6 +5388,17 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
     private val takeoverAttemptFence = io.automated.ventures.everypods.utils.TakeoverAttemptFence()
 
+    private fun submitExplicitAudioIntent(target: BluetoothDevice?,
+        trigger: io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator.Trigger,
+        takeoverToken: Long? = null) {
+        if (target == null) return
+        val intentId = explicitAudioIntentIds.decrementAndGet()
+        if (takeoverToken != null) explicitAudioTakeoverTokens[intentId] = takeoverToken
+        offlineAudioDriver.submit(io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator.Intent(
+            intentId, target.address, trigger, SystemClock.elapsedRealtime() + 45_000L,
+        ))
+    }
+
     @RequiresApi(Build.VERSION_CODES.R)
     @SuppressLint("MissingPermission", "HardwareIds")
     fun takeOver(
@@ -5301,9 +5432,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             aacpManager.sendHijackReversed(
                 localMac
             )
-            connectAudio(
-                this@AirPodsService, device
-            )
+            submitExplicitAudioIntent(device,
+                io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator.Trigger.MANUAL)
 
         }
         val ownsConnection = aacpManager.getControlCommandStatus(AACPManager.Companion.ControlCommandIdentifiers.OWNS_CONNECTION)?.value?.get(0)?.toInt()
@@ -5364,6 +5494,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         }
 
         val takeoverToken = takeoverAttemptFence.next()
+        offlineAudioDriver.invalidateRelease()
         LidAutoconnectDiagnostics.logEvent("takeover_intent", mapOf("reason" to takingOverFor, "generation" to takeoverToken))
         if (takingOverFor != "music") {
             handleIncomingCallOnceConnected = true
@@ -5409,34 +5540,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 if (takingOverFor == "music" && macAddress.isNotEmpty()) {
                     MediaController.armPendingMusicTakeover(macAddress)
                 }
-                connectAudio(this, device, takeoverToken = takeoverToken)
+                submitExplicitAudioIntent(device,
+                    if (takingOverFor == "call") io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator.Trigger.CALL
+                    else io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator.Trigger.MEDIA,
+                    takeoverToken)
 
-                // Retries with increasing backoff. The first attempt may be rejected
-                // if the peer device is still actively streaming — by ~1s its
-                // AUDIO_BECOMING_NOISY has fired and the stream has stopped. On fast
-                // AOSP stacks (Pixel) that single retry is enough, but MIUI releases
-                // the peer A2DP link more slowly AND the un-privileged connect()
-                // reflection call can silently no-op — so a single 1s retry often
-                // misses the window, forcing the user to press play twice. Retry at
-                // 1s / 2.5s / 4.5s and stop as soon as the route lands. Each retry
-                // is a no-op once A2DP is connected or connecting — skipping while
-                // STATE_CONNECTING prevents each retry from perturbing an in-progress
-                // negotiation (which caused play/stop bouncing on MIUI).
-                val retryDevice = device
-                for (retryDelay in TAKEOVER_RETRY_DELAYS_MS) {
-                    Handler(Looper.getMainLooper()).postDelayed({
-                        if (!takeoverAttemptFence.isCurrent(takeoverToken)) return@postDelayed
-                        val a2dpState = retryDevice?.let { d ->
-                            try { bluetoothA2dpProxy?.getConnectionState(d) } catch (_: Exception) { null }
-                        }
-                        if (a2dpState == BluetoothProfile.STATE_CONNECTED || a2dpState == BluetoothProfile.STATE_CONNECTING) {
-                            Log.d(TAG, "takeOver: retry skipped — A2DP state=$a2dpState")
-                            return@postDelayed
-                        }
-                        Log.d(TAG, "takeOver: retry connectAudio() after ${retryDelay}ms")
-                        connectAudio(this, retryDevice, takeoverToken = takeoverToken)
-                    }, retryDelay)
-                }
             }
         } else {
             Log.w(TAG, "takeOver: device not found in bondedDevices!")
@@ -5600,6 +5708,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             override fun onServiceConnected(profile: Int, proxy: BluetoothProfile) {
                 if (profile == BluetoothProfile.A2DP) {
                     bluetoothA2dpProxy = proxy as android.bluetooth.BluetoothA2dp
+                    // Reconcile a previously issued OS command without replaying it.
+                    Handler(Looper.getMainLooper()).post { offlineAudioDriver.reconcilePending() }
                     // Refresh our local-sink gate as soon as the proxy is ready. If
                     // an app update/restart killed the process-owned AACP socket while
                     // Android kept A2DP connected, reconnect immediately instead of
@@ -5668,7 +5778,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             // A2DP gate: if Android isn't routing audio to the AirPods, another
             // device is the active sink. Don't snatch the L2CAP slot.
             val deviceMac = try { device.address } catch (_: Exception) { "" }
-            if (deviceMac.isNotEmpty() && !isA2dpConnectedTo(deviceMac)) {
+            if (!automaticControlSocketAllowed(device)) {
                 // BluetoothA2dp.connectedDevices on THIS phone only lists sinks connected
                 // to us — we cannot name the foreign holder (Xiaomi/Mac/etc.). Log local
                 // proxy state so QA can tell "no sink here" vs "we hold a different sink".
@@ -5741,6 +5851,12 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         }
     }
 
+    /** A missing proxy or failed query is unknown, never permission to seize the control socket. */
+    private fun automaticControlSocketAllowed(device: BluetoothDevice): Boolean =
+        io.automated.ventures.everypods.bluetooth.audio.AutomaticControlSocketGate.allows {
+            lidA2dpConnectionStateOrNull(device)?.let { it == BluetoothProfile.STATE_CONNECTED }
+        }
+
     @SuppressLint("MissingPermission", "UnspecifiedRegisterReceiverFlag")
     private fun connectToSocketLocked(
         adapter: BluetoothAdapter, device: BluetoothDevice, manual: Boolean = false
@@ -5768,6 +5884,16 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 Log.w(TAG, "<LogCollector:Conn> [Conn-#$attemptId] Bluetooth off, aborting retries")
                 lastError = IllegalStateException("Bluetooth off")
                 break
+            }
+            // A retry may run after local audio was lost or the profile proxy died.
+            if (!manual && !automaticControlSocketAllowed(device)) {
+                Log.d(TAG, "<LogCollector:Conn> [Conn-#$attemptId] automatic socket retry blocked: local A2DP unconfirmed")
+                LidAutoconnectDiagnostics.logEvent("socket_cancelled", mapOf("attemptId" to attemptId,
+                    "reason" to "local_a2dp_unconfirmed"))
+                BluetoothConnectionManager.publishState(
+                    io.automated.ventures.everypods.bluetooth.connection.ConnectionState.Idle
+                )
+                return
             }
             BluetoothConnectionManager.publishState(
                 io.automated.ventures.everypods.bluetooth.connection.ConnectionState
@@ -6137,8 +6263,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         }
 
         val yieldToken = takeoverAttemptFence.next()
+        val audioReleaseToken = offlineAudioDriver.beginRelease()
         MediaController.yieldPlaybackToPeer(
-            stillCurrent = { takeoverAttemptFence.isCurrent(yieldToken) },
+            stillCurrent = { takeoverAttemptFence.isCurrent(yieldToken) && offlineAudioDriver.isReleaseCurrent(audioReleaseToken) },
             onYield = {
                 lastMusicTakeoverMs = 0L
                 lastTakeoverIntentMs = 0L
@@ -6178,7 +6305,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             @SuppressLint("MissingPermission")
             override fun onServiceConnected(profile: Int, proxy: BluetoothProfile) {
                 if (profile == BluetoothProfile.A2DP) {
-                    if (!takeoverAttemptFence.isCurrent(yieldToken)) {
+                    if (!takeoverAttemptFence.isCurrent(yieldToken) || !offlineAudioDriver.isReleaseCurrent(audioReleaseToken)) {
                         bluetoothAdapter.closeProfileProxy(profile, proxy)
                         return
                     }
@@ -6191,13 +6318,14 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     if (checkSelfPermission("android.permission.BLUETOOTH_PRIVILEGED")
                             == PackageManager.PERMISSION_GRANTED) {
                         try {
-                            val disconnectMethod = a2dp.javaClass.getDeclaredMethod(
-                                "disconnect", android.bluetooth.BluetoothDevice::class.java
-                            )
-                            disconnectMethod.isAccessible = true
-                            a2dp.connectedDevices.forEach { dev ->
-                                disconnectMethod.invoke(a2dp, dev)
-                                Log.d(TAG, "disconnectForCD: A2DP disconnected ${dev.address}")
+                            // Only release the selected AirPods, never unrelated sinks.
+                            a2dp.connectedDevices.filter { it.address.equals(macAddress, ignoreCase = true) }.forEach { dev ->
+                                offlineAudioDriver.dispatchIfReleaseCurrent(audioReleaseToken) {
+                                    if (takeoverAttemptFence.isCurrent(yieldToken)) {
+                                        io.automated.ventures.everypods.bluetooth.audio.AndroidHiddenProfileCommands.disconnect(a2dp, dev)
+                                        Log.d(TAG, "disconnectForCD: A2DP disconnected ${dev.address}")
+                                    }
+                                }
                             }
                         } catch (e: Exception) {
                             Log.w(TAG, "disconnectForCD: A2DP disconnect via reflection failed: ${e.message}")
@@ -6211,7 +6339,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
             override fun onServiceDisconnected(profile: Int) {}
         }, BluetoothProfile.A2DP)
-        if (takeoverAttemptFence.isCurrent(yieldToken)) {
+        if (takeoverAttemptFence.isCurrent(yieldToken) && offlineAudioDriver.isReleaseCurrent(audioReleaseToken)) {
             CrossDevice.notifyDisconnected()
             AudioLeasePrefs.releaseLease(sharedPreferences, "disconnect_for_cd")
         }
@@ -6219,6 +6347,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
     fun disconnectAirPods() {
         if (!this::socket.isInitialized) return
+        val releaseToken = offlineAudioDriver.beginRelease()
+        takeoverAttemptFence.next()
         val closingSocket = socket
         val closingGeneration = BluetoothConnectionManager.connectionGeneration()
         closingSocket.close()
@@ -6239,7 +6369,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         if (checkSelfPermission("android.permission.BLUETOOTH_PRIVILEGED") == PackageManager.PERMISSION_GRANTED){
             bluetoothAdapter.getProfileProxy(this, object : BluetoothProfile.ServiceListener {
                 override fun onServiceConnected(profile: Int, proxy: BluetoothProfile) {
-                    if (profile == BluetoothProfile.A2DP) {
+                    if (profile == BluetoothProfile.A2DP && offlineAudioDriver.isReleaseCurrent(releaseToken)) {
                         val connectedDevices = proxy.connectedDevices
                         if (connectedDevices.isNotEmpty()) {
                             MediaController.sendPause()
@@ -6251,7 +6381,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 override fun onServiceDisconnected(profile: Int) {}
             }, BluetoothProfile.A2DP)
             try {
-                device?.disconnect()
+                offlineAudioDriver.dispatchIfReleaseCurrent(releaseToken) { device?.disconnect() }
             } catch (e: Exception) {
                 Log.w(TAG, "device.disconnect() failed, $e")
             }
@@ -6259,7 +6389,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         if (checkSelfPermission("android.permission.MODIFY_PHONE_STATE") == PackageManager.PERMISSION_GRANTED){
             bluetoothAdapter.getProfileProxy(this, object : BluetoothProfile.ServiceListener {
                 override fun onServiceConnected(profile: Int, proxy: BluetoothProfile) {
-                    if (profile == BluetoothProfile.HEADSET) {
+                    if (profile == BluetoothProfile.HEADSET && offlineAudioDriver.isReleaseCurrent(releaseToken)) {
                         val connectedDevices = proxy.connectedDevices
                         if (connectedDevices.isNotEmpty()) {
                             MediaController.sendPause()
@@ -6307,6 +6437,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         // strongest local signal that audio is leaving us (peer is taking over or we
         // initiated the drop) — it must precede any subsequent callbacks that consult
         // the flux gate (MediaController.onPlaybackConfigChanged, battery handler).
+        val releaseToken = offlineAudioDriver.beginRelease()
+        takeoverAttemptFence.next()
         lastA2dpStateChangeMs = System.currentTimeMillis()
         val bluetoothAdapter = context.getSystemService(BluetoothManager::class.java).adapter
         if (checkSelfPermission("android.permission.BLUETOOTH_PRIVILEGED") == PackageManager.PERMISSION_GRANTED) {
@@ -6314,15 +6446,12 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 override fun onServiceConnected(profile: Int, proxy: BluetoothProfile) {
                     if (profile == BluetoothProfile.A2DP) {
                         try {
-                            if (proxy.getConnectionState(device) == BluetoothProfile.STATE_DISCONNECTED) {
-                                Log.d(TAG, "Already disconnected from A2DP")
-                                return
+                            offlineAudioDriver.dispatchIfReleaseCurrent(releaseToken) {
+                                if (proxy.getConnectionState(device) != BluetoothProfile.STATE_DISCONNECTED) {
+                                    Log.d(TAG, "calling A2DP.setConnectionPolicy for ${device?.address} to 0")
+                                    io.automated.ventures.everypods.bluetooth.audio.AndroidHiddenProfileCommands.setPolicy(proxy, device, 0)
+                                }
                             }
-                            val method = proxy.javaClass.getMethod(
-                                "setConnectionPolicy", BluetoothDevice::class.java, Int::class.java
-                            )
-                            Log.d(TAG, "calling A2DP.setConnectionPolicy for ${device?.address} to 0")
-                            method.invoke(proxy, device, 0)
                         } catch (e: Exception) {
                             e.printStackTrace()
                         } finally {
@@ -6341,14 +6470,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 override fun onServiceConnected(profile: Int, proxy: BluetoothProfile) {
                     if (profile == BluetoothProfile.HEADSET) {
                         try {
-                            val method =
-                                proxy.javaClass.getMethod(
-                                    "setConnectionPolicy",
-                                    BluetoothDevice::class.java,
-                                    Int::class.java
-                                )
-                            Log.d(TAG, "calling HEADSET.setConnectionPolicy for ${device?.address} to 0")
-                            method.invoke(proxy, device, 0)
+                            offlineAudioDriver.dispatchIfReleaseCurrent(releaseToken) {
+                                Log.d(TAG, "calling HEADSET.setConnectionPolicy for ${device?.address} to 0")
+                                io.automated.ventures.everypods.bluetooth.audio.AndroidHiddenProfileCommands.setPolicy(proxy, device, 0)
+                            }
                         } catch (e: Exception) {
                             e.printStackTrace()
                         } finally {
@@ -6364,15 +6489,18 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         }
     }
 
-    fun connectAudio(
+    private fun connectAudio(
         context: Context,
         device: BluetoothDevice?,
         lidDiagSource: String? = null,
         passiveRequest: io.automated.ventures.everypods.utils.peer.PassiveAcquisitionCoordinator.Event.ReadyToConnect? = null,
         takeoverToken: Long? = null,
+        passiveCommandNumber: Int = 1,
+        coordinatorDispatch: ((() -> Boolean, () -> Unit) -> Unit),
+        secondaryProfileDispatch: ((() -> Unit) -> Unit),
+        coordinatorResult: ((io.automated.ventures.everypods.bluetooth.audio.AudioProfileAdapter.DispatchResult) -> Unit)? = null,
     ) {
         val recoveryDeadline = passiveRecoveryDeadlineMs
-        var primaryCallbackHandled = false
         fun passiveAttemptIsCurrent(commit: Boolean, requireCommitted: Boolean = false): Boolean {
             if (takeoverToken != null && !takeoverAttemptFence.isCurrent(takeoverToken)) return false
             if (lidDiagSource?.startsWith("lid") != true) return true
@@ -6385,199 +6513,81 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             if (!live) return false
             if (passiveRequest == null) return true
             return if (requireCommitted) CrossDevice.passiveCommandIsCurrent(passiveRequest)
-            else CrossDevice.authorizePassiveAcquisition(passiveRequest, lidOpenState,
-                AudioLeasePrefs.isFeatureEnabled(sharedPreferences), issueCommand = commit)
+            else if (commit) audioPeerGrantBridge.commit(recoveryDeadline, passiveCommandNumber)
+            else audioPeerGrantBridge.isValid(recoveryDeadline, passiveCommandNumber)
         }
         val bluetoothAdapter = context.getSystemService(BluetoothManager::class.java).adapter
 
-        bluetoothAdapter?.getProfileProxy(context, object : BluetoothProfile.ServiceListener {
-            override fun onServiceConnected(profile: Int, proxy: BluetoothProfile) {
-                if (profile == BluetoothProfile.A2DP) {
-                    if (passiveRequest != null && primaryCallbackHandled) {
-                        bluetoothAdapter.closeProfileProxy(BluetoothProfile.A2DP, proxy)
-                        return
-                    }
-                    primaryCallbackHandled = true
-                    if (!passiveAttemptIsCurrent(commit = false)) {
-                        LidAutoconnectDiagnostics.logEvent("skip", mapOf("reason" to "profile_callback_cancelled", "source" to lidDiagSource))
-                        if (passiveRequest != null) CrossDevice.cancelPassiveAcquisition()
-                        bluetoothAdapter.closeProfileProxy(BluetoothProfile.A2DP, proxy)
-                        return
-                    }
-                    // Idempotency guard: if A2DP is already connected to this device,
-                    // do NOT call connect() again. Invoking connect() on an already-
-                    // connected device bounces the A2DP profile, briefly drops the
-                    // audio route and pauses the media app. This redundant call fires
-                    // e.g. when processEarDetectionChange() calls connectAudio() on
-                    // ear-in while the route is already live, or from the battery
-                    // handler — and was the cause of "playback pauses right when the
-                    // connection popup appears".
-                    val alreadyConnected = try {
-                        val s = proxy.getConnectionState(device)
-                        s == BluetoothProfile.STATE_CONNECTED || s == BluetoothProfile.STATE_CONNECTING
-                    } catch (e: Exception) {
-                        false
-                    }
-                    if (alreadyConnected) {
-                        Log.d(TAG, "connectAudio: A2DP already connected/connecting to ${device?.address} — skipping redundant connect()")
-                        if (lidDiagSource != null) {
-                            LidAutoconnectDiagnostics.logEvent(
-                                "connect_audio_result",
-                                mapOf(
-                                    "path" to "connect",
-                                    "ok" to true,
-                                    "err" to "already",
-                                    "source" to lidDiagSource,
-                                ),
-                            )
-                            LidAutoconnectDiagnostics.logEvent("a2dp_outcome", mapOf("state" to "already"))
-                        }
-                        if (passiveRequest != null) CrossDevice.cancelPassiveAcquisition()
-                        bluetoothAdapter.closeProfileProxy(BluetoothProfile.A2DP, proxy)
-                        return
-                    }
-                    if (context.checkSelfPermission("android.permission.BLUETOOTH_PRIVILEGED") == PackageManager.PERMISSION_GRANTED) {
+        fun connectSecondaryProfile() {
+            bluetoothAdapter?.getProfileProxy(context, object : BluetoothProfile.ServiceListener {
+                override fun onServiceConnected(profile: Int, proxy: BluetoothProfile) {
+                    if (profile == BluetoothProfile.HEADSET) {
                         try {
-                            val policyMethod = proxy.javaClass.getMethod(
-                                "setConnectionPolicy",
-                                BluetoothDevice::class.java,
-                                Int::class.java
-                            )
-                            if (!passiveAttemptIsCurrent(commit = true)) return
-                            Log.d(TAG, "calling A2DP.setConnectionPolicy for ${device?.address} to 100")
-                            policyMethod.invoke(proxy, device, 100)
-                            if (lidDiagSource != null) {
-                                LidAutoconnectDiagnostics.logEvent(
-                                    "connect_audio_result",
-                                    mapOf(
-                                        "path" to "policy",
-                                        "ok" to true,
-                                        "err" to "",
-                                        "source" to lidDiagSource,
-                                    ),
-                                )
+                            var dispatched = false
+                            secondaryProfileDispatch {
+                                if (passiveAttemptIsCurrent(commit = false, requireCommitted = true) &&
+                                    checkSelfPermission("android.permission.MODIFY_PHONE_STATE") == PackageManager.PERMISSION_GRANTED) {
+                                    io.automated.ventures.everypods.bluetooth.audio.AndroidHiddenProfileCommands.setPolicy(proxy, device, 100)
+                                    io.automated.ventures.everypods.bluetooth.audio.AndroidHiddenProfileCommands.connect(proxy, device)
+                                    dispatched = true
+                                }
                             }
-
-                            val connectMethod =
-                                proxy.javaClass.getMethod("connect", BluetoothDevice::class.java)
-                            connectMethod.invoke(
-                                proxy, device
-                            )
-                            if (lidDiagSource != null) {
-                                LidAutoconnectDiagnostics.logEvent(
-                                    "connect_audio_result",
-                                    mapOf(
-                                        "path" to "connect",
-                                        "ok" to true,
-                                        "err" to "",
-                                        "source" to lidDiagSource,
-                                    ),
-                                )
-                            }
+                            if (!dispatched) LidAutoconnectDiagnostics.logEvent("skip", mapOf(
+                                "reason" to "headset_callback_cancelled_or_unavailable", "source" to lidDiagSource))
                         } catch (e: Exception) {
-                            e.printStackTrace()
-                            if (lidDiagSource != null) {
-                                val err = (e.cause?.message ?: e.message ?: "err").take(80)
-                                LidAutoconnectDiagnostics.logEvent(
-                                    "connect_audio_result",
-                                    mapOf(
-                                        "path" to "policy",
-                                        "ok" to false,
-                                        "err" to err,
-                                        "source" to lidDiagSource,
-                                    ),
-                                )
-                            }
-                        } finally {
-                            if (passiveRequest != null) CrossDevice.cancelPassiveAcquisition()
-                            bluetoothAdapter.closeProfileProxy(BluetoothProfile.A2DP, proxy)
-                        }
-                    }
-                    else {
-                        // No BLUETOOTH_PRIVILEGED (e.g. stock Xiaomi). The hidden
-                        // connect(BluetoothDevice) method is technically gated, but on
-                        // some OEM builds the call still goes through. Try it, log the
-                        // outcome, and clean up.
-                        try {
-                            val connectMethod =
-                                proxy.javaClass.getMethod("connect", BluetoothDevice::class.java)
-                            if (!passiveAttemptIsCurrent(commit = true)) return
-                            val result = connectMethod.invoke(proxy, device)
-                            if (result == false && passiveRequest != null) CrossDevice.rejectPassiveCommand(passiveRequest)
-                            Log.d(TAG, "A2DP.connect (no BLUETOOTH_PRIVILEGED) for ${device?.address} returned $result")
-                            if (lidDiagSource != null) {
-                                LidAutoconnectDiagnostics.logEvent(
-                                    "connect_audio_result",
-                                    mapOf(
-                                        "path" to "connect",
-                                        "ok" to (result != false),
-                                        "err" to "",
-                                        "source" to lidDiagSource,
-                                    ),
-                                )
-                            }
-                        } catch (e: Exception) {
-                            Log.w(TAG, "A2DP.connect (no BLUETOOTH_PRIVILEGED) for ${device?.address} threw: ${e.cause?.message ?: e.message}")
-                            if (lidDiagSource != null) {
-                                val err = (e.cause?.message ?: e.message ?: "err").take(80)
-                                LidAutoconnectDiagnostics.logEvent(
-                                    "connect_audio_result",
-                                    mapOf(
-                                        "path" to "connect",
-                                        "ok" to false,
-                                        "err" to err,
-                                        "source" to lidDiagSource,
-                                    ),
-                                )
-                            }
-                        } finally {
-                            if (passiveRequest != null) CrossDevice.cancelPassiveAcquisition()
-                            bluetoothAdapter.closeProfileProxy(BluetoothProfile.A2DP, proxy)
-                        }
-                    }
-                }
-            }
-
-            override fun onServiceDisconnected(profile: Int) {}
-        }, BluetoothProfile.A2DP)
-
-        bluetoothAdapter?.getProfileProxy(context, object : BluetoothProfile.ServiceListener {
-            override fun onServiceConnected(profile: Int, proxy: BluetoothProfile) {
-                if (profile == BluetoothProfile.HEADSET) {
-                    if (!passiveAttemptIsCurrent(commit = false, requireCommitted = true)) {
-                        LidAutoconnectDiagnostics.logEvent("skip", mapOf("reason" to "headset_callback_cancelled", "source" to lidDiagSource))
-                        bluetoothAdapter.closeProfileProxy(BluetoothProfile.HEADSET, proxy)
-                        return
-                    }
-                    if (checkSelfPermission("android.permission.MODIFY_PHONE_STATE") == PackageManager.PERMISSION_GRANTED) {
-                        try {
-                            val policyMethod = proxy.javaClass.getMethod(
-                                "setConnectionPolicy",
-                                BluetoothDevice::class.java,
-                                Int::class.java
-                            )
-                            Log.d(
-                                TAG,
-                                "calling HEADSET.setConnectionPolicy for ${device?.address} to 100"
-                            )
-                            policyMethod.invoke(proxy, device, 100)
-                            val connectMethod =
-                                proxy.javaClass.getMethod("connect", BluetoothDevice::class.java)
-                            connectMethod.invoke(proxy, device)
-                        } catch (e: Exception) {
-                            e.printStackTrace()
+                            Log.w(TAG, "Secondary headset profile connection failed", e)
                         } finally {
                             bluetoothAdapter.closeProfileProxy(BluetoothProfile.HEADSET, proxy)
                         }
-                    } else {
-                        Log.d(TAG, "not setting connection policy for HEADSET, no MODIFIY_PHONE_STATE permission")
-                        bluetoothAdapter.closeProfileProxy(BluetoothProfile.HEADSET, proxy)
                     }
                 }
-            }
 
-            override fun onServiceDisconnected(profile: Int) {}
-        }, BluetoothProfile.HEADSET)
+                override fun onServiceDisconnected(profile: Int) {}
+            }, BluetoothProfile.HEADSET)
+        }
+
+        if (bluetoothAdapter != null && device != null) {
+            val profileAdapter = io.automated.ventures.everypods.bluetooth.audio.AudioProfileAdapter(
+                io.automated.ventures.everypods.bluetooth.audio.AndroidAudioProfileBackend(context, bluetoothAdapter)
+            )
+            profileAdapter.connect(device.address, dispatch = { command ->
+                coordinatorDispatch({
+                    if (lidDiagSource != null) {
+                        val policy = AudioLeasePrefs.policySnapshot(sharedPreferences,
+                            overrideReason = if (lidOpenState) null else "case_episode_inactive")
+                        LidAutoconnectDiagnostics.logEvent("audio_policy_dispatch", mapOf(
+                            "revision" to policy.revision, "origin" to policy.origin,
+                            "requested" to policy.requestedEnabled, "effective" to policy.effectiveEnabled,
+                            "override" to policy.overrideReason))
+                    }
+                    passiveAttemptIsCurrent(commit = true)
+                }, command)
+            }) { result ->
+                val accepted = result == io.automated.ventures.everypods.bluetooth.audio.AudioProfileAdapter.DispatchResult.ACCEPTED
+                val rejected = result == io.automated.ventures.everypods.bluetooth.audio.AudioProfileAdapter.DispatchResult.REJECTED
+                if ((rejected || result == io.automated.ventures.everypods.bluetooth.audio.AudioProfileAdapter.DispatchResult.NOT_DISPATCHED) && passiveRequest != null) {
+                    CrossDevice.rejectPassiveCommand(passiveRequest)
+                }
+                if (lidDiagSource != null) {
+                    LidAutoconnectDiagnostics.logEvent("connect_audio_result", mapOf(
+                        "path" to "connect", "ok" to accepted, "err" to result.name.lowercase(), "source" to lidDiagSource,
+                    ))
+                }
+                Log.d(TAG, "A2DP connect dispatch result=$result")
+                if (passiveRequest != null) CrossDevice.cancelPassiveAcquisition()
+                coordinatorResult?.invoke(result)
+                if (result in setOf(
+                        io.automated.ventures.everypods.bluetooth.audio.AudioProfileAdapter.DispatchResult.ACCEPTED,
+                        io.automated.ventures.everypods.bluetooth.audio.AudioProfileAdapter.DispatchResult.UNKNOWN,
+                        io.automated.ventures.everypods.bluetooth.audio.AudioProfileAdapter.DispatchResult.ALREADY_CONNECTED,
+                        io.automated.ventures.everypods.bluetooth.audio.AudioProfileAdapter.DispatchResult.ALREADY_CONNECTING,
+                    )) connectSecondaryProfile()
+            }
+        } else {
+            coordinatorResult?.invoke(io.automated.ventures.everypods.bluetooth.audio.AudioProfileAdapter.DispatchResult.NOT_DISPATCHED)
+        }
+
+
     }
 
     fun setName(name: String) {
@@ -6602,6 +6612,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }
 
     override fun onDestroy() {
+        caseEpisodeWakeGuard.close()
         takeoverAttemptFence.next()
         notificationUpdatesStopped = true
         if (statusPublisherDelegate.isInitialized()) statusPublisher.stop()
@@ -6874,13 +6885,18 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             // connect as autonomous, and so lease claim on CONNECTED is allowed.
             lastTakeoverIntentMs = System.currentTimeMillis()
             val manualToken = takeoverAttemptFence.next()
+            offlineAudioDriver.invalidateRelease()
             LidAutoconnectDiagnostics.logEvent("takeover_intent", mapOf("reason" to "manual_reconnect", "generation" to manualToken))
             CoroutineScope(Dispatchers.IO).launch {
                 if (!takeoverAttemptFence.isCurrent(manualToken)) return@launch
                 Log.d(TAG, "connecting to $macAddress")
-                connectToSocket(bluetoothAdapter, device!!, manual = true)
+                // The control-channel connection can block or remain open until a
+                // later disconnect. It must not delay the user's audio request.
+                submitExplicitAudioIntent(device,
+                    io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator.Trigger.MANUAL,
+                    manualToken)
                 if (!takeoverAttemptFence.isCurrent(manualToken)) return@launch
-                connectAudio(this@AirPodsService, device!!, takeoverToken = manualToken)
+                connectToSocket(bluetoothAdapter, device!!, manual = true)
                 // If A2DP is already ours after manual reconnect, claim immediately.
                 if (holdsAirPods()) {
                     AudioLeasePrefs.claimLease(sharedPreferences, "reconnect_from_saved_mac")
@@ -6907,8 +6923,24 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
      */
     fun isA2dpConnected(): Boolean = isA2dpConnectedTo(macAddress)
 
+    /** Peer v2 reports unknown until a fresh local profile query settles ownership. */
+    fun peerAudioOwnership(): io.automated.ventures.everypods.utils.peer.PeerOwnership {
+        val adapter = runCatching { getSystemService(BluetoothManager::class.java).adapter }.getOrNull()
+        val target = if (adapter?.isEnabled == true && macAddress.isNotBlank()) {
+            runCatching { adapter.getRemoteDevice(macAddress) }.getOrNull()
+        } else null
+        val profile = target?.let { lidA2dpConnectionStateOrNull(it) }
+        val connected = when (profile) {
+            BluetoothProfile.STATE_CONNECTED -> true
+            BluetoothProfile.STATE_DISCONNECTED -> false
+            else -> null
+        }
+        return io.automated.ventures.everypods.utils.peer.headsetAudioOwnership(connected, isConnected())
+    }
+
     /** Conservative headset-route use snapshot; unknown playback remains UNKNOWN. */
     fun peerAudioUse(): PeerAudioUse {
+        if (offlineAudioDriver.hasUnresolvedCommand()) return PeerAudioUse.UNKNOWN
         if (isInCall || isVoIPCallActive) return PeerAudioUse.CALL
         if (checkSelfPermission(Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
             return PeerAudioUse.UNKNOWN
@@ -6945,7 +6977,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
     /** Never use the optimistic proxy-unavailable ownership cache as completion proof. */
     fun hasConfirmedPassiveAudioConnection(): Boolean {
-        if (isConnected()) return true
+        // AACP can be connected while A2DP is absent or still negotiating.
         val target = device ?: runCatching {
             getSystemService(BluetoothManager::class.java).adapter?.getRemoteDevice(macAddress)
         }.getOrNull() ?: return false
@@ -7016,9 +7048,13 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         logLidOwnerContext(reason, resolveA2dpOwnerHint())
     }
 
-    private fun cancelPendingLidAutoconnect(reason: String) {
-        passiveRecoveryRunnable?.let(lidAutoconnectHandler::removeCallbacks)
-        passiveRecoveryRunnable = null
+    private fun cancelPendingLidAutoconnect(reason: String, expire: Boolean = false) {
+        if (passiveRecoveryDeadlineMs != 0L) caseEpisodeWakeGuard.release(passiveRecoveryDeadlineMs)
+        if (passiveRecoveryDeadlineMs != 0L) {
+            if (expire) offlineAudioDriver.expire(passiveRecoveryDeadlineMs)
+            else offlineAudioDriver.cancel(passiveRecoveryDeadlineMs)
+        }
+        audioPeerGrantBridge.cancel(passiveRecoveryDeadlineMs)
         passiveRecoveryDeadlineMs = 0L
         pendingLidAutoconnectRunnable?.let {
             lidAutoconnectHandler.removeCallbacks(it)
@@ -7029,7 +7065,14 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             )
         }
         cancelPendingFluxRecheck()
-        cancelPendingLidAutoconnectRetries(reason)
+    }
+
+    /** Release early after a skip or terminal result; the episode deadline remains for deduplication. */
+    private fun releaseCaseWakeIfIdle(deadline: Long) {
+        val current = offlineAudioCoordinator.snapshot
+        val active = current.intent?.id == deadline && current.result == null
+        val pending = pendingLidAutoconnectRunnable != null || pendingFluxRecheckRunnable != null
+        caseEpisodeWakeGuard.releaseIfIdle(deadline, pending, active)
     }
 
     private fun cancelPendingFluxRecheck() {
@@ -7037,13 +7080,6 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             lidAutoconnectHandler.removeCallbacks(it)
             pendingFluxRecheckRunnable = null
         }
-    }
-
-    private fun cancelPendingLidAutoconnectRetries(reason: String) {
-        if (pendingLidAutoconnectRetries.isEmpty()) return
-        pendingLidAutoconnectRetries.forEach(lidAutoconnectHandler::removeCallbacks)
-        pendingLidAutoconnectRetries.clear()
-        LidAutoconnectDiagnostics.logEvent("skip", mapOf("reason" to "cancelled_retries_$reason"))
     }
 
     /**
@@ -7074,6 +7110,237 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 "reason" to "a2dp_contention",
                 "cooldownMs" to LidAutoconnectPolicy.CONTENTION_COOLDOWN_MS,
             ),
+        )
+    }
+
+    private fun invalidateRemoteCaseEvidence() {
+        remoteCaseRevision.incrementAndGet()
+        remoteCaseEvidence = null
+    }
+
+    private fun publishRemoteCaseObservation(status: BLEManager.AirPodsStatus) {
+        val now = SystemClock.elapsedRealtime()
+        // The last holder already has local evidence; avoid opening an extra peer
+        // socket while it can handle the episode itself or currently holds audio.
+        if (AudioLeasePrefs.isLeaseHolder(sharedPreferences) || hasConfirmedPassiveAudioConnection() ||
+            !(status.lidOpen || status.isLeftInEar || status.isRightInEar) ||
+            !LidAutoconnectPolicy.isFreshBleObservation(status.observedAtElapsedMs, now) ||
+            !bleManager.isIdentityVerified(status.address)) return
+        val headset = runCatching { java.util.UUID.fromString(
+            io.automated.ventures.everypods.utils.peer.PeerIdentityStore.headsetIdFromAddress(macAddress)) }.getOrNull() ?: return
+        val observation = LocalCaseObservation(java.util.UUID.randomUUID(), headset, status.observedAtElapsedMs)
+        synchronized(localCaseObservationLock) {
+            localCaseObservations.entries.removeAll { (_, old) -> now >= old.observedAtMs && now - old.observedAtMs > 5_000L }
+            // Fail closed if unusually many different observations arrive in one window.
+            if (localCaseObservations.size >= 16) return
+            localCaseObservations[observation.id] = observation
+            localCaseObservation = observation
+        }
+        currentRemoteCaseObservation(observation.id)?.let(CrossDevice::publishRemoteCaseObservation)
+    }
+
+    /** Invalidate every still-fresh hint when authoritative storage is observed. */
+    private fun withdrawLocalCaseObservations() {
+        val now = SystemClock.elapsedRealtime()
+        val session = runCatching { java.util.UUID.fromString(CrossDevice.processSessionId) }.getOrNull()
+        val observations = synchronized(localCaseObservationLock) {
+            val live = localCaseObservations.values.filter { now >= it.observedAtMs && now - it.observedAtMs <= 5_000L }
+            localCaseObservations.clear()
+            localCaseObservation = null
+            live
+        }
+        if (session != null) observations.forEach { observation ->
+            CrossDevice.publishRemoteCaseWithdrawal(
+                io.automated.ventures.everypods.utils.peer.RemoteCaseEvidenceMessage.Message.Withdrawal(
+                    session, observation.headset, observation.id))
+        }
+    }
+
+    fun retryRecentRemoteCaseObservation() {
+        localCaseObservation?.let { currentRemoteCaseObservation(it.id) }?.let(CrossDevice::publishRemoteCaseObservation)
+    }
+
+    /** Re-read identity and availability at challenge time, not just when a hint was sent. */
+    fun currentRemoteCaseObservation(id: java.util.UUID): io.automated.ventures.everypods.utils.peer.RemoteCaseEvidenceExchange.Observation? {
+        if (AudioLeasePrefs.isLeaseHolder(sharedPreferences) || hasConfirmedPassiveAudioConnection()) return null
+        val observation = localCaseObservation?.takeIf { it.id == id } ?: return null
+        val session = runCatching { java.util.UUID.fromString(CrossDevice.processSessionId) }.getOrNull() ?: return null
+        val currentHeadset = runCatching { java.util.UUID.fromString(
+            io.automated.ventures.everypods.utils.peer.PeerIdentityStore.headsetIdFromAddress(macAddress)) }.getOrNull()
+        if (currentHeadset != observation.headset) return null
+        val status = if (::bleManager.isInitialized) bleManager.getMostRecentStatus() else null
+        val now = SystemClock.elapsedRealtime()
+        val age = now - observation.observedAtMs
+        if (status == null || age !in 0..5_000L ||
+            !LidAutoconnectPolicy.isFreshBleObservation(status.observedAtElapsedMs, now) ||
+            !(status.lidOpen || status.isLeftInEar || status.isRightInEar) ||
+            !bleManager.isIdentityVerified(status.address)) return null
+        return io.automated.ventures.everypods.utils.peer.RemoteCaseEvidenceExchange.Observation(
+            session, observation.headset, observation.id, age.toInt(), identityVerified = true, available = true)
+    }
+
+    /** Unknown local audio, contradictory stored evidence, or unsynchronized peers fail closed. */
+    fun remoteCaseReceiverState(peerSession: java.util.UUID?): io.automated.ventures.everypods.utils.peer.RemoteCaseEvidenceExchange.ReceiverState? {
+        if (!::sharedPreferences.isInitialized) return null
+        val session = runCatching { java.util.UUID.fromString(CrossDevice.processSessionId) }.getOrNull() ?: return null
+        val headset = runCatching { java.util.UUID.fromString(
+            io.automated.ventures.everypods.utils.peer.PeerIdentityStore.headsetIdFromAddress(macAddress)) }.getOrNull()
+        val now = SystemClock.elapsedRealtime()
+        val status = if (::bleManager.isInitialized) bleManager.getMostRecentStatus() else null
+        val stored = confirmedAacpCaseStorage() || status?.let { bleConfirmsStored(it, now) } == true
+        return io.automated.ventures.everypods.utils.peer.RemoteCaseEvidenceExchange.ReceiverState(
+            session, peerSession, headset, remoteCaseRevision.get(),
+            AudioLeasePrefs.isFeatureEnabled(sharedPreferences) && !stored && peerAudioUse() == PeerAudioUse.IDLE,
+            AudioLeasePrefs.leaseEverSet(sharedPreferences) && AudioLeasePrefs.isLeaseHolder(sharedPreferences),
+            peerSession != null && CrossDevice.hasFreshPeerOwnershipSnapshot())
+    }
+
+    private fun remoteCaseEvidenceUsable(evidence: io.automated.ventures.everypods.utils.peer.RemoteCaseEvidenceExchange.Accepted, now: Long): Boolean {
+        if (evidence.remainingFreshMs <= 0 || now < evidence.acceptedAtMs ||
+            now - evidence.acceptedAtMs >= evidence.remainingFreshMs ||
+            !CrossDevice.isRemoteCaseEvidenceCurrent(evidence.peerId, evidence.peerSession, evidence.observation, now)) return false
+        val state = remoteCaseReceiverState(evidence.peerSession) ?: return false
+        return state.localSession == evidence.localSession && state.headset == evidence.headset &&
+            state.localRevision == evidence.localRevision && state.enabled && state.lastHolder && state.synchronized
+    }
+
+    fun acceptRemoteCaseEvidence(evidence: io.automated.ventures.everypods.utils.peer.RemoteCaseEvidenceExchange.Accepted) {
+        lidAutoconnectHandler.post {
+            val now = SystemClock.elapsedRealtime()
+            if (!remoteCaseEvidenceUsable(evidence, now)) return@post
+            remoteCaseEvidence = evidence
+            LidAutoconnectDiagnostics.logEvent("remote_case_evidence", mapOf("remainingMs" to
+                (evidence.remainingFreshMs - (now - evidence.acceptedAtMs))))
+            if (!lidOpenState || now >= passiveRecoveryDeadlineMs) {
+                lidOpenState = true
+                maybeScheduleLidAutoconnect()
+            }
+        }
+    }
+
+    fun withdrawRemoteCaseEvidence(address: String, message: io.automated.ventures.everypods.utils.peer.RemoteCaseEvidenceMessage.Message.Withdrawal) {
+        lidAutoconnectHandler.post {
+            val active = remoteCaseEvidence ?: return@post
+            if (!active.peerId.equals(address, ignoreCase = true) || active.peerSession != message.session ||
+                active.headset != message.headset || active.observation != message.observation) return@post
+            invalidateRemoteCaseEvidence()
+            lidOpenState = false
+            cancelPendingLidAutoconnect("remote_stored")
+            CrossDevice.cancelPassiveAcquisition()
+        }
+    }
+
+    /** A live AACP transition can initiate the same bounded passive episode as BLE. */
+    private fun submitPassiveAacpEvidence(source: String) {
+        val now = SystemClock.elapsedRealtime()
+        lastAacpPassiveEvidenceMs = now
+        LidAutoconnectDiagnostics.logEvent("passive_evidence", mapOf("source" to source))
+        if (!AudioLeasePrefs.isFeatureEnabled(sharedPreferences) || isA2dpConnected()) return
+        // Coalesce repeated evidence into the current attempt instead of resetting its budget.
+        if (lidOpenState && now < passiveRecoveryDeadlineMs) return
+        lidOpenState = true
+        maybeScheduleLidAutoconnect()
+    }
+
+    /**
+     * A fresh, identity-verified AirPods advertisement can start recovery even on
+     * phones that do not expose the AirPods AACP case event. The remembered holder
+     * is eligible to try; peer arbitration and the normal command-boundary checks
+     * still decide whether a connection may be issued.
+     */
+    private fun submitPassiveBleAvailability(status: BLEManager.AirPodsStatus, now: Long) {
+        if (!LidAutoconnectPolicy.mayStartFromBleAvailability(
+                status.observedAtElapsedMs, now, bleManager.isIdentityVerified(status.address),
+                status.lidOpen, status.isLeftInEar, status.isRightInEar,
+                bleConfirmsStored(status, now), AudioLeasePrefs.isFeatureEnabled(sharedPreferences),
+                AudioLeasePrefs.isLeaseHolder(sharedPreferences), holdsAirPods())) return
+
+        lastBlePassiveEvidenceMs = status.observedAtElapsedMs
+        if (!lidOpenState || now >= passiveRecoveryDeadlineMs) {
+            lidOpenState = true
+            LidAutoconnectDiagnostics.logEvent("passive_evidence", mapOf(
+                "source" to "verified_ble_available",
+                "lidOpen" to status.lidOpen,
+                "leftInEar" to status.isLeftInEar,
+                "rightInEar" to status.isRightInEar,
+            ))
+            maybeScheduleLidAutoconnect()
+        }
+    }
+
+    /** A broadcast triggers a fresh query; the untagged broadcast is never command proof. */
+    private fun observeOfflineAudioProfile(headset: String, state: Int) {
+        val profile = when (state) {
+            BluetoothProfile.STATE_CONNECTED -> io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator.Profile.CONNECTED
+            BluetoothProfile.STATE_CONNECTING -> io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator.Profile.CONNECTING
+            BluetoothProfile.STATE_DISCONNECTED -> io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator.Profile.DISCONNECTED
+            BluetoothProfile.STATE_DISCONNECTING -> io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator.Profile.DISCONNECTING
+            else -> io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator.Profile.UNKNOWN
+        }
+        offlineAudioDriver.onProfileBroadcast(headset, profile)
+    }
+
+    private fun confirmedAacpCaseStorage(): Boolean =
+        ::socket.isInitialized && socket.isConnected &&
+            hrCaseStorage.confirmed(BluetoothConnectionManager.connectionGeneration())
+
+    private fun hasFreshAacpRemovalEvidence(now: Long): Boolean =
+        lastAacpPassiveEvidenceMs > 0L && now >= lastAacpPassiveEvidenceMs &&
+            now - lastAacpPassiveEvidenceMs <= 10_000L && ::socket.isInitialized && socket.isConnected &&
+            !confirmedAacpCaseStorage()
+
+    private fun bleConfirmsStored(status: BLEManager.AirPodsStatus, now: Long): Boolean =
+        LidAutoconnectPolicy.bleConfirmsStored(status.observedAtElapsedMs, now, status.lidOpen,
+            status.isLeftCharging, status.isRightCharging, status.isLeftInEar, status.isRightInEar,
+            status.leftBattery?.let { it in 0..100 } == true &&
+                status.rightBattery?.let { it in 0..100 } == true)
+
+    private fun offlineAudioEvidence(headset: String, intent: io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator.Intent?): io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator.Evidence {
+        val adapter = runCatching { getSystemService(BluetoothManager::class.java).adapter }.getOrNull()
+        val target = runCatching { adapter?.getRemoteDevice(headset) }.getOrNull()
+        val state = target?.let { lidA2dpConnectionStateOrNull(it) }
+        val profile = when (state) {
+            BluetoothProfile.STATE_CONNECTED -> io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator.Profile.CONNECTED
+            BluetoothProfile.STATE_CONNECTING -> io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator.Profile.CONNECTING
+            BluetoothProfile.STATE_DISCONNECTED -> io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator.Profile.DISCONNECTED
+            BluetoothProfile.STATE_DISCONNECTING -> io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator.Profile.DISCONNECTING
+            else -> io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator.Profile.UNKNOWN
+        }
+        val status = if (::bleManager.isInitialized) bleManager.getMostRecentStatus() else null
+        val now = SystemClock.elapsedRealtime()
+        val bleStored = status?.let { bleConfirmsStored(it, now) } == true
+        val aacpStored = confirmedAacpCaseStorage()
+        val aacpFresh = hasFreshAacpRemovalEvidence(now)
+        val freshLidOpen = status?.let {
+            it.lidOpen && LidAutoconnectPolicy.isFreshBleObservation(it.observedAtElapsedMs, now)
+        } == true
+        val stored = LidAutoconnectPolicy.storedBudsCancel(aacpStored, bleStored, freshLidOpen, aacpFresh)
+        val bleFresh = status?.let {
+            LidAutoconnectPolicy.isFreshBleObservation(it.observedAtElapsedMs, now) &&
+                (it.lidOpen || it.isLeftInEar || it.isRightInEar ||
+                    LidAutoconnectPolicy.bleCanKeepRemovalIntent(lastBlePassiveEvidenceMs,
+                        it.observedAtElapsedMs, now, stored))
+        } == true
+        val remoteFresh = remoteCaseEvidence?.let { remoteCaseEvidenceUsable(it, now) } == true
+        val fresh = bleFresh || aacpFresh || remoteFresh
+        val shared = CrossDevice.isEnabled && CrossDevice.configuredPeers.isNotEmpty()
+        val passive = intent?.trigger == io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator.Trigger.PASSIVE
+        val needsGrant = passive && shared && !mayRecoverOfflineLastHolder()
+        val coordinator = offlineAudioCoordinator.snapshot
+        val commandNumber = if (coordinator.unresolved) coordinator.commands else coordinator.commands + 1
+        val grantIntent = coordinator.intent?.id
+        val grantValid = needsGrant && grantIntent != null && audioPeerGrantBridge.isValid(grantIntent, commandNumber)
+        val policy = AudioLeasePrefs.policySnapshot(sharedPreferences,
+            overrideReason = if (lidOpenState) null else "case_episode_inactive")
+        return io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator.Evidence(
+            nowMs = SystemClock.elapsedRealtime(), enabled = policy.effectiveEnabled,
+            fresh = fresh, budsStored = stored,
+            adapterAvailable = adapter?.isEnabled == true && target != null,
+            peerBusy = passive && (CrossDevice.isAvailable || SystemClock.elapsedRealtime() < peerDropCooldownUntilMs ||
+                SystemClock.elapsedRealtime() < lidAutoconnectContentionUntilMs),
+            requiresGrant = needsGrant, grantValid = grantValid, profile = profile,
+            grantIntentId = if (grantValid) grantIntent else null,
+            grantCommandNumber = if (grantValid) commandNumber else null,
         )
     }
 
@@ -7199,7 +7466,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                         mapOf(
                             "active" to bleManager.isScanCallbackActive(),
                             "ageMs" to age,
-                            "action" to "restart",
+                            "action" to if (bleManager.isScanCallbackActive()) "probe" else "restart",
                         ),
                     )
                     ensureBleScanning("watchdog", force = true)
@@ -7244,21 +7511,31 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             ),
         )
 
+        if (LidAutoconnectPolicy.isDuplicateActiveEpisode(SystemClock.elapsedRealtime(), passiveRecoveryDeadlineMs)) {
+            LidAutoconnectDiagnostics.logEvent("lid_episode_coalesced")
+            return
+        }
+
         cancelPendingLidAutoconnect("reschedule")
 
-        val runnable = Runnable {
-            pendingLidAutoconnectRunnable = null
-            runLidAutoconnectAttempt()
-        }
-        passiveRecoveryDeadlineMs = SystemClock.elapsedRealtime() + 15_000L
+        passiveRecoveryDeadlineMs = SystemClock.elapsedRealtime() + 45_000L
         val deadline = passiveRecoveryDeadlineMs
+        val runnable = Runnable {
+            if (passiveRecoveryDeadlineMs == deadline) {
+                pendingLidAutoconnectRunnable = null
+                try { runLidAutoconnectAttempt() }
+                finally { releaseCaseWakeIfIdle(deadline) }
+            }
+        }
+        val wakeAcquired = caseEpisodeWakeGuard.acquire(deadline, 45_000L)
+        LidAutoconnectDiagnostics.logEvent("case_execution_lease", mapOf("acquired" to wakeAcquired, "timeoutMs" to 45_000L))
         lidAutoconnectHandler.postDelayed({
             if (passiveRecoveryDeadlineMs == deadline) {
                 lidOpenState = false
-                cancelPendingLidAutoconnect("intent_expired")
+                cancelPendingLidAutoconnect("intent_expired", expire = true)
                 CrossDevice.cancelPassiveAcquisition()
             }
-        }, 15_000L)
+        }, 45_000L)
         pendingLidAutoconnectRunnable = runnable
         // Delay slightly under LID_CLOSE_TIMEOUT so a quick close cancels first.
         lidAutoconnectHandler.postDelayed(runnable, 400L)
@@ -7316,7 +7593,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         }
         if (!shared && !mayContinueLidAutoconnect()) return
         if (shared && nowElapsed < lidAutoconnectContentionUntilMs) return
-        if (holdsAirPods()) {
+        if (isA2dpConnected()) {
             LidAutoconnectDiagnostics.logEvent("skip", mapOf("reason" to "already_holds"))
             return
         }
@@ -7377,11 +7654,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             return
         }
 
-        if (shared && !mayRecoverOfflineLastHolder()) {
-            requestSharedPassiveAcquisition("lid_open")
-            return
-        }
-        if (shared) {
+        if (shared && mayRecoverOfflineLastHolder()) {
             CrossDevice.cancelPassiveAcquisition()
             LidAutoconnectDiagnostics.logEvent("offline_last_holder_recovery")
         }
@@ -7397,71 +7670,24 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
      */
     @SuppressLint("MissingPermission")
     private fun startLidConnectWithRetries(savedDevice: android.bluetooth.BluetoothDevice) {
-        if (!mayContinueLidAutoconnect()) return
+        if (!lidOpenState || !AudioLeasePrefs.isFeatureEnabled(sharedPreferences) ||
+            SystemClock.elapsedRealtime() >= passiveRecoveryDeadlineMs || CrossDevice.isAvailable) return
         val now = System.currentTimeMillis()
         lastLidAutoconnectAttemptElapsedMs = SystemClock.elapsedRealtime()
         lidAutoconnectA2dpConnectedAtMs = 0L
         // Connect only — do not resume whatever was paused during an earlier handover.
         MediaController.clearAutoPlayForPassiveConnect("lid_autoconnect")
-        LidAutoconnectDiagnostics.logEvent("connect_audio_attempt", mapOf("attempt" to "1"))
-        connectAudio(this, savedDevice, lidDiagSource = "lid")
-        scheduleLidA2dpOutcomeWatch(savedDevice)
-        val retryDevice = savedDevice
-        for (retryDelay in TAKEOVER_RETRY_DELAYS_MS) {
-            lateinit var retryRunnable: Runnable
-            retryRunnable = Runnable retry@{
-                pendingLidAutoconnectRetries.remove(retryRunnable)
-                if (!mayContinueLidAutoconnect()) return@retry
-                val a2dpState = try {
-                    bluetoothA2dpProxy?.getConnectionState(retryDevice)
-                } catch (_: Exception) {
-                    null
-                }
-                if (a2dpState == BluetoothProfile.STATE_CONNECTED ||
-                    a2dpState == BluetoothProfile.STATE_CONNECTING
-                ) {
-                    LidAutoconnectDiagnostics.logEvent(
-                        "a2dp_outcome",
-                        mapOf(
-                            "state" to if (a2dpState == BluetoothProfile.STATE_CONNECTED) "connected" else "connecting",
-                        ),
-                    )
-                    return@retry
-                }
-                if (holdsAirPods()) {
-                    LidAutoconnectDiagnostics.logEvent("a2dp_outcome", mapOf("state" to "already"))
-                    return@retry
-                }
-                LidAutoconnectDiagnostics.logEvent(
-                    "connect_audio_attempt",
-                    mapOf("attempt" to "retry", "retryAfterMs" to retryDelay),
-                )
-                connectAudio(this, retryDevice, lidDiagSource = "lid")
-            }
-            pendingLidAutoconnectRetries.add(retryRunnable)
-            lidAutoconnectHandler.postDelayed(retryRunnable, retryDelay)
-        }
-    }
-
-    private fun scheduleLidA2dpOutcomeWatch(device: android.bluetooth.BluetoothDevice) {
-        Handler(Looper.getMainLooper()).postDelayed({
-            if (lastLidAutoconnectAttemptElapsedMs <= 0L) return@postDelayed
-            val since = SystemClock.elapsedRealtime() - lastLidAutoconnectAttemptElapsedMs
-            if (since > 6_500L) return@postDelayed
-            if (holdsAirPods()) {
-                LidAutoconnectDiagnostics.logEvent("a2dp_outcome", mapOf("state" to "connected"))
-                return@postDelayed
-            }
-            val a2dpState = lidA2dpConnectionStateOrNull(device)
-            when (a2dpState) {
-                BluetoothProfile.STATE_CONNECTED ->
-                    LidAutoconnectDiagnostics.logEvent("a2dp_outcome", mapOf("state" to "connected"))
-                BluetoothProfile.STATE_CONNECTING ->
-                    LidAutoconnectDiagnostics.logEvent("a2dp_outcome", mapOf("state" to "connecting"))
-                else ->
-                    LidAutoconnectDiagnostics.logEvent("a2dp_outcome", mapOf("state" to "failed_timeout"))
-            }
-        }, 6_000L)
+        val policy = AudioLeasePrefs.policySnapshot(sharedPreferences,
+            overrideReason = if (lidOpenState) null else "case_episode_inactive")
+        LidAutoconnectDiagnostics.logEvent("connect_audio_attempt", mapOf("attempt" to "1", "source" to "offline_coordinator",
+            "policyRevision" to policy.revision, "policyOrigin" to policy.origin,
+            "requested" to policy.requestedEnabled, "effective" to policy.effectiveEnabled,
+            "override" to policy.overrideReason))
+        offlineAudioDriver.submit(io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator.Intent(
+            passiveRecoveryDeadlineMs, savedDevice.address,
+            io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator.Trigger.PASSIVE,
+            passiveRecoveryDeadlineMs, episodeId = passiveRecoveryDeadlineMs,
+        ))
     }
 
     /** Permission-guarded A2DP connection state for lid diagnostics (lint-safe). */
@@ -7488,9 +7714,13 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         cancelPendingFluxRecheck()
         val delay = (A2DP_STATE_FLUX_WINDOW_MS - fluxAgeMs + 50L)
             .coerceIn(100L, A2DP_STATE_FLUX_WINDOW_MS)
+        val deadline = passiveRecoveryDeadlineMs
         val runnable = Runnable {
-            pendingFluxRecheckRunnable = null
-            runFluxRecheck()
+            if (passiveRecoveryDeadlineMs == deadline) {
+                pendingFluxRecheckRunnable = null
+                try { runFluxRecheck() }
+                finally { releaseCaseWakeIfIdle(deadline) }
+            }
         }
         pendingFluxRecheckRunnable = runnable
         lidAutoconnectHandler.postDelayed(runnable, delay)
@@ -7580,32 +7810,16 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         return result
     }
 
-    private fun requestSharedPassiveAcquisition(source: String): Boolean {
+    private fun requestSharedPassiveAcquisition(source: String, commandNumber: Int): Boolean {
         val enabled = AudioLeasePrefs.isFeatureEnabled(sharedPreferences)
         val now = SystemClock.elapsedRealtime()
         if (!lidOpenState || !enabled || now < peerDropCooldownUntilMs ||
             now < lidAutoconnectContentionUntilMs) return false
-        val eligible = AudioLeasePrefs.isLeaseHolder(sharedPreferences) &&
-            AudioLeasePrefs.leaseEverSet(sharedPreferences)
-        val started = CrossDevice.beginPassiveAcquisition(
-            lastOwnerEligible = eligible,
-            enabled = enabled,
-            lidOpen = lidOpenState,
-        )
+        val started = audioPeerGrantBridge.begin(passiveRecoveryDeadlineMs, commandNumber)
         LidAutoconnectDiagnostics.logEvent("passive_reservation", mapOf(
             "source" to source,
             "result" to if (started) "requested" else "not_ready",
         ))
-        if (lidOpenState && SystemClock.elapsedRealtime() < passiveRecoveryDeadlineMs &&
-            passiveRecoveryRunnable == null) {
-            CrossDevice.refreshPassiveOwnership()
-            val retry = Runnable {
-                passiveRecoveryRunnable = null
-                if (lidOpenState && !holdsAirPods()) runLidAutoconnectAttempt()
-            }
-            passiveRecoveryRunnable = retry
-            lidAutoconnectHandler.postDelayed(retry, 750L)
-        }
         return started
     }
 

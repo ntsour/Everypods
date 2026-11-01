@@ -1,0 +1,3 @@
+wallMs=1000 elapsedMs=3000 <LogCollector:LidLease> process_start cycle=0
+wallMs=5000 elapsedMs=7000 <LogCollector:LidLease> profile_state cycle=1 profile=a2dp state=2 previous=1
+wallMs=11000 elapsedMs=13000 <LogCollector:LidLease> profile_state cycle=1 profile=a2dp state=0 previous=2

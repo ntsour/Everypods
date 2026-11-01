@@ -77,6 +77,7 @@ object MediaController {
         processPlaybackConfigs(latestPlaybackConfigs)
     }
     private var mediaVerification: Runnable? = null
+    private var callbackStartConfirmation: Runnable? = null
     private var mediaDetectionGeneration = 0L
     private var lastMediaTakeoverRequestAt: Long? = null
     private var lastKnownIsMusicActive: Boolean? = null
@@ -111,11 +112,8 @@ object MediaController {
     private var suppressRouteLandRestartUntilMs: Long = 0L
     private const val PASSIVE_CONNECT_ROUTELAND_SUPPRESS_MS = 20_000L
 
-    // When an A2DP route change lands we watch for the app auto-pausing
-    // (Pocket Casts, etc.) and re-issue play immediately. Unlike a single
-    // timing guess, this polls the actual playback state with arithmetic
-    // backoff (200, 400, 600, ...) and reacts as soon as isMusicActive drops
-    // — regardless of exactly when the app decides to pause.
+    // Observe playback after an A2DP route change. A stopped stream cannot be
+    // distinguished reliably from an explicit pause, so it must not trigger Play.
     @Volatile
     private var routeLandWatchPending: Boolean = false
     // Arithmetic-backoff delays: 200, 400, 600 ... 2400 ms → ~15.6 s total.
@@ -150,22 +148,13 @@ object MediaController {
                 return
             }
             if (audioManager.isMusicActive) {
-                // Music is currently playing, but on Xiaomi/HyperOS Pocket Casts
-                // (and similar apps) auto-pause several seconds AFTER the A2DP
-                // stream starts — well past any short "stable" window. Don't
-                // declare victory just because music looks fine right now;
-                // keep watching until the user pauses or the 15 s budget
-                // elapses, so a late auto-pause can still be caught and replayed.
                 Log.d("MediaController", "routeLandPoller: music active at ${elapsedMs}ms, continuing watch")
                 handler.postDelayed(this, delay)
                 return
             }
-            // Music dropped — re-issue play (auto-pause from the late route change).
-            Log.d("MediaController", "routeLandPoller: music not active at ${elapsedMs}ms (check $checkCount), re-issuing play")
-            LidAutoconnectDiagnostics.logEvent("route_recovery_play", mapOf("ageMs" to elapsedMs, "check" to checkCount))
-            sendPlay(force = true)
-            // Schedule next check with arithmetic backoff.
-            handler.postDelayed(this, delay)
+            Log.d("MediaController", "routeLandPoller: music stopped; preserving pause")
+            routeLandWatchPending = false
+            reset()
         }
     }
     private val routeLandPoller = RouteLandPoller()
@@ -181,7 +170,7 @@ object MediaController {
     // A cold-connect straight from the case has to page asleep AirPods — the A2DP
     // route can legitimately take 6-12 s to land. 3 s was far too short: the route
     // landed AFTER the window, so onAudioDevicesAdded discarded it as "stale" and
-    // never showed the popup or re-issued play, leaving audio stuck on the speaker.
+    // never showed the popup when a route landed late.
     // 15 s covers slow cold connects; pendingMac is still cleared on pause and on
     // ownership loss, so a genuinely stale entry can't misfire much later.
     private const val PENDING_TAKEOVER_MAX_AGE_MS = 15_000L
@@ -292,9 +281,8 @@ object MediaController {
     /**
      * Restart the routeLandPoller explicitly. Used when A2DP PLAYING_STATE_CHANGED
      * → PLAYING fires, because on some devices (Xiaomi) the actual A2DP audio stream
-     * starts many seconds after the device is added to the system. Pocket Casts
-     * auto-pauses on the late route change, but by then the original poller started
-     * from onAudioDevicesAdded has already finished.
+     * starts many seconds after the device is added to the system. The poller
+     * only observes playback and does not override a subsequent pause.
      */
     fun restartRouteLandPoller() {
         val now = System.currentTimeMillis()
@@ -381,9 +369,8 @@ object MediaController {
 
         // Listen for audio routing changes. When the AirPods become the actual
         // media output (not just A2DP-profile-connected, but Android has fully
-        // routed media to them), check if we should re-issue a play key. This
-        // covers Pocket Casts (and any well-behaved app) auto-pausing on
-        // audio device change during a handover.
+        // routed media to them), observe the result and show the takeover island.
+        // Do not resume playback: the user may have paused while the route landed.
         audioManager.registerAudioDeviceCallback(object : AudioDeviceCallback() {
             override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>?) {
                 addedDevices?.forEach { dev ->
@@ -412,14 +399,9 @@ object MediaController {
                         ServiceManager.getService()?.showTakeoverIsland()
                         return@forEach
                     }
-                    // Start the route-land poller. It watches the actual playback state
-                    // every 200 ms for up to 2 s. If the app auto-pauses on the route
-                    // change (Pocket Casts, Spotify, etc.), the poller detects
-                    // isMusicActive dropping and re-issues play immediately — no
-                    // fragile single-shot timing guess.
+                    // Observe route landing without overriding a pause.
                     Log.d("MediaController", "  → expected AirPods route landed; starting routeLandPoller")
                     routeLandWatchPending = true
-                    sendPlay(force = true)
                     handler.postDelayed(routeLandPoller, ROUTE_LAND_DELAYS_MS[0])
                     // Audio route is actually live now — show the takeover island.
                     // (Previously fired immediately on takeOver() request, ~3 s
@@ -643,6 +625,30 @@ object MediaController {
         mediaDetectionGeneration++
         mediaVerification?.let(handler::removeCallbacks)
         mediaVerification = null
+        callbackStartConfirmation?.let(handler::removeCallbacks)
+        callbackStartConfirmation = null
+    }
+
+    // Short system sounds can use USAGE_MEDIA. Require callback-only evidence
+    // to persist before moving the headset; an actual playing session is handled
+    // separately by onSessionStartedPlaying.
+    private fun confirmCallbackMediaStart() {
+        callbackStartConfirmation?.let(handler::removeCallbacks)
+        val confirmation = Runnable {
+            callbackStartConfirmation = null
+            val stillMedia = latestPlaybackConfigs?.any {
+                isUserMediaPlayback(it.audioAttributes.usage, it.audioAttributes.contentType)
+            } == true
+            if (!takeoverBlocked() && audioManager.isMusicActive && stillMedia) {
+                requestMediaTakeover("playback callback")
+            } else {
+                startDetector.rearm(false)
+                lastKnownIsMusicActive = false
+                Log.d("MediaController", "Transient playback did not trigger handover")
+            }
+        }
+        callbackStartConfirmation = confirmation
+        handler.postDelayed(confirmation, 400L)
     }
 
     /** Bounded follow-up for empty/redacted configs and playback that becomes active later. */
@@ -740,7 +746,7 @@ object MediaController {
         val decision = startDetector.observe(active, evidence, blocked = takeoverBlocked() || selfAction)
         lastKnownIsMusicActive = startDetector.active
         when (decision) {
-            MediaStartDecision.REQUEST_HANDOVER -> requestMediaTakeover("playback callback")
+            MediaStartDecision.REQUEST_HANDOVER -> confirmCallbackMediaStart()
             MediaStartDecision.VERIFY -> scheduleMediaVerification(evidence == MediaPlaybackEvidence.USER_MEDIA)
             MediaStartDecision.IGNORE -> if (!active) cancelMediaVerification()
         }

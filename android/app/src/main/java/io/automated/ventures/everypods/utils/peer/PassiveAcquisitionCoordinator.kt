@@ -32,7 +32,7 @@ class PassiveAcquisitionCoordinator(
     data class Intent(val requestId: String, val headsetId: String, val generation: Long,
                       val expiresAtElapsedMs: Long, val membership: List<String>,
                       val membershipDigest: String, val requesterSessionId: String, val sentAtElapsedMs: Long,
-                      val snapshotRevisions: Map<String, Long>,
+                      val snapshotRevisions: Map<String, Long>, val peerSessions: Map<String, String>,
                       val phase: Phase, val grants: Map<String, String>,
                       val grantorSessions: Map<String, String>, val startAcks: Set<String>,
                       val connectIssued: Boolean = false, val connectionObserved: Boolean = false)
@@ -101,7 +101,7 @@ class PassiveAcquisitionCoordinator(
             if (active.phase == Phase.IN_PROGRESS) return Event.Deny(active.requestId, Denial.BUSY)
             if (now < active.expiresAtElapsedMs && active.headsetId == headsetId &&
                 active.requesterSessionId == requesterSessionId && active.membership == members &&
-                active.membershipDigest == membersDigest && active.snapshotRevisions == revisions) {
+                active.membershipDigest == membersDigest && active.snapshotRevisions == revisions && active.peerSessions == peers.mapKeys { it.key.lowercase() }.mapValues { it.value.sessionId }) {
                 return Event.Request(active.requestId, active.headsetId, active.requesterSessionId,
                     active.membership, active.membershipDigest, active.snapshotRevisions)
             }
@@ -111,7 +111,7 @@ class PassiveAcquisitionCoordinator(
         val requestId = idFactory()
         val digest = membersDigest
         intent = Intent(requestId, headsetId, generation, now + INTENT_TTL_MS, members, digest, requesterSessionId,
-            now, revisions, Phase.PREPARING, emptyMap(), emptyMap(), emptySet())
+            now, revisions, peers.mapKeys { it.key.lowercase() }.mapValues { it.value.sessionId }, Phase.PREPARING, emptyMap(), emptyMap(), emptySet())
         changed("requester", requestId, Phase.PREPARING, "begin")
         return Event.Request(requestId, headsetId, requesterSessionId, members, digest, revisions)
     }
@@ -121,6 +121,7 @@ class PassiveAcquisitionCoordinator(
         val now = clock.nowMs()
         if (current.requestId != requestId || current.phase != Phase.PREPARING || now > current.sentAtElapsedMs + GRANT_RECEIVE_MS ||
             now >= current.expiresAtElapsedMs || peerId.lowercase() !in current.membership || peerId.lowercase() == localInstallationId.lowercase()) return emptyList()
+        if (current.peerSessions[peerId.lowercase()] != grantorSessionId) return emptyList()
         val existing = current.grants[peerId.lowercase()]
         if (existing != null && existing != grantId) return emptyList()
         val grants = current.grants + (peerId.lowercase() to grantId)
@@ -138,12 +139,13 @@ class PassiveAcquisitionCoordinator(
             current.membership, current.membershipDigest, token) }
     }
 
-    @Synchronized fun onStartAck(peerId: String, requestId: String, grantId: String): Event? {
+    @Synchronized fun onStartAck(peerId: String, grantorSessionId: String, requestId: String, grantId: String): Event? {
         val current = intent ?: return null
         val now = clock.nowMs()
         if (current.requestId != requestId || current.phase != Phase.STARTING ||
             now > current.sentAtElapsedMs + START_ACK_MS || now >= current.expiresAtElapsedMs ||
-            current.grants[peerId.lowercase()] != grantId) return null
+            current.grants[peerId.lowercase()] != grantId ||
+            current.grantorSessions[peerId.lowercase()] != grantorSessionId) return null
         val acks = current.startAcks + peerId.lowercase()
         intent = current.copy(startAcks = acks)
         val required = current.membership.filter { it != localInstallationId.lowercase() }.toSet()
@@ -157,18 +159,22 @@ class PassiveAcquisitionCoordinator(
     /** Must be called immediately before the headset command; any changed precondition cancels. */
     @Synchronized fun authorizeConnect(requestId: String, generationAtCall: Long, lidOpen: Boolean,
                                        enabled: Boolean, headsetId: String, membership: Set<String>,
-                                       peers: Map<String, PeerStatus>, issueCommand: Boolean = true): Boolean {
+                                       peers: Map<String, PeerStatus>, localSnapshotRevision: Long,
+                                       issueCommand: Boolean = true): Boolean {
         val current = intent ?: return false
         val now = clock.nowMs()
         val peerIds = peers.keys.map { it.lowercase() }.toSet()
         val expected = current.membership.filter { it != localInstallationId.lowercase() }.toSet()
         val peersStillSafe = peerIds == expected && peers.values.all { it.ready && it.protocolVersion == 2 &&
             it.headsetId == headsetId && it.ownership == PeerOwnership.RELEASED && it.audioUse == PeerAudioUse.IDLE } &&
-            peers.all { (id, status) -> current.snapshotRevisions[id.lowercase()] == status.revision }
+            peers.all { (id, status) -> current.snapshotRevisions[id.lowercase()] == status.revision &&
+                current.peerSessions[id.lowercase()] == status.sessionId &&
+                current.grantorSessions[id.lowercase()] == status.sessionId }
         val allowed = current.requestId == requestId && current.generation == generationAtCall &&
             current.phase == Phase.IN_PROGRESS && (!issueCommand || !current.connectIssued) &&
             now < current.expiresAtElapsedMs && lidOpen && enabled &&
             headsetId == current.headsetId && membership.map { it.lowercase() }.toSet() == current.membership.toSet() &&
+            current.snapshotRevisions[localInstallationId.lowercase()] == localSnapshotRevision &&
             current.startAcks == expected && peersStillSafe
         if (allowed && issueCommand) {
             intent = current.copy(connectIssued = true)
@@ -188,6 +194,13 @@ class PassiveAcquisitionCoordinator(
         intent = old.copy(phase = Phase.CANCELLED)
         changed("requester", old.requestId, Phase.CANCELLED, "cancel_before_command")
         return listOf(rememberCancellation(old))
+    }
+
+    /** Cancel only the named request; a late owner must never cancel a replacement. */
+    @Synchronized fun cancelMatching(requestId: String, headsetId: String): List<Event> {
+        val current = intent ?: return emptyList()
+        if (current.requestId != requestId || current.headsetId != headsetId) return emptyList()
+        return cancelIntent()
     }
 
     @Synchronized fun cancelExpiredPreparation(): List<Event> {
@@ -238,7 +251,6 @@ class PassiveAcquisitionCoordinator(
     ): Event {
         val now = clock.nowMs()
         val members = membership.map { it.lowercase() }
-        if (intent?.phase in setOf(Phase.PREPARING, Phase.STARTING, Phase.IN_PROGRESS)) return Event.Deny(requestId, Denial.BUSY)
         if (members != configuredMembership.map { it.lowercase() }.distinct().sorted() ||
             members != members.distinct().sorted() || localInstallationId.lowercase() !in members ||
             requesterId.lowercase() !in members || membershipDigest(members) != membershipDigest) return Event.Deny(requestId, Denial.MEMBERSHIP_MISMATCH)
@@ -249,6 +261,19 @@ class PassiveAcquisitionCoordinator(
         if (localStatus == null || !localStatus.ready || localStatus.protocolVersion != 2 || localStatus.sessionId != localSessionId ||
             localStatus.headsetId != headsetId || localStatus.ownership == PeerOwnership.UNKNOWN) return Event.Deny(requestId, Denial.UNKNOWN)
         if (localStatus.ownership == PeerOwnership.HELD || localStatus.audioUse != PeerAudioUse.IDLE) return Event.Deny(requestId, Denial.HELD)
+        val active = intent
+        if (active?.phase in setOf(Phase.PREPARING, Phase.STARTING, Phase.IN_PROGRESS)) {
+            // Two simultaneous passive requests otherwise deny each other forever.
+            // Yield only before START has been sent, and only to the lower stable
+            // installation ID from the same authenticated, synchronized snapshot.
+            val mayYield = active!!.phase == Phase.PREPARING &&
+                requesterId.lowercase() < localInstallationId.lowercase() &&
+                active.headsetId == headsetId && active.membership == members &&
+                active.snapshotRevisions == snapshotRevisions &&
+                active.peerSessions[requesterId.lowercase()] == requesterSessionId
+            if (!mayYield) return Event.Deny(requestId, Denial.BUSY)
+            cancelIntent()
+        }
         val existing = reservation
         if (existing != null && existing.phase in setOf(Phase.PREPARING, Phase.STARTING, Phase.IN_PROGRESS)) {
             if (existing.phase == Phase.PREPARING && now >= existing.expiresAtElapsedMs) {
@@ -319,11 +344,11 @@ class PassiveAcquisitionCoordinator(
         return true
     }
 
-    /** HELD is success evidence even when offline/manual recovery used another request. */
+    /** HELD alone can release a preparation, but not an acknowledged in-flight command. */
     @Synchronized fun observePeerHeld(requesterId: String, headsetId: String): Boolean {
         val current = reservation ?: return false
         if (current.requesterId != requesterId || current.headsetId != headsetId ||
-            current.phase !in setOf(Phase.PREPARING, Phase.STARTING, Phase.IN_PROGRESS)) return false
+            current.phase != Phase.PREPARING) return false
         return participantResolve(current.requestId, true)
     }
 
@@ -340,6 +365,9 @@ class PassiveAcquisitionCoordinator(
         val current = intent ?: return false
         if (current.requestId != requestId || current.phase != Phase.IN_PROGRESS || !acquisitionConfirmed) return false
         intent = current.copy(phase = Phase.RESOLVED)
+        // Existing CANCEL is an authenticated terminal reservation release, not a
+        // claim that the profile failed. Replay it if the peer link was down.
+        rememberCancellation(current)
         changed("requester", requestId, Phase.RESOLVED, "headset_held", current.connectIssued)
         return true
     }
