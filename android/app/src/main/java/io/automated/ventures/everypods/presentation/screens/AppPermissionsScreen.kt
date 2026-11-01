@@ -227,14 +227,12 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
                         granted = localNetworkGranted, dark = dark, accent = accent, green = green
                     ) { grantRuntime(arrayOf(io.automated.ventures.everypods.relay.RelayNetworkPermission.PERMISSION)) }
                 }
-                if (!locationGranted) {
-                    RowDivider()
-                    PermissionRow(
-                        title = stringResource(R.string.ui_location),
-                        description = stringResource(R.string.ui_required_for_bluetooth_scannin),
-                        granted = locationGranted, dark = dark, accent = accent, green = green
-                    ) { grantRuntime(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)) }
-                }
+                RowDivider()
+                PermissionRow(
+                    title = stringResource(R.string.ui_location),
+                    description = stringResource(R.string.ui_required_for_bluetooth_scannin),
+                    granted = locationGranted, dark = dark, accent = accent, green = green
+                ) { grantRuntime(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)) }
                 RowDivider()
                 PermissionRow(
                     title = stringResource(R.string.ui_notifications),
