@@ -420,7 +420,7 @@
     <string name="ui_remove_device">Rimuovi il dispositivo</string>
     <string name="ui_report_bugs_or_request_feature">Segnala bug o richiedi funzionalità su GitHub.</string>
     <string name="ui_report_lid_open_connect_failur">Segnala un errore di connessione con il coperchio aperto</string>
-    <string name="ui_required_for_bluetooth_scannin">Necessario per la scansione Bluetooth su Android 11 e versioni precedenti</string>
+    <string name="ui_required_for_bluetooth_scannin">Alcuni telefoni richiedono l’autorizzazione alla posizione per ricevere gli annunci Bluetooth degli AirPods nelle vicinanze. EveryPods usa queste scansioni per rilevare gli AirPods; le scansioni non raccolgono né memorizzano la tua posizione.</string>
     <string name="ui_reset">RESET</string>
     <string name="ui_reset_to_defaults">Ripristina le impostazioni predefinite</string>
     <string name="ui_rest">Riposo</string>

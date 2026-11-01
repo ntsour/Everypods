@@ -11,7 +11,7 @@ class HeartRateCaseStorage(private val elapsed: () -> Long) {
     private var stored = false
 
     /** Null means ignored evidence; false is a valid report that the buds are not both stored. */
-    fun report(packet: ByteArray, sourceGeneration: Long, arrivedAt: Long, currentGeneration: Long): Boolean? {
+    @Synchronized fun report(packet: ByteArray, sourceGeneration: Long, arrivedAt: Long, currentGeneration: Long): Boolean? {
         if (sourceGeneration != currentGeneration || !HeartRateContinuity.fresh(arrivedAt, elapsed()) ||
             (generation == sourceGeneration && arrivedAt < reportedAt)) return null
         if (packet.size != 22 || !packet.take(6).toByteArray().contentEquals(byteArrayOf(4, 0, 4, 0, 4, 0))) return null
@@ -24,6 +24,6 @@ class HeartRateCaseStorage(private val elapsed: () -> Long) {
         return stored
     }
 
-    fun confirmed(currentGeneration: Long): Boolean = stored && generation == currentGeneration &&
+    @Synchronized fun confirmed(currentGeneration: Long): Boolean = stored && generation == currentGeneration &&
         HeartRateContinuity.fresh(reportedAt, elapsed())
 }

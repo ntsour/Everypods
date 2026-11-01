@@ -97,6 +97,7 @@ data class AirPodsUiState(
     val crossDeviceEnabled: Boolean = true,
     val crossDevicePeers: List<PeerUiInfo> = emptyList(),
     val lidOpenLastHolderAutoconnect: Boolean = io.automated.ventures.everypods.utils.AudioLeasePrefs.DEFAULT_ENABLED,
+    val lidOpenPolicyRevision: Long = 0L,
 
     val leftAction: StemAction = io.automated.ventures.everypods.data.StemPressDefaults.LEFT_LONG,
     val rightAction: StemAction = io.automated.ventures.everypods.data.StemPressDefaults.RIGHT_LONG,
@@ -194,6 +195,11 @@ class AirPodsViewModel(
         mutableMapOf<ControlCommandIdentifiers, AACPManager.ControlCommandListener>()
 
     private lateinit var broadcastReceiver: BroadcastReceiver
+    private val reconnectPolicySubscription =
+        io.automated.ventures.everypods.utils.AudioLeasePrefs.observePolicy(sharedPreferences) { policy ->
+            _uiState.update { it.copy(lidOpenLastHolderAutoconnect = policy.requestedEnabled,
+                lidOpenPolicyRevision = policy.revision) }
+        }
 
     init {
         observeBroadcasts()
@@ -212,6 +218,7 @@ class AirPodsViewModel(
     }
 
     override fun onCleared() {
+        reconnectPolicySubscription.close()
         listeners.forEach { (id, listener) ->
             controlRepo.remove(id, listener)
         }
@@ -470,8 +477,7 @@ class AirPodsViewModel(
             sharedPreferences.getBoolean("cross_device_enabled", true)
         // Seed missing key → ON (new installs). Never overwrite an explicit false.
         io.automated.ventures.everypods.utils.AudioLeasePrefs.ensureDefaultEnabled(sharedPreferences)
-        val lidOpenLastHolderAutoconnect =
-            io.automated.ventures.everypods.utils.AudioLeasePrefs.isFeatureEnabled(sharedPreferences)
+        val lidOpenPolicy = io.automated.ventures.everypods.utils.AudioLeasePrefs.policySnapshot(sharedPreferences)
         io.automated.ventures.everypods.utils.HeadGesturePrefs.migrate(sharedPreferences)
         val headGesturesEnabled = sharedPreferences.getBoolean("head_gestures_enabled", false)
         val leftAction = StemAction.fromStringOrDefault(
@@ -492,7 +498,8 @@ class AirPodsViewModel(
                 automaticEarDetectionEnabled = automaticEarDetectionEnabled,
                 automaticConnectionEnabled = automaticConnectionEnabled,
                 crossDeviceEnabled = crossDeviceEnabled,
-                lidOpenLastHolderAutoconnect = lidOpenLastHolderAutoconnect,
+                lidOpenLastHolderAutoconnect = lidOpenPolicy.requestedEnabled,
+                lidOpenPolicyRevision = lidOpenPolicy.revision,
                 headGesturesEnabled = headGesturesEnabled,
                 leftAction = leftAction,
                 rightAction = rightAction,

@@ -13,6 +13,20 @@ class PassiveAcquisitionCoordinatorTest {
                        ownership: PeerOwnership = PeerOwnership.RELEASED) =
         PassiveAcquisitionCoordinator.PeerStatus(id, session, 3, 2, true, headsetId, ownership, PeerAudioUse.IDLE)
 
+    @Test fun `late conditional cancellation cannot cancel a replacement request`() {
+        var nextId = 0
+        val coordinator = PassiveAcquisitionCoordinator(a, Clock()) { "request-${++nextId}" }
+        val first = coordinator.begin(headset, "sess-a", setOf(a, b), true, true, true, true, 4,
+            mapOf(b to status(b, "sess-b"))) as PassiveAcquisitionCoordinator.Event.Request
+        assertEquals(1, coordinator.cancelMatching(first.requestId, headset).size)
+        val second = coordinator.begin(headset, "sess-a", setOf(a, b), true, true, true, true, 4,
+            mapOf(b to status(b, "sess-b"))) as PassiveAcquisitionCoordinator.Event.Request
+        assertTrue(coordinator.cancelMatching(first.requestId, headset).isEmpty())
+        assertTrue(coordinator.cancelMatching(second.requestId, "other-headset").isEmpty())
+        assertEquals(second.requestId, coordinator.currentIntent()!!.requestId)
+        assertEquals(PassiveAcquisitionCoordinator.Phase.PREPARING, coordinator.currentIntent()!!.phase)
+    }
+
     @Test fun `released peer must be idle and uncertain or active audio cannot grant acquisition`() {
         for (use in PeerAudioUse.values()) {
             val coordinator = PassiveAcquisitionCoordinator(a, Clock())
@@ -32,11 +46,11 @@ class PassiveAcquisitionCoordinatorTest {
             localSnapshotRevision = 4,
             peers = mapOf(b to status(b, "00000000-0000-4000-8000-000000000012"))) as PassiveAcquisitionCoordinator.Event.Request
         assertTrue(coordinator.onGrant(b, "00000000-0000-4000-8000-000000000012", request.requestId, "00000000-0000-4000-8000-000000000013").single() is PassiveAcquisitionCoordinator.Event.Start)
-        val ready = coordinator.onStartAck(b, request.requestId, "00000000-0000-4000-8000-000000000013")
+        val ready = coordinator.onStartAck(b, "00000000-0000-4000-8000-000000000012", request.requestId, "00000000-0000-4000-8000-000000000013")
         val intentGeneration = coordinator.currentIntent()!!.generation
         assertEquals(PassiveAcquisitionCoordinator.Event.ReadyToConnect(request.requestId, headset, intentGeneration), ready)
         assertTrue(coordinator.authorizeConnect(request.requestId, intentGeneration, true, true, headset, setOf(a, b),
-            mapOf(b to status(b, "00000000-0000-4000-8000-000000000012"))))
+            mapOf(b to status(b, "00000000-0000-4000-8000-000000000012")), 4))
     }
 
     @Test fun `missing peer blocks request and expired or mismatched grant is ignored`() {
@@ -79,10 +93,10 @@ class PassiveAcquisitionCoordinatorTest {
             mapOf(b to peerStatus)) as PassiveAcquisitionCoordinator.Event.Request
         val start = coordinator.onGrant(b, "sess-b", request.requestId, "grant")
         assertEquals(1, start.size)
-        val ready = coordinator.onStartAck(b, request.requestId, "grant") as
+        val ready = coordinator.onStartAck(b, "sess-b", request.requestId, "grant") as
             PassiveAcquisitionCoordinator.Event.ReadyToConnect
         assertTrue(coordinator.authorizeConnect(ready.requestId, ready.generation, true, true, headset, setOf(a, b),
-            mapOf(b to peerStatus)))
+            mapOf(b to peerStatus), 4))
         assertTrue(coordinator.currentIntent()!!.connectIssued)
 
         clock.now += 60_000L
@@ -99,14 +113,14 @@ class PassiveAcquisitionCoordinatorTest {
         val request = coordinator.begin(headset, "sess-a", setOf(a, b), true, true, true, true, 4,
             mapOf(b to status(b, "sess-b"))) as PassiveAcquisitionCoordinator.Event.Request
         coordinator.onGrant(b, "sess-b", request.requestId, "grant")
-        val ready = coordinator.onStartAck(b, request.requestId, "grant") as
+        val ready = coordinator.onStartAck(b, "sess-b", request.requestId, "grant") as
             PassiveAcquisitionCoordinator.Event.ReadyToConnect
 
         assertFalse(coordinator.currentIntent()!!.connectIssued)
         assertTrue(coordinator.cancelIntent().single() is PassiveAcquisitionCoordinator.Event.Cancel)
         assertEquals(PassiveAcquisitionCoordinator.Phase.CANCELLED, coordinator.currentIntent()!!.phase)
         assertFalse(coordinator.authorizeConnect(ready.requestId, ready.generation, true, true, headset,
-            setOf(a, b), mapOf(b to status(b, "sess-b"))))
+            setOf(a, b), mapOf(b to status(b, "sess-b")), 4))
     }
 
     @Test fun `expired preparation cannot be replayed and duplicate START is idempotent`() {
@@ -146,4 +160,35 @@ class PassiveAcquisitionCoordinatorTest {
             (stale as PassiveAcquisitionCoordinator.Event.Deny).reason)
         assertEquals(PassiveAcquisitionCoordinator.Phase.CANCELLED, coordinator.currentReservation()?.phase)
     }
+    @Test fun `grant and acknowledgement must use the session from the initial snapshot`() {
+        val coordinator = PassiveAcquisitionCoordinator(a, Clock()) { "request" }
+        val request = coordinator.begin(headset, "sess-a", setOf(a, b), true, true, true, true, 4,
+            mapOf(b to status(b, "sess-b"))) as PassiveAcquisitionCoordinator.Event.Request
+        assertTrue(coordinator.onGrant(b, "new-session", request.requestId, "grant").isEmpty())
+        assertEquals(1, coordinator.onGrant(b, "sess-b", request.requestId, "grant").size)
+        assertNull(coordinator.onStartAck(b, "new-session", request.requestId, "grant"))
+        assertNotNull(coordinator.onStartAck(b, "sess-b", request.requestId, "grant"))
+    }
+
+    @Test fun `contention cannot cancel a request after START or for a mismatched snapshot`() {
+        val members = listOf(a, b)
+        val digest = PassiveAcquisitionCoordinator.membershipDigest(members)
+        val revisions = mapOf(a to 3L, b to 4L)
+        val coordinator = PassiveAcquisitionCoordinator(b, Clock()) { "request-b" }
+        val own = coordinator.begin(headset, "sess-b", members.toSet(), true, true, true, true, 4,
+            mapOf(a to status(a, "sess-a"))) as PassiveAcquisitionCoordinator.Event.Request
+        val stale = coordinator.participantRequest("request-a", a, "sess-a", headset, members, digest,
+            "sess-b", status(b, "sess-b"), members.toSet(), mapOf(a to 2L, b to 4L), revisions)
+        assertEquals(PassiveAcquisitionCoordinator.Denial.STALE_SNAPSHOT,
+            (stale as PassiveAcquisitionCoordinator.Event.Deny).reason)
+        assertEquals(PassiveAcquisitionCoordinator.Phase.PREPARING, coordinator.currentIntent()!!.phase)
+        assertEquals(1, coordinator.onGrant(a, "sess-a", own.requestId, "grant").size)
+        val incoming = coordinator.participantRequest("request-a", a, "sess-a", headset, members, digest,
+            "sess-b", status(b, "sess-b"), members.toSet(), revisions, revisions)
+        assertEquals(PassiveAcquisitionCoordinator.Denial.BUSY,
+            (incoming as PassiveAcquisitionCoordinator.Event.Deny).reason)
+        assertEquals(PassiveAcquisitionCoordinator.Phase.STARTING, coordinator.currentIntent()!!.phase)
+        assertTrue(coordinator.pendingCancellations().isEmpty())
+    }
+
 }

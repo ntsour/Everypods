@@ -420,7 +420,7 @@
     <string name="ui_remove_device">Remover dispositivo</string>
     <string name="ui_report_bugs_or_request_feature">Relate bugs ou solicite recursos no GitHub.</string>
     <string name="ui_report_lid_open_connect_failur">Relatar falha de conexão com tampa aberta</string>
-    <string name="ui_required_for_bluetooth_scannin">Necessário para verificação de Bluetooth no Android 11 e versões anteriores</string>
+    <string name="ui_required_for_bluetooth_scannin">Alguns telemóveis precisam da autorização de localização para receber anúncios Bluetooth de AirPods próximos. O EveryPods usa estas pesquisas para detetar os AirPods; elas não recolhem nem guardam a sua localização.</string>
     <string name="ui_reset">REINICIAR</string>
     <string name="ui_reset_to_defaults">Redefinir para os padrões</string>
     <string name="ui_rest">Descanse</string>

@@ -22,13 +22,13 @@ import android.annotation.SuppressLint
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.le.ScanCallback
-import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.content.SharedPreferences
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import io.automated.ventures.everypods.utils.BluetoothCryptography
 import javax.crypto.Cipher
@@ -46,6 +46,7 @@ class BLEManager(private val context: Context) {
     data class AirPodsStatus(
         val address: String,
         val lastSeen: Long = System.currentTimeMillis(),
+        val observedAtElapsedMs: Long = 0L,
         val paired: Boolean = false,
         val model: String = "Unknown",
         val leftBattery: Int? = null,
@@ -61,9 +62,13 @@ class BLEManager(private val context: Context) {
         val connectionState: String = "Unknown"
     )
 
-    fun getMostRecentStatus(): AirPodsStatus? {
-        return deviceStatusMap.values.maxByOrNull { it.lastSeen }
+    @Synchronized fun getMostRecentStatus(): AirPodsStatus? {
+        return deviceStatusMap.values.maxByOrNull { it.observedAtElapsedMs }
     }
+
+    /** Recheck against the current saved key; a previously cached RPA is not enough. */
+    @Synchronized fun isIdentityVerified(address: String): Boolean =
+        getIrkFromPreferences()?.let { runCatching { BluetoothCryptography.verifyRPA(address, it) }.getOrDefault(false) } == true
 
     interface AirPodsStatusListener {
         fun onDeviceStatusChanged(device: AirPodsStatus, previousStatus: AirPodsStatus?)
@@ -77,17 +82,21 @@ class BLEManager(private val context: Context) {
 
     private var mBluetoothLeScanner: BluetoothLeScanner? = null
     private var mScanCallback: ScanCallback? = null
+    private var probeCallback: ScanCallback? = null
+    private var probeTimeout: Runnable? = null
+    private var lastProbeAtMs = 0L
     private var airPodsStatusListener: AirPodsStatusListener? = null
     private val deviceStatusMap = mutableMapOf<String, AirPodsStatus>()
     private val verifiedAddresses = mutableSetOf<String>()
     private val sharedPreferences: SharedPreferences = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
     private var currentGlobalLidState: Boolean? = null
-    private var lastBroadcastTime: Long = 0
+    @Volatile private var lastBroadcastTime: Long = 0
+    @Volatile private var lastBroadcastElapsedMs: Long = 0
     private val processedAddresses = mutableSetOf<String>()
 
     /** True while the service wants BLE proximity scanning (Option 1 / battery / lid). */
     @Volatile private var scanningDesired: Boolean = false
-    /** True after a successful startScan until stop or onScanFailed. */
+    /** A callback was registered/requested; vendor stacks can silently reject or suspend it. */
     @Volatile private var scanCallbackActive: Boolean = false
     @Volatile private var lastScanStartAtMs: Long = 0L
     @Volatile private var consecutiveScanFailures: Int = 0
@@ -146,25 +155,18 @@ class BLEManager(private val context: Context) {
     }
 
     /**
-     * Keep scanning alive across BT toggles, scan failures, and silent stalls.
-     * Safe to call often; no-ops when already healthy unless [force] is true.
-     */
-    /**
-     * True when we should treat the scanner as dead: callback gone, or no ads for
-     * [STALE_SCAN_RESTART_MS] after the scan has had time to deliver something.
-     * Fresh starts with no ads yet are NOT stale until the grace window elapses.
+     * No recent advertisements means delivery is unknown, not that scanning is dead.
+     * After the grace period the watchdog may start a bounded recovery probe.
      */
     fun isScanStale(): Boolean {
         if (!scanCallbackActive) return true
-        val age = msSinceLastAdvertisement()
-        if (age >= 0L) return age >= STALE_SCAN_RESTART_MS
-        // Never seen an ad: only stale once the start grace window has elapsed.
-        if (lastScanStartAtMs <= 0L) return true
-        return System.currentTimeMillis() - lastScanStartAtMs >= STALE_SCAN_RESTART_MS
+        return io.automated.ventures.everypods.utils.LidAutoconnectPolicy.isScanSilent(
+            SystemClock.elapsedRealtime(), lastScanStartAtMs, lastBroadcastElapsedMs, STALE_SCAN_RESTART_MS
+        )
     }
 
     @SuppressLint("MissingPermission")
-    fun ensureScanning(reason: String = "ensure", force: Boolean = false) {
+    @Synchronized fun ensureScanning(reason: String = "ensure", force: Boolean = false) {
         scanningDesired = true
         val age = msSinceLastAdvertisement()
         val stale = isScanStale()
@@ -177,7 +179,11 @@ class BLEManager(private val context: Context) {
             TAG,
             "ensureScanning restart reason=$reason force=$force active=$scanCallbackActive ageMs=$age stale=$stale"
         )
-        startScanningInternal(reason)
+        if (scanCallbackActive && reason != "bt_state_on") {
+            probeScanning(reason)
+        } else {
+            startScanningInternal(reason)
+        }
     }
 
     @SuppressLint("MissingPermission")
@@ -187,7 +193,7 @@ class BLEManager(private val context: Context) {
     }
 
     @SuppressLint("MissingPermission")
-    private fun startScanningInternal(reason: String) {
+    @Synchronized private fun startScanningInternal(reason: String) {
         cancelPendingScanRetry()
         try {
             io.automated.ventures.everypods.utils.LidAutoconnectDiagnostics.logEvent("scan_start", mapOf("reason" to reason))
@@ -220,60 +226,15 @@ class BLEManager(private val context: Context) {
                 return
             }
 
-            val scanSettings = ScanSettings.Builder()
-                .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
-                .setMatchMode(ScanSettings.MATCH_MODE_AGGRESSIVE)
-                .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
-                .setNumOfMatches(ScanSettings.MATCH_NUM_MAX_ADVERTISEMENT)
-                .setReportDelay(500L)
-                .build()
-
-            val manufacturerData = ByteArray(27)
-            val manufacturerDataMask = ByteArray(27)
-
-            manufacturerData[0] = 7
-            manufacturerData[1] = 25
-
-            manufacturerDataMask[0] = -1
-            manufacturerDataMask[1] = -1
-
-            val scanFilter = ScanFilter.Builder()
-                .setManufacturerData(76, manufacturerData, manufacturerDataMask)
-                .build()
-
-            mScanCallback = object : ScanCallback() {
-                override fun onScanResult(callbackType: Int, result: ScanResult) {
-                    // Clear the per-scan dedup set so every individual advertisement
-                    // is processed. Real dedup is done by comparing parsedStatus to
-                    // previousStatus in deviceStatusMap, which is correct.
-                    processedAddresses.clear()
-                    processScanResult(result)
-                }
-
-                override fun onBatchScanResults(results: List<ScanResult>) {
-                    processedAddresses.clear()
-                    for (result in results) {
-                        processScanResult(result)
-                    }
-                }
-
-                override fun onScanFailed(errorCode: Int) {
-                    io.automated.ventures.everypods.utils.LidAutoconnectDiagnostics.logEvent("scan_failed", mapOf("errorCode" to errorCode))
-                    Log.e(TAG, "BLE scan failed with error code: $errorCode")
-                    scanCallbackActive = false
-                    mScanCallback = null
-                    consecutiveScanFailures++
-                    if (scanningDesired) {
-                        scheduleScanRetry("onScanFailed_$errorCode")
-                    }
-                }
-            }
-
-            mBluetoothLeScanner?.startScan(listOf(scanFilter), scanSettings, mScanCallback)
+            mScanCallback = newScanCallback()
+            // Keep the Apple manufacturer/type check in processScanResult rather
+            // than the controller filter. Some OEM stacks suppress filtered results
+            // for AirPods while their native helper still receives the advertisements.
+            mBluetoothLeScanner?.startScan(null, scanSettings(), mScanCallback)
             scanCallbackActive = true
-            lastScanStartAtMs = System.currentTimeMillis()
+            lastScanStartAtMs = SystemClock.elapsedRealtime()
             consecutiveScanFailures = 0
-            Log.d(TAG, "BLE scanner started successfully reason=$reason")
+            Log.d(TAG, "BLE scanner start requested reason=$reason (delivery not yet confirmed)")
 
             cleanupHandler.removeCallbacks(cleanupRunnable)
             cleanupHandler.postDelayed(cleanupRunnable, CLEANUP_INTERVAL_MS)
@@ -287,8 +248,91 @@ class BLEManager(private val context: Context) {
         }
     }
 
+    private fun scanSettings(): ScanSettings = ScanSettings.Builder()
+        .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+        .setMatchMode(ScanSettings.MATCH_MODE_AGGRESSIVE)
+        .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
+        .setNumOfMatches(ScanSettings.MATCH_NUM_MAX_ADVERTISEMENT)
+        .setReportDelay(0L)
+        .build()
+
+    private fun newScanCallback(): ScanCallback = object : ScanCallback() {
+        override fun onScanResult(callbackType: Int, result: ScanResult) = handleScanResults(this, listOf(result))
+        override fun onBatchScanResults(results: List<ScanResult>) = handleScanResults(this, results)
+        override fun onScanFailed(errorCode: Int) = synchronized(this@BLEManager) {
+            if (this === probeCallback) {
+                io.automated.ventures.everypods.utils.LidAutoconnectDiagnostics.logEvent("scan_probe_failed", mapOf("errorCode" to errorCode))
+                stopProbe()
+                if (mScanCallback == null && scanningDesired) scheduleScanRetry("probe_failed_$errorCode")
+            } else if (this === mScanCallback) {
+                io.automated.ventures.everypods.utils.LidAutoconnectDiagnostics.logEvent("scan_failed", mapOf("errorCode" to errorCode))
+                Log.e(TAG, "BLE scan failed with error code: $errorCode")
+                scanCallbackActive = false
+                mScanCallback = null
+                consecutiveScanFailures++
+                if (scanningDesired && probeCallback == null) scheduleScanRetry("onScanFailed_$errorCode")
+            }
+        }
+    }
+
     @SuppressLint("MissingPermission")
-    private fun stopScanCallbackOnly() {
+    @Synchronized private fun handleScanResults(callback: ScanCallback, results: List<ScanResult>) {
+        if (results.isEmpty()) return
+        if (callback === probeCallback) {
+            val now = SystemClock.elapsedRealtime()
+            if (results.none { io.automated.ventures.everypods.utils.LidAutoconnectPolicy.isFreshBleObservation(it.timestampNanos / 1_000_000L, now) }) return
+            // A real callback proves the replacement delivered something; until then
+            // never throw away the original, which the OS may only have suspended.
+            val previous = mScanCallback
+            probeTimeout?.let { scanRetryHandler.removeCallbacks(it) }
+            probeTimeout = null
+            probeCallback = null
+            mScanCallback = callback
+            scanCallbackActive = true
+            if (previous != null) runCatching { mBluetoothLeScanner?.stopScan(previous) }
+            io.automated.ventures.everypods.utils.LidAutoconnectDiagnostics.logEvent("scan_probe_promoted")
+        } else if (callback !== mScanCallback) return
+        processedAddresses.clear()
+        results.forEach(::processScanResult)
+    }
+
+    @SuppressLint("MissingPermission")
+    @Synchronized private fun probeScanning(reason: String) {
+        val now = SystemClock.elapsedRealtime()
+        if (probeCallback != null || (lastProbeAtMs > 0 && now - lastProbeAtMs < SCAN_PROBE_INTERVAL_MS)) return
+        val scanner = mBluetoothLeScanner ?: return
+        val callback = newScanCallback()
+        probeCallback = callback
+        lastProbeAtMs = now
+        io.automated.ventures.everypods.utils.LidAutoconnectDiagnostics.logEvent("scan_probe_start", mapOf("reason" to reason))
+        val timeout = Runnable { synchronized(this@BLEManager) {
+            if (probeCallback === callback) {
+                io.automated.ventures.everypods.utils.LidAutoconnectDiagnostics.logEvent("scan_probe_timeout")
+                stopProbe()
+                if (mScanCallback == null && scanningDesired) scheduleScanRetry("probe_timeout")
+            }
+        } }
+        probeTimeout = timeout
+        try {
+            scanner.startScan(null, scanSettings(), callback)
+            scanRetryHandler.postDelayed(timeout, SCAN_PROBE_TIMEOUT_MS)
+        } catch (t: Throwable) {
+            Log.w(TAG, "BLE scan probe could not start", t)
+            stopProbe()
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    @Synchronized private fun stopProbe() {
+        probeTimeout?.let { scanRetryHandler.removeCallbacks(it) }
+        probeTimeout = null
+        probeCallback?.let { runCatching { mBluetoothLeScanner?.stopScan(it) } }
+        probeCallback = null
+    }
+
+    @SuppressLint("MissingPermission")
+    @Synchronized private fun stopScanCallbackOnly() {
+        stopProbe()
         try {
             if (mBluetoothLeScanner != null && mScanCallback != null) {
                 mBluetoothLeScanner?.stopScan(mScanCallback)
@@ -323,7 +367,7 @@ class BLEManager(private val context: Context) {
     }
 
     @SuppressLint("MissingPermission")
-    fun stopScanning() {
+    @Synchronized fun stopScanning() {
         io.automated.ventures.everypods.utils.LidAutoconnectDiagnostics.logEvent("scan_stop")
         scanningDesired = false
         cancelPendingScanRetry()
@@ -379,6 +423,14 @@ class BLEManager(private val context: Context) {
 
     private fun processScanResult(result: ScanResult) {
         try {
+            val observedAt = result.timestampNanos / 1_000_000L
+            val receivedAt = SystemClock.elapsedRealtime()
+            if (!io.automated.ventures.everypods.utils.LidAutoconnectPolicy.mayAcceptBleScan(
+                    observedAt, receivedAt, deviceStatusMap.values.maxOfOrNull { it.observedAtElapsedMs })) {
+                io.automated.ventures.everypods.utils.LidAutoconnectDiagnostics.logEvent("ble_scan_stale", mapOf(
+                    "ageMs" to (receivedAt - observedAt).coerceAtLeast(0L)))
+                return
+            }
             val scanRecord = result.scanRecord ?: return
             val address = result.device.address
 
@@ -388,6 +440,9 @@ class BLEManager(private val context: Context) {
 
             val manufacturerData = scanRecord.getManufacturerSpecificData(76) ?: return
             if (manufacturerData.size <= 20) return
+            // This payload layout is specific to the AirPods proximity subtype;
+            // other Apple company advertisements are scanned but never parsed here.
+            if (manufacturerData[0].toInt() != 7 || manufacturerData[1].toInt() != 25) return
 
             if (!verifiedAddresses.contains(address)) {
                 val irk = getIrkFromPreferences()
@@ -415,16 +470,18 @@ class BLEManager(private val context: Context) {
 
             processedAddresses.add(address)
             lastBroadcastTime = System.currentTimeMillis()
+            lastBroadcastElapsedMs = receivedAt
 
             val encryptionKey = getEncryptionKeyFromPreferences()
             val decryptedData = if (encryptionKey != null) decryptLastBytes(manufacturerData, encryptionKey) else null
-            val parsedStatus = if (decryptedData != null && decryptedData.size == 16) {
+            val parsedStatus = (if (decryptedData != null && decryptedData.size == 16) {
                 parseProximityMessageWithDecryption(address, manufacturerData, decryptedData)
             } else {
                 parseProximityMessage(address, manufacturerData)
-            }
+            }).copy(observedAtElapsedMs = observedAt)
 
             val previousStatus = deviceStatusMap[address]
+            if (previousStatus != null && observedAt < previousStatus.observedAtElapsedMs) return
             deviceStatusMap[address] = parsedStatus
 
             airPodsStatusListener?.let { listener ->
@@ -438,7 +495,7 @@ class BLEManager(private val context: Context) {
                         Log.d(TAG, "Lid state ${if (parsedStatus.lidOpen) "opened" else "closed"} (detected from new device)")
                     }
                 } else {
-                    if (parsedStatus.copy(lastSeen = 0L) != previousStatus.copy(lastSeen = 0L)) {
+                    if (parsedStatus.copy(lastSeen = 0L, observedAtElapsedMs = 0L) != previousStatus.copy(lastSeen = 0L, observedAtElapsedMs = 0L)) {
                         listener.onDeviceStatusChanged(parsedStatus, previousStatus)
                     }
 
@@ -535,7 +592,7 @@ class BLEManager(private val context: Context) {
         )
     }
 
-    private fun cleanupStaleDevices() {
+    @Synchronized private fun cleanupStaleDevices() {
         val now = System.currentTimeMillis()
         val staleCutoff = now - STALE_DEVICE_TIMEOUT_MS
         val hadDevices = deviceStatusMap.isNotEmpty()
@@ -553,8 +610,8 @@ class BLEManager(private val context: Context) {
     }
 
     private fun checkLidStateTimeout() {
-        val currentTime = System.currentTimeMillis()
-        if (currentTime - lastBroadcastTime > LID_CLOSE_TIMEOUT_MS && currentGlobalLidState == true) {
+        val currentTime = SystemClock.elapsedRealtime()
+        if (lastBroadcastElapsedMs > 0 && currentTime - lastBroadcastElapsedMs > LID_CLOSE_TIMEOUT_MS && currentGlobalLidState == true) {
             Log.d(TAG, "No broadcasts for ${LID_CLOSE_TIMEOUT_MS}ms, lid state unknown")
             currentGlobalLidState = null
             airPodsStatusListener?.onLidStateUnknown()
@@ -640,8 +697,10 @@ class BLEManager(private val context: Context) {
         private const val CLEANUP_INTERVAL_MS = 10000L
         private const val STALE_DEVICE_TIMEOUT_MS = 15000L
         private const val LID_CLOSE_TIMEOUT_MS = 2500L
-        /** No ads for this long while scanningDesired → treat scan as dead and restart. */
+        /** Silence is uncertain; probe without discarding the existing registration. */
         const val STALE_SCAN_RESTART_MS = 45_000L
+        private const val SCAN_PROBE_INTERVAL_MS = 45_000L
+        private const val SCAN_PROBE_TIMEOUT_MS = 20_000L
         private const val SCAN_RETRY_BASE_MS = 2_000L
         private const val SCAN_RETRY_MAX_MS = 30_000L
         // Minimum RSSI (dBm) accepted when no IRK is available (limited-mode devices).
