@@ -17,6 +17,8 @@ import java.util.UUID
 /** Implemented by AirPodsService: the existing Gym Mode / heart-rate code paths. */
 interface GymAutomationHost {
     fun airPodsReady(): Boolean
+    fun heartRateReady(): Boolean
+    fun heartRateLive(): Boolean
     fun heartRateActive(): Boolean
     /** Live owner of the running session, from the persisted owner record. */
     fun heartRateOwner(): HeartRateSource?
@@ -106,12 +108,15 @@ object GymAutomationCoordinator {
             hrSelectedMethod = HeartRateSharingPrefs.configuredMethod(ctx)?.name,
             hrOwner = h?.heartRateOwner(),
             zoneRevisions = rule.zoneRevisions,
+            heartRateReady = h?.heartRateReady() == true,
+            heartRateLive = h?.heartRateLive() == true,
         )
         val result = GymAutomationReducer.reduce(journal, event, snapshot)
         if (result.journal != journal) GymAutomationRepository.saveJournal(ctx, result.journal)
         if (result.effects.isNotEmpty() || event !is Event.Reconcile) {
             Log.i(TAG, "event=${event.javaClass.simpleName} presence=${result.journal.presence} " +
-                "zonesInside=${result.journal.insideZones.size} effects=${result.effects.map { it.javaClass.simpleName }} ready=${snapshot.airPodsReady}")
+                "zonesInside=${result.journal.insideZones.size} effects=${result.effects.map { it.javaClass.simpleName }} " +
+                "ready=${snapshot.airPodsReady} hrReady=${snapshot.heartRateReady} hrAttempts=${result.journal.hrStartAttempts}")
         }
         var journalNow = result.journal
         result.effects.forEach { effect ->
@@ -175,6 +180,9 @@ object GymAutomationCoordinator {
         j.departureDeadline != null -> GymAutomationStatus.LEAVING
         j.gymSuppressed -> GymAutomationStatus.PAUSED
         !j.applied || h?.airPodsReady() != true && !j.applied -> GymAutomationStatus.WAITING_AIRPODS
+        rule.hrActionEnabled && !j.hrSuppressed && h?.heartRateActive() != true &&
+            HeartRateSharingPrefs.configuredMethod(appCtx ?: return GymAutomationStatus.OFF) != null &&
+            h?.heartRateReady() != true -> GymAutomationStatus.WAITING_AIRPODS
         else -> GymAutomationStatus.ACTIVE
     }
 

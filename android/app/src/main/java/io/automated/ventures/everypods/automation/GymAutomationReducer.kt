@@ -40,6 +40,9 @@ data class Journal(
     val insideZones: Map<String, Long> = emptyMap(),
     /** Decoded from a schema-1 journal (no zone set yet); resolved by the repository. */
     val legacyInside: Boolean = false,
+    /** One start per wear/connection readiness period, with a finite per-visit budget. */
+    val hrAttempted: Boolean = false,
+    val hrStartAttempts: Int = 0,
 )
 
 /** Live state the coordinator reads just before reducing. */
@@ -60,6 +63,9 @@ data class Snapshot(
     val hrOwner: HeartRateSource? = null,
     /** Geometry revision of every registrable zone. Empty means a single zone keyed by [ruleRevision]. */
     val zoneRevisions: Map<String, Long> = emptyMap(),
+    /** Current-connection wear evidence and HR capability/ownership, independent of Gym Mode. */
+    val heartRateReady: Boolean = true,
+    val heartRateLive: Boolean = false,
 ) {
     /** Whether a transition for [zoneId] at [revision] belongs to the current registration. */
     fun isCurrent(zoneId: String, revision: Long): Boolean =
@@ -114,6 +120,7 @@ data class Result(val journal: Journal, val effects: List<Effect>)
 
 object GymAutomationReducer {
     const val DEPARTURE_GRACE_MS = 3 * 60_000L
+    const val MAX_HR_START_ATTEMPTS = 3
 
     /** Reconnect/restart with unknown presence: ask for one bounded current-location fix. */
     fun needsPresenceFix(j: Journal, s: Snapshot): Boolean =
@@ -208,12 +215,13 @@ object GymAutomationReducer {
             }
             Event.ResumeVisit -> {
                 if (n.visitId == null || n.presence != Presence.INSIDE) return Result(j, emptyList())
-                n = apply(n.copy(gymSuppressed = false, hrSuppressed = false, applied = false), s, fx)
+                n = apply(n.copy(gymSuppressed = false, hrSuppressed = false, applied = false,
+                    hrAttempted = false, hrStartAttempts = 0), s, fx)
             }
             Event.ColdStart -> {
                 // A heart-rate session never survives process death (memory-only intent):
                 // the rule no longer owns one and must not replay it.
-                n = n.copy(ownsHr = false, hrSuppressed = n.hrSuppressed || j.ownsHr)
+                n = n.copy(ownsHr = false, hrSuppressed = n.hrSuppressed || j.ownsHr || j.hrAttempted)
                 if (n.bootId != s.bootId) {
                     // Previous boot's evidence is meaningless; keep config + suppression.
                     n = n.copy(presence = if (n.visitId != null) Presence.UNKNOWN else n.presence,
@@ -252,18 +260,26 @@ object GymAutomationReducer {
     }
 
     private fun apply(j: Journal, s: Snapshot, fx: MutableList<Effect>): Journal {
-        if (!s.ruleEnabled || j.gymSuppressed || j.departureDeadline != null) return j
-        if (!s.airPodsReady) return j // wait; AirPods connecting later triggers Reconcile
-        var n = j
+        if (!s.ruleEnabled || j.gymSuppressed || j.locationUnavailable || j.departureDeadline != null) return j
+        // Losing readiness rearms a pending start; repeated reports while ready do not.
+        var n = if (!s.airPodsReady || !s.heartRateReady) j.copy(hrAttempted = false) else j
+        if (!s.airPodsReady) return n
         if (!n.applied) {
             n = n.copy(applied = true, gymWasOn = s.gymOn)
             if (!s.gymOn) {
                 fx += Effect.EnableGym
                 n = n.copy(ownsGym = true)
             }
-            if (s.hrActionEnabled && !n.hrSuppressed && !s.hrActive) {
-                // Shortcut semantics, locked decision: only start the method the user selected.
-                s.hrSelectedMethod?.let { fx += Effect.StartHr(it); n = n.copy(ownsHr = true) }
+        }
+        // Gym Mode can already be applied while heart rate is still waiting for wear.
+        // A pre-existing session is left alone and must not be restarted if it ends.
+        if (s.hrActive) return n.copy(hrAttempted = true,
+            hrStartAttempts = if (s.heartRateLive) 0 else n.hrStartAttempts)
+        if (s.hrActionEnabled && !n.hrSuppressed && s.heartRateReady && !n.hrAttempted &&
+            n.hrStartAttempts < MAX_HR_START_ATTEMPTS) {
+            s.hrSelectedMethod?.let {
+                fx += Effect.StartHr(it)
+                n = n.copy(ownsHr = true, hrAttempted = true, hrStartAttempts = n.hrStartAttempts + 1)
             }
         }
         return n

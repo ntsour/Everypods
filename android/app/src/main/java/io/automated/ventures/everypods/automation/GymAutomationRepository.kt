@@ -194,6 +194,7 @@ object GymAutomationRepository {
         put("gymWasOn", j.gymWasOn); put("ownsGym", j.ownsGym); put("ownsHr", j.ownsHr)
         put("applied", j.applied); put("gymSup", j.gymSuppressed); put("hrSup", j.hrSuppressed)
         put("locUnavailable", j.locationUnavailable)
+        put("hrAttempted", j.hrAttempted); put("hrStartAttempts", j.hrStartAttempts)
         put("inside", JSONObject().apply { j.insideZones.forEach { (k, v) -> put(k, v) } })
     }.toString()
 
@@ -210,6 +211,8 @@ object GymAutomationRepository {
             hrSuppressed = o.optBoolean("hrSup"), locationUnavailable = o.optBoolean("locUnavailable"),
             insideZones = inside?.keys()?.asSequence()?.associateWith { inside.getLong(it) }.orEmpty(),
             legacyInside = inside == null,
+            hrAttempted = o.optBoolean("hrAttempted", o.optBoolean("applied")),
+            hrStartAttempts = o.optInt("hrStartAttempts", 0).coerceAtLeast(0),
         )
     }.getOrDefault(Journal())
 }

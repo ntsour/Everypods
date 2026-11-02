@@ -1,5 +1,21 @@
 # Gym location automation — QA test plan (debug build)
 
+## Pending heart-rate activation fix — 2 November 2026
+
+Gym Mode application and heart-rate startup are now tracked independently. The location rule may enable Gym Mode while waiting for a current-connection AACP wear report, HR capability and usable local ownership. BLE ear hints request an authoritative report; they do not authorize an HR start. No screen-unlock or UI navigation event is required. The manual Gym Mode auto-share option uses the same wear readiness.
+
+A failed start is attempted at most once per readiness period, with three consecutive start attempts per visit/session. A new wear/connection readiness period can retry; duplicate callbacks cannot. A fresh valid HR reading resets the failure budget. Manual Stop remains suppressed for the visit; Resume explicitly resets the budget. Existing sensor/transport recovery remains bounded independently. A process restart does not replay a previously attempted HR session.
+
+Regression checks: arrive disconnected; arrive connected but not worn; wear later after Gym Mode is already on; reject startup then change readiness; repeat callbacks without retry; exhaust/reset retry budget; stop while pending; exit or disable before wear; preserve pre-existing sessions; serialize pending state; and restart with pending versus already-attempted state.
+
+Automated validation: 769 debug unit tests passed, debug APK built and lint completed with the existing baseline. The debug update was installed on the Pixel for a physical case/locked-phone/wear-later test; record its outcome below separately from simulated geofence delivery.
+
+Physical checkpoint (Pixel 10, 2 November): resumed the saved visit after the user confirmed both buds in the closed case. With screen dozing and keyguard showing/input restricted, the journal stayed pending (`applied=false`, `ownsHr=false`, `hrAttempted=false`, zero attempts), and status was `WAITING_AIRPODS`. On subsequent wear, Bluetooth did not automatically reconnect: the Pixel reported no local A2DP sink and no fresh AirPods BLE observations. That is a separate connection prerequisite; it does not establish an HR-start failure. Continue the test with connected but unworn buds before checking locked-phone wear readiness.
+
+Connected-but-unworn validation: after the user connected to the Pixel and removed both buds from their ears, AACP reported `1 1` (not worn). At 19:17:00 local time, the resumed visit had `applied=true`, `ready=true`, `hrReady=false`, zero start attempts. Putting the buds on produced a readiness-driven `StartHr` at 19:17:12, `source=AUTOMATION`, and the first valid sensor sample at 19:17:18. Ownership became automation-owned and the failure budget reset to zero. This verifies wear-later activation after Gym Mode was already applied. Keyguard logs show unlock at 19:17:08, before startup, so this attempt does not establish locked-phone startup.
+
+Locked-phone validation passed on repeat: at 19:19:03 the AirPods were connected but not worn, Gym Mode already applied and HR pending with zero attempts. The Pixel was then verified locked (`showing=true`, `inputRestricted=true`). The user put the buds on while leaving the phone face-down/untouched. At 19:19:13 the wear-driven reconciliation issued exactly one `StartHr`, selected TICKR through `source=AUTOMATION`, and at 19:19:18 the first valid sensor sample arrived. Subsequent checks still showed `mWakefulness=Dozing`, keyguard showing and input restricted. The journal reported `ownsHr=true`, `hrAttempted=true`, and zero failures after the valid reading reset the budget. No second Resume, HR tap or unlock occurred between the pending state and startup. This validates the fixed readiness path with a resumed saved visit, not a new real-world geofence arrival. Wahoo receipt remains unconfirmed. Manual Gym Mode deferred activation is covered by the unit tests; the physical repeat exercised the location coordinator.
+
 Branch `feature/gym-location-automation`. Spec: `docs/location-gym-automation-implementation-plan.md`.
 Debug build only (`io.automated.ventures.everypods`, `-debug` version suffix). Record device, Android version and build SHA for each run.
 
