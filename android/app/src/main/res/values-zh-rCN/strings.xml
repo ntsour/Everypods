@@ -1027,4 +1027,7 @@
     <string name="permission_local_network">本地网络</string>
     <string name="audio_relay_network_options">网络选项 · %1$s</string>
     <string name="hrm_stopped_in_case">心率监测已停止 — AirPods 已放入充电盒。</string>
+    <string name="action_announce_heart_rate">播报心率</string>
+    <string name="speech_heart_rate_value">心率：每分钟 %1$d 次</string>
+    <string name="speech_heart_rate_unavailable">心率不可用</string>
 </resources>

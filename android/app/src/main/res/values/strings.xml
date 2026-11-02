@@ -1045,4 +1045,7 @@ Protocol requests: %4$d</string>
     <string name="permission_local_network">Local network</string>
     <string name="audio_relay_network_options">Network options · %1$s</string>
     <string name="hrm_stopped_in_case">Heart rate stopped — AirPods are in the case.</string>
+    <string name="action_announce_heart_rate">Read heart rate</string>
+    <string name="speech_heart_rate_value">Heart rate: %1$d beats per minute</string>
+    <string name="speech_heart_rate_unavailable">Heart rate unavailable</string>
 </resources>

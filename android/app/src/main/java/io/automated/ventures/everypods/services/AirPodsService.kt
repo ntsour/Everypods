@@ -99,6 +99,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -2880,6 +2881,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 GymModePrefs.setEnabled(this, !GymModePrefs.isEnabled(this))
             }
 
+            StemAction.ANNOUNCE_HEART_RATE -> announceHeartRate()
+
             StemAction.GYM_TIMER_START_STOP -> {
                 GymTimer.startStop()
             }
@@ -2888,6 +2891,35 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             }
             StemAction.GYM_TIMER_RESET -> {
                 GymTimer.reset()
+            }
+        }
+    }
+
+    private var heartRateAnnouncementJob: kotlinx.coroutines.Job? = null
+
+    private fun announceHeartRate() {
+        if (heartRateAnnouncementJob?.isActive == true) return
+        heartRateAnnouncementJob = hrSharingScope.launch {
+            val alreadyActive = heartRateActiveNow()
+            val requestedAt = System.currentTimeMillis()
+            if (!alreadyActive) startHeartRate()
+            val temporaryGeneration = if (!alreadyActive && heartRateState.value.running) hrGeneration else null
+            try {
+                val sample = kotlinx.coroutines.withTimeoutOrNull(20_000L) {
+                    heartRateState.first { it.status == io.automated.ventures.everypods.bluetooth.hrm.HeartRateStatus.LIVE &&
+                        it.bpm != null && (it.sampleTimeMillis ?: 0L) >= requestedAt }
+                }
+                val language = AnnouncementPrefs.generatedSpeechLanguage(this@AirPodsService)
+                val localized = AnnouncementPrefs.contextForLanguage(this@AirPodsService, language)
+                val text = sample?.bpm?.let { localized.getString(R.string.speech_heart_rate_value, it) }
+                    ?: localized.getString(R.string.speech_heart_rate_unavailable)
+                announceGymText(LocalizedSpeech(text, language), AnnouncementCoordinator.Priority.CONTROL)
+            } finally {
+                if (temporaryGeneration != null && hrGeneration == temporaryGeneration &&
+                    hrSharingIntent.method == null && heartRateActiveNow()) {
+                    stopHeartRateInternal(null, connectionUsable = true,
+                        allowSensorRecovery = false, manualStop = false)
+                }
             }
         }
     }

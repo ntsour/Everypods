@@ -1028,4 +1028,7 @@ Protokol istekleri: %4$d</string>
     <string name="permission_local_network">Yerel ağ</string>
     <string name="audio_relay_network_options">Ağ seçenekleri · %1$s</string>
     <string name="hrm_stopped_in_case">Kalp atış hızı izleme durduruldu — AirPods kutuda.</string>
+    <string name="action_announce_heart_rate">Kalp hızını seslendir</string>
+    <string name="speech_heart_rate_value">Kalp hızı: dakikada %1$d atış</string>
+    <string name="speech_heart_rate_unavailable">Kalp hızı kullanılamıyor</string>
 </resources>

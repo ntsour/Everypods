@@ -993,4 +993,7 @@
     <string name="permission_local_network">Τοπικό δίκτυο</string>
     <string name="audio_relay_network_options">Επιλογές δικτύου · %1$s</string>
     <string name="hrm_stopped_in_case">Η παρακολούθηση καρδιακών παλμών σταμάτησε — τα AirPods είναι στη θήκη.</string>
+    <string name="action_announce_heart_rate">Ανακοίνωση καρδιακού ρυθμού</string>
+    <string name="speech_heart_rate_value">Καρδιακός ρυθμός: %1$d παλμοί ανά λεπτό</string>
+    <string name="speech_heart_rate_unavailable">Ο καρδιακός ρυθμός δεν είναι διαθέσιμος</string>
 </resources>

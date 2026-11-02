@@ -1028,4 +1028,7 @@ Requêtes du protocole : %4$d</string>
     <string name="permission_local_network">Réseau local</string>
     <string name="audio_relay_network_options">Options réseau · %1$s</string>
     <string name="hrm_stopped_in_case">Surveillance de la fréquence cardiaque arrêtée — les AirPods sont dans le boîtier.</string>
+    <string name="action_announce_heart_rate">Annoncer la fréquence cardiaque</string>
+    <string name="speech_heart_rate_value">Fréquence cardiaque : %1$d battements par minute</string>
+    <string name="speech_heart_rate_unavailable">Fréquence cardiaque indisponible</string>
 </resources>
