@@ -85,6 +85,44 @@ class GestureDetectorTest {
         }
     }
 
+    @Test fun `stricter direction rejects diagonals accepted by the default on both axes`() {
+        for (gesture in HeadGesture.entries) for (ratio in listOf(150, 300)) {
+            var time = 0L
+            val detector = GestureDetector { time }
+            val strict = tuning.copy(axisDominancePercent = ratio)
+            val events = listOf(900, -900, 0, 900, -900, 0).mapNotNull { value ->
+                time += 100
+                val offAxis = value / 2
+                detector.process(if (gesture == HeadGesture.SHAKE) value else offAxis,
+                    if (gesture == HeadGesture.NOD) value else offAxis, strict, strict)
+            }
+            assertEquals(if (ratio == 150) listOf(gesture) else emptyList<HeadGesture>(), events)
+        }
+    }
+
+    @Test fun `strict direction accepts its exact boundary and rejects just beyond it`() {
+        for (gesture in HeadGesture.entries) for (offAxisPeak in listOf(300, 301)) {
+            var time = 0L
+            val detector = GestureDetector { time }
+            val strict = tuning.copy(axisDominancePercent = 300)
+            val events = listOf(1, -1, 0, 1, -1, 0).mapNotNull { sign ->
+                time += 100
+                detector.process(if (gesture == HeadGesture.SHAKE) sign * 900 else sign * offAxisPeak,
+                    if (gesture == HeadGesture.NOD) sign * 900 else sign * offAxisPeak, strict, strict)
+            }
+            assertEquals(if (offAxisPeak == 300) listOf(gesture) else emptyList<HeadGesture>(), events)
+        }
+    }
+
+    @Test fun `shake uses its own direction strictness when nod is stricter`() {
+        val strictNod = tuning.copy(axisDominancePercent = 400)
+        val events = listOf(900, -900, 0, 900, -900, 0).mapNotNull { value ->
+            now += 100
+            detector.process(value, value / 2, strictNod, tuning)
+        }
+        assertEquals(listOf(HeadGesture.SHAKE), events)
+    }
+
     @Test fun `speech ending discards partial motion while preserving action cooldown`() {
         repetition(false); assertEquals(HeadGesture.SHAKE, repetition(false))
         detector.invalidate() // Speech is stopped by that shake; normal controls become active.
@@ -120,6 +158,42 @@ class GestureDetectorTest {
         assertNull(sample(900, dt = 40))
         assertNull(sample(-900, dt = 40))
         assertEquals(HeadGesture.NOD, sample(0, dt = 40))
+    }
+
+    @Test fun `short phase limit accepts fast gestures and rejects slow ones on both axes`() {
+        for (gesture in HeadGesture.entries) for (stepMs in listOf(100L, 201L)) {
+            var time = 0L
+            val detector = GestureDetector { time }
+            val fast = tuning.copy(maxPhaseGapMs = 200)
+            val events = listOf(900, -900, 0, 900, -900, 0).mapNotNull { value ->
+                time += stepMs
+                detector.process(if (gesture == HeadGesture.SHAKE) value else 0,
+                    if (gesture == HeadGesture.NOD) value else 0, fast, fast)
+            }
+            assertEquals(if (stepMs == 100L) listOf(gesture) else emptyList<HeadGesture>(), events)
+        }
+    }
+
+    @Test fun `total duration accepts its boundary and rejects slower sequences with valid phase gaps`() {
+        for (stepMs in listOf(100L, 120L)) {
+            var time = 0L
+            val detector = GestureDetector { time }
+            val fast = tuning.copy(maxDurationMs = 500)
+            val events = listOf(900, -900, 0, 900, -900, 0).mapNotNull { value ->
+                time += stepMs
+                detector.process(0, value, fast, fast)
+            }
+            assertEquals(if (stepMs == 100L) listOf(HeadGesture.NOD) else emptyList<HeadGesture>(), events)
+        }
+    }
+
+    @Test fun `nod and shake use their own timing limits`() {
+        val fast = tuning.copy(maxPhaseGapMs = 200)
+        val events = listOf(900, -900, 0, 900, -900, 0).mapNotNull { value ->
+            now += 300
+            detector.process(value, 0, fast, tuning)
+        }
+        assertEquals(listOf(HeadGesture.SHAKE), events)
     }
     @Test fun `crossing the neutral band cannot count one oscillation twice`() {
         assertNull(sample(900, dt = 40))

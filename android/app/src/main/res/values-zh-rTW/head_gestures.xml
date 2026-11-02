@@ -33,4 +33,11 @@
     <string name="hg_stop_announcements_help">播報期間，搖頭會停止播報，而不會執行已指派的健身或一般動作。通話優先。需要啟用頭部手勢。</string>
     <string name="hg_advanced_diagnostics">進階選項與診斷</string>
     <string name="hg_gym_active_hint">健身模式已開啟。這些一般指派已暫停。請在「健身控制」中設定頭部手勢。</string>
+    <string name="hg_max_phase_gap">最大動作間隔</string>
+    <string name="hg_max_duration">手勢最長持續時間</string>
+    <string name="hg_milliseconds">%1$d ms</string>
+    <string name="hg_speed_help">較低的限制要求更快的動作。間隔限制動作各階段之間的時間；持續時間限制整個動作序列。緩慢或不完整的序列將被忽略。</string>
+    <string name="hg_axis_dominance">方向嚴格程度</string>
+    <string name="hg_axis_ratio">%1$.1f×</string>
+    <string name="hg_direction_help">主軸的動作幅度必須達到另一軸的此倍數。較高的數值會排除更多斜向動作，但要求手勢更加筆直。</string>
 </resources>

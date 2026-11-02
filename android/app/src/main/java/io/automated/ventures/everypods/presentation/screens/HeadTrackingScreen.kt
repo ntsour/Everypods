@@ -199,6 +199,26 @@ fun HeadTrackingScreen(
                             HeadGesturePrefs.setTuning(prefs, gesture, editGym, tuning.copy(repetitions = it))
                         }
                     } }
+                    AnchorWrapper("${gesture.name.lowercase()}_direction") { modifier -> Column(modifier) {
+                        GestureSettingPicker(stringResource(R.string.hg_axis_dominance), tuning.axisDominancePercent,
+                            (150..400 step 50).map { it to stringResource(R.string.hg_axis_ratio, it / 100f) }, enabled && (!gymProfile || editGym)) {
+                            HeadGesturePrefs.setTuning(prefs, gesture, editGym, tuning.copy(axisDominancePercent = it))
+                        }
+                        Text(stringResource(R.string.hg_direction_help), style = gestureSupportingStyle(),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                    } }
+                    AnchorWrapper("${gesture.name.lowercase()}_speed") { modifier -> Column(modifier) {
+                        GestureSettingPicker(stringResource(R.string.hg_max_phase_gap), tuning.maxPhaseGapMs,
+                            (200..1500 step 100).map { it to stringResource(R.string.hg_milliseconds, it) }, enabled && (!gymProfile || editGym)) {
+                            HeadGesturePrefs.setTuning(prefs, gesture, editGym, tuning.copy(maxPhaseGapMs = it))
+                        }
+                        GestureSettingPicker(stringResource(R.string.hg_max_duration), tuning.maxDurationMs,
+                            (500..6000 step 250).map { it to stringResource(R.string.hg_milliseconds, it) }, enabled && (!gymProfile || editGym)) {
+                            HeadGesturePrefs.setTuning(prefs, gesture, editGym, tuning.copy(maxDurationMs = it))
+                        }
+                        Text(stringResource(R.string.hg_speed_help), style = gestureSupportingStyle(),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                    } }
                     AnchorWrapper("${gesture.name.lowercase()}_cooldown") { modifier -> Column(modifier) {
                         GestureSettingPicker(stringResource(R.string.hg_cooldown), tuning.cooldownMs,
                             (500..5000 step 500).map { it to stringResource(R.string.hg_seconds, it / 1000f) }, enabled && (!gymProfile || editGym)) {

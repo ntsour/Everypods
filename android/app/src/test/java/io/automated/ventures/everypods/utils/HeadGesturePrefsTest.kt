@@ -97,4 +97,46 @@ class HeadGesturePrefsTest {
         assertTrue(HeadGesturePrefs.read(prefs).shakeStopsAnnouncements)
     }
 
+    @Test fun `existing profiles retain original timing until configured`() {
+        prefs.edit().putInt("head_gesture_schema_version", 3).commit()
+        val settings = HeadGesturePrefs.read(prefs)
+        for (gesture in HeadGesture.entries) for (gym in listOf(false, true)) {
+            assertEquals(1500, settings.tuningFor(gesture, gym).maxPhaseGapMs)
+            assertEquals(6000, settings.tuningFor(gesture, gym).maxDurationMs)
+        }
+    }
+
+    @Test fun `speed tuning persists per gesture and profile and resets with tuning`() {
+        HeadGesturePrefs.read(prefs)
+        val fast = GestureTuning(maxPhaseGapMs = 300, maxDurationMs = 1250, axisDominancePercent = 250)
+        HeadGesturePrefs.setTuning(prefs, HeadGesture.NOD, false, fast)
+        HeadGesturePrefs.setGymTuning(prefs, true)
+        assertEquals(fast, HeadGesturePrefs.read(prefs).tuningFor(HeadGesture.NOD, true))
+        val gymFast = fast.copy(maxPhaseGapMs = 200, maxDurationMs = 750, axisDominancePercent = 300)
+        HeadGesturePrefs.setTuning(prefs, HeadGesture.NOD, true, gymFast)
+        val settings = HeadGesturePrefs.read(prefs)
+        assertEquals(fast, settings.tuningFor(HeadGesture.NOD, false))
+        assertEquals(gymFast, settings.tuningFor(HeadGesture.NOD, true))
+        assertEquals(GestureTuning(), settings.tuningFor(HeadGesture.SHAKE, true))
+        HeadGesturePrefs.resetTuning(prefs, true)
+        assertEquals(GestureTuning(), HeadGesturePrefs.read(prefs).tuningFor(HeadGesture.NOD, true))
+        assertEquals(fast, HeadGesturePrefs.read(prefs).tuningFor(HeadGesture.NOD, false))
+    }
+
+    @Test fun `speed tuning clamps invalid values and rounds to selectable intervals`() {
+        assertEquals(GestureTuning(maxPhaseGapMs = 200, maxDurationMs = 6000),
+            GestureTuning(maxPhaseGapMs = Int.MIN_VALUE, maxDurationMs = Int.MAX_VALUE).validated())
+        assertEquals(GestureTuning(maxPhaseGapMs = 1500, maxDurationMs = 500),
+            GestureTuning(maxPhaseGapMs = Int.MAX_VALUE, maxDurationMs = Int.MIN_VALUE).validated())
+        assertEquals(GestureTuning(maxPhaseGapMs = 400, maxDurationMs = 1250),
+            GestureTuning(maxPhaseGapMs = 351, maxDurationMs = 1130).validated())
+    }
+
+    @Test fun `direction strictness is bounded and defaults to the existing ratio`() {
+        assertEquals(150, HeadGesturePrefs.read(prefs).tuningFor(HeadGesture.NOD, false).axisDominancePercent)
+        assertEquals(150, GestureTuning(axisDominancePercent = Int.MIN_VALUE).validated().axisDominancePercent)
+        assertEquals(400, GestureTuning(axisDominancePercent = Int.MAX_VALUE).validated().axisDominancePercent)
+        assertEquals(250, GestureTuning(axisDominancePercent = 226).validated().axisDominancePercent)
+    }
+
 }

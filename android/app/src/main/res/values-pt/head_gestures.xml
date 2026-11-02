@@ -33,4 +33,11 @@
     <string name="hg_stop_announcements_help">Durante um anúncio, abane a cabeça para o parar em vez de executar a ação normal ou de ginásio atribuída. As chamadas têm prioridade. Os gestos de cabeça têm de estar ativos.</string>
     <string name="hg_advanced_diagnostics">Opções avançadas e diagnóstico</string>
     <string name="hg_gym_active_hint">O modo ginásio está ativo. Estas atribuições normais estão suspensas. Configure os gestos nos Controlos de ginásio.</string>
+    <string name="hg_max_phase_gap">Intervalo máximo entre movimentos</string>
+    <string name="hg_max_duration">Duração máxima do gesto</string>
+    <string name="hg_milliseconds">%1$d ms</string>
+    <string name="hg_speed_help">Limites mais baixos exigem movimentos mais rápidos. O intervalo limita o tempo entre as fases do movimento; a duração limita toda a sequência. Sequências lentas ou incompletas são descartadas.</string>
+    <string name="hg_axis_dominance">Rigor da direção</string>
+    <string name="hg_axis_ratio">%1$.1f×</string>
+    <string name="hg_direction_help">A amplitude do movimento no eixo principal deve ser este número de vezes a do eixo secundário. Valores mais altos rejeitam mais movimentos diagonais, mas exigem gestos mais retos.</string>
 </resources>
