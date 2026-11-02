@@ -94,7 +94,7 @@ class GymAutomationRepositoryTest {
     @Test fun journalRoundTripsForProcessDeath() {
         val j = Journal(3, Presence.INSIDE, "v", "b", 42L, gymWasOn = false, ownsGym = true, ownsHr = true,
             applied = true, gymSuppressed = true, hrSuppressed = false, locationUnavailable = true,
-            insideZones = mapOf("a" to 2L, "b" to 5L))
+            insideZones = mapOf("a" to 2L, "b" to 5L), hrAttempted = true, hrStartAttempts = 2)
         GymAutomationRepository.saveJournal(ctx, j)
         assertEquals(j, GymAutomationRepository.journal(ctx))
     }

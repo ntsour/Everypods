@@ -18,6 +18,78 @@ class GymAutomationReducerTest {
     private fun arrive(j: Journal = Journal(ruleRevision = 1), s: Snapshot = snap()) =
         GymAutomationReducer.reduce(j, Event.Arrived(1, "v1"), s)
 
+    @Test fun connectedButNotWornKeepsHrPendingAfterGymIsApplied() {
+        val waiting = arrive(s = snap().copy(heartRateReady = false))
+        assertEquals(listOf(Effect.EnableGym), waiting.effects)
+        assertTrue(waiting.journal.applied)
+        assertFalse(waiting.journal.hrAttempted)
+        val worn = GymAutomationReducer.reduce(waiting.journal, Event.Reconcile, snap(gymOn = true))
+        assertEquals(listOf(Effect.StartHr("BLUETOOTH")), worn.effects)
+        assertEquals(1, worn.journal.hrStartAttempts)
+        val duplicate = GymAutomationReducer.reduce(worn.journal, Event.Reconcile, snap(gymOn = true))
+        assertTrue(duplicate.effects.isEmpty())
+    }
+
+    @Test fun rejectedStartWaitsForReadinessChangeAndHasFiniteBudget() {
+        var journal = arrive().journal.copy(ownsHr = false) // service rejected the start
+        repeat(GymAutomationReducer.MAX_HR_START_ATTEMPTS - 1) {
+            assertTrue(GymAutomationReducer.reduce(journal, Event.Reconcile, snap(gymOn = true)).effects.isEmpty())
+            journal = GymAutomationReducer.reduce(journal, Event.Reconcile,
+                snap(gymOn = true).copy(heartRateReady = false)).journal
+            val retry = GymAutomationReducer.reduce(journal, Event.Reconcile, snap(gymOn = true))
+            assertEquals(listOf(Effect.StartHr("BLUETOOTH")), retry.effects)
+            journal = retry.journal.copy(ownsHr = false)
+        }
+        journal = GymAutomationReducer.reduce(journal, Event.Reconcile,
+            snap(gymOn = true, ready = false)).journal
+        assertTrue(GymAutomationReducer.reduce(journal, Event.Reconcile, snap(gymOn = true)).effects.isEmpty())
+        val resumed = GymAutomationReducer.reduce(journal, Event.ResumeVisit, snap(gymOn = true))
+        assertEquals(listOf(Effect.StartHr("BLUETOOTH")), resumed.effects)
+    }
+
+    @Test fun manualStopWhilePendingSurvivesWearReconnectAndDuplicateArrival() {
+        val waiting = arrive(s = snap().copy(heartRateReady = false))
+        val stopped = GymAutomationReducer.reduce(waiting.journal, Event.ManualHrStop, snap(gymOn = true))
+        val worn = GymAutomationReducer.reduce(stopped.journal, Event.Reconcile, snap(gymOn = true))
+        assertTrue(worn.effects.isEmpty())
+        assertTrue(GymAutomationReducer.reduce(worn.journal, Event.Arrived(1, "duplicate"),
+            snap(gymOn = true)).effects.isEmpty())
+    }
+
+    @Test fun leavingOrDisablingWhilePendingCancelsTheStart() {
+        val waiting = arrive(s = snap().copy(heartRateReady = false))
+        val exit = GymAutomationReducer.reduce(waiting.journal, Event.Exited(1), snap(gymOn = true))
+        assertTrue(GymAutomationReducer.reduce(exit.journal, Event.Reconcile, snap(gymOn = true)).effects.isEmpty())
+        val off = GymAutomationReducer.reduce(waiting.journal, Event.RuleChanged,
+            snap(gymOn = true, enabled = false))
+        assertEquals(listOf(Effect.DisableGym), off.effects)
+        assertTrue(GymAutomationReducer.reduce(off.journal, Event.Reconcile,
+            snap(gymOn = true, enabled = false)).effects.isEmpty())
+    }
+
+    @Test fun coldStartDoesNotReplayAnAttemptedSessionButPendingWearStillWorks() {
+        val attempted = arrive().journal.copy(ownsHr = false)
+        val cold = GymAutomationReducer.reduce(attempted, Event.ColdStart, snap(gymOn = true))
+        assertTrue(cold.journal.hrSuppressed)
+        assertTrue(cold.effects.isEmpty())
+        val pending = arrive(s = snap().copy(heartRateReady = false)).journal
+        val pendingCold = GymAutomationReducer.reduce(pending, Event.ColdStart,
+            snap(gymOn = true).copy(heartRateReady = false))
+        assertFalse(pendingCold.journal.hrSuppressed)
+        assertEquals(listOf(Effect.StartHr("BLUETOOTH")),
+            GymAutomationReducer.reduce(pendingCold.journal, Event.Reconcile, snap(gymOn = true)).effects)
+    }
+
+    @Test fun validReadingResetsFailureBudgetForLaterWearSessions() {
+        val live = GymAutomationReducer.reduce(arrive().journal.copy(hrStartAttempts = 3), Event.Reconcile,
+            snap(gymOn = true, hrActive = true).copy(heartRateLive = true))
+        assertEquals(0, live.journal.hrStartAttempts)
+        val removed = GymAutomationReducer.reduce(live.journal, Event.Reconcile,
+            snap(gymOn = true).copy(heartRateReady = false))
+        assertEquals(listOf(Effect.StartHr("BLUETOOTH")),
+            GymAutomationReducer.reduce(removed.journal, Event.Reconcile, snap(gymOn = true)).effects)
+    }
+
     @Test fun arrivalWithAirPodsEnablesGymAndStartsSelectedHrOnce() {
         val r = arrive()
         assertEquals(listOf(Effect.EnableGym, Effect.StartHr("BLUETOOTH")), r.effects)
