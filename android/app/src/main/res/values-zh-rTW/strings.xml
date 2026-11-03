@@ -1028,4 +1028,5 @@
     <string name="permission_local_network">區域網路</string>
     <string name="audio_relay_network_options">網路選項 · %1$s</string>
     <string name="hrm_stopped_in_case">心率監測已停止 — AirPods 已放入充電盒。</string>
+    <string name="privacy_policy">隱私權政策</string>
 </resources>

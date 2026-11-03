@@ -1028,4 +1028,5 @@ Protokol istekleri: %4$d</string>
     <string name="permission_local_network">Yerel ağ</string>
     <string name="audio_relay_network_options">Ağ seçenekleri · %1$s</string>
     <string name="hrm_stopped_in_case">Kalp atış hızı izleme durduruldu — AirPods kutuda.</string>
+    <string name="privacy_policy">Gizlilik politikası</string>
 </resources>
