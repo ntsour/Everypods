@@ -1033,4 +1033,5 @@ Solicitudes del protocolo: %4$d</string>
     <string name="action_announce_heart_rate">Leer frecuencia cardíaca</string>
     <string name="speech_heart_rate_value">Frecuencia cardíaca: %1$d latidos por minuto</string>
     <string name="speech_heart_rate_unavailable">Frecuencia cardíaca no disponible</string>
+    <string name="privacy_policy">Política de privacidad</string>
 </resources>

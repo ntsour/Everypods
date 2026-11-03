@@ -1031,4 +1031,5 @@
     <string name="action_announce_heart_rate">播報心率</string>
     <string name="speech_heart_rate_value">心率：每分鐘 %1$d 下</string>
     <string name="speech_heart_rate_unavailable">心率無法使用</string>
+    <string name="privacy_policy">隱私權政策</string>
 </resources>

@@ -996,4 +996,5 @@
     <string name="action_announce_heart_rate">Ανακοίνωση καρδιακού ρυθμού</string>
     <string name="speech_heart_rate_value">Καρδιακός ρυθμός: %1$d παλμοί ανά λεπτό</string>
     <string name="speech_heart_rate_unavailable">Ο καρδιακός ρυθμός δεν είναι διαθέσιμος</string>
+    <string name="privacy_policy">Πολιτική απορρήτου</string>
 </resources>

@@ -10,7 +10,12 @@ import io.automated.ventures.everypods.R
 
 const val EVERYPODS_REPO_URL = "https://github.com/ntsour/Everypods"
 const val EVERYPODS_ISSUES_URL = "$EVERYPODS_REPO_URL/issues"
+const val EVERYPODS_PRIVACY_URL = "https://ntsour.github.io/Everypods/privacy/"
 const val EVERYPODS_SUPPORT_EMAIL = "automated.ventures.apps@gmail.com"
+
+fun Context.openEveryPodsPrivacyPolicy() {
+    startActivity(Intent(Intent.ACTION_VIEW, EVERYPODS_PRIVACY_URL.toUri()))
+}
 
 fun Context.openEveryPodsIssues() {
     startActivity(Intent(Intent.ACTION_VIEW, EVERYPODS_ISSUES_URL.toUri()))

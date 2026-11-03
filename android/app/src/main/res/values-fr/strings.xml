@@ -1031,4 +1031,5 @@ Requêtes du protocole : %4$d</string>
     <string name="action_announce_heart_rate">Annoncer la fréquence cardiaque</string>
     <string name="speech_heart_rate_value">Fréquence cardiaque : %1$d battements par minute</string>
     <string name="speech_heart_rate_unavailable">Fréquence cardiaque indisponible</string>
+    <string name="privacy_policy">Politique de confidentialité</string>
 </resources>

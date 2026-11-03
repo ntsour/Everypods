@@ -1031,4 +1031,5 @@ Richieste protocollo: %4$d</string>
     <string name="action_announce_heart_rate">Leggi frequenza cardiaca</string>
     <string name="speech_heart_rate_value">Frequenza cardiaca: %1$d battiti al minuto</string>
     <string name="speech_heart_rate_unavailable">Frequenza cardiaca non disponibile</string>
+    <string name="privacy_policy">Informativa sulla privacy</string>
 </resources>

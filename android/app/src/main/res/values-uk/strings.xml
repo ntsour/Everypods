@@ -1031,4 +1031,5 @@
     <string name="action_announce_heart_rate">Оголосити пульс</string>
     <string name="speech_heart_rate_value">Пульс: %1$d ударів на хвилину</string>
     <string name="speech_heart_rate_unavailable">Пульс недоступний</string>
+    <string name="privacy_policy">Політика конфіденційності</string>
 </resources>

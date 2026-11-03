@@ -1048,4 +1048,5 @@ Protocol requests: %4$d</string>
     <string name="action_announce_heart_rate">Read heart rate</string>
     <string name="speech_heart_rate_value">Heart rate: %1$d beats per minute</string>
     <string name="speech_heart_rate_unavailable">Heart rate unavailable</string>
+    <string name="privacy_policy">Privacy policy</string>
 </resources>

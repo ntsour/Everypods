@@ -4,11 +4,13 @@ on:
   pull_request:
     paths:
       - "android/**"
+      - "docs/privacy/**"
       - ".github/workflows/**"
   push:
     branches: [main]
     paths:
       - "android/**"
+      - "docs/privacy/**"
       - ".github/workflows/**"
   workflow_dispatch:
 

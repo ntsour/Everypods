@@ -1030,4 +1030,5 @@ Protokollanfragen: %4$d</string>
     <string name="action_announce_heart_rate">Herzfrequenz ansagen</string>
     <string name="speech_heart_rate_value">Herzfrequenz: %1$d Schläge pro Minute</string>
     <string name="speech_heart_rate_unavailable">Herzfrequenz nicht verfügbar</string>
+    <string name="privacy_policy">Datenschutzerklärung</string>
 </resources>

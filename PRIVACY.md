@@ -1,6 +1,6 @@
 # EveryPods Privacy Policy
 
-**Last updated: August 21, 2026**
+**Last updated: November 3, 2026**
 
 EveryPods is an Android app for compatible AirPods controls. It is designed to
 keep its settings and connection state on your device. This policy explains the
@@ -16,6 +16,28 @@ locally on your Android device so the app can work.
 
 EveryPods does not include advertising or analytics SDKs, and it does not sell
 your personal data.
+
+## Location and Gym automation
+
+EveryPods can access precise and approximate location with your permission.
+Location permission can also be used for Bluetooth discovery of nearby devices.
+The optional Gym automation uses precise location to detect when you arrive at
+or leave places you choose, so it can start or stop Gym Mode and its configured
+actions. If you enable it and grant background location, this detection works
+even when the app is closed or not in use. EveryPods uses Android and Google
+Play services location and geofencing for this feature, including an occasional
+current-location check to restore the correct state after a restart or reconnection.
+
+Your saved gym names, locations and radii, and a small record of the current
+visit state are stored on your device. EveryPods does not send your saved gym
+coordinates or location history to its developer. You can disable Gym automation,
+delete saved locations, or revoke location permissions in Android settings;
+clearing app storage or uninstalling removes the locally stored data.
+
+If you open the optional map picker, map tiles are requested from OpenStreetMap.
+The tile provider receives your device IP address and the map area viewed, from
+which an approximate location may be inferred. The selected point is stored on
+your device and is not sent as a selection to the tile provider.
 
 ## Optional cloud text-to-speech
 
