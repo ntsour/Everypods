@@ -106,6 +106,7 @@ fun GymPressActionsScreen(viewModel: AirPodsViewModel, navController: NavControl
         StemAction.GOOGLE_VOICE_COMMAND      to stringResource(R.string.action_google_voice_command),
         StemAction.CYCLE_NOISE_CONTROL_MODES to stringResource(R.string.noise_control),
         StemAction.TOGGLE_GYM_MODE           to stringResource(R.string.action_toggle_gym),
+        StemAction.ANNOUNCE_HEART_RATE to stringResource(R.string.action_announce_heart_rate),
     )
 
     StyledScaffold(title = stringResource(R.string.hg_gym_controls)) { topPadding, hazeState, bottomPadding ->

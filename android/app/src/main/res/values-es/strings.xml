@@ -1030,5 +1030,8 @@ Solicitudes del protocolo: %4$d</string>
     <string name="permission_local_network">Red local</string>
     <string name="audio_relay_network_options">Opciones de red · %1$s</string>
     <string name="hrm_stopped_in_case">Frecuencia cardíaca detenida: los AirPods están en el estuche.</string>
+    <string name="action_announce_heart_rate">Leer frecuencia cardíaca</string>
+    <string name="speech_heart_rate_value">Frecuencia cardíaca: %1$d latidos por minuto</string>
+    <string name="speech_heart_rate_unavailable">Frecuencia cardíaca no disponible</string>
     <string name="privacy_policy">Política de privacidad</string>
 </resources>

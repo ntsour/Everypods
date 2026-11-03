@@ -1027,5 +1027,8 @@ Protokollanfragen: %4$d</string>
     <string name="permission_local_network">Lokales Netzwerk</string>
     <string name="audio_relay_network_options">Netzwerkoptionen · %1$s</string>
     <string name="hrm_stopped_in_case">Herzfrequenzüberwachung beendet — AirPods sind im Case.</string>
+    <string name="action_announce_heart_rate">Herzfrequenz ansagen</string>
+    <string name="speech_heart_rate_value">Herzfrequenz: %1$d Schläge pro Minute</string>
+    <string name="speech_heart_rate_unavailable">Herzfrequenz nicht verfügbar</string>
     <string name="privacy_policy">Datenschutzerklärung</string>
 </resources>

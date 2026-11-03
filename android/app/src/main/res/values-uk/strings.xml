@@ -1028,5 +1028,8 @@
     <string name="permission_local_network">Локальна мережа</string>
     <string name="audio_relay_network_options">Параметри мережі · %1$s</string>
     <string name="hrm_stopped_in_case">Моніторинг пульсу зупинено — AirPods у футлярі.</string>
+    <string name="action_announce_heart_rate">Оголосити пульс</string>
+    <string name="speech_heart_rate_value">Пульс: %1$d ударів на хвилину</string>
+    <string name="speech_heart_rate_unavailable">Пульс недоступний</string>
     <string name="privacy_policy">Політика конфіденційності</string>
 </resources>

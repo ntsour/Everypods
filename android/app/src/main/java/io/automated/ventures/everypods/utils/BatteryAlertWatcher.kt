@@ -73,6 +73,9 @@ object BatteryAlertWatcher {
     ) {
         if (!SmartFeaturesPrefs.batteryAlertsEnabled(ctx)) return
         val threshold = SmartFeaturesPrefs.batteryAlertThreshold(ctx)
+        if (batteries.none { it.component == BatteryComponent.CASE }) {
+            state[BatteryComponent.CASE]?.pendingLevel = null
+        }
 
         for (b in batteries) {
             if (b.component !in setOf(
@@ -93,7 +96,13 @@ object BatteryAlertWatcher {
                 s.pendingLevel = null
                 continue
             }
-            if (b.level <= 0) continue
+            if (b.component == BatteryComponent.CASE) {
+                if (b.status == BatteryStatus.DISCONNECTED || b.level !in 0..100) {
+                    s.pendingLevel = null
+                    continue
+                }
+                if (b.level > threshold) s.pendingLevel = null
+            } else if (b.level <= 0) continue
 
             // Rearm: recovered well above threshold — start fresh
             if (b.level > threshold + RESET_MARGIN) {
@@ -104,9 +113,14 @@ object BatteryAlertWatcher {
             val level = b.level
             val now = System.currentTimeMillis()
             val shouldSpeak = shouldSpeakNow(s, level, now, threshold, forceSpeakIfLow)
+            if (io.automated.ventures.everypods.BuildConfig.DEBUG && b.component == BatteryComponent.CASE) {
+                Log.d(TAG, "Case check level=$level status=${b.status} threshold=$threshold " +
+                    "inEar=$anyBudInEar startup=$forceSpeakIfLow eligible=$shouldSpeak " +
+                    "pending=${s.pendingLevel} previousAlert=${s.lastAlertedLevel}")
+            }
 
             if (s.pendingLevel != null && (anyBudInEar || forceSpeakIfLow)) {
-                val pendingLevel = s.pendingLevel ?: level
+                val pendingLevel = if (b.component == BatteryComponent.CASE) level else s.pendingLevel ?: level
                 Log.d(TAG, "${b.component} low battery pending alert ($pendingLevel%)")
                 speak(ctx, Battery(b.component, pendingLevel, b.status))
                 markAlerted(s, pendingLevel, now)
