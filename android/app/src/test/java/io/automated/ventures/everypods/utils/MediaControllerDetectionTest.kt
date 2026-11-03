@@ -135,11 +135,24 @@ class MediaControllerDetectionTest {
         main.idleFor(Duration.ofMillis(120))
         assertTrue(messages().any { it.contains("AirPods service unavailable; trigger=playback callback") })
     }
+    @Test fun a2dpStreamStartOnlyRecoversDuringAnArmedMusicHandover() {
+        val mac = "00:11:22:33:44:55"
+        shadowOf(audio).setIsMusicActive(false)
+        MediaController.restartRouteLandPoller(mac)
+        main.idleFor(Duration.ofSeconds(1))
+        assertFalse(messages().any { it.contains("re-issuing play") })
+
+        MediaController.armPendingMusicTakeover(mac)
+        MediaController.restartRouteLandPoller(mac)
+        main.idleFor(Duration.ofSeconds(1))
+        assertTrue(messages().any { it.contains("re-issuing play") })
+    }
+
     @Test fun peerYieldPausesUserStartedPlaybackAndStopsOldReplayWatch() {
         shadowOf(audio).setIsMusicActive(true)
         MediaController.userPlayedTheMedia = true
         MediaController.armPendingMusicTakeover("00:11:22:33:44:55")
-        MediaController.restartRouteLandPoller()
+        MediaController.restartRouteLandPoller("00:11:22:33:44:55")
         MediaController.yieldPlaybackToPeer()
         main.idle()
         assertTrue(messages().any { it.contains("DISPATCHING PAUSE KEY EVENT") })

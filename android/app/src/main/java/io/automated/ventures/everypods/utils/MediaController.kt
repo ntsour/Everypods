@@ -118,6 +118,7 @@ object MediaController {
     // — regardless of exactly when the app decides to pause.
     @Volatile
     private var routeLandWatchPending: Boolean = false
+    private var streamRestartMac: String? = null
     // Arithmetic-backoff delays: 200, 400, 600 ... 2400 ms → ~15.6 s total.
     private val ROUTE_LAND_DELAYS_MS = longArrayOf(
         200, 400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400
@@ -190,6 +191,7 @@ object MediaController {
     fun armPendingMusicTakeover(mac: String) {
         if (mac.isEmpty()) return
         suppressRouteLandRestartUntilMs = 0L
+        streamRestartMac = mac
         pendingMusicTakeoverForMac = mac
         pendingMusicTakeoverSetAt = System.currentTimeMillis()
         // Clear the "we paused this device's media" flag. By definition, if we're
@@ -289,14 +291,8 @@ object MediaController {
         if (Looper.myLooper() == handler.looper) reset.run() else handler.post(reset)
     }
 
-    /**
-     * Restart the routeLandPoller explicitly. Used when A2DP PLAYING_STATE_CHANGED
-     * → PLAYING fires, because on some devices (Xiaomi) the actual A2DP audio stream
-     * starts many seconds after the device is added to the system. Pocket Casts
-     * auto-pauses on the late route change, but by then the original poller started
-     * from onAudioDevicesAdded has already finished.
-     */
-    fun restartRouteLandPoller() {
+    /** Give a real music handover one recovery restart when its A2DP stream starts. */
+    fun restartRouteLandPoller(mac: String) {
         val now = System.currentTimeMillis()
         if (now < suppressRouteLandRestartUntilMs) {
             Log.d(
@@ -306,8 +302,11 @@ object MediaController {
             )
             return
         }
-        // Intentional music takeover still in flight (armPending not yet consumed),
-        // or a late A2DP PLAYING after a real play — allow restart.
+        val pendingRoute = mac.equals(pendingMusicTakeoverForMac, ignoreCase = true) &&
+            now - pendingMusicTakeoverSetAt in 0..PENDING_TAKEOVER_MAX_AGE_MS
+        if (!mac.equals(streamRestartMac, ignoreCase = true) ||
+            (!pendingRoute && !routeLandWatchPending) || iPausedTheMedia) return
+        streamRestartMac = null
         Log.d("MediaController", "restartRouteLandPoller: resetting and starting fresh watch")
         routeLandWatchPending = false
         handler.removeCallbacks(routeLandPoller)
