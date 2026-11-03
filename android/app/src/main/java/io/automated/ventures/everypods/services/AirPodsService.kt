@@ -5362,22 +5362,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     if (savedMac != null && bluetoothDevice.address == savedMac) {
                         Log.d(TAG, "A2DP playing state changed for AirPods (${bluetoothDevice.address}): state=$playingState (10=playing, 11=not playing)")
                         if (playingState == 10) { // BluetoothA2dp.STATE_PLAYING
-                            // On some devices (Xiaomi) the A2DP audio stream starts many seconds
-                            // after the device is added. Restart the routeLandPoller so it can catch
-                            // app auto-pause triggered by the late route change.
-                            //
-                            // Gate this on a recent music takeover: without the gate, ANY A2DP
-                            // stream-start event (post-call audio routing, ringtone over A2DP,
-                            // BLE notification chimes, peer device switching audio, etc.)
-                            // re-arms the poller and hammers play keys — Pocket Casts then
-                            // auto-resumes "by itself" minutes after the user stopped using it.
-                            val sinceTakeover = System.currentTimeMillis() - lastMusicTakeoverMs
-                            if (lastMusicTakeoverMs != 0L && sinceTakeover < MUSIC_TAKEOVER_WINDOW_MS) {
-                                Log.d(TAG, "A2DP stream started ${sinceTakeover}ms after takeOver — restarting routeLandPoller")
-                                io.automated.ventures.everypods.utils.MediaController.restartRouteLandPoller()
-                            } else {
-                                Log.d(TAG, "A2DP stream started but no recent music takeover (${sinceTakeover}ms) — NOT re-arming routeLandPoller to avoid spurious auto-play")
-                            }
+                            MediaController.restartRouteLandPoller(savedMac)
                         }
                     }
                 }
