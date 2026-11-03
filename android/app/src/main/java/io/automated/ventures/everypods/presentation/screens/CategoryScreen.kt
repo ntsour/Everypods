@@ -132,6 +132,7 @@ import io.automated.ventures.everypods.utils.GymModePrefs
 import io.automated.ventures.everypods.utils.GymTimer
 import io.automated.ventures.everypods.utils.SleepTimer
 import io.automated.ventures.everypods.utils.SmartFeaturesPrefs
+import io.automated.ventures.everypods.utils.openEveryPodsPrivacyPolicy
 import io.automated.ventures.everypods.utils.openEveryPodsIssues
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.VolunteerActivism
@@ -970,6 +971,7 @@ private fun HelpContent(
             context.openEveryPodsIssues()
         }
         MenuDivider()
+        MenuNavRow(stringResource(R.string.privacy_policy), dark) { context.openEveryPodsPrivacyPolicy() }
         MenuNavRow(stringResource(R.string.open_source_licenses), dark) { navController.navigate("open_source_licenses") }
     }
 }
