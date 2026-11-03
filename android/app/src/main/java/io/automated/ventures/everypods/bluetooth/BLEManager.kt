@@ -104,8 +104,6 @@ class BLEManager(private val context: Context) {
     private var pendingScanRetry: Runnable? = null
 
     // Global (not per-address) cache so MAC rotation doesn't lose the last known value
-    private var lastValidCaseLevel: Int? = null
-    private var lastValidCaseCharging: Boolean = false
     private val modelNames = mapOf(
         0x0E20 to "AirPods Pro",
         0x1420 to "AirPods Pro 2",
@@ -560,15 +558,9 @@ class BLEManager(private val context: Context) {
 
         val rawCaseBatteryByte = decrypted[3].toInt() and 0xFF
         val (isCaseCharging, rawCaseBattery) = formatBattery(rawCaseBatteryByte)
-
-        // 0xFF means case battery is unavailable (buds not in case, or lid just opened).
-        // Use the global last-known value so MAC rotation doesn't clear the cache.
-        val caseBattery = if (rawCaseBatteryByte == 0xFF || (isCaseCharging && rawCaseBattery == 127)) {
-            lastValidCaseLevel   // may still be null on first connection
-        } else {
-            lastValidCaseLevel = rawCaseBattery
-            lastValidCaseCharging = isCaseCharging
-            rawCaseBattery
+        val caseBattery = rawCaseBattery.takeIf { it in 0..100 }
+        if (io.automated.ventures.everypods.BuildConfig.DEBUG) {
+            Log.d("CaseBatteryTrace", "raw=0x${rawCaseBatteryByte.toString(16)} level=$caseBattery")
         }
 
         val lidOpen = ((lid shr 3) and 0x01) == 0
@@ -585,7 +577,7 @@ class BLEManager(private val context: Context) {
             isRightInEar = isRightInEar,
             isLeftCharging = isLeftCharging,
             isRightCharging = isRightCharging,
-            isCaseCharging = isCaseCharging,
+            isCaseCharging = caseBattery != null && isCaseCharging,
             lidOpen = lidOpen,
             color = color,
             connectionState = conn
@@ -685,7 +677,7 @@ class BLEManager(private val context: Context) {
             isRightInEar = isRightInEar,
             isLeftCharging = isLeftCharging,
             isRightCharging = isRightCharging,
-            isCaseCharging = isCaseCharging,
+            isCaseCharging = decodeBattery(caseBattery) != null && isCaseCharging,
             lidOpen = lidOpen,
             color = color,
             connectionState = conn

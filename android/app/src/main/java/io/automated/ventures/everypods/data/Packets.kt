@@ -155,7 +155,7 @@ class AirPodsNotifications {
     class BatteryNotification {
         private var first: Battery = Battery(BatteryComponent.LEFT, 0, BatteryStatus.DISCONNECTED)
         private var second: Battery = Battery(BatteryComponent.RIGHT, 0, BatteryStatus.DISCONNECTED)
-        private var case: Battery = Battery(BatteryComponent.CASE, 0, BatteryStatus.DISCONNECTED)
+        private var case: Battery? = null
 
         fun isBatteryData(data: ByteArray): Boolean {
             if (data.joinToString("") { "%02x".format(it) }.startsWith("040004000400")) {
@@ -176,21 +176,19 @@ class AirPodsNotifications {
             leftCharging: Boolean,
             rightLevel: Int,
             rightCharging: Boolean,
-            caseLevel: Int,
+            caseLevel: Int?,
             caseCharging: Boolean
         ) {
             first = Battery(BatteryComponent.LEFT, leftLevel, if (leftCharging) BatteryStatus.CHARGING else BatteryStatus.NOT_CHARGING)
             second = Battery(BatteryComponent.RIGHT, rightLevel, if (rightCharging) BatteryStatus.CHARGING else BatteryStatus.NOT_CHARGING)
-            case = Battery(BatteryComponent.CASE, caseLevel, if (caseCharging) BatteryStatus.CHARGING else BatteryStatus.NOT_CHARGING)
+            updateCaseBattery(caseLevel, caseCharging)
         }
 
         /** Update only the case battery, leaving bud levels untouched. */
-        fun updateCaseBattery(caseLevel: Int, caseCharging: Boolean) {
-            case = Battery(
-                BatteryComponent.CASE,
-                caseLevel,
-                if (caseCharging) BatteryStatus.CHARGING else BatteryStatus.NOT_CHARGING
-            )
+        fun updateCaseBattery(caseLevel: Int?, caseCharging: Boolean) {
+            case = caseLevel?.takeIf { it in 0..100 }?.let {
+                Battery(BatteryComponent.CASE, it, if (caseCharging) BatteryStatus.CHARGING else BatteryStatus.NOT_CHARGING)
+            }
         }
 
         fun setBattery(data: ByteArray) {
@@ -221,13 +219,13 @@ class AirPodsNotifications {
             )
             case = Battery(
                 data[17].toInt(), data[19].toInt(), data[20].toInt()
-            )
+            ).takeIf { it.component == BatteryComponent.CASE && it.level in 0..100 && it.status != BatteryStatus.DISCONNECTED }
         }
 
         fun getBattery(): List<Battery> {
             val left = if (first.component == BatteryComponent.LEFT) first else second
             val right = if (first.component == BatteryComponent.LEFT) second else first
-            return listOf(left, right, case)
+            return listOfNotNull(left, right, case)
         }
     }
 

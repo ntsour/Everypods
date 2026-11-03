@@ -1361,7 +1361,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             }
             val leftLevel = bleManager.getMostRecentStatus()?.leftBattery ?: 0
             val rightLevel = bleManager.getMostRecentStatus()?.rightBattery ?: 0
-            val caseLevel = bleManager.getMostRecentStatus()?.caseBattery ?: 0
+            val caseLevel = bleManager.getMostRecentStatus()?.caseBattery
             val leftCharging = bleManager.getMostRecentStatus()?.isLeftCharging
             val rightCharging = bleManager.getMostRecentStatus()?.isRightCharging
             val caseCharging = bleManager.getMostRecentStatus()?.isCaseCharging
@@ -1381,7 +1381,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             Log.d(TAG, "New address detected")
             submitPassiveBleAvailability(device, SystemClock.elapsedRealtime())
             // New address often means the case opened and rotated its MAC.
-            // Forward the case battery immediately if it's valid.
+            // Refresh the case battery from the new advertisement.
             updateCaseBatteryFromBLE()
         }
 
@@ -1443,7 +1443,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     val ble          = bleManager.getMostRecentStatus()
                     val leftLevel    = ble?.leftBattery ?: 0
                     val rightLevel   = ble?.rightBattery ?: 0
-                    val caseLevel    = ble?.caseBattery ?: 0
+                    val caseLevel    = ble?.caseBattery
                     val leftCharging  = ble?.isLeftCharging
                     val rightCharging = ble?.isRightCharging
                     val caseCharging  = ble?.isCaseCharging
@@ -1508,7 +1508,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             }
             val leftLevel = bleManager.getMostRecentStatus()?.leftBattery ?: 0
             val rightLevel = bleManager.getMostRecentStatus()?.rightBattery ?: 0
-            val caseLevel = bleManager.getMostRecentStatus()?.caseBattery ?: 0
+            val caseLevel = bleManager.getMostRecentStatus()?.caseBattery
             val leftCharging = bleManager.getMostRecentStatus()?.isLeftCharging
             val rightCharging = bleManager.getMostRecentStatus()?.isRightCharging
             val caseCharging = bleManager.getMostRecentStatus()?.isCaseCharging
@@ -1527,9 +1527,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
         override fun onDeviceDisappeared() {
             Log.d(TAG, "All disappeared")
-            updateNotificationContent(
-                false
-            )
+            updateCaseBatteryFromBLE()
         }
     }
 
@@ -1543,13 +1541,12 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
      * the lid opens even if `onBroadcastFromNewAddress` hasn't had time to run yet.
      */
     private fun updateCaseBatteryFromBLE() {
-        val status = bleManager.getMostRecentStatus() ?: return
-        val level = status.caseBattery ?: return   // null = 0xFF (buds not in case)
-        if (level <= 0) return
-        val charging = status.isCaseCharging
+        val status = bleManager.getMostRecentStatus()
+        val level = status?.caseBattery
+        val charging = status?.isCaseCharging == true
         Log.d(TAG, "updateCaseBatteryFromBLE: level=$level charging=$charging")
         batteryNotification.updateCaseBattery(caseLevel = level, caseCharging = charging)
-        sendBatteryBroadcast()
+        updateBattery()
     }
 
 
@@ -4186,7 +4183,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     it,
                     it.METADATA_UNTETHERED_CASE_BATTERY,
                     batteryNotification.getBattery()
-                        .find { it.component == BatteryComponent.CASE }?.level.toString()
+                        .find { it.component == BatteryComponent.CASE }?.level.let { it ?: -1 }.toString()
                         .toByteArray()
                 )
                 SystemApisUtils.setMetadata(
@@ -4274,6 +4271,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 if (rightBattery?.status == BatteryStatus.CHARGING || rightBattery?.status == BatteryStatus.OPTIMIZED_CHARGING) View.VISIBLE else View.GONE
             )
 
+            it.setViewVisibility(
+                R.id.case_battery_widget_container,
+                if (caseBattery == null) View.GONE else View.VISIBLE
+            )
             it.setTextViewText(R.id.case_battery_widget, caseBattery?.let {
                 "${it.level}%"
             } ?: "")

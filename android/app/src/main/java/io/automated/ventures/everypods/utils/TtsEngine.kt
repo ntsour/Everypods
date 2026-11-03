@@ -215,10 +215,14 @@ object TtsEngine {
                 requestFocus()
             }
             override fun onDone(utteranceId: String?) {
+                if (io.automated.ventures.everypods.BuildConfig.DEBUG) {
+                    Log.d(TAG, "TTS playback completed id=$utteranceId")
+                }
                 onUtteranceDone(utteranceId)
             }
             @Deprecated("Deprecated in Java")
             override fun onError(utteranceId: String?) {
+                Log.w(TAG, "TTS utterance error id=$utteranceId")
                 onUtteranceDone(utteranceId)
             }
             override fun onError(utteranceId: String?, errorCode: Int) {
