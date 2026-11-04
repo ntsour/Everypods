@@ -2,7 +2,7 @@
 protobufPlugin = "0.10.0"
 protobuf = "4.36.0"
 accompanistPermissions = "0.37.3"
-agp = "9.2.0"
+agp = "9.5.0"
 kotlin = "2.3.20"
 coreKtx = "1.18.0"
 lifecycleRuntimeKtx = "2.10.0"
