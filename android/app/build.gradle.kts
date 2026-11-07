@@ -28,7 +28,7 @@ abstract class GenerateLocaleCatalogTask : DefaultTask() {
     }
 }
 
-val appVersionName = "1.0.4-rc19"
+val appVersionName = "1.0.6"
 
 plugins {
     alias(libs.plugins.protobuf)
@@ -82,7 +82,7 @@ android {
         minSdk = 33
         targetSdk = 37
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        versionCode = 130
+        versionCode = 136
         versionName = appVersionName
         buildConfigField("Boolean", "DIRCON_ENABLED", "false")
         manifestPlaceholders["appLabel"] = "EveryPods"

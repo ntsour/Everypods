@@ -13,6 +13,36 @@ object HeadGesturePrefs {
     private fun tuningKey(gesture: HeadGesture, gym: Boolean, field: String) =
         "head_gesture_${if (gym) "gym" else "normal"}_${gesture.name.lowercase()}_$field"
 
+    private fun defaultTuning(gym: Boolean) = GestureTuning(
+        amplitude = if (gym) 800 else 600,
+        repetitions = 2, cooldownMs = 2000, maxPhaseGapMs = 800,
+        maxDurationMs = 2000, axisDominancePercent = 300,
+    )
+
+    /** Called at process startup before other settings are written. Restored or existing settings win. */
+    @Synchronized fun initializeFreshInstall(prefs: SharedPreferences) {
+        if (prefs.all.isNotEmpty()) return
+        val edit = prefs.edit()
+            .putBoolean("head_gestures_enabled", true)
+            .putBoolean(STOP_ANNOUNCEMENTS, true)
+            .putBoolean(GYM_TUNING, true)
+            .putBoolean("head_gesture_gym_tuning_initialized", true)
+            .putBoolean("use_alternate_head_tracking_packets", true)
+            .putInt(VERSION, 3)
+        HeadGesture.entries.forEach { gesture ->
+            listOf(false, true).forEach { gym -> writeTuning(edit, gesture, gym, defaultTuning(gym)) }
+        }
+        edit.putString(actionKey(HeadGesture.NOD, false), StemAction.NEXT_TRACK.name)
+            .putString(actionKey(HeadGesture.SHAKE, false), StemAction.PLAY_PAUSE.name)
+            .putString(actionKey(HeadGesture.NOD, true), StemAction.GYM_TIMER_START_STOP.name)
+            .putString(actionKey(HeadGesture.SHAKE, true), StemAction.PLAY_PAUSE.name)
+            .putString(callKey(HeadGestureCallAction.ANSWER), HeadGesture.NOD.name)
+            .putString(callKey(HeadGestureCallAction.DECLINE), HeadGesture.SHAKE.name)
+            .putString(callKey(HeadGestureCallAction.MUTE_TOGGLE), HeadGesture.NOD.name)
+            .putString(callKey(HeadGestureCallAction.HANG_UP), "NONE")
+            .commit()
+    }
+
     @Synchronized fun migrate(prefs: SharedPreferences) {
         val version = prefs.getInt(VERSION, 0)
         if (version >= 3) return
@@ -122,7 +152,7 @@ object HeadGesturePrefs {
 
     fun resetTuning(prefs: SharedPreferences, gym: Boolean) {
         val edit = prefs.edit()
-        HeadGesture.entries.forEach { writeTuning(edit, it, gym, GestureTuning()) }
+        HeadGesture.entries.forEach { writeTuning(edit, it, gym, defaultTuning(gym)) }
         edit.apply()
     }
 }

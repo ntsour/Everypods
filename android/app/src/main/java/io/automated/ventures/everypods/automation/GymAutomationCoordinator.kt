@@ -52,6 +52,8 @@ object GymAutomationCoordinator {
     private val pending = ArrayDeque<Event>()
     private var fixInFlight = false
     private var lastFixAt: Long? = null
+    private var lastAirPodsReady = false
+    private var presenceGeneration = 0L
 
     private val mutableStatus = MutableStateFlow(GymAutomationStatus.OFF)
     val status: StateFlow<GymAutomationStatus> = mutableStatus.asStateFlow()
@@ -62,7 +64,7 @@ object GymAutomationCoordinator {
         GymGeofenceRegistrar.sync(ctx)
     }
 
-    fun detach(h: GymAutomationHost) = onMain { if (host === h) host = null }
+    fun detach(h: GymAutomationHost) = onMain { if (host === h) { host = null; lastAirPodsReady = false } }
 
     /** Called by the service when the user (not this coordinator) stops heart rate. */
     fun onHeartRateStopped(ctx: Context) = dispatch(ctx, Event.ManualHrStop)
@@ -92,6 +94,9 @@ object GymAutomationCoordinator {
     }
 
     private fun run(ctx: Context, event: Event) {
+        if (event is Event.Arrived || event is Event.Exited || event is Event.RuleChanged || event == Event.LocationUnavailable) {
+            presenceGeneration++
+        }
         val rule = GymAutomationRepository.rule(ctx)
         val journal = GymAutomationRepository.journal(ctx)
         val h = host
@@ -127,19 +132,27 @@ object GymAutomationCoordinator {
             }
         }
         mutableStatus.value = statusOf(rule, journalNow, h)
-        maybeRequestPresenceFix(ctx, rule, journalNow, snapshot)
+        val connectedNow = snapshot.airPodsReady && !lastAirPodsReady
+        lastAirPodsReady = snapshot.airPodsReady
+        // UNKNOWN retains the existing recovery path. OUTSIDE is checked once per connection,
+        // not on every wear, battery, or heart-rate reconciliation.
+        if (journalNow.presence == Presence.UNKNOWN || connectedNow) {
+            maybeRequestPresenceFix(ctx, rule, journalNow, snapshot, connectedNow)
+        }
     }
 
     /** Bounded: one fix in flight, cooldown between fixes, 15 s cap, never a loop. */
-    private fun maybeRequestPresenceFix(ctx: Context, rule: GymAutomationRule, j: Journal, s: Snapshot) {
+    private fun maybeRequestPresenceFix(ctx: Context, rule: GymAutomationRule, j: Journal, s: Snapshot, connectedNow: Boolean) {
         if (!GymAutomationReducer.needsPresenceFix(j, s) || !rule.hasLocation) return
         if (!GymGeofenceRegistrar.hasPermissions(ctx)) return
-        if (!PresenceEvidence.canRequest(s.now, lastFixAt, fixInFlight)) return
+        if (!PresenceEvidence.canRequest(s.now, lastFixAt, fixInFlight, connectedNow)) return
         fixInFlight = true
         lastFixAt = s.now
+        val generation = presenceGeneration
         GymPresenceFix.request(ctx, rule) { presence, zones ->
             onMain {
                 fixInFlight = false
+                if (generation != presenceGeneration) return@onMain
                 Log.i(TAG, "presence fix=$presence zones=${zones.size}")
                 dispatch(ctx, Event.PresenceFix(rule.revision, presence, UUID.randomUUID().toString(), zones))
             }

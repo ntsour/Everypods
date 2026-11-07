@@ -26,6 +26,9 @@ class EveryPodsApplication: Application(), DefaultLifecycleObserver {
         ProcessLifecycleOwner.get().lifecycle.addObserver(this)
 
         super<Application>.onCreate()
+        io.automated.ventures.everypods.utils.HeadGesturePrefs.initializeFreshInstall(
+            getSharedPreferences("settings", MODE_PRIVATE)
+        )
 
     }
 

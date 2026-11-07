@@ -73,7 +73,7 @@ data class Snapshot(
 }
 
 sealed interface Event {
-    /** Inner-boundary DWELL for [revision]. */
+    /** Inner-boundary arrival for [revision]. */
     data class Arrived(val revision: Long, val visitId: String, val zoneId: String = SINGLE_ZONE) : Event
     /** Outer-boundary EXIT for [revision]: starts the departure grace period. */
     data class Exited(val revision: Long, val zoneId: String = SINGLE_ZONE) : Event
@@ -89,7 +89,7 @@ sealed interface Event {
     data object ResumeVisit : Event
     /**
      * Result of one bounded current-location fix taken on reconnect/restart while presence
-     * was UNKNOWN. [presence] is UNKNOWN when the fix was stale, inaccurate or missing.
+     * was UNKNOWN or OUTSIDE. [presence] is UNKNOWN when the fix was stale, inaccurate or missing.
      */
     data class PresenceFix(
         val revision: Long, val presence: Presence, val visitId: String,
@@ -122,9 +122,9 @@ object GymAutomationReducer {
     const val DEPARTURE_GRACE_MS = 3 * 60_000L
     const val MAX_HR_START_ATTEMPTS = 3
 
-    /** Reconnect/restart with unknown presence: ask for one bounded current-location fix. */
+    /** A connection can check for arrival even after the previous visit ended outside. */
     fun needsPresenceFix(j: Journal, s: Snapshot): Boolean =
-        s.ruleEnabled && s.airPodsReady && j.presence == Presence.UNKNOWN && j.departureDeadline == null
+        s.ruleEnabled && s.airPodsReady && j.presence != Presence.INSIDE && j.departureDeadline == null
 
     fun reduce(j: Journal, e: Event, s: Snapshot): Result {
         val fx = mutableListOf<Effect>()
@@ -171,8 +171,8 @@ object GymAutomationReducer {
             }
             is Event.PresenceFix -> {
                 if (!s.ruleEnabled || e.revision != s.ruleRevision) return Result(j, emptyList())
-                // Only resolves UNKNOWN presence; OS transitions stay authoritative otherwise.
-                if (n.presence != Presence.UNKNOWN || n.departureDeadline != null) return Result(j, emptyList())
+                // A fix can establish arrival from outside; never replace an active visit.
+                if (n.presence == Presence.INSIDE || n.departureDeadline != null) return Result(j, emptyList())
                 when (e.presence) {
                     Presence.UNKNOWN -> return Result(j, emptyList()) // ambiguous stays unknown
                     Presence.INSIDE -> {
@@ -230,7 +230,7 @@ object GymAutomationReducer {
                     fx += Effect.ScheduleGraceCheck(n.departureDeadline!!)
                 }
                 if (n.presence == Presence.UNKNOWN && n.visitId != null) {
-                    // Do not act on a remembered visit; wait for a fresh DWELL.
+                    // Do not act on a remembered visit; wait for fresh location evidence.
                 } else if (n.presence == Presence.INSIDE) {
                     n = apply(n, s, fx)
                 }
@@ -243,7 +243,7 @@ object GymAutomationReducer {
                 } else {
                     // Zone added/edited/removed: never reset the visit. A zone that was removed
                     // or moved/resized no longer counts as "inside"; its new geofence (initial
-                    // DWELL) re-adds it if we are still there.
+                    // ENTER) re-adds it if we are still there.
                     val kept = n.insideZones.filter { (id, rev) -> s.isCurrent(id, rev) }
                     val lostLast = n.insideZones.isNotEmpty() && kept.isEmpty()
                     n = n.copy(ruleRevision = s.ruleRevision, insideZones = kept)
