@@ -12,9 +12,8 @@ import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingRequest
 import com.google.android.gms.location.LocationServices
 
-/** Registers an inner DWELL and an outer EXIT geofence for every located zone (max 20 fences). */
+/** Registers an inner ENTER and an outer EXIT geofence for every located zone (max 20 fences). */
 object GymGeofenceRegistrar {
-    const val LOITER_MS = 60_000
 
     fun hasPermissions(ctx: Context) =
         ctx.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED &&
@@ -63,8 +62,7 @@ object GymGeofenceRegistrar {
                     Geofence.Builder().setRequestId(innerId(zone))
                         .setCircularRegion(zone.latitude!!, zone.longitude!!, zone.geofenceRadiusMeters.toFloat())
                         .setExpirationDuration(Geofence.NEVER_EXPIRE)
-                        .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_DWELL)
-                        .setLoiteringDelay(LOITER_MS).build(),
+                        .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_ENTER).build(),
                     Geofence.Builder().setRequestId(outerId(zone))
                         .setCircularRegion(zone.latitude, zone.longitude, zone.exitRadiusMeters.toFloat())
                         .setExpirationDuration(Geofence.NEVER_EXPIRE)
@@ -72,8 +70,8 @@ object GymGeofenceRegistrar {
                 )
             }
             val request = GeofencingRequest.Builder()
-                // Initial DWELL supports enabling while already inside; no initial EXIT.
-                .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_DWELL)
+                // Detect an already-present user on registration; no initial EXIT.
+                .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER)
                 .addGeofences(fences).build()
             runCatching {
                 client.addGeofences(request, pi)

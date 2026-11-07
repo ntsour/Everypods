@@ -36,5 +36,8 @@ class PresenceEvidenceTest {
         assertFalse(PresenceEvidence.canRequest(0, null, inFlight = true))
         assertFalse(PresenceEvidence.canRequest(PresenceEvidence.FIX_COOLDOWN_MS - 1, 0, inFlight = false))
         assertTrue(PresenceEvidence.canRequest(PresenceEvidence.FIX_COOLDOWN_MS, 0, inFlight = false))
+        assertFalse(PresenceEvidence.canRequest(PresenceEvidence.FIX_TIMEOUT_MS - 1, 0, inFlight = false, connectedNow = true))
+        assertTrue(PresenceEvidence.canRequest(PresenceEvidence.FIX_TIMEOUT_MS, 0, inFlight = false, connectedNow = true))
+        assertFalse(PresenceEvidence.canRequest(PresenceEvidence.FIX_COOLDOWN_MS, 0, inFlight = true, connectedNow = true))
     }
 }

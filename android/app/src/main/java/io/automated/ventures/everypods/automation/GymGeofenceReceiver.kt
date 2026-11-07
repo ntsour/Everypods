@@ -33,7 +33,7 @@ class GymGeofenceReceiver : BroadcastReceiver() {
             val rule = GymAutomationRepository.rule(context)
             requestIds.mapNotNull { GymGeofenceRegistrar.parse(rule, it) }.forEach { p ->
                 when {
-                    p.inner && transition == Geofence.GEOFENCE_TRANSITION_DWELL ->
+                    p.inner && (transition == Geofence.GEOFENCE_TRANSITION_ENTER || transition == Geofence.GEOFENCE_TRANSITION_DWELL) ->
                         GymAutomationCoordinator.dispatch(context, Event.Arrived(p.revision, UUID.randomUUID().toString(), p.zoneId))
                     !p.inner && transition == Geofence.GEOFENCE_TRANSITION_EXIT ->
                         GymAutomationCoordinator.dispatch(context, Event.Exited(p.revision, p.zoneId))

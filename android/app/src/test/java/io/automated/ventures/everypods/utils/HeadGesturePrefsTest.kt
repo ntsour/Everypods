@@ -16,6 +16,38 @@ class HeadGesturePrefsTest {
     private val prefs get() = ApplicationProvider.getApplicationContext<Context>().getSharedPreferences("gestures-test", Context.MODE_PRIVATE)
     @Before fun clear() { prefs.edit().clear().commit() }
 
+    @Test fun `fresh startup seeds Pixel configuration and preserves it on subsequent startups`() {
+        HeadGesturePrefs.initializeFreshInstall(prefs)
+        val s = HeadGesturePrefs.read(prefs)
+        assertTrue(s.enabled); assertTrue(s.shakeStopsAnnouncements); assertTrue(s.separateGymTuning)
+        assertTrue(prefs.getBoolean("use_alternate_head_tracking_packets", false))
+        for (gesture in HeadGesture.entries) {
+            assertEquals(GestureTuning(600, 2, 2000, 800, 2000, 300), s.tuningFor(gesture, false))
+            assertEquals(GestureTuning(800, 2, 2000, 800, 2000, 300), s.tuningFor(gesture, true))
+        }
+        assertEquals(StemAction.NEXT_TRACK, s.normal[HeadGesture.NOD])
+        assertEquals(StemAction.PLAY_PAUSE, s.normal[HeadGesture.SHAKE])
+        assertEquals(StemAction.GYM_TIMER_START_STOP, s.gym[HeadGesture.NOD])
+        assertEquals(StemAction.PLAY_PAUSE, s.gym[HeadGesture.SHAKE])
+        assertEquals(HeadGesture.NOD, s.calls[HeadGestureCallAction.ANSWER])
+        assertEquals(HeadGesture.SHAKE, s.calls[HeadGestureCallAction.DECLINE])
+        assertEquals(HeadGesture.NOD, s.calls[HeadGestureCallAction.MUTE_TOGGLE])
+        assertNull(s.calls[HeadGestureCallAction.HANG_UP])
+        prefs.edit().putBoolean("head_gestures_enabled", false).commit()
+        HeadGesturePrefs.initializeFreshInstall(prefs)
+        assertFalse(HeadGesturePrefs.read(prefs).enabled)
+    }
+
+    @Test fun `startup leaves existing preferences and legacy migration alone`() {
+        prefs.edit().putBoolean("head_gestures_enabled", false).putBoolean("head_gestures_answer_call", true).commit()
+        HeadGesturePrefs.initializeFreshInstall(prefs)
+        val s = HeadGesturePrefs.read(prefs)
+        assertFalse(s.enabled)
+        assertEquals(HeadGesture.NOD, s.calls[HeadGestureCallAction.ANSWER])
+        assertNull(s.normal[HeadGesture.NOD])
+        assertEquals(GestureTuning(), s.tuningFor(HeadGesture.NOD, false))
+    }
+
     @Test fun `legacy combinations preserve enable and map requested toggle`() {
         for (enabled in listOf(false, true)) for (incoming in listOf(false, true)) for (mute in listOf(false, true)) {
             clear()
@@ -119,7 +151,7 @@ class HeadGesturePrefsTest {
         assertEquals(gymFast, settings.tuningFor(HeadGesture.NOD, true))
         assertEquals(GestureTuning(), settings.tuningFor(HeadGesture.SHAKE, true))
         HeadGesturePrefs.resetTuning(prefs, true)
-        assertEquals(GestureTuning(), HeadGesturePrefs.read(prefs).tuningFor(HeadGesture.NOD, true))
+        assertEquals(GestureTuning(800, 2, 2000, 800, 2000, 300), HeadGesturePrefs.read(prefs).tuningFor(HeadGesture.NOD, true))
         assertEquals(fast, HeadGesturePrefs.read(prefs).tuningFor(HeadGesture.NOD, false))
     }
 

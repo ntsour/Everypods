@@ -282,13 +282,21 @@ class GymAutomationReducerTest {
 
     // --- Bounded reconnect presence fix ---
 
-    @Test fun needsFixOnlyWhenReadyAndPresenceUnknown() {
+    @Test fun needsFixWhenReadyAndNotInside() {
         assertTrue(GymAutomationReducer.needsPresenceFix(Journal(), snap()))
         assertFalse(GymAutomationReducer.needsPresenceFix(Journal(), snap(ready = false)))
         assertFalse(GymAutomationReducer.needsPresenceFix(Journal(), snap(enabled = false)))
         assertFalse(GymAutomationReducer.needsPresenceFix(Journal(presence = Presence.INSIDE), snap()))
-        assertFalse(GymAutomationReducer.needsPresenceFix(Journal(presence = Presence.OUTSIDE), snap()))
+        assertTrue(GymAutomationReducer.needsPresenceFix(Journal(presence = Presence.OUTSIDE), snap()))
         assertFalse(GymAutomationReducer.needsPresenceFix(Journal(departureDeadline = 5), snap()))
+    }
+
+    @Test fun insideFixAfterPreviousVisitStartsNewVisit() {
+        val outside = Journal(presence = Presence.OUTSIDE)
+        val r = GymAutomationReducer.reduce(outside, Event.PresenceFix(1, Presence.INSIDE, "new"), snap())
+        assertEquals(Presence.INSIDE, r.journal.presence)
+        assertEquals("new", r.journal.visitId)
+        assertEquals(listOf(Effect.EnableGym, Effect.StartHr("BLUETOOTH")), r.effects)
     }
 
     @Test fun insideFixWithoutVisitStartsOneVisitOnce() {
@@ -326,7 +334,7 @@ class GymAutomationReducerTest {
         val r = GymAutomationReducer.reduce(Journal(), Event.PresenceFix(1, Presence.OUTSIDE, "f"), snap())
         assertEquals(Presence.OUTSIDE, r.journal.presence)
         assertTrue(r.effects.isEmpty())
-        assertFalse(GymAutomationReducer.needsPresenceFix(r.journal, snap()))
+        assertTrue(GymAutomationReducer.needsPresenceFix(r.journal, snap()))
     }
 
     @Test fun ambiguousOrStaleFixChangesNothing() {

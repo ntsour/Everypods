@@ -37,6 +37,7 @@ object PresenceEvidence {
         }
     }
 
-    fun canRequest(now: Long, lastRequestAt: Long?, inFlight: Boolean): Boolean =
-        !inFlight && (lastRequestAt == null || now - lastRequestAt >= FIX_COOLDOWN_MS)
+    fun canRequest(now: Long, lastRequestAt: Long?, inFlight: Boolean, connectedNow: Boolean = false): Boolean =
+        !inFlight && (lastRequestAt == null || now - lastRequestAt >=
+            if (connectedNow) FIX_TIMEOUT_MS else FIX_COOLDOWN_MS)
 }
