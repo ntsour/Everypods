@@ -982,7 +982,7 @@ Protokol istekleri: %4$d</string>
     <string name="gym_auto_resume">Bu ziyaret için sürdür</string>
     <string name="gym_auto_stop">Bu ziyaret için durdur</string>
     <string name="gym_perm_bg_title">Arka planda konum (isteğe bağlı)</string>
-    <string name="gym_perm_bg_desc">İsteğe bağlı. Yalnızca spor salonu konum otomasyonu için, kayıtlı bölgeye vardığınızı veya ayrıldığınızı algılamak amacıyla kullanılır. Konum bu telefonda kalır ve geçmiş tutulmaz. Bunu atlayabilirsiniz.</string>
+    <string name="gym_perm_bg_desc">İsteğe bağlı. Spor salonu bölgelerine varışı ve ayrılışı algılamak için kullanılır. Konum bu telefonda kalır. Kayıtlı bölgelere yaklaşık uzaklık dahil tanılama olayları yaklaşık 48 saat yerel olarak saklanır.</string>
     <string name="gym_perm_bg_step1">Adım 1/2: hassas konuma izin verin.</string>
     <string name="gym_perm_bg_step2">Adım 2/2: ayarlarda İzinler, ardından Konum bölümünü açın ve “Her zaman izin ver” seçeneğini seçin.</string>
     <string name="gym_map_offline">Harita yüklenemedi. Koordinatları yazabilir veya mevcut konumunuzu kullanabilirsiniz.</string>
@@ -996,7 +996,7 @@ Protokol istekleri: %4$d</string>
     <string name="gym_zone_edit">Konumu düzenle</string>
     <string name="gym_zone_remove">Konumu kaldır</string>
     <string name="gym_zone_remove_title">%1$s kaldırılsın mı?</string>
-    <string name="gym_zone_remove_body">Spor salonu otomasyonu bu konumu artık kullanmayacak. Şu anda oradaysanız, kayıtlı başka bir konumun içinde olduğunuz sürece Spor modu açık kalır; aksi halde olağan 3 dakikalık ayrılma süresi uygulanır.</string>
+    <string name="gym_zone_remove_body">Spor salonu otomasyonu artık bu konumu kullanmayacak.</string>
     <string name="gym_zone_remove_confirm">Kaldır</string>
     <string name="gym_zone_cancel">İptal</string>
     <string name="gym_zone_default_name">Spor salonu %1$d</string>

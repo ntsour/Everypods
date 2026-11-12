@@ -841,7 +841,7 @@ class AirPodsViewModel(
     }
 
     fun setGymModeEnabled(enabled: Boolean) {
-        sharedPreferences.edit { putBoolean("gym_mode_enabled", enabled) }
+        io.automated.ventures.everypods.utils.GymModePrefs.setEnabled(appContext, enabled)
     }
 
     private fun countEnabledModes(byteValue: Int): Int {

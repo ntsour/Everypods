@@ -1,7 +1,6 @@
 /* Copyright (C) 2026 EveryPods contributors. GPL-3.0. */
 package io.automated.ventures.everypods.automation
 
-import io.automated.ventures.everypods.automation.GymAutomationReducer.DEPARTURE_GRACE_MS
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -125,47 +124,84 @@ class GymAutomationReducerTest {
         assertEquals(listOf(Effect.StopHr), left.effects)
     }
 
-    @Test fun airPodsConnectingLaterActivatesThen() {
+    @Test fun arrivalWithoutAirPodsEnablesGymAndConnectingLaterStartsHeartRate() {
         val r = arrive(s = snap(ready = false))
-        assertTrue(r.effects.isEmpty())
+        assertEquals(listOf(Effect.EnableGym), r.effects)
         assertEquals(Presence.INSIDE, r.journal.presence)
-        val later = GymAutomationReducer.reduce(r.journal, Event.Reconcile, snap(ready = true))
-        assertEquals(listOf(Effect.EnableGym, Effect.StartHr("BLUETOOTH")), later.effects)
+        val later = GymAutomationReducer.reduce(r.journal, Event.Reconcile, snap(ready = true, gymOn = true))
+        assertEquals(listOf(Effect.StartHr("BLUETOOTH")), later.effects)
+    }
+
+    @Test fun manualGymOffWithoutAirPodsRemainsSuppressedAfterConnection() {
+        val arrival = arrive(s = snap(ready = false))
+        val off = GymAutomationReducer.reduce(arrival.journal, Event.ManualGymOff, snap(ready = false))
+        val reconnect = GymAutomationReducer.reduce(off.journal, Event.Reconcile, snap(ready = true))
+        assertTrue(reconnect.journal.gymSuppressed)
+        assertTrue(reconnect.effects.isEmpty())
+    }
+
+    @Test fun gymEnabledWithoutAirPodsIsRestoredOnDeparture() {
+        val arrival = arrive(s = snap(ready = false))
+        val departed = depart(arrival.journal, snap(ready = false, gymOn = true))
+        assertEquals(listOf(Effect.DisableGym), departed.effects)
+    }
+
+    @Test fun automationAnnouncementWaitsForWornAudioAndRunsOnlyOnce() {
+        val arrived = arrive(s = snap(ready = false))
+        assertTrue(arrived.journal.gymAnnouncementPending)
+        val connected = GymAutomationReducer.reduce(arrived.journal, Event.Reconcile, snap(gymOn = true))
+        assertTrue(connected.journal.gymAnnouncementPending)
+        val worn = GymAutomationReducer.reduce(connected.journal, Event.Reconcile,
+            snap(gymOn = true).copy(gymAnnouncementReady = true))
+        assertEquals(listOf(Effect.AnnounceGym), worn.effects)
+        assertFalse(worn.journal.gymAnnouncementPending)
+        val again = GymAutomationReducer.reduce(worn.journal, Event.Reconcile,
+            snap(gymOn = true).copy(gymAnnouncementReady = true))
+        assertTrue(again.effects.isEmpty())
+    }
+
+    @Test fun pendingAnnouncementIsCancelledByManualOffOrDeparture() {
+        val arrived = arrive(s = snap(ready = false))
+        val off = GymAutomationReducer.reduce(arrived.journal, Event.ManualGymOff, snap(ready = false))
+        assertFalse(off.journal.gymAnnouncementPending)
+        assertTrue(GymAutomationReducer.reduce(off.journal, Event.Reconcile,
+            snap().copy(gymAnnouncementReady = true)).effects.isEmpty())
+        val departed = depart(arrived.journal, snap(ready = false, gymOn = true))
+        assertFalse(departed.journal.gymAnnouncementPending)
+    }
+
+    @Test fun preexistingGymModeDoesNotQueueAutomationAnnouncement() {
+        val arrived = arrive(s = snap(gymOn = true).copy(gymAnnouncementReady = true))
+        assertFalse(arrived.journal.gymAnnouncementPending)
+        assertFalse(arrived.effects.contains(Effect.AnnounceGym))
     }
 
     private fun depart(j: Journal, s: Snapshot): Result {
-        val exit = GymAutomationReducer.reduce(j, Event.Exited(1), s)
-        return GymAutomationReducer.reduce(exit.journal, Event.GraceCheck, s.copy(now = s.now + DEPARTURE_GRACE_MS))
+        return GymAutomationReducer.reduce(j, Event.Exited(1), s)
     }
 
-    @Test fun departureRestoresOnlyAfterGrace() {
+    @Test fun departureRestoresImmediately() {
         val r = arrive()
         val s = snap(gymOn = true, hrActive = true)
         val exit = GymAutomationReducer.reduce(r.journal, Event.Exited(1), s)
-        assertEquals(listOf(Effect.ScheduleGraceCheck(1_000 + DEPARTURE_GRACE_MS)), exit.effects)
-        val early = GymAutomationReducer.reduce(exit.journal, Event.GraceCheck, s.copy(now = 2_000))
-        assertFalse(early.effects.contains(Effect.DisableGym))
-        val late = GymAutomationReducer.reduce(exit.journal, Event.GraceCheck, s.copy(now = 1_000 + DEPARTURE_GRACE_MS))
-        assertEquals(listOf(Effect.StopHr, Effect.DisableGym), late.effects)
-        assertEquals(Presence.OUTSIDE, late.journal.presence)
+        assertEquals(listOf(Effect.StopHr, Effect.DisableGym), exit.effects)
+        assertEquals(Presence.OUTSIDE, exit.journal.presence)
     }
 
-    @Test fun returningDuringGraceCancelsDeparture() {
+    @Test fun returningAfterDepartureStartsNewVisit() {
         val r = arrive()
         val s = snap(gymOn = true, hrActive = true)
         val exit = GymAutomationReducer.reduce(r.journal, Event.Exited(1), s)
         val back = GymAutomationReducer.reduce(exit.journal, Event.Arrived(1, "v9"), s.copy(now = 5_000))
-        assertEquals(listOf(Effect.CancelGraceCheck), back.effects)
-        assertEquals("v1", back.journal.visitId)
-        assertTrue(GymAutomationReducer.reduce(back.journal, Event.GraceCheck, s.copy(now = 10_000_000)).effects.isEmpty())
+        assertEquals("v9", back.journal.visitId)
+        assertEquals(Presence.INSIDE, back.journal.presence)
     }
 
     @Test fun unknownSignalIsNeverLeft() {
         val r = arrive()
         val s = snap(gymOn = true, hrActive = true)
-        val exit = GymAutomationReducer.reduce(r.journal, Event.Exited(1), s)
-        val unknown = GymAutomationReducer.reduce(exit.journal, Event.LocationUnavailable, s)
-        assertEquals(listOf(Effect.CancelGraceCheck), unknown.effects)
+        val unknown = GymAutomationReducer.reduce(r.journal, Event.LocationUnavailable, s)
+        assertTrue(unknown.effects.isEmpty())
         val later = GymAutomationReducer.reduce(unknown.journal, Event.GraceCheck, s.copy(now = 99_999_999))
         assertTrue(later.effects.isEmpty())
         assertEquals(Presence.INSIDE, later.journal.presence)
@@ -227,16 +263,16 @@ class GymAutomationReducerTest {
         assertEquals(listOf(Effect.DisableGym), depart(cold.journal, snap(gymOn = true)).effects)
     }
 
-    @Test fun processDeathRestoresPendingGrace() {
-        val exit = GymAutomationReducer.reduce(arrive().journal, Event.Exited(1), snap(gymOn = true))
-        val cold = GymAutomationReducer.reduce(exit.journal, Event.ColdStart, snap(now = 2_000, gymOn = true))
-        assertEquals(listOf(Effect.ScheduleGraceCheck(1_000 + DEPARTURE_GRACE_MS)), cold.effects)
+    @Test fun processDeathCompletesLegacyPendingDeparture() {
+        val old = arrive().journal.copy(departureDeadline = 50_000)
+        val cold = GymAutomationReducer.reduce(old, Event.ColdStart, snap(now = 2_000, gymOn = true))
+        assertTrue(cold.effects.contains(Effect.CancelGraceCheck))
+        assertTrue(cold.effects.contains(Effect.DisableGym))
     }
 
     @Test fun rebootDiscardsEvidenceButKeepsSuppression() {
         val off = GymAutomationReducer.reduce(arrive().journal, Event.ManualGymOff, snap())
-        val exit = GymAutomationReducer.reduce(off.journal, Event.Exited(1), snap())
-        val cold = GymAutomationReducer.reduce(exit.journal, Event.ColdStart, snap(boot = "b2"))
+        val cold = GymAutomationReducer.reduce(off.journal, Event.ColdStart, snap(boot = "b2"))
         assertTrue(cold.effects.isEmpty())
         assertEquals(Presence.UNKNOWN, cold.journal.presence)
         assertEquals(null, cold.journal.departureDeadline)
@@ -284,11 +320,19 @@ class GymAutomationReducerTest {
 
     @Test fun needsFixWhenReadyAndNotInside() {
         assertTrue(GymAutomationReducer.needsPresenceFix(Journal(), snap()))
-        assertFalse(GymAutomationReducer.needsPresenceFix(Journal(), snap(ready = false)))
+        assertTrue(GymAutomationReducer.needsPresenceFix(Journal(), snap(ready = false)))
         assertFalse(GymAutomationReducer.needsPresenceFix(Journal(), snap(enabled = false)))
-        assertFalse(GymAutomationReducer.needsPresenceFix(Journal(presence = Presence.INSIDE), snap()))
+        assertTrue(GymAutomationReducer.needsPresenceFix(Journal(presence = Presence.INSIDE), snap()))
         assertTrue(GymAutomationReducer.needsPresenceFix(Journal(presence = Presence.OUTSIDE), snap()))
-        assertFalse(GymAutomationReducer.needsPresenceFix(Journal(departureDeadline = 5), snap()))
+        assertTrue(GymAutomationReducer.needsPresenceFix(Journal(departureDeadline = 5), snap()))
+    }
+
+    @Test fun insideFixWithoutAirPodsEnablesGym() {
+        val r = GymAutomationReducer.reduce(Journal(presence = Presence.OUTSIDE),
+            Event.PresenceFix(1, Presence.INSIDE, "new"), snap(ready = false))
+        assertEquals(listOf(Effect.EnableGym), r.effects)
+        assertTrue(r.journal.ownsGym)
+        assertFalse(r.journal.hrAttempted)
     }
 
     @Test fun insideFixAfterPreviousVisitStartsNewVisit() {
@@ -321,13 +365,12 @@ class GymAutomationReducerTest {
         assertTrue(fix.effects.isEmpty())
     }
 
-    @Test fun outsideFixForRememberedVisitUsesTheGracePeriod() {
+    @Test fun outsideFixForRememberedVisitDepartsImmediately() {
         val j = arrive().journal.copy(presence = Presence.UNKNOWN)
         val r = GymAutomationReducer.reduce(j, Event.PresenceFix(1, Presence.OUTSIDE, "f"), snap(now = 10, gymOn = true, hrActive = true))
-        assertEquals(listOf(Effect.ScheduleGraceCheck(10 + DEPARTURE_GRACE_MS)), r.effects)
+        assertEquals(listOf(Effect.StopHr, Effect.DisableGym), r.effects)
         val back = GymAutomationReducer.reduce(r.journal, Event.Arrived(1, "v2"), snap(now = 20, gymOn = true, hrActive = true))
-        assertEquals(listOf(Effect.CancelGraceCheck), back.effects)
-        assertEquals("v1", back.journal.visitId)
+        assertEquals("v2", back.journal.visitId)
     }
 
     @Test fun outsideFixWithoutVisitOnlyRecordsPresence() {
@@ -346,10 +389,10 @@ class GymAutomationReducerTest {
         assertTrue(old.effects.isEmpty())
     }
 
-    @Test fun fixNeverOverridesKnownPresence() {
+    @Test fun outsideFixForKnownInsideDepartsImmediately() {
         val inside = arrive().journal
         val r = GymAutomationReducer.reduce(inside, Event.PresenceFix(1, Presence.OUTSIDE, "f"), snap(gymOn = true))
-        assertTrue(r.effects.isEmpty())
-        assertEquals(inside, r.journal)
+        assertEquals(listOf(Effect.DisableGym), r.effects)
+        assertEquals(Presence.OUTSIDE, r.journal.presence)
     }
 }

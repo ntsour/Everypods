@@ -4,7 +4,7 @@ package io.automated.ventures.everypods.automation
 /** Pure rules for turning one current-location fix into presence evidence (plan §7). */
 object PresenceEvidence {
     /** A fix older than this (elapsed-realtime, same boot) is not evidence. */
-    const val MAX_FIX_AGE_MS = 2 * 60_000L
+    const val MAX_FIX_AGE_MS = 30_000L
     /** Hard cap on waiting for a fix. */
     const val FIX_TIMEOUT_MS = 15_000L
     /** At most one fix per this interval per process: no polling loops. */

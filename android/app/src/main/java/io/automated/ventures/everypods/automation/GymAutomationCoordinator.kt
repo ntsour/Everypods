@@ -2,6 +2,9 @@
 package io.automated.ventures.everypods.automation
 
 import android.content.Context
+import android.content.Intent
+import android.app.AlarmManager
+import android.app.PendingIntent
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -20,6 +23,8 @@ interface GymAutomationHost {
     fun heartRateReady(): Boolean
     fun heartRateLive(): Boolean
     fun heartRateActive(): Boolean
+    fun gymAnnouncementReady(): Boolean
+    fun announceGymEnabled()
     /** Live owner of the running session, from the persisted owner record. */
     fun heartRateOwner(): HeartRateSource?
     /** The shared case-shortcut start step (AirPodsService.ensureHeartRateStarted). */
@@ -54,22 +59,29 @@ object GymAutomationCoordinator {
     private var lastFixAt: Long? = null
     private var lastAirPodsReady = false
     private var presenceGeneration = 0L
+    private var exitRecoveryPending = false
+    private var lastReadinessLog: String? = null
 
     private val mutableStatus = MutableStateFlow(GymAutomationStatus.OFF)
     val status: StateFlow<GymAutomationStatus> = mutableStatus.asStateFlow()
 
     fun attach(ctx: Context, h: GymAutomationHost) = onMain {
         host = h
+        GymAutomationDiagnostics.record(ctx, "host attached ${GymAutomationDiagnostics.environment(ctx)}")
         dispatch(ctx, Event.Reconcile)
-        GymGeofenceRegistrar.sync(ctx)
     }
 
-    fun detach(h: GymAutomationHost) = onMain { if (host === h) { host = null; lastAirPodsReady = false } }
+    fun detach(h: GymAutomationHost) = onMain {
+        if (host === h) {
+            appCtx?.let { GymAutomationDiagnostics.record(it, "host detached") }
+            host = null; lastAirPodsReady = false; lastReadinessLog = null
+        }
+    }
 
     /** Called by the service when the user (not this coordinator) stops heart rate. */
     fun onHeartRateStopped(ctx: Context) = dispatch(ctx, Event.ManualHrStop)
 
-    /** Called from the gym_mode_enabled listener. */
+    /** Called by GymModePrefs for a manual change, including while the service is stopped. */
     fun onGymModeChanged(ctx: Context, enabled: Boolean) {
         if (!writingGym && !enabled) dispatch(ctx, Event.ManualGymOff)
     }
@@ -94,9 +106,6 @@ object GymAutomationCoordinator {
     }
 
     private fun run(ctx: Context, event: Event) {
-        if (event is Event.Arrived || event is Event.Exited || event is Event.RuleChanged || event == Event.LocationUnavailable) {
-            presenceGeneration++
-        }
         val rule = GymAutomationRepository.rule(ctx)
         val journal = GymAutomationRepository.journal(ctx)
         val h = host
@@ -115,17 +124,48 @@ object GymAutomationCoordinator {
             zoneRevisions = rule.zoneRevisions,
             heartRateReady = h?.heartRateReady() == true,
             heartRateLive = h?.heartRateLive() == true,
+            gymAnnouncementReady = h?.gymAnnouncementReady() == true,
         )
+        val stale = GymAutomationReducer.isOlderEvidence(journal, event, snapshot)
+        if (stale) GymAutomationDiagnostics.record(ctx, "event ignored reason=older_evidence type=${event.javaClass.simpleName}")
         val result = GymAutomationReducer.reduce(journal, event, snapshot)
+        val recoverExit = event is Event.Exited && !stale && rule.enabled &&
+            snapshot.isCurrent(event.zoneId, event.revision) &&
+            result.journal.presence == Presence.UNKNOWN && result.journal.visitId != null
+        if (event == Event.RuleChanged || event == Event.LocationUnavailable || recoverExit ||
+            ((event is Event.Arrived || event is Event.Exited) && result.journal != journal)) {
+            presenceGeneration++
+        }
+        if (event == Event.RuleChanged || journal.visitId != null && result.journal.visitId != journal.visitId) {
+            GymAutomationJobs.cancelDeparture(ctx)
+            exitRecoveryPending = false
+        }
+        val readiness = "host=${h != null} airpods=${snapshot.airPodsReady} hrReady=${snapshot.heartRateReady} hrActive=${snapshot.hrActive} hrLive=${snapshot.heartRateLive} announcementReady=${snapshot.gymAnnouncementReady}"
+        if (readiness != lastReadinessLog) {
+            lastReadinessLog = readiness
+            GymAutomationDiagnostics.record(ctx, "readiness $readiness")
+        }
+        if (event == Event.GraceCheck && journal.departureDeadline != null && result.journal.departureDeadline == null) {
+            main.removeCallbacks(graceRunnable)
+            ctx.getSystemService(AlarmManager::class.java).cancel(graceIntent(ctx))
+        }
         if (result.journal != journal) GymAutomationRepository.saveJournal(ctx, result.journal)
         if (result.effects.isNotEmpty() || event !is Event.Reconcile) {
-            Log.i(TAG, "event=${event.javaClass.simpleName} presence=${result.journal.presence} " +
+            GymAutomationDiagnostics.record(ctx, "event=${event.javaClass.simpleName} presence=${result.journal.presence} " +
                 "zonesInside=${result.journal.insideZones.size} effects=${result.effects.map { it.javaClass.simpleName }} " +
-                "ready=${snapshot.airPodsReady} hrReady=${snapshot.heartRateReady} hrAttempts=${result.journal.hrStartAttempts}")
+                "enabled=${rule.enabled} ready=${snapshot.airPodsReady} hrReady=${snapshot.heartRateReady} " +
+                "gym=${snapshot.gymOn} previousPresence=${journal.presence} previousZones=${journal.insideZones.size} " +
+                "ownsGym=${result.journal.ownsGym} ownsHr=${result.journal.ownsHr} pendingAnnouncement=${result.journal.gymAnnouncementPending} " +
+                "suppressed=${result.journal.gymSuppressed} locationUnavailable=${result.journal.locationUnavailable} hrAttempts=${result.journal.hrStartAttempts}")
         }
         var journalNow = result.journal
         result.effects.forEach { effect ->
-            if (!execute(ctx, effect) && effect is Effect.StartHr && journalNow.ownsHr) {
+            val ok = try { execute(ctx, effect) } catch (e: Exception) {
+                GymAutomationDiagnostics.record(ctx, "effect failed type=${effect.javaClass.simpleName} error=${e.javaClass.simpleName}")
+                false
+            }
+            GymAutomationDiagnostics.record(ctx, "effect executed type=${effect.javaClass.simpleName} accepted=$ok")
+            if (!ok && effect is Effect.StartHr && journalNow.ownsHr) {
                 // Not started (already running, no selection, permission, rejected): own nothing.
                 journalNow = journalNow.copy(ownsHr = false)
                 GymAutomationRepository.saveJournal(ctx, journalNow)
@@ -134,27 +174,73 @@ object GymAutomationCoordinator {
         mutableStatus.value = statusOf(rule, journalNow, h)
         val connectedNow = snapshot.airPodsReady && !lastAirPodsReady
         lastAirPodsReady = snapshot.airPodsReady
-        // UNKNOWN retains the existing recovery path. OUTSIDE is checked once per connection,
+        // UNKNOWN retains recovery; OUTSIDE is rechecked on connection or foreground entry,
         // not on every wear, battery, or heart-rate reconciliation.
-        if (journalNow.presence == Presence.UNKNOWN || connectedNow) {
-            maybeRequestPresenceFix(ctx, rule, journalNow, snapshot, connectedNow)
+        val explicitCheck = connectedNow || event == Event.ForegroundCheck ||
+            (event == Event.RuleChanged && journalNow.presence == Presence.UNKNOWN)
+        if (recoverExit) {
+            if (fixInFlight) exitRecoveryPending = true
+            else requestPresenceFix(ctx, rule, "exit_recovery", bypassCooldown = true)
+        } else if ((event == Event.ColdStart && journalNow.presence == Presence.UNKNOWN) || explicitCheck) {
+            requestPresenceFix(ctx, rule, if (connectedNow) "connection" else event.javaClass.simpleName,
+                explicitCheck = explicitCheck)
         }
     }
 
-    /** Bounded: one fix in flight, cooldown between fixes, 15 s cap, never a loop. */
-    private fun maybeRequestPresenceFix(ctx: Context, rule: GymAutomationRule, j: Journal, s: Snapshot, connectedNow: Boolean) {
-        if (!GymAutomationReducer.needsPresenceFix(j, s) || !rule.hasLocation) return
-        if (!GymGeofenceRegistrar.hasPermissions(ctx)) return
-        if (!PresenceEvidence.canRequest(s.now, lastFixAt, fixInFlight, connectedNow)) return
+    fun checkDeparture(ctx: Context, visit: String?, revision: Long, done: () -> Unit) = onMain {
+        val rule = GymAutomationRepository.rule(ctx)
+        val journal = GymAutomationRepository.journal(ctx)
+        if (visit == null || journal.visitId != visit || rule.revision != revision ||
+            !rule.enabled || !rule.restoreOnExit || !journal.ownsGym && !journal.ownsHr) {
+            GymAutomationDiagnostics.record(ctx, "departure check skipped reason=visit_changed")
+            done()
+        } else {
+            requestPresenceFix(ctx, rule, "departure_fallback", bypassCooldown = true, expectedVisit = visit, done = done)
+        }
+    }
+
+    private fun requestPresenceFix(
+        ctx: Context, rule: GymAutomationRule, source: String, explicitCheck: Boolean = false,
+        bypassCooldown: Boolean = false, expectedVisit: String? = null, done: () -> Unit = {},
+    ) {
+        val now = SystemClock.elapsedRealtime()
+        val skip = when {
+            !rule.enabled || !rule.hasLocation -> "rule_off"
+            !GymGeofenceRegistrar.hasPermissions(ctx) -> "permission"
+            fixInFlight -> "in_flight"
+            !bypassCooldown && !PresenceEvidence.canRequest(now, lastFixAt, false, explicitCheck) -> "cooldown"
+            else -> null
+        }
+        if (skip != null) {
+            GymAutomationDiagnostics.record(ctx, "fix skipped source=$source reason=$skip")
+            done()
+            return
+        }
         fixInFlight = true
-        lastFixAt = s.now
+        lastFixAt = now
         val generation = presenceGeneration
-        GymPresenceFix.request(ctx, rule) { presence, zones ->
+        GymAutomationDiagnostics.record(ctx, "fix requested source=$source")
+        GymPresenceFix.request(ctx, rule) { reading, observedAt ->
             onMain {
                 fixInFlight = false
-                if (generation != presenceGeneration) return@onMain
-                Log.i(TAG, "presence fix=$presence zones=${zones.size}")
-                dispatch(ctx, Event.PresenceFix(rule.revision, presence, UUID.randomUUID().toString(), zones))
+                try {
+                    val journal = GymAutomationRepository.journal(ctx)
+                    if (generation != presenceGeneration || expectedVisit != null && journal.visitId != expectedVisit) {
+                        GymAutomationDiagnostics.record(ctx, "fix discarded source=$source reason=newer_transition")
+                    } else {
+                        GymAutomationDiagnostics.record(ctx, "fix result=${reading.presence} source=$source zones=${reading.inside.size}")
+                        dispatch(ctx, Event.PresenceFix(rule.revision, reading.presence, UUID.randomUUID().toString(),
+                            reading.inside, observedAt, reading.outside))
+                    }
+                    if (exitRecoveryPending) {
+                        exitRecoveryPending = false
+                        if (GymAutomationRepository.journal(ctx).presence == Presence.UNKNOWN) {
+                            requestPresenceFix(ctx, GymAutomationRepository.rule(ctx), "exit_recovery", bypassCooldown = true)
+                        }
+                    }
+                } finally {
+                    done()
+                }
             }
         }
     }
@@ -167,17 +253,23 @@ object GymAutomationCoordinator {
             is Effect.StartHr -> {
                 val h = host ?: return false
                 val decision = h.ensureHeartRateStarted()
+                GymAutomationDiagnostics.record(ctx, "heart_rate decision=${decision.javaClass.simpleName} automationOwner=${h.heartRateOwner() == HeartRateSource.AUTOMATION}")
                 return decision is HrStartDecision.Start && h.heartRateOwner() == HeartRateSource.AUTOMATION
             }
             Effect.StopHr -> host?.stopHeartRateFromAutomation()
-            is Effect.ScheduleGraceCheck -> {
+            Effect.AnnounceGym -> host?.announceGymEnabled()
+            Effect.CancelGraceCheck -> {
                 main.removeCallbacks(graceRunnable)
-                main.postDelayed(graceRunnable, (effect.atElapsed - SystemClock.elapsedRealtime()).coerceAtLeast(0))
+                ctx.getSystemService(AlarmManager::class.java).cancel(graceIntent(ctx))
             }
-            Effect.CancelGraceCheck -> main.removeCallbacks(graceRunnable)
         }
         return true
     }
+
+    private fun graceIntent(ctx: Context) = PendingIntent.getBroadcast(
+        ctx, 4712, Intent(ctx, GymGeofenceReceiver::class.java).setAction(GymGeofenceReceiver.ACTION_GRACE_CHECK),
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
 
     private fun writeGym(ctx: Context, on: Boolean) {
         writingGym = true

@@ -4,7 +4,7 @@ package io.automated.ventures.everypods.automation
 /**
  * Pure decision engine for the location-triggered Gym Mode rule.
  *
- * No Android types live here so every rule (arrival, departure grace, AirPods
+ * No Android types live here so every rule (arrival, departure, AirPods
  * arriving later, manual override, ownership, process death) is unit-testable.
  * The coordinator feeds events plus a [Snapshot] of the live world and executes
  * the returned [Effect]s; the returned [Journal] is what gets persisted.
@@ -35,7 +35,7 @@ data class Journal(
     val locationUnavailable: Boolean = false,
     /**
      * Zones (id to geometry revision) whose inner boundary this visit is inside. The visit
-     * only starts its departure grace when the last one is left, edited or removed.
+     * ends the visit when the last zone is left.
      */
     val insideZones: Map<String, Long> = emptyMap(),
     /** Decoded from a schema-1 journal (no zone set yet); resolved by the repository. */
@@ -43,6 +43,10 @@ data class Journal(
     /** One start per wear/connection readiness period, with a finite per-visit budget. */
     val hrAttempted: Boolean = false,
     val hrStartAttempts: Int = 0,
+    /** One activation announcement waiting for worn, connected AirPods. */
+    val gymAnnouncementPending: Boolean = false,
+    val lastFixElapsedMs: Long? = null,
+    val transitionElapsedMs: Map<String, Long> = emptyMap(),
 )
 
 /** Live state the coordinator reads just before reducing. */
@@ -66,6 +70,7 @@ data class Snapshot(
     /** Current-connection wear evidence and HR capability/ownership, independent of Gym Mode. */
     val heartRateReady: Boolean = true,
     val heartRateLive: Boolean = false,
+    val gymAnnouncementReady: Boolean = false,
 ) {
     /** Whether a transition for [zoneId] at [revision] belongs to the current registration. */
     fun isCurrent(zoneId: String, revision: Long): Boolean =
@@ -74,15 +79,17 @@ data class Snapshot(
 
 sealed interface Event {
     /** Inner-boundary arrival for [revision]. */
-    data class Arrived(val revision: Long, val visitId: String, val zoneId: String = SINGLE_ZONE) : Event
-    /** Outer-boundary EXIT for [revision]: starts the departure grace period. */
-    data class Exited(val revision: Long, val zoneId: String = SINGLE_ZONE) : Event
+    data class Arrived(val revision: Long, val visitId: String, val zoneId: String = SINGLE_ZONE, val observedAt: Long? = null) : Event
+    /** Outer-boundary EXIT for [revision]. */
+    data class Exited(val revision: Long, val zoneId: String = SINGLE_ZONE, val observedAt: Long? = null) : Event
     /** Grace timer fired (or reconciliation found the deadline elapsed). */
     data object GraceCheck : Event
     /** Geofence error, provider off, permission revoked: never counts as leaving. */
     data object LocationUnavailable : Event
     /** AirPods connection/readiness or other live state changed. */
     data object Reconcile : Event
+    /** App entered the foreground; request a bounded location check if needed. */
+    data object ForegroundCheck : Event
     data object ManualGymOff : Event
     data object ManualHrStop : Event
     /** "Resume for this visit": clears suppression and reruns readiness. */
@@ -95,6 +102,8 @@ sealed interface Event {
         val revision: Long, val presence: Presence, val visitId: String,
         /** Zones (id to revision) the fix placed us inside; only meaningful for INSIDE. */
         val zones: Map<String, Long> = emptyMap(),
+        val observedAt: Long? = null,
+        val outsideZoneIds: Set<String> = emptySet(),
     ) : Event
     /** Process start; journal restored from storage. */
     data object ColdStart : Event
@@ -112,22 +121,21 @@ sealed interface Effect {
     data object DisableGym : Effect
     data class StartHr(val method: String) : Effect
     data object StopHr : Effect
-    data class ScheduleGraceCheck(val atElapsed: Long) : Effect
+    data object AnnounceGym : Effect
     data object CancelGraceCheck : Effect
 }
 
 data class Result(val journal: Journal, val effects: List<Effect>)
 
 object GymAutomationReducer {
-    const val DEPARTURE_GRACE_MS = 3 * 60_000L
     const val MAX_HR_START_ATTEMPTS = 3
 
-    /** A connection can check for arrival even after the previous visit ended outside. */
-    fun needsPresenceFix(j: Journal, s: Snapshot): Boolean =
-        s.ruleEnabled && s.airPodsReady && j.presence != Presence.INSIDE && j.departureDeadline == null
+    /** Foreground, reconnect and recovery checks do not require connected AirPods. */
+    fun needsPresenceFix(j: Journal, s: Snapshot): Boolean = s.ruleEnabled
 
     fun reduce(j: Journal, e: Event, s: Snapshot): Result {
         val fx = mutableListOf<Effect>()
+        if (isOlderEvidence(j, e, s)) return Result(j, emptyList())
         var n = j
         when (e) {
             is Event.Arrived -> {
@@ -141,28 +149,29 @@ object GymAutomationReducer {
                 } else {
                     Journal(ruleRevision = s.ruleRevision, presence = Presence.INSIDE, visitId = e.visitId, bootId = s.bootId)
                 }
-                n = n.copy(insideZones = n.insideZones + (e.zoneId to e.revision))
+                n = n.copy(insideZones = n.insideZones + (e.zoneId to e.revision),
+                    lastFixElapsedMs = j.lastFixElapsedMs, transitionElapsedMs = j.transitionElapsedMs)
+                n = rememberTransition(n, e.zoneId, e.observedAt)
                 n = apply(n, s, fx)
             }
             is Event.Exited -> {
-                if (!s.isCurrent(e.zoneId, e.revision)) return Result(j, emptyList())
-                // Only a visit that was actually inside can end; an initial EXIT is ignored.
-                if (n.presence != Presence.INSIDE || n.visitId == null) return Result(j, emptyList())
+                if (!s.ruleEnabled || !s.isCurrent(e.zoneId, e.revision)) return Result(j, emptyList())
+                n = rememberTransition(n, e.zoneId, e.observedAt)
+                // UNKNOWN needs a fix against all zones before ending a remembered visit.
+                if (n.presence != Presence.INSIDE || n.visitId == null || e.zoneId !in n.insideZones) {
+                    return Result(n, emptyList())
+                }
                 // Overlapping zones: leaving one while still inside another keeps the visit.
                 n = n.copy(insideZones = n.insideZones - e.zoneId)
-                if (n.insideZones.isNotEmpty() || n.departureDeadline != null) return Result(n, emptyList())
-                val at = s.now + DEPARTURE_GRACE_MS
-                n = n.copy(departureDeadline = at, bootId = s.bootId)
-                fx += Effect.ScheduleGraceCheck(at)
+                if (n.insideZones.isNotEmpty()) return Result(n, emptyList())
+                if (n.departureDeadline != null) fx += Effect.CancelGraceCheck
+                n = depart(n, s, fx)
             }
             Event.GraceCheck -> {
-                val deadline = n.departureDeadline ?: return Result(j, emptyList())
+                n.departureDeadline ?: return Result(j, emptyList())
                 if (n.bootId != s.bootId) return Result(n.copy(departureDeadline = null), emptyList())
-                if (s.now < deadline) {
-                    fx += Effect.ScheduleGraceCheck(deadline)
-                } else {
-                    n = depart(n, s, fx)
-                }
+                fx += Effect.CancelGraceCheck
+                n = depart(n, s, fx)
             }
             Event.LocationUnavailable -> {
                 // Unknown is never "left": cancel any pending departure, keep the visit.
@@ -171,30 +180,37 @@ object GymAutomationReducer {
             }
             is Event.PresenceFix -> {
                 if (!s.ruleEnabled || e.revision != s.ruleRevision) return Result(j, emptyList())
-                // A fix can establish arrival from outside; never replace an active visit.
-                if (n.presence == Presence.INSIDE || n.departureDeadline != null) return Result(j, emptyList())
                 when (e.presence) {
                     Presence.UNKNOWN -> return Result(j, emptyList()) // ambiguous stays unknown
                     Presence.INSIDE -> {
+                        if (n.departureDeadline != null) fx += Effect.CancelGraceCheck
                         n = if (n.visitId != null) {
                             // Remembered visit confirmed: keep its suppression and applied flag (no replay).
-                            n.copy(presence = Presence.INSIDE, locationUnavailable = false, bootId = s.bootId)
+                            n.copy(presence = Presence.INSIDE, departureDeadline = null, locationUnavailable = false, bootId = s.bootId)
                         } else {
                             Journal(ruleRevision = s.ruleRevision, presence = Presence.INSIDE, visitId = e.visitId, bootId = s.bootId)
                         }
-                        n = n.copy(insideZones = e.zones.filter { (id, rev) -> s.isCurrent(id, rev) })
+                        val confirmedInside = e.zones.filter { (id, rev) -> s.isCurrent(id, rev) }
+                        n = n.copy(insideZones = (n.insideZones - e.outsideZoneIds) + confirmedInside)
                         n = apply(n, s, fx)
                     }
                     Presence.OUTSIDE -> {
                         if (n.visitId != null) {
-                            // Confirmed outside the outer boundary: same 3-minute grace as an EXIT.
-                            val at = s.now + DEPARTURE_GRACE_MS
-                            n = n.copy(departureDeadline = at, locationUnavailable = false, bootId = s.bootId)
-                            fx += Effect.ScheduleGraceCheck(at)
+                            if (n.departureDeadline != null) fx += Effect.CancelGraceCheck
+                            n = depart(n, s, fx)
                         } else {
                             n = n.copy(presence = Presence.OUTSIDE, locationUnavailable = false, bootId = s.bootId)
                         }
                     }
+                }
+                val observedAt = e.observedAt
+                if (e.presence == Presence.OUTSIDE) {
+                    n = n.copy(lastFixElapsedMs = observedAt ?: j.lastFixElapsedMs)
+                } else {
+                    val confirmedZones = e.zones.keys + e.outsideZoneIds
+                    val times = if (observedAt != null) confirmedZones.associateWith { observedAt } else emptyMap()
+                    n = n.copy(lastFixElapsedMs = j.lastFixElapsedMs,
+                        transitionElapsedMs = j.transitionElapsedMs + times)
                 }
             }
             Event.Reconcile -> {
@@ -204,10 +220,11 @@ object GymAutomationReducer {
                 if (n.ownsHr && (!s.hrActive || s.hrOwner != HeartRateSource.AUTOMATION)) n = n.copy(ownsHr = false)
                 if (n.presence == Presence.INSIDE) n = apply(n, s, fx)
             }
+            Event.ForegroundCheck -> Unit
             Event.ManualGymOff -> {
                 if (n.visitId != null && n.presence != Presence.OUTSIDE) {
                     // Turning Gym Mode off (existing listener) already stops gym-owned HR.
-                    n = n.copy(gymSuppressed = true, ownsGym = false, ownsHr = false)
+                    n = n.copy(gymSuppressed = true, ownsGym = false, ownsHr = false, gymAnnouncementPending = false)
                 }
             }
             Event.ManualHrStop -> {
@@ -225,9 +242,12 @@ object GymAutomationReducer {
                 if (n.bootId != s.bootId) {
                     // Previous boot's evidence is meaningless; keep config + suppression.
                     n = n.copy(presence = if (n.visitId != null) Presence.UNKNOWN else n.presence,
-                        departureDeadline = null, bootId = s.bootId, insideZones = emptyMap())
+                        departureDeadline = null, bootId = s.bootId, insideZones = emptyMap(),
+                        lastFixElapsedMs = null, transitionElapsedMs = emptyMap())
                 } else if (n.departureDeadline != null) {
-                    fx += Effect.ScheduleGraceCheck(n.departureDeadline!!)
+                    // Complete an already-confirmed departure left by an older build.
+                    fx += Effect.CancelGraceCheck
+                    n = depart(n, s, fx)
                 }
                 if (n.presence == Presence.UNKNOWN && n.visitId != null) {
                     // Do not act on a remembered visit; wait for fresh location evidence.
@@ -246,31 +266,56 @@ object GymAutomationReducer {
                     // ENTER) re-adds it if we are still there.
                     val kept = n.insideZones.filter { (id, rev) -> s.isCurrent(id, rev) }
                     val lostLast = n.insideZones.isNotEmpty() && kept.isEmpty()
-                    n = n.copy(ruleRevision = s.ruleRevision, insideZones = kept)
-                    if (lostLast && n.presence == Presence.INSIDE && n.visitId != null && n.departureDeadline == null) {
-                        // Same rule as leaving the last zone: the usual grace, never an instant restore.
-                        val at = s.now + DEPARTURE_GRACE_MS
-                        n = n.copy(departureDeadline = at, bootId = s.bootId)
-                        fx += Effect.ScheduleGraceCheck(at)
+                    n = n.copy(ruleRevision = s.ruleRevision, insideZones = kept,
+                        transitionElapsedMs = n.transitionElapsedMs.filterKeys { it in s.zoneRevisions })
+                    if (lostLast && n.presence == Presence.INSIDE && n.visitId != null) {
+                        // A geometry edit is not evidence of departure; request a fresh fix.
+                        if (n.departureDeadline != null) fx += Effect.CancelGraceCheck
+                        n = n.copy(presence = Presence.UNKNOWN, departureDeadline = null)
                     }
                 }
             }
         }
+        if (n.gymAnnouncementPending && n.ownsGym && !n.gymSuppressed && n.presence == Presence.INSIDE &&
+            n.departureDeadline == null && (s.gymOn || Effect.EnableGym in fx) && s.gymAnnouncementReady) {
+            n = n.copy(gymAnnouncementPending = false)
+            fx += Effect.AnnounceGym
+        }
         return Result(n, fx)
     }
+
+    fun isOlderEvidence(j: Journal, event: Event, s: Snapshot): Boolean {
+        if (j.bootId != s.bootId) return false
+        val observedAt = when (event) {
+            is Event.Arrived -> event.observedAt
+            is Event.Exited -> event.observedAt
+            is Event.PresenceFix -> event.observedAt
+            else -> null
+        } ?: return false
+        val previousTransition = when (event) {
+            is Event.Arrived -> j.transitionElapsedMs[event.zoneId]
+            is Event.Exited -> j.transitionElapsedMs[event.zoneId]
+            is Event.PresenceFix -> j.transitionElapsedMs.values.maxOrNull()
+            else -> null
+        }
+        return observedAt < maxOf(j.lastFixElapsedMs ?: 0L, previousTransition ?: 0L)
+    }
+
+    private fun rememberTransition(j: Journal, zoneId: String, observedAt: Long?): Journal =
+        if (observedAt == null) j else j.copy(transitionElapsedMs = j.transitionElapsedMs + (zoneId to observedAt))
 
     private fun apply(j: Journal, s: Snapshot, fx: MutableList<Effect>): Journal {
         if (!s.ruleEnabled || j.gymSuppressed || j.locationUnavailable || j.departureDeadline != null) return j
         // Losing readiness rearms a pending start; repeated reports while ready do not.
         var n = if (!s.airPodsReady || !s.heartRateReady) j.copy(hrAttempted = false) else j
-        if (!s.airPodsReady) return n
         if (!n.applied) {
             n = n.copy(applied = true, gymWasOn = s.gymOn)
             if (!s.gymOn) {
                 fx += Effect.EnableGym
-                n = n.copy(ownsGym = true)
+                n = n.copy(ownsGym = true, gymAnnouncementPending = true)
             }
         }
+        if (!s.airPodsReady) return n
         // Gym Mode can already be applied while heart rate is still waiting for wear.
         // A pre-existing session is left alone and must not be restarted if it ends.
         if (s.hrActive) return n.copy(hrAttempted = true,
@@ -290,6 +335,7 @@ object GymAutomationReducer {
             if (j.ownsHr && s.hrActive && s.hrOwner == HeartRateSource.AUTOMATION) fx += Effect.StopHr
             if (j.ownsGym && !j.gymWasOn && s.gymOn) fx += Effect.DisableGym
         }
-        return Journal(ruleRevision = j.ruleRevision, presence = Presence.OUTSIDE, bootId = s.bootId)
+        return Journal(ruleRevision = j.ruleRevision, presence = Presence.OUTSIDE, bootId = s.bootId,
+            lastFixElapsedMs = j.lastFixElapsedMs, transitionElapsedMs = j.transitionElapsedMs)
     }
 }

@@ -984,7 +984,7 @@ Solicitudes del protocolo: %4$d</string>
     <string name="gym_auto_resume">Reanudar en esta visita</string>
     <string name="gym_auto_stop">Detener en esta visita</string>
     <string name="gym_perm_bg_title">Ubicación en segundo plano (opcional)</string>
-    <string name="gym_perm_bg_desc">Opcional. Solo se usa para la automatización de ubicación del gimnasio, para detectar cuándo llegas o sales de la zona guardada. La ubicación se queda en este teléfono y no se guarda historial. Puedes omitirlo.</string>
+    <string name="gym_perm_bg_desc">Opcional. Se usa para detectar la llegada y salida de las zonas del gimnasio. La ubicación permanece en este teléfono. Los eventos de diagnóstico, incluida la distancia aproximada a las zonas guardadas, se conservan localmente unas 48 horas.</string>
     <string name="gym_perm_bg_step1">Paso 1 de 2: permite la ubicación precisa.</string>
     <string name="gym_perm_bg_step2">Paso 2 de 2: en ajustes, abre Permisos, luego Ubicación, y elige «Permitir siempre».</string>
     <string name="gym_map_offline">No se pudo cargar el mapa. Puedes escribir las coordenadas o usar tu ubicación actual.</string>
@@ -998,7 +998,7 @@ Solicitudes del protocolo: %4$d</string>
     <string name="gym_zone_edit">Editar ubicación</string>
     <string name="gym_zone_remove">Eliminar ubicación</string>
     <string name="gym_zone_remove_title">¿Eliminar %1$s?</string>
-    <string name="gym_zone_remove_body">La automatización del gimnasio dejará de usar esta ubicación. Si estás allí ahora, el modo Gimnasio sigue activo mientras estés dentro de otra ubicación guardada; si no, se aplica el margen de salida habitual de 3 minutos.</string>
+    <string name="gym_zone_remove_body">La automatización del gimnasio dejará de usar esta ubicación.</string>
     <string name="gym_zone_remove_confirm">Eliminar</string>
     <string name="gym_zone_cancel">Cancelar</string>
     <string name="gym_zone_default_name">Gimnasio %1$d</string>

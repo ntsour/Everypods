@@ -29,6 +29,23 @@ import io.automated.ventures.everypods.services.AirPodsService
 class BootReceiver: BroadcastReceiver() {
     override fun onReceive(context: Context?, intent: Intent?) {
         android.util.Log.i(io.automated.ventures.everypods.startup.StartupGate.TAG, "boot receiver action=${intent?.action}")
+        if (context != null && (intent?.action == Intent.ACTION_BOOT_COMPLETED || intent?.action == Intent.ACTION_MY_PACKAGE_REPLACED)) {
+            val pending = goAsync()
+            val handler = android.os.Handler(android.os.Looper.getMainLooper())
+            val finished = java.util.concurrent.atomic.AtomicBoolean()
+            val finish = Runnable { if (finished.compareAndSet(false, true)) pending.finish() }
+            handler.postDelayed(finish, 8_000)
+            io.automated.ventures.everypods.automation.GymAutomationDiagnostics.record(context, "system event=${intent.action}")
+            try {
+                io.automated.ventures.everypods.automation.GymGeofenceRegistrar.sync(context, force = true) {
+                    handler.removeCallbacks(finish)
+                    finish.run()
+                }
+            } catch (e: Exception) {
+                io.automated.ventures.everypods.automation.GymAutomationDiagnostics.record(context, "registration exception=${e.javaClass.simpleName}")
+                finish.run()
+            }
+        }
         when (intent?.action) {
             Intent.ACTION_MY_PACKAGE_REPLACED -> try { context?.startForegroundService(
                 Intent(

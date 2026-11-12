@@ -1,7 +1,6 @@
 /* Copyright (C) 2026 EveryPods contributors. GPL-3.0. */
 package io.automated.ventures.everypods.automation
 
-import io.automated.ventures.everypods.automation.GymAutomationReducer.DEPARTURE_GRACE_MS
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -35,24 +34,20 @@ class GymMultiZoneReducerTest {
         assertEquals(Presence.INSIDE, leftA.journal.presence)
     }
 
-    @Test fun leavingAllZonesStartsTheGraceAndThenRestores() {
+    @Test fun leavingAllZonesRestoresImmediately() {
         val both = r(insideA(), Event.Arrived(1, "v2", "B"), snap(gymOn = true)).journal
         val leftA = r(both, Event.Exited(1, "A"), snap(gymOn = true)).journal
-        val leftB = r(leftA, Event.Exited(1, "B"), snap(gymOn = true))
-        assertEquals(listOf(Effect.ScheduleGraceCheck(1_000 + DEPARTURE_GRACE_MS)), leftB.effects)
-        val early = r(leftB.journal, Event.GraceCheck, snap(now = 2_000, gymOn = true))
-        assertFalse(early.effects.contains(Effect.DisableGym))
-        val done = r(leftB.journal, Event.GraceCheck, snap(now = 1_000 + DEPARTURE_GRACE_MS, gymOn = true, hrActive = true))
-        assertTrue(done.effects.containsAll(listOf(Effect.DisableGym, Effect.StopHr)))
-        assertEquals(Presence.OUTSIDE, done.journal.presence)
+        val leftB = r(leftA, Event.Exited(1, "B"), snap(gymOn = true, hrActive = true))
+        assertTrue(leftB.effects.containsAll(listOf(Effect.DisableGym, Effect.StopHr)))
+        assertEquals(Presence.OUTSIDE, leftB.journal.presence)
     }
 
-    @Test fun reEnteringAnyZoneDuringGraceCancelsIt() {
+    @Test fun reEnteringAfterDepartureStartsAnotherVisit() {
         val leaving = r(insideA(), Event.Exited(1, "A"), snap(gymOn = true)).journal
         val back = r(leaving, Event.Arrived(1, "v9", "B"), snap(gymOn = true))
-        assertTrue(back.effects.contains(Effect.CancelGraceCheck))
+        assertFalse(back.effects.contains(Effect.CancelGraceCheck))
         assertNull(back.journal.departureDeadline)
-        assertEquals("v1", back.journal.visitId)
+        assertEquals("v9", back.journal.visitId)
     }
 
     @Test fun removingTheActiveZoneWhileInsideAnotherKeepsTheVisit() {
@@ -63,9 +58,10 @@ class GymMultiZoneReducerTest {
         assertNull(removed.journal.departureDeadline)
     }
 
-    @Test fun removingTheOnlyActiveZoneUsesTheGraceNeverAnInstantRestore() {
+    @Test fun removingTheOnlyActiveZoneWaitsForFreshEvidence() {
         val removed = r(insideA(), Event.RuleChanged, snap(zones = mapOf("B" to 1L), gymOn = true, revision = 2))
-        assertEquals(listOf(Effect.ScheduleGraceCheck(1_000 + DEPARTURE_GRACE_MS)), removed.effects)
+        assertTrue(removed.effects.isEmpty())
+        assertEquals(Presence.UNKNOWN, removed.journal.presence)
         assertFalse(removed.effects.contains(Effect.DisableGym))
         assertEquals("v1", removed.journal.visitId)
         assertTrue(removed.journal.ownsGym)
@@ -73,12 +69,13 @@ class GymMultiZoneReducerTest {
 
     @Test fun movingTheActiveZoneDropsItUntilItsNewFenceConfirms() {
         val moved = r(insideA(), Event.RuleChanged, snap(zones = mapOf("A" to 2L, "B" to 1L), gymOn = true, revision = 2))
-        assertTrue(moved.effects.first() is Effect.ScheduleGraceCheck)
+        assertTrue(moved.effects.isEmpty())
+        assertEquals(Presence.UNKNOWN, moved.journal.presence)
         // Stale transitions from the old registration are ignored.
         assertEquals(moved.journal, r(moved.journal, Event.Exited(1, "A"), snap(zones = mapOf("A" to 2L, "B" to 1L))).journal)
         // The re-registered fence's initial DWELL keeps the same visit.
         val confirmed = r(moved.journal, Event.Arrived(2, "v5", "A"), snap(zones = mapOf("A" to 2L, "B" to 1L), gymOn = true, revision = 2))
-        assertTrue(confirmed.effects.contains(Effect.CancelGraceCheck))
+        assertFalse(confirmed.effects.contains(Effect.CancelGraceCheck))
         assertEquals("v1", confirmed.journal.visitId)
         assertFalse(confirmed.effects.contains(Effect.EnableGym))
     }
@@ -110,8 +107,7 @@ class GymMultiZoneReducerTest {
     }
 
     @Test fun unavailableSignalNeverCountsAsLeftAcrossZones() {
-        val leaving = r(insideA(), Event.Exited(1, "A"), snap(gymOn = true)).journal
-        val unknown = r(leaving, Event.LocationUnavailable, snap(gymOn = true))
+        val unknown = r(insideA(), Event.LocationUnavailable, snap(gymOn = true))
         assertNull(unknown.journal.departureDeadline)
         assertEquals("v1", unknown.journal.visitId)
     }
@@ -125,5 +121,40 @@ class GymMultiZoneReducerTest {
         val fix = r(cold.journal, Event.PresenceFix(1, Presence.INSIDE, "f", mapOf("B" to 1L)), snap(boot = "b2"))
         assertEquals(setOf("B"), fix.journal.insideZones.keys)
         assertTrue(fix.effects.isEmpty())
+    }
+    @Test fun delayedExitCannotUndoNewerArrivalForTheSameZone() {
+        val inside = r(Journal(), Event.Arrived(1, "current", "A", observedAt = 200)).journal
+        val delayed = r(inside, Event.Exited(1, "A", observedAt = 100), snap(gymOn = true))
+        assertEquals(inside, delayed.journal)
+        assertTrue(delayed.effects.isEmpty())
+    }
+
+    @Test fun delayedArrivalCannotRestartVisitAfterNewerOutsideFix() {
+        val outside = r(insideA(), Event.PresenceFix(1, Presence.OUTSIDE, "fix", observedAt = 200),
+            snap(gymOn = true)).journal
+        val delayed = r(outside, Event.Arrived(1, "old", "A", observedAt = 100))
+        assertEquals(outside, delayed.journal)
+        assertTrue(delayed.effects.isEmpty())
+    }
+
+    @Test fun insideFixDoesNotForgetPreviouslyTrackedZoneWhenItsBoundaryIsAmbiguous() {
+        val fix = r(insideA(), Event.PresenceFix(1, Presence.INSIDE, "fix", mapOf("B" to 1L),
+            observedAt = 200), snap(gymOn = true))
+        val leftB = r(fix.journal, Event.Exited(1, "B", observedAt = 300), snap(gymOn = true))
+        assertEquals(setOf("A"), leftB.journal.insideZones.keys)
+        assertFalse(leftB.effects.contains(Effect.DisableGym))
+        val leftA = r(leftB.journal, Event.Exited(1, "A", observedAt = 150), snap(gymOn = true))
+        assertTrue(leftA.effects.contains(Effect.DisableGym))
+    }
+
+    @Test fun exitDuringUnknownRecoveryPreservesVisitUntilOutsideFix() {
+        val unknown = r(insideA(), Event.ColdStart, snap(boot = "b2", gymOn = true)).journal
+        val exit = r(unknown, Event.Exited(1, "A", observedAt = 200), snap(boot = "b2", gymOn = true))
+        assertEquals("v1", exit.journal.visitId)
+        assertTrue(exit.effects.isEmpty())
+        val fix = r(exit.journal, Event.PresenceFix(1, Presence.OUTSIDE, "fix", observedAt = 300),
+            snap(boot = "b2", gymOn = true))
+        assertEquals(Presence.OUTSIDE, fix.journal.presence)
+        assertTrue(fix.effects.contains(Effect.DisableGym))
     }
 }

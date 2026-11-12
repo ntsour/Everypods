@@ -51,7 +51,13 @@ object GymModePrefs {
     private fun prefs(ctx: Context): SharedPreferences = ctx.getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
 
     fun isEnabled(ctx: Context): Boolean = prefs(ctx).getBoolean(KEY_ENABLED, false)
-    fun setEnabled(ctx: Context, enabled: Boolean) = prefs(ctx).edit().putBoolean(KEY_ENABLED, enabled).apply()
+    fun setEnabled(ctx: Context, enabled: Boolean) {
+        val wasEnabled = isEnabled(ctx)
+        prefs(ctx).edit().putBoolean(KEY_ENABLED, enabled).apply()
+        if (wasEnabled && !enabled) {
+            io.automated.ventures.everypods.automation.GymAutomationCoordinator.onGymModeChanged(ctx, false)
+        }
+    }
 
     fun voiceAnnouncementsEnabled(ctx: Context): Boolean = prefs(ctx).getBoolean(KEY_VOICE_ANNOUNCEMENTS, true)
     fun setVoiceAnnouncementsEnabled(ctx: Context, enabled: Boolean) =
