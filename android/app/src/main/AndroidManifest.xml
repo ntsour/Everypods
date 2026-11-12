@@ -182,6 +182,10 @@
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
             </intent-filter>
         </service>
+        <service
+            android:name=".automation.GymAutomationJobs"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
         <receiver
             android:name=".automation.GymGeofenceReceiver"
             android:exported="false" />

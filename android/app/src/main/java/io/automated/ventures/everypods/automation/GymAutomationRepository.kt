@@ -195,6 +195,9 @@ object GymAutomationRepository {
         put("applied", j.applied); put("gymSup", j.gymSuppressed); put("hrSup", j.hrSuppressed)
         put("locUnavailable", j.locationUnavailable)
         put("hrAttempted", j.hrAttempted); put("hrStartAttempts", j.hrStartAttempts)
+        put("gymAnnouncementPending", j.gymAnnouncementPending)
+        j.lastFixElapsedMs?.let { put("lastFixElapsedMs", it) }
+        put("transitionElapsedMs", JSONObject().apply { j.transitionElapsedMs.forEach { (id, ms) -> put(id, ms) } })
         put("inside", JSONObject().apply { j.insideZones.forEach { (k, v) -> put(k, v) } })
     }.toString()
 
@@ -213,6 +216,11 @@ object GymAutomationRepository {
             legacyInside = inside == null,
             hrAttempted = o.optBoolean("hrAttempted", o.optBoolean("applied")),
             hrStartAttempts = o.optInt("hrStartAttempts", 0).coerceAtLeast(0),
+            gymAnnouncementPending = o.optBoolean("gymAnnouncementPending", false),
+            lastFixElapsedMs = o.optLong("lastFixElapsedMs", -1L).takeIf { it >= 0 },
+            transitionElapsedMs = o.optJSONObject("transitionElapsedMs")?.let { times ->
+                times.keys().asSequence().associateWith { times.getLong(it) }
+            }.orEmpty(),
         )
     }.getOrDefault(Journal())
 }

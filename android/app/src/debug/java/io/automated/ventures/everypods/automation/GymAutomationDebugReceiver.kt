@@ -12,7 +12,7 @@ import com.google.android.gms.location.Geofence
  * geofence callback, so it proves wiring and decisions, not real-world detection.
  *
  *   adb shell am broadcast -a io.automated.ventures.everypods.debug.GYM_AUTOMATION --es cmd arrive
- *   cmd = arrive | exit | grace | unavailable | resume | status | configure
+ *   cmd = arrive | exit | grace | unavailable | resume | status | configure | receiver_probe | departure_probe | registration_retry
  *   arrive/exit/configure/remove accept --ei zone <index> (default 0)
  *   configure extras: --ef lat 40.4 --ef lon -3.7 --ei radius 160 --es name Gym --ez enabled true --ez hr true --ez restore true
  *     (configure with a zone index equal to the zone count adds a zone)
@@ -24,6 +24,12 @@ class GymAutomationDebugReceiver : BroadcastReceiver() {
         val index = intent.getIntExtra("zone", 0)
         val zone = rule.zones.getOrNull(index)
         when (intent.getStringExtra("cmd")) {
+            "departure_probe" -> GymAutomationJobs.scheduleDeparture(context, "debug_departure")
+            "registration_retry" -> {
+                GymGeofenceRegistrar.markInvalid(context)
+                GymAutomationJobs.retryRegistration(context, 0)
+            }
+            "receiver_probe" -> context.sendBroadcast(Intent(context, GymGeofenceReceiver::class.java))
             "arrive" -> zone?.let { GymGeofenceReceiver.handle(context, Geofence.GEOFENCE_TRANSITION_DWELL, listOf(GymGeofenceRegistrar.innerId(it))) }
             "exit" -> zone?.let { GymGeofenceReceiver.handle(context, Geofence.GEOFENCE_TRANSITION_EXIT, listOf(GymGeofenceRegistrar.outerId(it))) }
             "remove" -> zone?.let {

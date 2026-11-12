@@ -981,7 +981,7 @@
     <string name="gym_auto_resume">本次到访恢复</string>
     <string name="gym_auto_stop">本次到访停止</string>
     <string name="gym_perm_bg_title">后台位置（可选）</string>
-    <string name="gym_perm_bg_desc">可选。仅用于健身房位置自动化，用于检测您何时到达或离开已保存的区域。位置仅保存在此手机上，不保留任何历史记录。您可以跳过。</string>
+    <string name="gym_perm_bg_desc">可选。用于检测到达或离开健身房区域。位置信息保留在此手机上。诊断事件（包括与已保存区域的大致距离）在本地保留约 48 小时。</string>
     <string name="gym_perm_bg_step1">第 1 步（共 2 步）：允许精确位置。</string>
     <string name="gym_perm_bg_step2">第 2 步（共 2 步）：在设置中打开“权限”，然后打开“位置信息”，选择“始终允许”。</string>
     <string name="gym_map_offline">无法加载地图。您仍可输入坐标或使用当前位置。</string>
@@ -995,7 +995,7 @@
     <string name="gym_zone_edit">编辑位置</string>
     <string name="gym_zone_remove">移除位置</string>
     <string name="gym_zone_remove_title">移除“%1$s”？</string>
-    <string name="gym_zone_remove_body">健身房自动化将不再使用此位置。如果你现在就在那里，只要你仍在另一个已保存的位置内，健身模式会保持开启；否则将按通常的 3 分钟离开缓冲处理。</string>
+    <string name="gym_zone_remove_body">健身房自动化将不再使用此位置。</string>
     <string name="gym_zone_remove_confirm">移除</string>
     <string name="gym_zone_cancel">取消</string>
     <string name="gym_zone_default_name">健身房 %1$d</string>

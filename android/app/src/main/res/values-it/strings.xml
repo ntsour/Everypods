@@ -982,7 +982,7 @@ Richieste protocollo: %4$d</string>
     <string name="gym_auto_resume">Riprendi per questa visita</string>
     <string name="gym_auto_stop">Interrompi per questa visita</string>
     <string name="gym_perm_bg_title">Posizione in background (facoltativa)</string>
-    <string name="gym_perm_bg_desc">Facoltativa. Usata solo per l\'automazione posizione palestra, per rilevare quando arrivi o lasci la zona salvata. La posizione resta su questo telefono e non viene conservata alcuna cronologia. Puoi saltare questo passaggio.</string>
+    <string name="gym_perm_bg_desc">Facoltativa. Serve a rilevare l’arrivo e la partenza dalle zone palestra. La posizione resta su questo telefono. Gli eventi diagnostici, inclusa la distanza approssimativa dalle zone salvate, sono conservati localmente per circa 48 ore.</string>
     <string name="gym_perm_bg_step1">Passaggio 1 di 2: consenti la posizione precisa.</string>
     <string name="gym_perm_bg_step2">Passaggio 2 di 2: nelle impostazioni apri Autorizzazioni, poi Posizione, e scegli «Consenti sempre».</string>
     <string name="gym_map_offline">Impossibile caricare la mappa. Puoi comunque inserire le coordinate o usare la posizione attuale.</string>
@@ -996,7 +996,7 @@ Richieste protocollo: %4$d</string>
     <string name="gym_zone_edit">Modifica posizione</string>
     <string name="gym_zone_remove">Rimuovi posizione</string>
     <string name="gym_zone_remove_title">Rimuovere %1$s?</string>
-    <string name="gym_zone_remove_body">L\'automazione palestra smetterà di usare questa posizione. Se ti trovi lì ora, la modalità Palestra resta attiva finché sei in un\'altra posizione salvata; altrimenti si applica il consueto margine di uscita di 3 minuti.</string>
+    <string name="gym_zone_remove_body">L’automazione palestra non userà più questa posizione.</string>
     <string name="gym_zone_remove_confirm">Rimuovi</string>
     <string name="gym_zone_cancel">Annulla</string>
     <string name="gym_zone_default_name">Palestra %1$d</string>

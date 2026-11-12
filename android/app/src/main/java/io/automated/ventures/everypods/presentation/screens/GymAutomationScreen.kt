@@ -82,7 +82,7 @@ fun GymAutomationScreen() {
     var editingId by rememberSaveable { mutableStateOf<String?>(null) }
     var message by remember { mutableStateOf<Int?>(null) }
     var fine by remember { mutableStateOf(false) }
-    var background by remember { mutableStateOf(false) }
+    var background by remember { mutableStateOf(GymLocationPermission.step(context) == GymLocationPermission.Step.GRANTED) }
     // The user tapped "Enable" before "Allow all the time" was granted; finish once it is.
     var pendingEnable by rememberSaveable { mutableStateOf(false) }
     val status by GymAutomationCoordinator.status.collectAsState()
@@ -90,6 +90,7 @@ fun GymAutomationScreen() {
 
     fun recheck() {
         val step = GymLocationPermission.step(context)
+        val permissionRestored = !background && step == GymLocationPermission.Step.GRANTED
         fine = step != GymLocationPermission.Step.NEED_PRECISE
         background = step == GymLocationPermission.Step.GRANTED
         val current = GymAutomationRepository.rule(context)
@@ -101,6 +102,7 @@ fun GymAutomationScreen() {
                 GymGeofenceRegistrar.sync(context)
             }
         }
+        if (permissionRestored && current.enabled) GymGeofenceRegistrar.sync(context)
         GymAutomationCoordinator.refreshStatus(context)
     }
     /**
@@ -115,14 +117,16 @@ fun GymAutomationScreen() {
         if (after.enabled != before.enabled || after.zoneRevisions != before.zoneRevisions ||
             after.hrActionEnabled != before.hrActionEnabled || after.restoreOnExit != before.restoreOnExit) {
             GymAutomationCoordinator.dispatch(context, Event.RuleChanged)
-            GymGeofenceRegistrar.sync(context)
+            if (after.enabled != before.enabled || after.zoneRevisions != before.zoneRevisions) {
+                GymGeofenceRegistrar.sync(context)
+            }
         }
     }
 
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(lifecycle) {
         // Re-check after returning from system settings; never assume a grant.
-        val observer = LifecycleEventObserver { _, e -> if (e == Lifecycle.Event.ON_RESUME) { recheck(); GymGeofenceRegistrar.sync(context) } }
+        val observer = LifecycleEventObserver { _, e -> if (e == Lifecycle.Event.ON_RESUME) recheck() }
         lifecycle.addObserver(observer)
         onDispose { lifecycle.removeObserver(observer) }
     }

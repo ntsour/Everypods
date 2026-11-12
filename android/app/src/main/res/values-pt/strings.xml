@@ -982,7 +982,7 @@ Pedidos do protocolo: %4$d</string>
     <string name="gym_auto_resume">Retomar nesta visita</string>
     <string name="gym_auto_stop">Parar nesta visita</string>
     <string name="gym_perm_bg_title">Localização em segundo plano (opcional)</string>
-    <string name="gym_perm_bg_desc">Opcional. Usada apenas na automação de localização do ginásio, para detetar quando chega ou sai da zona guardada. A localização fica neste telemóvel e não é mantido histórico. Pode ignorar.</string>
+    <string name="gym_perm_bg_desc">Opcional. Usada para detetar a chegada e saída das zonas do ginásio. A localização permanece neste telemóvel. Os eventos de diagnóstico, incluindo a distância aproximada aos locais guardados, são guardados localmente durante cerca de 48 horas.</string>
     <string name="gym_perm_bg_step1">Passo 1 de 2: permita a localização precisa.</string>
     <string name="gym_perm_bg_step2">Passo 2 de 2: nas definições, abra Permissões, depois Localização, e escolha «Permitir sempre».</string>
     <string name="gym_map_offline">Não foi possível carregar o mapa. Pode introduzir coordenadas ou usar a localização atual.</string>
@@ -996,7 +996,7 @@ Pedidos do protocolo: %4$d</string>
     <string name="gym_zone_edit">Editar local</string>
     <string name="gym_zone_remove">Remover local</string>
     <string name="gym_zone_remove_title">Remover %1$s?</string>
-    <string name="gym_zone_remove_body">A automatização do ginásio deixará de usar este local. Se estiver lá agora, o modo Ginásio mantém-se ativo enquanto estiver dentro de outro local guardado; caso contrário, aplica-se a margem de saída habitual de 3 minutos.</string>
+    <string name="gym_zone_remove_body">A automatização do ginásio deixará de usar este local.</string>
     <string name="gym_zone_remove_confirm">Remover</string>
     <string name="gym_zone_cancel">Cancelar</string>
     <string name="gym_zone_default_name">Ginásio %1$d</string>

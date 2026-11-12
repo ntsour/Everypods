@@ -982,7 +982,7 @@ Requêtes du protocole : %4$d</string>
     <string name="gym_auto_resume">Reprendre pour cette visite</string>
     <string name="gym_auto_stop">Arrêter pour cette visite</string>
     <string name="gym_perm_bg_title">Localisation en arrière-plan (facultatif)</string>
-    <string name="gym_perm_bg_desc">Facultatif. Utilisée uniquement pour l\'automatisation de localisation de la salle de sport, afin de détecter votre arrivée dans la zone enregistrée ou votre départ. La position reste sur ce téléphone et aucun historique n\'est conservé. Vous pouvez ignorer cette étape.</string>
+    <string name="gym_perm_bg_desc">Facultatif. Utilisée pour détecter les arrivées et départs des zones de sport. La position reste sur ce téléphone. Les événements de diagnostic, dont la distance approximative aux zones enregistrées, sont conservés localement pendant environ 48 heures.</string>
     <string name="gym_perm_bg_step1">Étape 1 sur 2 : autorisez la position exacte.</string>
     <string name="gym_perm_bg_step2">Étape 2 sur 2 : dans les paramètres, ouvrez Autorisations, puis Position, et choisissez « Toujours autoriser ».</string>
     <string name="gym_map_offline">Impossible de charger la carte. Vous pouvez saisir des coordonnées ou utiliser votre position actuelle.</string>
@@ -996,7 +996,7 @@ Requêtes du protocole : %4$d</string>
     <string name="gym_zone_edit">Modifier le lieu</string>
     <string name="gym_zone_remove">Supprimer le lieu</string>
     <string name="gym_zone_remove_title">Supprimer %1$s ?</string>
-    <string name="gym_zone_remove_body">L\'automatisation de salle de sport n\'utilisera plus ce lieu. Si vous y êtes maintenant, le mode Gym reste actif tant que vous êtes dans un autre lieu enregistré ; sinon, le délai de départ habituel de 3 minutes s\'applique.</string>
+    <string name="gym_zone_remove_body">L’automatisation de salle de sport n’utilisera plus ce lieu.</string>
     <string name="gym_zone_remove_confirm">Supprimer</string>
     <string name="gym_zone_cancel">Annuler</string>
     <string name="gym_zone_default_name">Salle %1$d</string>

@@ -835,6 +835,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }
 
     @Volatile private var gymAutomationAttached = false
+    private var lastGymConnectionDiagnostic: String? = null
+    private var gymWasConnected = false
     private val gymHrWear = HeadGestureWearState()
     private val gymHrStartGate = io.automated.ventures.everypods.automation.GymHeartRateStartGate()
 
@@ -856,13 +858,29 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         val generation = BluetoothConnectionManager.connectionGeneration()
         gymHrWear.reconcile(generation, BluetoothConnectionManager.getCurrentSocket() != null)
         val rule = io.automated.ventures.everypods.automation.GymAutomationRepository.rule(this)
+        val automationJournal = io.automated.ventures.everypods.automation.GymAutomationRepository.journal(this)
+        val gymConnected = isConnected()
+        if (gymWasConnected && !gymConnected) {
+            io.automated.ventures.everypods.automation.GymAutomationJobs.scheduleDeparture(this, "airpods_disconnected")
+        }
+        gymWasConnected = gymConnected
+        if (rule.enabled) {
+            val connection = "generation=$generation aacp=${isConnected()} audio=${runCatching { isA2dpConnected() }.getOrDefault(false)} " +
+                "wearKnown=${gymHrWear.isKnown(generation)} worn=${gymHrWear.isWorn(generation)} " +
+                "hrReady=${gymHeartRateReady()} gym=${GymModePrefs.isEnabled(this)} pendingAnnouncement=${automationJournal.gymAnnouncementPending}"
+            if (lastGymConnectionDiagnostic != connection) {
+                lastGymConnectionDiagnostic = connection
+                io.automated.ventures.everypods.automation.GymAutomationDiagnostics.record(this, "connection $connection")
+            }
+        } else lastGymConnectionDiagnostic = null
         val needed = (rule.enabled && rule.hrActionEnabled) ||
-            (GymModePrefs.isEnabled(this) && HeartRateSharingPrefs.gymAuto(this))
+            (GymModePrefs.isEnabled(this) && HeartRateSharingPrefs.gymAuto(this)) ||
+            automationJournal.gymAnnouncementPending
         if (gymHrWear.shouldRefresh(generation, SystemClock.elapsedRealtime(), needed, isConnected(), wearHint)) {
             aacpManager.sendDataPacketForGeneration(aacpManager.createRequestNotificationPacket(), generation)
         }
         val selected = HeartRateSharingPrefs.configuredMethod(this)
-        val locationOwnsGym = io.automated.ventures.everypods.automation.GymAutomationRepository.journal(this).ownsGym
+        val locationOwnsGym = automationJournal.ownsGym
         if (gymHrStartGate.shouldStart(
                 enabled = GymModePrefs.isEnabled(this) && HeartRateSharingPrefs.gymAuto(this) &&
                     !io.automated.ventures.everypods.automation.GymAutomationCoordinator.writingGym &&
@@ -881,6 +899,12 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         override fun heartRateReady() = gymHeartRateReady()
         override fun heartRateLive() = heartRateState.value.status == io.automated.ventures.everypods.bluetooth.hrm.HeartRateStatus.LIVE
         override fun heartRateActive() = heartRateActiveNow()
+        override fun gymAnnouncementReady(): Boolean =
+            ::sharedPreferences.isInitialized && ::aacpManager.isInitialized &&
+                sharedPreferences.getBoolean("gym_voice_announcements_enabled", true) &&
+                isConnected() && isA2dpConnected() &&
+                gymHrWear.isWorn(BluetoothConnectionManager.connectionGeneration())
+        override fun announceGymEnabled() = announceGymModeToggle()
         override fun heartRateOwner() = this@AirPodsService.heartRateOwner()
         // Same shared step as the case shortcut; the service still rechecks Wahoo,
         // capability and ownership and publishes failures.
@@ -1564,6 +1588,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     @SuppressLint("MissingPermission", "UnspecifiedRegisterReceiverFlag", "HardwareIds")
     override fun onCreate() {
         super.onCreate()
+        io.automated.ventures.everypods.automation.GymAutomationDiagnostics.record(this,
+            "service created ${io.automated.ventures.everypods.automation.GymAutomationDiagnostics.environment(this)}")
         LidAutoconnectDiagnostics.logEvent("service_start")
         Handler(Looper.getMainLooper()).post {
             gymAutomationAttached = true
@@ -2201,6 +2227,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     when (hrCaseStorage.report(hrBattery, hrBatteryGeneration, hrBatteryArrival,
                             BluetoothConnectionManager.connectionGeneration())) {
                         true -> {
+                            io.automated.ventures.everypods.automation.GymAutomationJobs.scheduleDeparture(
+                                this@AirPodsService, "airpods_stored")
                             invalidateRemoteCaseEvidence()
                             withdrawLocalCaseObservations()
                             if (heartRateActiveNow() || heartRateState.value.failure != null) stopHeartRateForCaseStorage()
@@ -3591,10 +3619,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 config.gymModeEnabled = preferences.getBoolean(key, false)
                 reconcileHeadGestures()
                 onGymHeartRateChanged(config.gymModeEnabled)
-                io.automated.ventures.everypods.automation.GymAutomationCoordinator
-                    .onGymModeChanged(this, config.gymModeEnabled)
                 setupStemActions()
-                announceGymModeToggle()
+                if (!config.gymModeEnabled || !GymAutomationCoordinator.writingGym) announceGymModeToggle()
                 refreshGymModeNotification()
             }
 
@@ -5378,6 +5404,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
     @SuppressLint("InlinedApi", "MissingPermission", "UnspecifiedRegisterReceiverFlag")
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        io.automated.ventures.everypods.automation.GymAutomationDiagnostics.record(this,
+            "service start_command hasIntent=${intent != null} flags=$flags startId=$startId ${io.automated.ventures.everypods.automation.GymAutomationDiagnostics.environment(this)}")
         Log.d(TAG, "Service started with intent action: ${intent?.action}")
         Log.i(StartupGate.TAG, "service onStartCommand action=${intent?.action} flags=$flags startId=$startId")
 
@@ -6679,6 +6707,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }
 
     override fun onDestroy() {
+        io.automated.ventures.everypods.automation.GymAutomationDiagnostics.record(this,
+            "service destroyed ${io.automated.ventures.everypods.automation.GymAutomationDiagnostics.environment(this)}")
         caseEpisodeWakeGuard.close()
         takeoverAttemptFence.next()
         notificationUpdatesStopped = true

@@ -982,7 +982,7 @@ Yêu cầu giao thức: %4$d</string>
     <string name="gym_auto_resume">Tiếp tục cho lần đến này</string>
     <string name="gym_auto_stop">Dừng cho lần đến này</string>
     <string name="gym_perm_bg_title">Vị trí trong nền (không bắt buộc)</string>
-    <string name="gym_perm_bg_desc">Không bắt buộc. Chỉ dùng cho tính năng tự động hóa vị trí phòng gym, để phát hiện khi bạn đến hoặc rời vùng đã lưu. Vị trí chỉ lưu trên điện thoại này và không lưu lịch sử. Bạn có thể bỏ qua.</string>
+    <string name="gym_perm_bg_desc">Không bắt buộc. Dùng để phát hiện khi đến hoặc rời vùng phòng gym. Vị trí chỉ ở trên điện thoại này. Sự kiện chẩn đoán, gồm khoảng cách gần đúng đến các vùng đã lưu, được lưu cục bộ khoảng 48 giờ.</string>
     <string name="gym_perm_bg_step1">Bước 1/2: cho phép vị trí chính xác.</string>
     <string name="gym_perm_bg_step2">Bước 2/2: trong cài đặt, mở Quyền, sau đó Vị trí, và chọn “Luôn cho phép”.</string>
     <string name="gym_map_offline">Không thể tải bản đồ. Bạn vẫn có thể nhập tọa độ hoặc dùng vị trí hiện tại.</string>
@@ -996,7 +996,7 @@ Yêu cầu giao thức: %4$d</string>
     <string name="gym_zone_edit">Sửa vị trí</string>
     <string name="gym_zone_remove">Xóa vị trí</string>
     <string name="gym_zone_remove_title">Xóa %1$s?</string>
-    <string name="gym_zone_remove_body">Tự động hóa phòng gym sẽ ngừng dùng vị trí này. Nếu bạn đang ở đó, Chế độ Gym vẫn bật khi bạn ở trong một vị trí đã lưu khác; nếu không, thời gian chờ rời đi 3 phút thông thường sẽ áp dụng.</string>
+    <string name="gym_zone_remove_body">Tự động hóa phòng gym sẽ không dùng vị trí này nữa.</string>
     <string name="gym_zone_remove_confirm">Xóa</string>
     <string name="gym_zone_cancel">Hủy</string>
     <string name="gym_zone_default_name">Phòng gym %1$d</string>

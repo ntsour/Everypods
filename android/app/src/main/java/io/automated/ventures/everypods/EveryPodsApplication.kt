@@ -1,7 +1,14 @@
 package io.automated.ventures.everypods
 
 import android.app.Application
+import android.content.BroadcastReceiver
 import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.location.LocationManager
+import androidx.core.content.ContextCompat
+import io.automated.ventures.everypods.automation.GymGeofenceRegistrar
 import android.content.res.Configuration
 import android.service.quicksettings.TileService
 import androidx.lifecycle.DefaultLifecycleObserver
@@ -26,6 +33,12 @@ class EveryPodsApplication: Application(), DefaultLifecycleObserver {
         ProcessLifecycleOwner.get().lifecycle.addObserver(this)
 
         super<Application>.onCreate()
+        ContextCompat.registerReceiver(this, object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                GymGeofenceRegistrar.onLocationSettingsChanged(context)
+            }
+        }, IntentFilter(LocationManager.MODE_CHANGED_ACTION), ContextCompat.RECEIVER_EXPORTED)
+        io.automated.ventures.everypods.automation.GymAutomationDiagnostics.processStarted(this)
         io.automated.ventures.everypods.utils.HeadGesturePrefs.initializeFreshInstall(
             getSharedPreferences("settings", MODE_PRIVATE)
         )
@@ -33,7 +46,18 @@ class EveryPodsApplication: Application(), DefaultLifecycleObserver {
     }
 
     override fun onResume(owner: LifecycleOwner) {
+        io.automated.ventures.everypods.automation.GymAutomationDiagnostics.record(this,
+            "app foreground ${io.automated.ventures.everypods.automation.GymAutomationDiagnostics.environment(this)}")
+        GymGeofenceRegistrar.onForeground(this)
         BillingManager.provider.queryPurchases()
+        io.automated.ventures.everypods.automation.GymAutomationCoordinator.dispatch(
+            this, io.automated.ventures.everypods.automation.Event.ForegroundCheck
+        )
+    }
+
+    override fun onPause(owner: LifecycleOwner) {
+        io.automated.ventures.everypods.automation.GymAutomationDiagnostics.record(this,
+            "app background ${io.automated.ventures.everypods.automation.GymAutomationDiagnostics.environment(this)}")
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
