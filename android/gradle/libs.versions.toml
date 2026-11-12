@@ -1,6 +1,6 @@
 [versions]
 protobufPlugin = "0.10.0"
-protobuf = "4.36.0"
+protobuf = "4.36.2"
 accompanistPermissions = "0.37.3"
 agp = "9.2.0"
 kotlin = "2.3.20"
