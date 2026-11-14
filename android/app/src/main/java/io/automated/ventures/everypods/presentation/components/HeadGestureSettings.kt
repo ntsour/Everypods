@@ -61,6 +61,7 @@ fun controlActionLabel(action: StemAction?): String = stringResource(when (actio
     StemAction.GYM_TIMER_LAP -> R.string.action_timer_lap
     StemAction.GYM_TIMER_RESET -> R.string.action_timer_reset
     StemAction.ANNOUNCE_HEART_RATE -> R.string.action_announce_heart_rate
+    StemAction.TOGGLE_PAUSE_TRANSPARENCY -> R.string.action_toggle_pause_transparency
 })
 
 /** Gym stems and head gestures offer the same actions and use executeControlAction. */
@@ -74,6 +75,7 @@ fun gymControlActionOptions(): List<Pair<StemAction, String>> = listOf(
     StemAction.GYM_TIMER_LAP,
     StemAction.GYM_TIMER_RESET,
     StemAction.ANNOUNCE_HEART_RATE,
+    StemAction.TOGGLE_PAUSE_TRANSPARENCY,
 ).map { it to controlActionLabel(it) }
 
 /** Shared settings typography matches the Android UI contract, independent of dynamic colors. */

@@ -2908,6 +2908,18 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
             StemAction.ANNOUNCE_HEART_RATE -> announceHeartRate()
 
+            StemAction.TOGGLE_PAUSE_TRANSPARENCY -> {
+                // Play/pause toggle that also flips the listening mode:
+                // pausing -> Transparency (hear surroundings), playing -> Noise Cancellation.
+                val wasPlaying = MediaController.getMusicActive()
+                MediaController.sendPlayPause()
+                val target = if (wasPlaying) NoiseControlMode.TRANSPARENCY else NoiseControlMode.NOISE_CANCELLATION
+                sendBroadcast(Intent("io.automated.ventures.everypods.SET_ANC_MODE").apply {
+                    setPackage(packageName)
+                    putExtra("mode", target.ordinal + 1)  // wire value = ordinal + 1
+                })
+            }
+
             StemAction.GYM_TIMER_START_STOP -> {
                 GymTimer.startStop()
             }
