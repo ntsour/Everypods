@@ -323,6 +323,7 @@ private fun ControlsContent(
         StemAction.CYCLE_NOISE_CONTROL_MODES to stringResource(R.string.noise_control),
         StemAction.TOGGLE_GYM_MODE         to stringResource(R.string.action_toggle_gym),
         StemAction.ANNOUNCE_HEART_RATE to stringResource(R.string.action_announce_heart_rate),
+        StemAction.TOGGLE_PAUSE_TRANSPARENCY to stringResource(R.string.action_toggle_pause_transparency),
     )
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
