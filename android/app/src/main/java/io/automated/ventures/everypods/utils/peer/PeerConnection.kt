@@ -20,6 +20,8 @@ class PeerConnection(val mac: String, val generation: Long) {
     @Volatile var v2Queue: Channel<ByteArray>? = null
     val bluetoothWake = Channel<Unit>(Channel.CONFLATED)
     @Volatile var reachabilityProbeRequested: Boolean = false
+    /** Held-headset reachability probes already made since the link started or last connected. */
+    @Volatile var heldHeadsetProbes: Int = 0
     @Volatile var manualHeldHeadsetAttemptRequested: Boolean = false
     private val stopped = AtomicBoolean(false)
 

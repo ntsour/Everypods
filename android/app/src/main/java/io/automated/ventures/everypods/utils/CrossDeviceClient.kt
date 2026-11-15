@@ -75,6 +75,9 @@ object CrossDeviceClient {
     // without user action; ACL_CONNECTED can wake a single earlier attempt.
     // These probes still need physical validation for audio impact.
     private const val HEADSET_HELD_RECHECK_MS = 30_000L
+    // Right after an app/service start the peer's listener is often not up yet, so the first
+    // few probes come quickly before settling to the slow, headset-safe cadence.
+    private val HEADSET_HELD_EARLY_RECHECK_MS = longArrayOf(3_000L, 8_000L, 15_000L)
     private const val CONNECT_TIMEOUT_MS = 8_000L
     private const val HANDSHAKE_TIMEOUT_MS = 5_000L
     private const val V2_HEARTBEAT_MS = 10_000L
@@ -158,7 +161,9 @@ object CrossDeviceClient {
                     )
                 ) {
                     Log.d(TAG, "[${link.mac}] AirPods connected here — deferring connect to protect the headset link")
-                    val heldHeadsetDelay = launch { delay(HEADSET_HELD_RECHECK_MS) }
+                    val heldRecheckMs = HEADSET_HELD_EARLY_RECHECK_MS.getOrElse(link.heldHeadsetProbes) { HEADSET_HELD_RECHECK_MS }
+                    link.heldHeadsetProbes++
+                    val heldHeadsetDelay = launch { delay(heldRecheckMs) }
                     link.heldHeadsetDelayJob = heldHeadsetDelay
                     heldHeadsetDelay.join()
                     link.heldHeadsetDelayJob = null
@@ -233,6 +238,7 @@ object CrossDeviceClient {
                     val liveness = io.automated.ventures.everypods.utils.peer.LegacyPeerLiveness(peerSupervisor.elapsedRealtime())
                     val decoder = io.automated.ventures.everypods.utils.peer.LegacyPeerStreamDecoder()
                     Log.d(TAG, "[$peerMac] connected (name='$peerName')")
+                    link.heldHeadsetProbes = 0
 
                     val svc = ServiceManager.getService()
                     val announcement = if (svc?.holdsAirPods() == true)
