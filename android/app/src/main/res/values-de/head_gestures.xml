@@ -2,6 +2,7 @@
 <resources>
     <string name="hg_nod">Nicken (ja)</string>
     <string name="hg_shake">Kopfschütteln (nein)</string>
+    <string name="hg_tilt">Kopfneigen (seitlich)</string>
     <string name="hg_do_nothing">Keine Aktion</string>
     <string name="hg_none">Keine</string>
     <string name="hg_configuration">Kopfgesten konfigurieren</string>
@@ -24,7 +25,6 @@
     <string name="hg_tuning_help">Eine größere Amplitude und mehr Wiederholungen erfordern bewusstere Bewegungen. Eine Wiederholung ist eine vollständige Hin- und Herbewegung zurück zur Neutralstellung.</string>
     <string name="hg_test_help">Gesten sicher testen: Zugewiesene Aktionen pausieren während des Tests. Ein echter Anruf beendet den Test. Trage mindestens einen mit diesem Telefon verbundenen AirPod.</string>
     <string name="hg_test_progress">%1$s: Amplitude %2$d · Wiederholungen %3$d/%4$d</string>
-    <string name="hg_detected">Erkannt: %1$s</string>
     <string name="hg_cooldown_remaining">Wartezeit: %1$.1f Sekunden</string>
     <string name="hg_dismiss">Schließen</string>
     <string name="hg_migration_notice">Kopfschütteln schaltet jetzt das Mikrofon während eines Anrufs stumm oder wieder ein. Nicken hebt die Stummschaltung nicht mehr auf. Ändere die Zuordnung unter Anrufaktionen.</string>
@@ -40,4 +40,11 @@
     <string name="hg_axis_dominance">Richtungsstrenge</string>
     <string name="hg_axis_ratio">%1$.1f×</string>
     <string name="hg_direction_help">Der Bewegungsbereich auf der Hauptachse muss um diesen Faktor größer sein als auf der Nebenachse. Höhere Werte verwerfen mehr diagonale Bewegungen, erfordern aber geradere Gesten.</string>
+    <string name="hg_axis_turn">Drehung</string>
+    <string name="hg_gesture_log">Gestenprotokoll</string>
+    <string name="hg_log_empty">Noch keine Gesten. Hier erscheint jede abgeschlossene Bewegung, auch abgelehnte.</string>
+    <string name="hg_log_detected">%1$s · %2$s erkannt</string>
+    <string name="hg_log_rejected">%1$s · %2$s abgelehnt</string>
+    <string name="hg_log_ranges">Bewegungsumfang: vertikal %1$d · horizontal %2$d · Drehung %3$d</string>
+    <string name="hg_log_ratio">Geradlinigkeit %1$.1f×, erforderlich %2$.1f×</string>
 </resources>

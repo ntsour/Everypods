@@ -13,10 +13,11 @@ object HeadGesturePrefs {
     private fun tuningKey(gesture: HeadGesture, gym: Boolean, field: String) =
         "head_gesture_${if (gym) "gym" else "normal"}_${gesture.name.lowercase()}_$field"
 
-    private fun defaultTuning(gym: Boolean) = GestureTuning(
+    /** Recorded side tilts were slower than nods and shakes, so tilt starts with looser timing. */
+    private fun defaultTuning(gym: Boolean, gesture: HeadGesture = HeadGesture.NOD) = GestureTuning(
         amplitude = if (gym) 800 else 600,
-        repetitions = 2, cooldownMs = 2000, maxPhaseGapMs = 800,
-        maxDurationMs = 2000, axisDominancePercent = 300,
+        repetitions = 2, cooldownMs = 2000, maxPhaseGapMs = if (gesture == HeadGesture.TILT) 1200 else 800,
+        maxDurationMs = if (gesture == HeadGesture.TILT) 3000 else 2000, axisDominancePercent = 300,
     )
 
     /** Called at process startup before other settings are written. Restored or existing settings win. */
@@ -30,7 +31,7 @@ object HeadGesturePrefs {
             .putBoolean("use_alternate_head_tracking_packets", true)
             .putInt(VERSION, 3)
         HeadGesture.entries.forEach { gesture ->
-            listOf(false, true).forEach { gym -> writeTuning(edit, gesture, gym, defaultTuning(gym)) }
+            listOf(false, true).forEach { gym -> writeTuning(edit, gesture, gym, defaultTuning(gym, gesture)) }
         }
         edit.putString(actionKey(HeadGesture.NOD, false), StemAction.NEXT_TRACK.name)
             .putString(actionKey(HeadGesture.SHAKE, false), StemAction.PLAY_PAUSE.name)
@@ -116,14 +117,19 @@ object HeadGesturePrefs {
         edit.putString(callKey(action), gesture?.name ?: "NONE").apply()
     }
 
-    private fun readTuning(prefs: SharedPreferences, gesture: HeadGesture, gym: Boolean) = GestureTuning(
-        prefs.getInt(tuningKey(gesture, gym, "amplitude"), 800),
-        prefs.getInt(tuningKey(gesture, gym, "repetitions"), 2),
-        prefs.getInt(tuningKey(gesture, gym, "cooldown"), 2000),
-        prefs.getInt(tuningKey(gesture, gym, "max_phase_gap"), 1500),
-        prefs.getInt(tuningKey(gesture, gym, "max_duration"), 6000),
-        prefs.getInt(tuningKey(gesture, gym, "axis_dominance"), 150),
-    ).validated()
+    /** Nod and shake keep their legacy fallbacks; tilt was added later and has no stored values on upgrade. */
+    private fun readTuning(prefs: SharedPreferences, gesture: HeadGesture, gym: Boolean): GestureTuning {
+        val fallback = if (gesture == HeadGesture.TILT) defaultTuning(gym, gesture)
+            else GestureTuning(800, 2, 2000, 1500, 6000, 150)
+        return GestureTuning(
+            prefs.getInt(tuningKey(gesture, gym, "amplitude"), fallback.amplitude),
+            prefs.getInt(tuningKey(gesture, gym, "repetitions"), fallback.repetitions),
+            prefs.getInt(tuningKey(gesture, gym, "cooldown"), fallback.cooldownMs),
+            prefs.getInt(tuningKey(gesture, gym, "max_phase_gap"), fallback.maxPhaseGapMs),
+            prefs.getInt(tuningKey(gesture, gym, "max_duration"), fallback.maxDurationMs),
+            prefs.getInt(tuningKey(gesture, gym, "axis_dominance"), fallback.axisDominancePercent),
+        ).validated()
+    }
 
     private fun writeTuning(edit: SharedPreferences.Editor, gesture: HeadGesture, gym: Boolean, tuning: GestureTuning) {
         val valid = tuning.validated()
@@ -152,7 +158,7 @@ object HeadGesturePrefs {
 
     fun resetTuning(prefs: SharedPreferences, gym: Boolean) {
         val edit = prefs.edit()
-        HeadGesture.entries.forEach { writeTuning(edit, it, gym, defaultTuning(gym)) }
+        HeadGesture.entries.forEach { writeTuning(edit, it, gym, defaultTuning(gym, it)) }
         edit.apply()
     }
 }

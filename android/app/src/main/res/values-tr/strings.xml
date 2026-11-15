@@ -122,8 +122,6 @@
     <string name="advanced_options">Gelişmiş Seçenekler</string>
     <string name="set_identity_resolving_key">Kimlik Çözümleme Anahtarı (IRK) Ayarla</string>
     <string name="set_identity_resolving_key_description">BLE rastgele adreslerini çözmek için kullanılan IRK değerini manuel olarak ayarlayın</string>
-    <string name="use_alternate_head_tracking_packets">Alternatif kafa takibi paketlerini kullan</string>
-    <string name="use_alternate_head_tracking_packets_description">Kafa takibi sizin için çalışmıyorsa bunu etkinleştirin. Bu, kafa takibi verilerini istemek/durdurmak için AirPods\'a farklı veriler gönderir.</string>
     <string name="digital_assistant">Dijital Asistan</string>
     <string name="on">Açık</string>
     <string name="camera_remote">Kamera Uzaktan Kumandası</string>

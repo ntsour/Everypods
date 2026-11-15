@@ -122,8 +122,6 @@
     <string name="advanced_options">Opciones avanzadas</string>
     <string name="set_identity_resolving_key">Establecer clave de resolución de identidad (IRK)</string>
     <string name="set_identity_resolving_key_description">Configura manualmente la clave IRK utilizada para identificar direcciones aleatorias BLE.</string>
-    <string name="use_alternate_head_tracking_packets">Usar paquetes alternativos de seguimiento de la cabeza</string>
-    <string name="use_alternate_head_tracking_packets_description">Actívalo si el seguimiento de la cabeza no funciona. Envía datos distintos para solicitar o detener los datos de seguimiento de los AirPods.</string>
     <string name="digital_assistant">Asistente digital</string>
     <string name="on">Activado</string>
     <string name="camera_remote">Control remoto de la cámara</string>

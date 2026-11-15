@@ -2,6 +2,7 @@
 <resources>
     <string name="hg_nod">Hochement (oui)</string>
     <string name="hg_shake">Mouvement latéral (non)</string>
+    <string name="hg_tilt">Inclinaison (d’un côté à l’autre)</string>
     <string name="hg_do_nothing">Ne rien faire</string>
     <string name="hg_none">Aucun</string>
     <string name="hg_configuration">Configuration des gestes de la tête</string>
@@ -24,7 +25,6 @@
     <string name="hg_tuning_help">Une amplitude plus élevée et davantage de répétitions nécessitent des mouvements plus délibérés. Une répétition est un aller-retour complet avec retour à la position neutre.</string>
     <string name="hg_test_help">Testez les gestes sans risque : les actions attribuées sont suspendues pendant le test. Un appel réel termine le test. Portez au moins un AirPod connecté à ce téléphone.</string>
     <string name="hg_test_progress">%1$s : amplitude %2$d · répétitions %3$d/%4$d</string>
-    <string name="hg_detected">Détecté : %1$s</string>
     <string name="hg_cooldown_remaining">Délai : %1$.1f secondes</string>
     <string name="hg_dismiss">Fermer</string>
     <string name="hg_migration_notice">Le mouvement latéral active ou désactive désormais le micro pendant les appels. Le hochement ne réactive plus le micro. Modifiez les attributions dans Actions pendant les appels.</string>
@@ -40,4 +40,11 @@
     <string name="hg_axis_dominance">Rigueur de direction</string>
     <string name="hg_axis_ratio">%1$.1f×</string>
     <string name="hg_direction_help">L’amplitude du mouvement sur l’axe principal doit être ce nombre de fois celle de l’axe secondaire. Des valeurs plus élevées rejettent davantage de mouvements diagonaux, mais exigent des gestes plus droits.</string>
+    <string name="hg_axis_turn">Rotation</string>
+    <string name="hg_gesture_log">Journal des gestes</string>
+    <string name="hg_log_empty">Aucun geste pour l’instant. Chaque mouvement terminé apparaît ici, y compris ceux rejetés.</string>
+    <string name="hg_log_detected">%1$s · %2$s détecté</string>
+    <string name="hg_log_rejected">%1$s · %2$s rejeté</string>
+    <string name="hg_log_ranges">Amplitude : vertical %1$d · horizontal %2$d · rotation %3$d</string>
+    <string name="hg_log_ratio">Rectitude %1$.1f×, requis %2$.1f×</string>
 </resources>

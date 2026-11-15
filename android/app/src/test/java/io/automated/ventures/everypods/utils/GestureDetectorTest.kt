@@ -86,7 +86,7 @@ class GestureDetectorTest {
     }
 
     @Test fun `stricter direction rejects diagonals accepted by the default on both axes`() {
-        for (gesture in HeadGesture.entries) for (ratio in listOf(150, 300)) {
+        for (gesture in listOf(HeadGesture.NOD, HeadGesture.SHAKE)) for (ratio in listOf(150, 300)) {
             var time = 0L
             val detector = GestureDetector { time }
             val strict = tuning.copy(axisDominancePercent = ratio)
@@ -101,7 +101,7 @@ class GestureDetectorTest {
     }
 
     @Test fun `strict direction accepts its exact boundary and rejects just beyond it`() {
-        for (gesture in HeadGesture.entries) for (offAxisPeak in listOf(300, 301)) {
+        for (gesture in listOf(HeadGesture.NOD, HeadGesture.SHAKE)) for (offAxisPeak in listOf(300, 301)) {
             var time = 0L
             val detector = GestureDetector { time }
             val strict = tuning.copy(axisDominancePercent = 300)
@@ -161,7 +161,7 @@ class GestureDetectorTest {
     }
 
     @Test fun `short phase limit accepts fast gestures and rejects slow ones on both axes`() {
-        for (gesture in HeadGesture.entries) for (stepMs in listOf(100L, 201L)) {
+        for (gesture in listOf(HeadGesture.NOD, HeadGesture.SHAKE)) for (stepMs in listOf(100L, 201L)) {
             var time = 0L
             val detector = GestureDetector { time }
             val fast = tuning.copy(maxPhaseGapMs = 200)

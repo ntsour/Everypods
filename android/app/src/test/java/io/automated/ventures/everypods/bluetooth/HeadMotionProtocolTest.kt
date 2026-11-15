@@ -25,6 +25,11 @@ class HeadMotionProtocolTest {
         }
     }
 
+    @Test fun `lateral signal is read from offset 26 without disturbing the other fields`() {
+        val frame = frame(byteArrayOf(1)).apply { this[size - 58 + 26] = 0x18; this[size - 58 + 27] = 0xFC.toByte() }
+        assertEquals(HeadMotionProtocol.Sample(1000, -200, 300, -1234, 2345, lateral = -1000), decode(frame))
+    }
+
     @Test fun `additional protobuf fields do not become acceleration bytes`() {
         val baseline = decode(frame(byteArrayOf(1)))
         assertEquals(baseline, decode(frame(byteArrayOf(1),
@@ -32,7 +37,7 @@ class HeadMotionProtocolTest {
     }
 
     @Test fun `only known motion services produce samples`() {
-        for (service in listOf(14, 15, 16)) assertNotNull(decode(frame(byteArrayOf(1), service)))
+        for (service in listOf(14, 15, 16)) assertEquals(service, decode(frame(byteArrayOf(1), service))!!.service)
         for (service in listOf(11, 19, 20, 84)) assertNull(decode(frame(byteArrayOf(1), service)))
     }
 

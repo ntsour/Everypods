@@ -467,8 +467,6 @@
     <string name="ui_work">Arbeit</string>
     <string name="undo">Rückgängig machen</string>
     <string name="unlock_advanced_features">Unterstützen Sie EveryPods</string>
-    <string name="use_alternate_head_tracking_packets">Verwenden Sie alternative Head-Tracking-Pakete</string>
-    <string name="use_alternate_head_tracking_packets_description">Aktivieren Sie diese Option, wenn Head-Tracking bei Ihnen nicht funktioniert. Dadurch werden verschiedene Daten an AirPods gesendet, um Head-Tracking-Daten anzufordern/zu stoppen.</string>
     <string name="version">Version</string>
     <string name="version_code">Versionscode</string>
     <string name="volume_control">Lautstärkeregelung</string>

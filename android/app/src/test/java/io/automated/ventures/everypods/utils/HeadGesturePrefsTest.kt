@@ -22,9 +22,12 @@ class HeadGesturePrefsTest {
         assertTrue(s.enabled); assertTrue(s.shakeStopsAnnouncements); assertTrue(s.separateGymTuning)
         assertTrue(prefs.getBoolean("use_alternate_head_tracking_packets", false))
         for (gesture in HeadGesture.entries) {
-            assertEquals(GestureTuning(600, 2, 2000, 800, 2000, 300), s.tuningFor(gesture, false))
-            assertEquals(GestureTuning(800, 2, 2000, 800, 2000, 300), s.tuningFor(gesture, true))
+            val gap = if (gesture == HeadGesture.TILT) 1200 else 800
+            val duration = if (gesture == HeadGesture.TILT) 3000 else 2000
+            assertEquals(GestureTuning(600, 2, 2000, gap, duration, 300), s.tuningFor(gesture, false))
+            assertEquals(GestureTuning(800, 2, 2000, gap, duration, 300), s.tuningFor(gesture, true))
         }
+        assertNull(s.normal[HeadGesture.TILT]); assertNull(s.gym[HeadGesture.TILT])
         assertEquals(StemAction.NEXT_TRACK, s.normal[HeadGesture.NOD])
         assertEquals(StemAction.PLAY_PAUSE, s.normal[HeadGesture.SHAKE])
         assertEquals(StemAction.GYM_TIMER_START_STOP, s.gym[HeadGesture.NOD])
@@ -132,10 +135,17 @@ class HeadGesturePrefsTest {
     @Test fun `existing profiles retain original timing until configured`() {
         prefs.edit().putInt("head_gesture_schema_version", 3).commit()
         val settings = HeadGesturePrefs.read(prefs)
-        for (gesture in HeadGesture.entries) for (gym in listOf(false, true)) {
+        for (gesture in listOf(HeadGesture.NOD, HeadGesture.SHAKE)) for (gym in listOf(false, true)) {
             assertEquals(1500, settings.tuningFor(gesture, gym).maxPhaseGapMs)
             assertEquals(6000, settings.tuningFor(gesture, gym).maxDurationMs)
         }
+    }
+
+    @Test fun `tilt added on upgrade starts unassigned with current defaults`() {
+        prefs.edit().putInt("head_gesture_schema_version", 3).commit()
+        val settings = HeadGesturePrefs.read(prefs)
+        assertNull(settings.normal[HeadGesture.TILT]); assertNull(settings.gym[HeadGesture.TILT])
+        assertEquals(GestureTuning(600, 2, 2000, 1200, 3000, 300), settings.tuningFor(HeadGesture.TILT, false))
     }
 
     @Test fun `speed tuning persists per gesture and profile and resets with tuning`() {

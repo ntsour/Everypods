@@ -17,6 +17,9 @@ class HeadGestureStream {
         private set
 
     val acceptingSamples: Boolean get() = requested
+    /** Every start retry was spent and this request never produced a sample. */
+    fun receivedNothing(now: Long) = requested && !stopping && lastSampleAt == null &&
+        retries >= RETRY_DELAYS_MS.size && now - lastRequestAt >= 2000
     fun matchesGeneration(generation: Long) = this.generation == generation
 
     fun reset() {

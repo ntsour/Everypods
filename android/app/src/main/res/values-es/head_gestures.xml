@@ -2,6 +2,7 @@
 <resources>
     <string name="hg_nod">Asentir (sí)</string>
     <string name="hg_shake">Negar (no)</string>
+    <string name="hg_tilt">Inclinar (de lado a lado)</string>
     <string name="hg_do_nothing">No hacer nada</string>
     <string name="hg_none">Ninguno</string>
     <string name="hg_configuration">Configuración de gestos de cabeza</string>
@@ -24,7 +25,6 @@
     <string name="hg_tuning_help">Una amplitud mayor y más repeticiones requieren movimientos más deliberados. Una repetición es un movimiento completo de ida y vuelta hasta volver a la posición neutra.</string>
     <string name="hg_test_help">Prueba los gestos con seguridad: las acciones asignadas se pausan durante la prueba. Una llamada real termina la prueba. Lleva puesto al menos un AirPod conectado a este teléfono.</string>
     <string name="hg_test_progress">%1$s: amplitud %2$d · repeticiones %3$d/%4$d</string>
-    <string name="hg_detected">Detectado: %1$s</string>
     <string name="hg_cooldown_remaining">Espera: %1$.1f segundos</string>
     <string name="hg_dismiss">Cerrar</string>
     <string name="hg_migration_notice">Negar ahora alterna el silencio durante las llamadas. Asentir ya no reactiva el micrófono. Cambia las asignaciones en Acciones de llamada.</string>
@@ -40,4 +40,11 @@
     <string name="hg_axis_dominance">Exigencia de dirección</string>
     <string name="hg_axis_ratio">%1$.1f×</string>
     <string name="hg_direction_help">La amplitud del movimiento principal debe superar la del eje secundario por este factor. Los valores más altos rechazan más movimientos diagonales, pero requieren gestos más rectos.</string>
+    <string name="hg_axis_turn">Giro</string>
+    <string name="hg_gesture_log">Registro de gestos</string>
+    <string name="hg_log_empty">Aún no hay gestos. Aquí aparece cada movimiento completado, incluidos los rechazados.</string>
+    <string name="hg_log_detected">%1$s · %2$s detectado</string>
+    <string name="hg_log_rejected">%1$s · %2$s rechazado</string>
+    <string name="hg_log_ranges">Rango de movimiento: vertical %1$d · horizontal %2$d · giro %3$d</string>
+    <string name="hg_log_ratio">Rectitud %1$.1f×, necesita %2$.1f×</string>
 </resources>

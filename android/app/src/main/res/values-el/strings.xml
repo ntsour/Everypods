@@ -162,8 +162,6 @@
     <string name="advanced_options">Προηγμένες επιλογές</string>
     <string name="set_identity_resolving_key">Ορισμός κλειδιού επίλυσης ταυτότητας (IRK)</string>
     <string name="set_identity_resolving_key_description">Χειροκίνητος ορισμός του IRK για την αναγνώριση τυχαίων διευθύνσεων BLE</string>
-    <string name="use_alternate_head_tracking_packets">Εναλλακτικά πακέτα παρακολούθησης κεφαλής</string>
-    <string name="use_alternate_head_tracking_packets_description">Ενεργοποιήστε το αν δεν λειτουργεί η παρακολούθηση κεφαλής. Χρησιμοποιεί διαφορετικά δεδομένα για την έναρξη και τη διακοπή αποστολής δεδομένων κεφαλής από τα AirPods.</string>
     <string name="digital_assistant">Ψηφιακός βοηθός</string>
     <string name="on">Ενεργό</string>
     <string name="camera_remote">Τηλεχειρισμός κάμερας</string>

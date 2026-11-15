@@ -2,6 +2,7 @@
 <resources>
     <string name="hg_nod">Cenno (sì)</string>
     <string name="hg_shake">Scuotimento (no)</string>
+    <string name="hg_tilt">Inclinazione (da un lato all’altro)</string>
     <string name="hg_do_nothing">Nessuna azione</string>
     <string name="hg_none">Nessuno</string>
     <string name="hg_configuration">Configurazione dei gesti della testa</string>
@@ -24,7 +25,6 @@
     <string name="hg_tuning_help">Una maggiore ampiezza e più ripetizioni richiedono movimenti più intenzionali. Una ripetizione è un movimento completo avanti e indietro con ritorno alla posizione neutra.</string>
     <string name="hg_test_help">Prova i gesti in sicurezza: le azioni assegnate sono sospese durante il test. Una chiamata reale termina il test. Indossa almeno un AirPod collegato a questo telefono.</string>
     <string name="hg_test_progress">%1$s: ampiezza %2$d · ripetizioni %3$d/%4$d</string>
-    <string name="hg_detected">Rilevato: %1$s</string>
     <string name="hg_cooldown_remaining">Pausa: %1$.1f secondi</string>
     <string name="hg_dismiss">Chiudi</string>
     <string name="hg_migration_notice">Lo scuotimento ora attiva o disattiva il microfono durante le chiamate. Il cenno non riattiva più il microfono. Modifica le assegnazioni in Azioni chiamata.</string>
@@ -40,4 +40,11 @@
     <string name="hg_axis_dominance">Rigidità della direzione</string>
     <string name="hg_axis_ratio">%1$.1f×</string>
     <string name="hg_direction_help">L’ampiezza del movimento sull’asse principale deve essere questo numero di volte quella sull’asse secondario. Valori più alti scartano più movimenti diagonali, ma richiedono gesti più dritti.</string>
+    <string name="hg_axis_turn">Rotazione</string>
+    <string name="hg_gesture_log">Registro dei gesti</string>
+    <string name="hg_log_empty">Ancora nessun gesto. Qui compare ogni movimento completato, anche quelli rifiutati.</string>
+    <string name="hg_log_detected">%1$s · %2$s rilevato</string>
+    <string name="hg_log_rejected">%1$s · %2$s rifiutato</string>
+    <string name="hg_log_ranges">Ampiezza del movimento: verticale %1$d · orizzontale %2$d · rotazione %3$d</string>
+    <string name="hg_log_ratio">Rettilineità %1$.1f×, richiesta %2$.1f×</string>
 </resources>
