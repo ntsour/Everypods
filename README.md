@@ -53,8 +53,9 @@ See [docs/versioning.md](./docs/versioning.md) for release numbering.
 ## Privacy and Security
 
 See the [privacy policy](https://ntsour.github.io/Everypods/privacy/) for the
-permissions and local data model. The source is also available in
-[PRIVACY.md](./PRIVACY.md). See [SECURITY.md](./SECURITY.md) for private
+permissions and local data model. The public policy is hosted separately in
+`ntsour/ntsour.github.io`; update that repository when changing the policy.
+The source is also available in [PRIVACY.md](./PRIVACY.md). See [SECURITY.md](./SECURITY.md) for private
 vulnerability reporting guidance.
 
 ## License and Attribution

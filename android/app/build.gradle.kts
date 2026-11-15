@@ -2,6 +2,7 @@ import java.util.Properties
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.provider.ListProperty
+import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.TaskAction
@@ -25,6 +26,16 @@ abstract class GenerateLocaleCatalogTask : DefaultTask() {
             appendLine("    </string-array>")
             appendLine("</resources>")
         })
+    }
+}
+
+abstract class VerifyPlayReleaseSigningTask : DefaultTask() {
+    @get:Input
+    abstract val configured: Property<Boolean>
+
+    @TaskAction
+    fun verifySigning() {
+        check(configured.get()) { "Play release signing is not configured; set all RELEASE_* properties in local.properties." }
     }
 }
 
@@ -103,7 +114,7 @@ android {
             signingConfig = if (hasReleaseSigning) {
                 signingConfigs.getByName("release")
             } else {
-                signingConfigs.getByName("debug")
+                null
             }
         }
         debug {
@@ -117,7 +128,7 @@ android {
             signingConfig = if (hasReleaseSigning) {
                 signingConfigs.getByName("release")
             } else {
-                signingConfigs.getByName("debug")
+                null
             }
         }
         create("playDebug") {
@@ -177,6 +188,14 @@ val generatedLocaleTags = (listOf("en") + appLocaleFolders).map { qualifier ->
 val generateLocaleCatalog = tasks.register<GenerateLocaleCatalogTask>("generateLocaleCatalog") {
     localeTags.set(generatedLocaleTags)
     outputDirectory.set(localeCatalogOutput)
+}
+
+// Never produce a Play bundle signed with a debug key when release properties are missing.
+val verifyPlayReleaseSigning = tasks.register<VerifyPlayReleaseSigningTask>("verifyPlayReleaseSigning") {
+    configured.set(hasReleaseSigning)
+}
+tasks.matching { it.name == "bundlePlayRelease" }.configureEach {
+    dependsOn(verifyPlayReleaseSigning)
 }
 
 tasks.register<Exec>("validateLocalizationResources") {
