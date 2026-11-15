@@ -111,7 +111,7 @@ object TtsEngine {
                 recentTexts.removeFirst()
             }
             if (recentTexts.any { it.first == text }) {
-                Log.w(TAG, "DEDUPE: \"$text\" within ${DEDUPE_WINDOW_MS}ms — skipping")
+                Log.w(TAG, "Skipping duplicate announcement")
                 onDone()
                 return
             }
@@ -284,7 +284,7 @@ object TtsEngine {
         activeUtteranceCount.incrementAndGet()
         val params = Bundle()
         if (engine.speak(text, TextToSpeech.QUEUE_ADD, params, id) != TextToSpeech.SUCCESS) {
-            Log.w(TAG, "TTS rejected utterance: ${text.take(48)}")
+            Log.w(TAG, "TTS rejected utterance")
             onUtteranceDone(id)
         }
     }
