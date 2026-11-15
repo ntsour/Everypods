@@ -113,8 +113,8 @@ class AirPodsQSService : TileService() {
 
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                registerReceiver(ancStatusReceiver, ancIntentFilter, RECEIVER_EXPORTED)
-                registerReceiver(availabilityReceiver, availabilityIntentFilter, RECEIVER_EXPORTED)
+                registerReceiver(ancStatusReceiver, ancIntentFilter, RECEIVER_NOT_EXPORTED)
+                registerReceiver(availabilityReceiver, availabilityIntentFilter, RECEIVER_NOT_EXPORTED)
             } else {
                 registerReceiver(ancStatusReceiver, ancIntentFilter)
                 registerReceiver(availabilityReceiver, availabilityIntentFilter)

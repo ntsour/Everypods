@@ -81,7 +81,7 @@ class GymModeQSService : TileService() {
 
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                registerReceiver(availabilityReceiver, availabilityIntentFilter, RECEIVER_EXPORTED)
+                registerReceiver(availabilityReceiver, availabilityIntentFilter, RECEIVER_NOT_EXPORTED)
             } else {
                 registerReceiver(availabilityReceiver, availabilityIntentFilter)
             }

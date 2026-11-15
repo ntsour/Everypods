@@ -201,7 +201,7 @@ class PopupWindow(
 
         val filter = IntentFilter(AirPodsNotifications.BATTERY_DATA)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            context.registerReceiver(batteryUpdateReceiver, filter, Context.RECEIVER_EXPORTED)
+            context.registerReceiver(batteryUpdateReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
         } else {
             context.registerReceiver(batteryUpdateReceiver, filter)
         }

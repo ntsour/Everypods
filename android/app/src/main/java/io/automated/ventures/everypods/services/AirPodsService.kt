@@ -1987,12 +1987,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         if (config.showPhoneBatteryInWidget) {
             widgetMobileBatteryEnabled = true
             val batteryChangedIntentFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
-            batteryChangedIntentFilter.addAction(AirPodsNotifications.DISCONNECT_RECEIVERS)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                registerReceiver(
-                    BatteryChangedIntentReceiver, batteryChangedIntentFilter, RECEIVER_EXPORTED
-                )
+                registerReceiver(BatteryChangedIntentReceiver, batteryChangedIntentFilter, RECEIVER_EXPORTED)
+                registerReceiver(BatteryChangedIntentReceiver, IntentFilter(AirPodsNotifications.DISCONNECT_RECEIVERS), RECEIVER_NOT_EXPORTED)
             } else {
+                batteryChangedIntentFilter.addAction(AirPodsNotifications.DISCONNECT_RECEIVERS)
                 @Suppress("UnspecifiedRegisterReceiverFlag") registerReceiver(
                     BatteryChangedIntentReceiver, batteryChangedIntentFilter
                 )
@@ -2018,11 +2017,15 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 if (intent?.action == AirPodsNotifications.AIRPODS_CONNECTION_DETECTED) {
                     Log.d(TAG, "AIRPODS_CONNECTION_DETECTED received!")
                     device = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        intent.getParcelableExtra("device", BluetoothDevice::class.java)!!
+                        intent.getParcelableExtra("device", BluetoothDevice::class.java)
                     } else {
                         intent.getParcelableExtra("device") as BluetoothDevice?
                     }
 
+                    if (device == null) {
+                        Log.w(TAG, "Ignoring connection event without a device")
+                        return
+                    }
                     if (config.deviceName == "AirPods" && device?.name != null) {
                         config.deviceName = device?.name ?: "AirPods"
                         sharedPreferences.edit { putString("name", config.deviceName) }
@@ -2089,7 +2092,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(showIslandReceiver, showIslandIntentFilter, RECEIVER_EXPORTED)
+            registerReceiver(showIslandReceiver, showIslandIntentFilter, RECEIVER_NOT_EXPORTED)
         } else {
             @Suppress("UnspecifiedRegisterReceiverFlag") registerReceiver(
                 showIslandReceiver, showIslandIntentFilter
@@ -2102,7 +2105,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(connectionReceiver, deviceIntentFilter, RECEIVER_EXPORTED)
+            registerReceiver(connectionReceiver, deviceIntentFilter, RECEIVER_NOT_EXPORTED)
             registerReceiver(bluetoothReceiver, serviceIntentFilter, RECEIVER_EXPORTED)
         } else {
             @Suppress("UnspecifiedRegisterReceiverFlag") registerReceiver(
@@ -5234,7 +5237,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     if (bluetoothDevice.uuids != null && bluetoothDevice.uuids.contains(uuid)) {
                         // UUIDs already cached — fire immediately
                         Log.d(TAG, "UUIDs already cached for ${bluetoothDevice.address}")
-                        val intent = Intent(AirPodsNotifications.AIRPODS_CONNECTION_DETECTED)
+                        val intent = Intent(AirPodsNotifications.AIRPODS_CONNECTION_DETECTED).setPackage(context?.packageName)
                         intent.putExtra("name", name)
                         intent.putExtra("device", bluetoothDevice)
                         context?.sendBroadcast(intent)
