@@ -24,7 +24,7 @@ import io.automated.ventures.everypods.bluetooth.HeadMotionProtocol
 import kotlin.math.roundToInt
 
 data class Orientation(val pitch: Float = 0f, val yaw: Float = 0f)
-data class Acceleration(val vertical: Float = 0f, val horizontal: Float = 0f)
+data class Acceleration(val vertical: Float = 0f, val horizontal: Float = 0f, val lateral: Float = 0f)
 
 object HeadTracking {
     private val _orientation = MutableStateFlow(Orientation())
@@ -66,7 +66,7 @@ object HeadTracking {
         val orientation = calculateOrientation(o1, o2, o3)
         _orientation.value = orientation
 
-        _acceleration.value = Acceleration(verticalAccel, horizontalAccel)
+        _acceleration.value = Acceleration(verticalAccel, horizontalAccel, sample.lateral.toFloat())
     }
 
     private fun calibrate() {

@@ -44,7 +44,7 @@ fun rememberHeadGestureSettings(): Pair<SharedPreferences, HeadGestureSettings> 
 
 @Composable
 fun headGestureLabel(gesture: HeadGesture): String = stringResource(
-    if (gesture == HeadGesture.NOD) R.string.hg_nod else R.string.hg_shake)
+    when (gesture) { HeadGesture.NOD -> R.string.hg_nod; HeadGesture.SHAKE -> R.string.hg_shake; HeadGesture.TILT -> R.string.hg_tilt })
 
 @Composable
 fun controlActionLabel(action: StemAction?): String = stringResource(when (action) {

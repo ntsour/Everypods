@@ -25,6 +25,11 @@ class HeadMotionProtocolTest {
         }
     }
 
+    @Test fun `lateral signal is read from offset 26 without disturbing the other fields`() {
+        val frame = frame(byteArrayOf(1)).apply { this[size - 58 + 26] = 0x18; this[size - 58 + 27] = 0xFC.toByte() }
+        assertEquals(HeadMotionProtocol.Sample(1000, -200, 300, -1234, 2345, lateral = -1000), decode(frame))
+    }
+
     @Test fun `additional protobuf fields do not become acceleration bytes`() {
         val baseline = decode(frame(byteArrayOf(1)))
         assertEquals(baseline, decode(frame(byteArrayOf(1),

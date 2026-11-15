@@ -167,6 +167,10 @@ fun HeadTrackingScreen(
     LaunchedEffect(service) {
         service?.headGestureTesting?.collect { testing = it }
     }
+    var gestureLog by remember { mutableStateOf(emptyList<io.automated.ventures.everypods.services.AirPodsService.HeadGestureLogEntry>()) }
+    LaunchedEffect(service) {
+        service?.headGestureLog?.collect { gestureLog = it }
+    }
     CompositionLocalProvider(LocalAnchorRegistry provides registry, LocalActiveAnchor provides anchor) {
     StyledScaffold(title = stringResource(R.string.hg_configuration)) { topPadding, hazeState, bottomPadding ->
         Column(Modifier.fillMaxSize().testTag("dest_head_tracking").hazeSource(hazeState)
@@ -244,31 +248,55 @@ fun HeadTrackingScreen(
                     enabled = enabled && state.aacpAvailable && service != null) { service?.setHeadGestureTest(!testing, gymProfile) }
                 if (testing) {
                     HeadGesture.entries.forEach { gesture ->
-                        val progress = if (gesture == HeadGesture.NOD) status.nod else status.shake
+                        val progress = status.progress(gesture)
                         Text(stringResource(R.string.hg_test_progress, headGestureLabel(gesture), progress.amplitude,
                             progress.repetitions, settings.tuningFor(gesture, gymProfile).repetitions), style = gestureSupportingStyle(), modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
                     }
-                    Text(stringResource(R.string.hg_detected, status.detected?.let { headGestureLabel(it) } ?: stringResource(R.string.hg_none)), style = gestureLabelStyle(), modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
                     Text(stringResource(R.string.hg_cooldown_remaining, status.cooldownMs / 1000f), style = gestureSupportingStyle(), modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
                 }
             }
             }
+            // One live view for both testing and everyday use: signals, thresholds and results.
+            AnchorWrapper("head_diagnostics") { modifier -> Column(modifier) {
+                SettingsHeading(stringResource(R.string.ui_velocity))
+                AccelerationPlot(HeadGesture.entries.associateWith { settings.tuningFor(it, gymProfile).amplitude },
+                    gestureLog.firstOrNull { it.outcome.accepted })
+                GestureLogSection(gestureLog) { settings.tuningFor(it, gymProfile).axisDominancePercent }
+                SettingsHeading(stringResource(R.string.ui_head_orientation))
+                HeadVisualization()
+            } }
             AnchorWrapper("head_tracking_packets") { modifier -> SettingsSection(stringResource(R.string.advanced_options), modifier) {
                 StyledToggle(label = stringResource(R.string.use_alternate_head_tracking_packets),
                     description = stringResource(R.string.use_alternate_head_tracking_packets_description),
                     checked = appState.useAlternateHeadTrackingPackets, onCheckedChange = appSettingsViewModel::setUseAlternateHeadTrackingPackets,
                     independent = true, enabled = enabled)
             } }
-            AnchorWrapper("head_diagnostics") { modifier -> Column(modifier) {
-                SettingsHeading(stringResource(R.string.ui_head_orientation))
-                HeadVisualization()
-                SettingsHeading(stringResource(R.string.ui_velocity))
-                AccelerationPlot()
-            } }
+            if (io.automated.ventures.everypods.BuildConfig.DEBUG) MotionRecorderSection()
             }
             Spacer(Modifier.height(if (anchor != null) androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp else bottomPadding))
         }
     }
+    }
+}
+
+/** Debug builds only: raw payload capture for gesture research. Text is intentionally untranslated. */
+@Composable
+private fun MotionRecorderSection() {
+    val context = LocalContext.current
+    val recorder = io.automated.ventures.everypods.utils.HeadMotionRecorder
+    val recording by recorder.state.collectAsState()
+    SettingsSection("Motion recorder (debug)") {
+        Text("Saves raw sensor payloads with the selected label. Recording continues in the background while head tracking is running.",
+            style = gestureSupportingStyle(), modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+        GestureSettingPicker("Label", recording.label, recorder.LABELS.map { it to it }) { recorder.setLabel(it) }
+        GestureSettingAction(if (recording.recording) "Stop recording" else "Start recording") {
+            if (recording.recording) recorder.stop()
+            else recorder.start(java.io.File(context.filesDir, "head-motion"), android.os.SystemClock.elapsedRealtime())
+        }
+        recording.file?.let {
+            Text("${recording.rows} rows → ${it.name}", style = gestureSupportingStyle(),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+        }
     }
 }
 
@@ -514,25 +542,83 @@ private fun HeadVisualization() {
     }
 }
 
+// Signal lines keep the original blue and red. Gestures have their own colours for
+// threshold lines, detection markers and log titles, because shake and tilt share a signal.
+private val horizontalColor = Color(0xFF007AFF)
+private val verticalColor = Color(0xFFFF3B30)
+private val turnColor = Color(0xFF8E8E93)
+private val gestureColors = mapOf(
+    HeadGesture.SHAKE to Color(0xFFFF9500), HeadGesture.NOD to Color(0xFFFF3B30), HeadGesture.TILT to Color(0xFF34C759),
+)
+
+/** The check a completed sequence came closest to failing: measured ratio and the ratio it needed. */
+private fun straightness(outcome: io.automated.ventures.everypods.utils.GestureDetector.Outcome, strictnessPercent: Int): Pair<Float, Float> {
+    val needed = strictnessPercent / 100f
+    fun ratio(own: Int, other: Int) = if (other <= 0) 99.9f else (own.toFloat() / other).coerceAtMost(99.9f)
+    val checks = when (outcome.gesture) {
+        HeadGesture.NOD -> listOf(ratio(outcome.verticalRange, outcome.horizontalRange) to needed)
+        HeadGesture.SHAKE -> listOf(
+            ratio(maxOf(outcome.horizontalRange, outcome.turnRange * 100 / io.automated.ventures.everypods.utils.GestureDetector.TURN_TO_HORIZONTAL_PERCENT), outcome.verticalRange) to needed,
+            ratio(outcome.turnRange, outcome.horizontalRange) to 0.5f)
+        HeadGesture.TILT -> listOf(ratio(outcome.horizontalRange, outcome.verticalRange) to needed, ratio(outcome.horizontalRange, outcome.turnRange) to needed)
+    }
+    return checks.minBy { it.first / it.second }
+}
+
 @Composable
-private fun AccelerationPlot() {
+private fun GestureLogSection(
+    log: List<io.automated.ventures.everypods.services.AirPodsService.HeadGestureLogEntry>,
+    strictnessPercent: (HeadGesture) -> Int,
+) {
+    val time = remember { java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.ROOT) }
+    SettingsSection(stringResource(R.string.hg_gesture_log)) {
+        if (log.isEmpty()) Text(stringResource(R.string.hg_log_empty), style = gestureSupportingStyle(),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+        log.forEach { entry ->
+            val outcome = entry.outcome
+            val (measured, needed) = straightness(outcome, strictnessPercent(outcome.gesture))
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+                Text(stringResource(if (outcome.accepted) R.string.hg_log_detected else R.string.hg_log_rejected,
+                    time.format(java.util.Date(entry.wallTimeMs)), headGestureLabel(outcome.gesture)),
+                    style = gestureLabelStyle().copy(color = if (outcome.accepted) gestureColors.getValue(outcome.gesture) else gestureLabelStyle().color))
+                Text(stringResource(R.string.hg_log_ranges, outcome.verticalRange, outcome.horizontalRange, outcome.turnRange) +
+                    "\n" + stringResource(R.string.hg_log_ratio, measured, needed), style = gestureSupportingStyle())
+            }
+        }
+    }
+}
+
+@Composable
+private fun AccelerationPlot(
+    thresholds: Map<HeadGesture, Int>,
+    lastDetection: io.automated.ventures.everypods.services.AirPodsService.HeadGestureLogEntry?,
+) {
+    data class PlotPoint(val horizontal: Float, val vertical: Float, val turn: Float, val detected: HeadGesture? = null)
     val acceleration by HeadTracking.acceleration.collectAsState()
     val horizontalLabel = stringResource(R.string.ui_horizontal)
     val verticalLabel = stringResource(R.string.ui_vertical)
+    val turnLabel = stringResource(R.string.hg_axis_turn)
     val maxPoints = 100
-    val points = remember { mutableStateListOf<Pair<Float, Float>>() }
+    val points = remember { mutableStateListOf<PlotPoint>() }
     val darkTheme = isSystemInDarkTheme()
 
     var maxAbs by remember { mutableFloatStateOf(1000f) }
 
     LaunchedEffect(acceleration) {
-        points.add(Pair(acceleration.horizontal, acceleration.vertical))
+        points.add(PlotPoint(acceleration.horizontal, acceleration.vertical,
+            acceleration.lateral * io.automated.ventures.everypods.utils.GestureDetector.TURN_TO_HORIZONTAL_PERCENT / 100))
         if (points.size > maxPoints) {
             points.removeAt(0)
         }
 
-        val currentMax = points.maxOf { maxOf(abs(it.first), abs(it.second)) }
-        maxAbs = maxOf(currentMax * 1.2f, 1000f)
+        val currentMax = points.maxOf { maxOf(abs(it.horizontal), abs(it.vertical), abs(it.turn)) }
+        maxAbs = maxOf(currentMax * 1.2f, (thresholds.values.maxOrNull() ?: 0) * 1.2f, 1000f)
+    }
+    // Mark the sample at which each gesture was recognised.
+    LaunchedEffect(lastDetection) {
+        if (lastDetection != null && points.isNotEmpty()) {
+            points[points.lastIndex] = points.last().copy(detected = lastDetection.outcome.gesture)
+        }
     }
 
     Card(
@@ -589,23 +675,30 @@ private fun AccelerationPlot() {
                 )
 
                 if (points.size > 1) {
+                    // Dashed lines show each gesture's amplitude threshold in its own colour.
+                    thresholds.forEach { (gesture, amplitude) ->
+                        for (sign in listOf(-1, 1)) {
+                            val y = zeroY - sign * amplitude * yScale
+                            drawLine(gestureColors.getValue(gesture).copy(alpha = 0.45f), Offset(0f, y), Offset(width, y),
+                                strokeWidth = 1.dp.toPx(), pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(12f, 10f)))
+                        }
+                    }
+                    points.forEachIndexed { index, point ->
+                        point.detected?.let {
+                            drawLine(gestureColors.getValue(it), Offset(index * xScale, 0f), Offset(index * xScale, height), strokeWidth = 3.dp.toPx())
+                        }
+                    }
                     for (i in 0 until points.size - 1) {
                         val x1 = i * xScale
                         val x2 = (i + 1) * xScale
-
-                        drawLine(
-                            color = Color(0xFF007AFF),
-                            start = Offset(x1, zeroY - points[i].first * yScale),
-                            end = Offset(x2, zeroY - points[i + 1].first * yScale),
-                            strokeWidth = 2.dp.toPx()
-                        )
-
-                        drawLine(
-                            color = Color(0xFFFF3B30),
-                            start = Offset(x1, zeroY - points[i].second * yScale),
-                            end = Offset(x2, zeroY - points[i + 1].second * yScale),
-                            strokeWidth = 2.dp.toPx()
-                        )
+                        listOf<Pair<Color, (PlotPoint) -> Float>>(
+                            horizontalColor to { it.horizontal },
+                            verticalColor to { it.vertical },
+                            turnColor to { it.turn },
+                        ).forEach { (color, value) ->
+                            drawLine(color, Offset(x1, zeroY - value(points[i]) * yScale),
+                                Offset(x2, zeroY - value(points[i + 1]) * yScale), strokeWidth = 2.dp.toPx())
+                        }
                     }
                 }
 
@@ -623,6 +716,16 @@ private fun AccelerationPlot() {
 
                 val legendY = 15.dp.toPx()
                 val textOffsetY = legendY + 5.dp.toPx() / 2
+
+                drawCircle(turnColor, 5.dp.toPx(), Offset(width - 215.dp.toPx(), legendY))
+                drawContext.canvas.nativeCanvas.apply {
+                    val paint = Paint().apply {
+                        color = if (darkTheme) android.graphics.Color.WHITE else android.graphics.Color.BLACK
+                        textSize = 12.sp.toPx()
+                        textAlign = Paint.Align.LEFT
+                    }
+                    drawText(turnLabel, width - 205.dp.toPx(), textOffsetY, paint)
+                }
 
                 drawCircle(Color(0xFF007AFF), 5.dp.toPx(), Offset(width - 150.dp.toPx(), legendY))
                 drawContext.canvas.nativeCanvas.apply {

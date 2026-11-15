@@ -1,6 +1,6 @@
 package io.automated.ventures.everypods.data
 
-enum class HeadGesture { NOD, SHAKE }
+enum class HeadGesture { NOD, SHAKE, TILT }
 enum class HeadGestureCallAction { ANSWER, DECLINE, MUTE_TOGGLE, HANG_UP }
 enum class HeadGestureContext { RINGING, ACTIVE_CALL, TEST, GYM, NORMAL }
 

@@ -2522,6 +2522,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             @SuppressLint("NewApi")
             override fun onHeadTrackingReceived(headTracking: ByteArray) {
                 Log.d(TAG, "onHeadTrackingReceived: active=$isHeadTrackingActive len=${headTracking.size}")
+                if (BuildConfig.DEBUG) io.automated.ventures.everypods.utils.HeadMotionRecorder.record(headTracking, SystemClock.elapsedRealtime())
                 if (isHeadTrackingActive) {
                     val generation = BluetoothConnectionManager.connectionGeneration()
                     val epoch = gestureEpoch
@@ -4940,13 +4941,20 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             for (sample in samples) {
                 val event = detector.process(sample.horizontal, sample.vertical,
                     snapshot.settings.tuningFor(HeadGesture.NOD, snapshot.gym),
-                    snapshot.settings.tuningFor(HeadGesture.SHAKE, snapshot.gym))
+                    snapshot.settings.tuningFor(HeadGesture.SHAKE, snapshot.gym),
+                    sample.lateral, snapshot.settings.tuningFor(HeadGesture.TILT, snapshot.gym))
                 _headGestureStatus.value = detector.status
+                detector.outcome?.let { outcome ->
+                    if (_headGestureLog.value.firstOrNull()?.outcome != outcome) {
+                        _headGestureLog.value = (listOf(HeadGestureLogEntry(System.currentTimeMillis(), outcome)) + _headGestureLog.value).take(30)
+                    }
+                }
                 if (event == null) continue
                 reconcileHeadGestures()
                 if (snapshot != gestureSnapshot || !gestureDetectionRequested) return@post
                 val dispatch = snapshot.settings.resolve(event, snapshot.context, snapshot.announcementAudible)
                 Log.d("HeadGestures", "Detected $event context=${snapshot.context} dispatch=$dispatch")
+                if (BuildConfig.DEBUG) io.automated.ventures.everypods.utils.HeadMotionRecorder.mark("detected:$event", SystemClock.elapsedRealtime())
                 when (dispatch) {
                     is HeadGestureDispatch.Action -> {
                         // Mute owns its own feedback based on the resulting call state.
@@ -6834,6 +6842,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     )
     private val _headGestureStatus = kotlinx.coroutines.flow.MutableStateFlow(GestureDetector.Status())
     val headGestureStatus = _headGestureStatus.asStateFlow()
+    data class HeadGestureLogEntry(val wallTimeMs: Long, val outcome: GestureDetector.Outcome)
+    private val _headGestureLog = kotlinx.coroutines.flow.MutableStateFlow(emptyList<HeadGestureLogEntry>())
+    /** Newest first: every completed gesture sequence, accepted or rejected. */
+    val headGestureLog = _headGestureLog.asStateFlow()
     private val _headGestureTesting = kotlinx.coroutines.flow.MutableStateFlow(false)
     val headGestureTesting = _headGestureTesting.asStateFlow()
     private var gestureControllerRunning = false
@@ -6932,6 +6944,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 "wearGeneration=${gestureWear.reportGeneration} generation=$generation worn=$worn " +
                 "context=$context enabled=${settings.enabled} nod=${settings.resolve(HeadGesture.NOD, context, announcementAudible)} " +
                 "shake=${settings.resolve(HeadGesture.SHAKE, context, announcementAudible)} " +
+                "tilt=${settings.resolve(HeadGesture.TILT, context, announcementAudible)} " +
                 "detect=${owners.detect} track=$wanted diagnostics=$diagnosticTrackingRequested mask=${gestureWear.wornMask} " +
                 "stream=${gestureStream.state(SystemClock.elapsedRealtime())}"
             if (decision != lastGestureDecision) {
