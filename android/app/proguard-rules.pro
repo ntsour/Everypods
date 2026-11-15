@@ -25,3 +25,14 @@
 -keep class io.automated.ventures.everypods.bluetooth.rtbuddy.proto.** extends com.google.protobuf.GeneratedMessageLite {
     *;
 }
+
+# WebRTC's native library (libjingle_peerconnection_so) looks up Java classes, methods and
+# fields by name from JNI_OnLoad and at runtime; renaming or stripping them aborts the app
+# ("JNI DETECTED ERROR ... java_class == null") as soon as a PeerConnectionFactory is created.
+-keep class org.webrtc.** { *; }
+-keep class org.webrtc.audio.** { *; }
+-keep class org.jni_zero.** { *; }
+-keep class J.** { *; }
+-keepclasseswithmembernames class * { native <methods>; }
+-dontwarn org.webrtc.**
+-dontwarn org.jni_zero.**
