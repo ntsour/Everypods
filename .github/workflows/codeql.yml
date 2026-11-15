@@ -36,12 +36,19 @@ jobs:
         # CodeQL must observe compilation; cached Gradle tasks produce no
         # Java/Kotlin extraction data on hosted runners.
         run: ./gradlew --no-configuration-cache --rerun-tasks :app:assembleDebug
+      - name: Stop Gradle and Kotlin daemons
+        # The build leaves daemons holding several GB and the runner has ~7 GB; free it before the
+        # CodeQL query evaluation, which was dying silently mid-run.
+        working-directory: android
+        run: ./gradlew --stop
       # Code scanning is unavailable on this private repository's plan, so uploading results to
       # GitHub fails the job. Keep the analysis, write the SARIF locally, and publish it as an artifact.
       - uses: github/codeql-action/analyze@f3712979fa5f215279b101dd0a2e3bdfb4353324 # v3
         with:
           upload: never
           output: codeql-results
+          ram: 5120
+          threads: 2
       - name: Upload CodeQL results
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

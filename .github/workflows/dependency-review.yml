@@ -8,6 +8,9 @@ permissions:
 
 jobs:
   dependency-review:
+    # The action needs the dependency graph, which private repositories only get with GitHub's
+    # paid security add-on; there it fails on every run. Skip it unless the repository is public.
+    if: ${{ github.event.repository.private == false }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
