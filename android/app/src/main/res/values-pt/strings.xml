@@ -187,7 +187,7 @@
     <string name="connected_via_bluetooth">Conectado via Bluetooth</string>
     <string name="connected_via_bluetooth_description">Trabalho de áudio e entrega. Recursos avançados (controle de ruído, detecção de ouvido, etc.) precisam da conexão AACP, que não está disponível neste dispositivo.</string>
     <string name="connections_empty">Nenhum outro telefone adicionado ainda.</string>
-    <string name="connections_guide">Gerencie os dispositivos Android que compartilham estes AirPods. As conexões BT são necessárias para a transferência. As conexões Wi-Fi são necessárias para transmitir áudio.</string>
+    <string name="connections_guide">Gerencie os dispositivos Android que compartilham estes AirPods. Adicione a conexão BT nos dois telefones para ativar a transferência. O Wi-Fi é necessário para transmitir áudio.</string>
     <string name="connections_title">Conexões</string>
     <string name="contact">Contato</string>
     <string name="conversational_awareness_master_description">Reduza o volume da mídia (e, opcionalmente, pause a música) quando começar a falar. Obrigatório para as opções abaixo.</string>
@@ -215,7 +215,7 @@
     <string name="focus_strongest">Foco mais forte</string>
     <string name="focused">Focado</string>
     <string name="free_features">Recursos gratuitos</string>
-    <string name="get_help_guide">Entre em contato com o suporte por e-mail ou abra um problema no GitHub.</string>
+    <string name="get_help_guide">Entre em contato com o suporte por e-mail.</string>
     <string name="get_help_title">Obtenha ajuda</string>
     <string name="github_issues">Problemas do GitHub</string>
     <string name="handover_guide">Quando ativado, este telefone pode receber AirPods se você iniciar a mídia ou receber uma chamada. Funciona apenas entre dispositivos conectados.</string>
@@ -1031,4 +1031,5 @@ Pedidos do protocolo: %4$d</string>
     <string name="speech_heart_rate_value">Frequência cardíaca: %1$d batimentos por minuto</string>
     <string name="speech_heart_rate_unavailable">Frequência cardíaca indisponível</string>
     <string name="privacy_policy">Política de privacidade</string>
+    <string name="source_code_request">Solicitar o código-fonte por e-mail</string>
 </resources>

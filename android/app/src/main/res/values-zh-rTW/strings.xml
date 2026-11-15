@@ -197,7 +197,7 @@
     <string name="connected_via_bluetooth">透過藍牙連接</string>
     <string name="connected_via_bluetooth_description">音訊和切換工作。進階功能（雜訊控制、耳朵檢測等）需要 AACP 連接，該連接在此裝置上不可用。</string>
     <string name="connections_empty">尚未添加其他手機。</string>
-    <string name="connections_guide">管理共用這些 AirPods 的 Android 裝置。裝置切換需要藍牙連接，音訊傳輸需要 Wi-Fi 連接。</string>
+    <string name="connections_guide">管理共用這些 AirPods 的 Android 裝置。在兩部手機上加入藍牙連接以啟用裝置切換。音訊傳輸需要 Wi-Fi 連接。</string>
     <string name="connections_title">連接</string>
     <string name="conversational_awareness_master_description">當您開始講話時，請降低媒體音量（並可選擇暫停音樂）。以下選項是必要的。</string>
     <string name="conversational_awareness_volume_description">您開始說話時，媒體音量會調整至此等級，即最大音量的相應百分比。停止說話後，音量會恢復至先前的等級。</string>
@@ -220,7 +220,7 @@
     <string name="focus_strongest">焦點最強</string>
     <string name="focused">專注</string>
     <string name="free_features">免費功能</string>
-    <string name="get_help_guide">透過電子郵件聯絡支援人員或開啟 GitHub 問題。</string>
+    <string name="get_help_guide">透過電子郵件聯絡支援人員。</string>
     <string name="get_help_title">獲取協助</string>
     <string name="handover_guide">啟用後，如果您開始播放媒體或接聽電話，此手機可以接聽 AirPods。僅適用於連接的裝置之間。</string>
     <string name="handover_needs_peer_helper">新增藍牙連接以協調裝置。播放開始時的自動連線也可在沒有對等裝置的情況下運作。</string>
@@ -1031,4 +1031,5 @@
     <string name="speech_heart_rate_value">心率：每分鐘 %1$d 下</string>
     <string name="speech_heart_rate_unavailable">心率無法使用</string>
     <string name="privacy_policy">隱私權政策</string>
+    <string name="source_code_request">透過電子郵件索取原始碼</string>
 </resources>

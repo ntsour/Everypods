@@ -658,7 +658,7 @@ object CrossDevice {
         endpoint.job = endpoint.ownerScope.launch {
             var listener: BluetoothServerSocket? = null
             try {
-                val activeListener = adapter.listenUsingInsecureRfcommWithServiceRecord(endpoint.name, endpoint.uuid)
+                val activeListener = adapter.listenUsingRfcommWithServiceRecord(endpoint.name, endpoint.uuid)
                 listener = activeListener
                 if (endpoint.generation.get() != generation || !isEnabled || !adapter.isEnabled) {
                     activeListener.close()
@@ -675,10 +675,7 @@ object CrossDevice {
                     val addr = runCatching { socket.remoteDevice.address }.getOrNull()
                     val context = ServiceManager.getService()?.applicationContext
                     val connections = context?.let { io.automated.ventures.everypods.relay.DeviceConnectionStore(it) }
-                    val hasCapability = addr != null && connections != null && (
-                        connections.has(addr, io.automated.ventures.everypods.relay.DeviceConnectionType.BT_HANDOVER) ||
-                            connections.has(addr, io.automated.ventures.everypods.relay.DeviceConnectionType.WIFI_RELAY) ||
-                            addr.uppercase() in connections.pendingRevocations())
+                    val hasCapability = addr != null && connections?.coordinationAuthorized(addr) == true
                     if (addr == null || configuredPeers.none { it.equals(addr, ignoreCase = true) } || !hasCapability) {
                         Log.w(TAG, "Rejecting unconfigured ${endpoint.name} peer")
                         socket.runCatching { close() }
@@ -798,6 +795,10 @@ object CrossDevice {
                 val count = input.read(chunk)
                 if (count < 0) break
                 for (frame in decoder.feed(chunk.copyOf(count))) {
+                    val capabilityContext = ServiceManager.getService()?.applicationContext ?: error("service_unavailable")
+                    require(io.automated.ventures.everypods.relay.DeviceConnectionStore(capabilityContext).coordinationAuthorized(address)) {
+                        "unauthorized_coordination_peer"
+                    }
                     val message = PeerV2Message.decode(frame)
                     if (!helloSeen) {
                         require(message.type == PeerV2Frame.Type.HELLO) { "hello_required" }
@@ -1056,9 +1057,7 @@ object CrossDevice {
         // server-only for the rest. Reconcile the client links against that set in
         // one call so existing links aren't torn down (and re-added) needlessly.
         val clientPeers = configuredPeers.filter {
-            (connections.has(it, io.automated.ventures.everypods.relay.DeviceConnectionType.BT_HANDOVER) ||
-                connections.has(it, io.automated.ventures.everypods.relay.DeviceConnectionType.WIFI_RELAY) ||
-                it.uppercase() in connections.pendingRevocations()) && shouldBeClientTo(adapter, it)
+            connections.coordinationAuthorized(it) && shouldBeClientTo(adapter, it)
         }.toSet()
         CrossDeviceClient.start(adapter, clientPeers)
     }
@@ -1271,9 +1270,12 @@ object CrossDevice {
     }
 
     internal fun processPacket(raw: ByteArray, sourceMac: String, context: Context? = ServiceManager.getService()?.applicationContext) {
+        if (context == null || !io.automated.ventures.everypods.relay.DeviceConnectionStore(context).coordinationAuthorized(sourceMac)) {
+            Log.w(TAG, "Ignoring packet from peer without an authorized coordination capability")
+            return
+        }
         if (raw.contentEquals(CrossDevicePackets.REQUEST_HANDOVER.packet) || raw.contentEquals(CrossDevicePackets.REQUEST_DISCONNECT.packet)) {
-            val allowsHandover = context != null &&
-                context.getSharedPreferences("settings", Context.MODE_PRIVATE).getBoolean("cross_device_enabled", true) &&
+            val allowsHandover = context.getSharedPreferences("settings", Context.MODE_PRIVATE).getBoolean("cross_device_enabled", true) &&
                 io.automated.ventures.everypods.relay.DeviceConnectionStore(context).handoverReady(sourceMac)
             if (!allowsHandover) {
                 Log.i(TAG, "[$sourceMac] Ignoring handover request: no enabled BT handover connection")

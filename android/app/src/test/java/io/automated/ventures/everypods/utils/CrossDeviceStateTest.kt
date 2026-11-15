@@ -49,7 +49,7 @@ class CrossDeviceStateTest {
 
     @Test
     fun `AIRPODS_CONNECTED adds the source to holders`() {
-        CrossDevice.processPacket(CrossDevicePackets.AIRPODS_CONNECTED.packet, aa)
+        CrossDevice.processPacket(CrossDevicePackets.AIRPODS_CONNECTED.packet, aa, context)
 
         assertEquals(setOf(aa), CrossDevice.holders.toSet())
         assertTrue(CrossDevice.isAvailable)
@@ -57,18 +57,18 @@ class CrossDeviceStateTest {
 
     @Test
     fun `second peer connecting does not clobber the first`() {
-        CrossDevice.processPacket(CrossDevicePackets.AIRPODS_CONNECTED.packet, aa)
-        CrossDevice.processPacket(CrossDevicePackets.AIRPODS_CONNECTED.packet, bb)
+        CrossDevice.processPacket(CrossDevicePackets.AIRPODS_CONNECTED.packet, aa, context)
+        CrossDevice.processPacket(CrossDevicePackets.AIRPODS_CONNECTED.packet, bb, context)
 
         assertEquals(setOf(aa, bb), CrossDevice.holders.toSet())
     }
 
     @Test
     fun `AIRPODS_DISCONNECTED removes only the source, others remain`() {
-        CrossDevice.processPacket(CrossDevicePackets.AIRPODS_CONNECTED.packet, aa)
-        CrossDevice.processPacket(CrossDevicePackets.AIRPODS_CONNECTED.packet, bb)
+        CrossDevice.processPacket(CrossDevicePackets.AIRPODS_CONNECTED.packet, aa, context)
+        CrossDevice.processPacket(CrossDevicePackets.AIRPODS_CONNECTED.packet, bb, context)
 
-        CrossDevice.processPacket(CrossDevicePackets.AIRPODS_DISCONNECTED.packet, aa)
+        CrossDevice.processPacket(CrossDevicePackets.AIRPODS_DISCONNECTED.packet, aa, context)
 
         assertEquals(setOf(bb), CrossDevice.holders.toSet())
         assertTrue(CrossDevice.isAvailable)
@@ -76,8 +76,8 @@ class CrossDeviceStateTest {
 
     @Test
     fun `last holder disconnecting clears availability`() {
-        CrossDevice.processPacket(CrossDevicePackets.AIRPODS_CONNECTED.packet, aa)
-        CrossDevice.processPacket(CrossDevicePackets.AIRPODS_DISCONNECTED.packet, aa)
+        CrossDevice.processPacket(CrossDevicePackets.AIRPODS_CONNECTED.packet, aa, context)
+        CrossDevice.processPacket(CrossDevicePackets.AIRPODS_DISCONNECTED.packet, aa, context)
 
         assertTrue(CrossDevice.holders.isEmpty())
         assertFalse(CrossDevice.isAvailable)
@@ -88,18 +88,29 @@ class CrossDeviceStateTest {
         // header + a trivial payload; processRelayedPacket no-ops without a service,
         // but the holder attribution must still happen.
         val packet = CrossDevicePackets.AIRPODS_DATA_HEADER.packet + byteArrayOf(0x01, 0x02)
-        CrossDevice.processPacket(packet, aa)
+        CrossDevice.processPacket(packet, aa, context)
 
         assertTrue(CrossDevice.holders.contains(aa))
     }
 
     @Test
     fun `unrecognized packet is ignored without crashing or changing holders`() {
-        CrossDevice.processPacket(CrossDevicePackets.AIRPODS_CONNECTED.packet, aa)
+        CrossDevice.processPacket(CrossDevicePackets.AIRPODS_CONNECTED.packet, aa, context)
 
-        CrossDevice.processPacket(byteArrayOf(0x7F, 0x7F, 0x7F, 0x7F), bb)
+        CrossDevice.processPacket(byteArrayOf(0x7F, 0x7F, 0x7F, 0x7F), bb, context)
 
         assertEquals(setOf(aa), CrossDevice.holders.toSet())
+    }
+
+    @Test
+    fun `unverified relay cannot claim ownership or inject data`() {
+        DeviceConnectionStore(context).apply {
+            remove(aa, DeviceConnectionType.BT_HANDOVER)
+            add(aa, DeviceConnectionType.WIFI_RELAY, verified = false)
+        }
+        CrossDevice.processPacket(CrossDevicePackets.AIRPODS_CONNECTED.packet, aa, context)
+        CrossDevice.processPacket(CrossDevicePackets.AIRPODS_DATA_HEADER.packet + byteArrayOf(1), aa, context)
+        assertTrue(CrossDevice.holders.isEmpty())
     }
 
     @Test

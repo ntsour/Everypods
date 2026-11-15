@@ -390,7 +390,7 @@ class CallNotifListener : NotificationListenerService() {
             if (!eligible) return@synchronized false
 
             pendingCallAction = pending.copy(kind = CallActionKind.TELECOM_ANSWER)
-            Log.d(TAG, "Notification Answer did not transition; claimed Telecom fallback for ${pending.key}")
+            Log.d(TAG, "Notification Answer did not transition; claimed Telecom fallback")
             true
         }
 
@@ -426,7 +426,7 @@ class CallNotifListener : NotificationListenerService() {
                         pending.key == key && (snapshot == null || previous?.stage != snapshot.stage ||
                             snapshot.intentFor(pending.kind) != pending.actionIntent)
                     )) {
-                    Log.d(TAG, "Clearing pending ${pending.kind} for ${pending.key}; call action changed or notification was removed")
+                    Log.d(TAG, "Clearing pending ${pending.kind}; call action changed or notification was removed")
                     pendingCallAction = null
                 }
 
@@ -600,7 +600,7 @@ class CallNotifListener : NotificationListenerService() {
                     now - pending.startedAtElapsedMs < CALL_ACTION_PENDING_WINDOW_MS &&
                     (pending.kind == kind || pending.kind == CallActionKind.TELECOM_ANSWER)
                 ) {
-                    Log.d(TAG, "$label: matching call action is still pending for ${snapshot.key}")
+                    Log.d(TAG, "$label: matching call action is still pending")
                     return false
                 }
                 pendingCallAction = PendingCallAction(
@@ -641,7 +641,7 @@ class CallNotifListener : NotificationListenerService() {
                     .toBundle()
             } else null
             action.actionIntent.send(ctx, 0, fillIn, null, null, null, optsBundle)
-            Log.d(TAG, "$label: dispatched ${action.title}; awaiting call-state transition")
+            Log.d(TAG, "$label: dispatched action; awaiting call-state transition")
             true
         } catch (t: Throwable) {
             Log.w(TAG, "$label failed: ${t.message}")
@@ -675,7 +675,7 @@ class CallNotifListener : NotificationListenerService() {
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
         if (sbn.packageName !in WATCHED_PACKAGES) return
-        Log.d(TAG, "Call notification removed; releasing snapshot for ${sbn.key}")
+        Log.d(TAG, "Call notification removed; releasing snapshot")
         publishSnapshot(sbn.key, null)
     }
 
@@ -743,9 +743,8 @@ class CallNotifListener : NotificationListenerService() {
         val n = sbn.notification ?: return
         val actions: Array<Notification.Action> = n.actions ?: emptyArray()
 
-        // Verbose log for debugging.
-        val titles = actions.map { it.title?.toString().orEmpty() }
-        Log.d(TAG, "Scanning ${sbn.packageName} notification (key=${sbn.key}, actions=${titles})")
+        // Notification keys and action titles are supplied by other apps and may contain private data.
+        Log.d(TAG, "Scanning ${sbn.packageName} call notification (${actions.size} actions)")
 
         // ─── Structural CallStyle state and actions ───────────────────────────
         val extras = n.extras
@@ -845,7 +844,7 @@ class CallNotifListener : NotificationListenerService() {
         publishSnapshot(sbn.key, snapshot)
         Log.d(
             TAG,
-            "Replaced call snapshot key=${sbn.key} package=${sbn.packageName} stage=$stage " +
+            "Replaced call snapshot package=${sbn.packageName} stage=$stage " +
                 "actions(mute=${foundMute != null}, unmute=${foundUnmute != null}, " +
                 "hangUp=${foundHangUp != null}, answer=${foundAnswer != null}, decline=${foundDecline != null})"
         )

@@ -40,14 +40,23 @@ class HandoverSyncTest {
         val packet = HandoverSyncState.decode(from.pendingHandoverChanges().getValue(address).encode())
         val response = to.mergeRemoteHandover(address, packet)
         from.mergeRemoteHandover(address, HandoverSyncState.decode(response.encode()))
+        // Simultaneous local grants can leave the winning side awaiting its own acknowledgment.
+        if (to.has(address, DeviceConnectionType.BT_HANDOVER) && from.has(address, DeviceConnectionType.BT_HANDOVER) &&
+            to.pendingHandoverChanges().containsKey(address)) {
+            val pending = to.pendingHandoverChanges().getValue(address)
+            to.mergeRemoteHandover(address, from.mergeRemoteHandover(address, pending))
+        }
     }
 
-    @Test fun `one explicit setup creates both app entries and waits for acknowledgment`() {
+    @Test fun `both devices must explicitly approve setup`() {
         first.add(address, DeviceConnectionType.WIFI_RELAY, verified = true)
         second.add(address, DeviceConnectionType.WIFI_RELAY, verified = true)
         first.add(address, DeviceConnectionType.BT_HANDOVER)
         assertFalse(first.handoverReady(address))
         assertFalse(second.has(address, DeviceConnectionType.BT_HANDOVER))
+        assertThrows(IllegalArgumentException::class.java) { deliver(first, second) }
+        assertFalse(second.has(address, DeviceConnectionType.BT_HANDOVER))
+        second.add(address, DeviceConnectionType.BT_HANDOVER)
         deliver(first, second)
         assertTrue(first.handoverReady(address))
         assertTrue(second.handoverReady(address))
@@ -58,6 +67,7 @@ class HandoverSyncTest {
     }
 
     @Test fun `offline removal persists across restart and removes the other entry after reconnect`() {
+        second.add(address, DeviceConnectionType.BT_HANDOVER)
         first.add(address, DeviceConnectionType.BT_HANDOVER)
         deliver(first, second)
         first.remove(address, DeviceConnectionType.BT_HANDOVER)
@@ -71,6 +81,7 @@ class HandoverSyncTest {
     }
 
     @Test fun `delayed creation acknowledgment cannot erase a newer pending deletion`() {
+        second.add(address, DeviceConnectionType.BT_HANDOVER)
         first.add(address, DeviceConnectionType.BT_HANDOVER)
         val creation = first.handoverState(address)!!
         val reply = second.mergeRemoteHandover(address, creation)
@@ -84,6 +95,7 @@ class HandoverSyncTest {
     }
 
     @Test fun `replayed creation cannot recreate a deleted connection`() {
+        second.add(address, DeviceConnectionType.BT_HANDOVER)
         first.add(address, DeviceConnectionType.BT_HANDOVER)
         val oldCreation = first.handoverState(address)!!
         deliver(first, second)
@@ -92,6 +104,22 @@ class HandoverSyncTest {
         assertFalse(second.mergeRemoteHandover(address, oldCreation).enabled)
         assertFalse(second.has(address, DeviceConnectionType.BT_HANDOVER))
         assertTrue(second.pendingHandoverChanges().isEmpty())
+    }
+
+    @Test fun `unknown peer removal cannot create a revision that blocks future consent`() {
+        val remote = HandoverSyncState(Long.MAX_VALUE - 1, "00000000-0000-4000-8000-000000000001", false)
+        assertEquals(remote, first.mergeRemoteHandover(address, remote))
+        assertNull(first.handoverState(address))
+        first.add(address, DeviceConnectionType.BT_HANDOVER)
+        assertEquals(1L, first.handoverState(address)!!.revision)
+    }
+
+    @Test fun `bonded peer cannot restore handover after local removal`() {
+        first.add(address, DeviceConnectionType.BT_HANDOVER)
+        first.remove(address, DeviceConnectionType.BT_HANDOVER)
+        val forged = HandoverSyncState(100, "00000000-0000-4000-8000-000000000001", true)
+        assertFalse(first.mergeRemoteHandover(address, forged).enabled)
+        assertFalse(first.has(address, DeviceConnectionType.BT_HANDOVER))
     }
 
     @Test fun `concurrent add and delete converge to deletion regardless of delivery order`() {
@@ -115,6 +143,7 @@ class HandoverSyncTest {
         deliver(first, second)
         val removedRevision = first.handoverState(address)!!.revision
         second.add(address, DeviceConnectionType.BT_HANDOVER)
+        first.add(address, DeviceConnectionType.BT_HANDOVER)
         deliver(second, first)
         assertTrue(first.handoverReady(address))
         assertTrue(second.handoverReady(address))
@@ -122,7 +151,9 @@ class HandoverSyncTest {
     }
 
     @Test fun `duplicate requests and replies are idempotent and do not create echo changes`() {
+        second.add(address, DeviceConnectionType.BT_HANDOVER)
         first.add(address, DeviceConnectionType.BT_HANDOVER)
+        deliver(first, second)
         val request = first.handoverState(address)!!
         repeat(3) {
             val reply = second.mergeRemoteHandover(address, request)
@@ -135,6 +166,7 @@ class HandoverSyncTest {
     }
 
     @Test fun `acknowledging one peer leaves other pending changes alone`() {
+        second.add(address, DeviceConnectionType.BT_HANDOVER)
         val other = "AA:BB:CC:DD:EE:02"
         first.add(address, DeviceConnectionType.BT_HANDOVER)
         first.remove(other, DeviceConnectionType.BT_HANDOVER)
@@ -189,12 +221,14 @@ class HandoverSyncTest {
         first.add(address, DeviceConnectionType.BT_HANDOVER)
         assertOptions(firstContext, true)
         assertOptions(secondContext, false)
+        second.add(address, DeviceConnectionType.BT_HANDOVER)
         deliver(first, second)
         assertOptions(firstContext, true)
         assertOptions(secondContext, true)
     }
 
     @Test fun `later peers acknowledgments and readding after restart preserve opt outs`() {
+        second.add(address, DeviceConnectionType.BT_HANDOVER)
         first.add(address, DeviceConnectionType.BT_HANDOVER)
         // Opting out while setup is pending must survive the acknowledgment.
         setOptions(firstContext, false)
@@ -206,11 +240,13 @@ class HandoverSyncTest {
         deliver(first, second)
         val reloaded = DeviceConnectionStore(firstContext)
         reloaded.add(address, DeviceConnectionType.BT_HANDOVER)
+        second.add(address, DeviceConnectionType.BT_HANDOVER)
         deliver(reloaded, second)
         assertOptions(firstContext, false)
     }
 
     @Test fun `upgrading existing BT entries preserves prior opt outs`() {
+        second.add(address, DeviceConnectionType.BT_HANDOVER)
         setOptions(firstContext, false)
         first.preferences.edit().putStringSet("types_$address", setOf(DeviceConnectionType.BT_HANDOVER.name)).commit()
         first.migrate(listOf(address))

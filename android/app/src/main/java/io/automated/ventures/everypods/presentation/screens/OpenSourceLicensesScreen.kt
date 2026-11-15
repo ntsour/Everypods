@@ -27,6 +27,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -41,6 +43,7 @@ import com.mikepenz.aboutlibraries.ui.compose.m3.LibrariesContainer
 import com.mikepenz.aboutlibraries.ui.compose.produceLibraries
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import kotlinx.coroutines.Job
+import io.automated.ventures.everypods.utils.openEveryPodsSupportEmail
 import io.automated.ventures.everypods.R
 import io.automated.ventures.everypods.presentation.components.StyledScaffold
 import kotlin.io.encoding.ExperimentalEncodingApi
@@ -68,6 +71,9 @@ fun OpenSourceLicensesScreen(navController: NavController) {
         ) {
             Spacer(modifier = Modifier.height(spacerHeight))
             val context = LocalContext.current
+            TextButton(onClick = { context.openEveryPodsSupportEmail(subject = "EveryPods source code request") }) {
+                Text(stringResource(R.string.source_code_request))
+            }
             val libraries by produceLibraries {
                 context.resources.openRawResource(R.raw.aboutlibraries)
                     .bufferedReader()

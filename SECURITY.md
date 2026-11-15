@@ -18,11 +18,13 @@ issues, pull requests, or support emails.
 
 ## Repository protection
 
-`main` is protected on GitHub. Changes must go through a pull request with one
-approval, resolved review conversations, up-to-date required checks, linear
-history, and no force pushes or branch deletion. Required checks are Android
-CI, CodeQL, and dependency review. Administrators are subject to these rules.
+The repository is private. On the current GitHub plan, branch protection,
+private-repository CodeQL scanning, and the dependency review action are
+unavailable; review changes and run the Android checks before merging. Do not assume GitHub enforces those checks.
 
-The manual Play bundle workflow uses the protected `play-release` environment.
-Its signing secrets must stay in that environment and must never be committed
-to this repository.
+The manual Play bundle workflow names the `play-release` environment. On GitHub
+Free, private-repository environment secrets and deployment protections are
+ignored; do not use the workflow until the account supports those features and
+its `main`-only environment policy and secrets have been verified. Build release
+bundles locally with the configured release signing key in the meantime. Signing
+keys and passwords must never be committed to this repository.

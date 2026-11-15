@@ -92,7 +92,6 @@ import io.automated.ventures.everypods.presentation.components.StyledBottomSheet
 import io.automated.ventures.everypods.presentation.components.StyledButton
 import io.automated.ventures.everypods.presentation.components.StyledIconButton
 import io.automated.ventures.everypods.presentation.components.StyledInputField
-import io.automated.ventures.everypods.utils.openEveryPodsIssues
 import io.automated.ventures.everypods.utils.openEveryPodsSupportEmail
 import io.automated.ventures.everypods.presentation.components.StyledScaffold
 import io.automated.ventures.everypods.presentation.components.SettingsSection
@@ -330,21 +329,6 @@ fun AppSettingsScreen(
                     independent = false
                 )
 
-                HorizontalDivider(
-                    thickness = 1.dp,
-                    color = Color(0x40888888),
-                    modifier = Modifier.padding(horizontal = 12.dp)
-                )
-
-                NavigationButton(
-                    to = "",
-                    name = stringResource(R.string.github_issues),
-                    navController = navController,
-                    onClick = {
-                        context.openEveryPodsIssues()
-                    },
-                    independent = false
-                )
             }
 
             Spacer(modifier = Modifier.height(20.dp))

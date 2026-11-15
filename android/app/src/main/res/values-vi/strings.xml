@@ -182,7 +182,7 @@
     <string name="connected_via_bluetooth">Đã kết nối qua Bluetooth</string>
     <string name="connected_via_bluetooth_description">Công việc âm thanh và chuyển giao. Các tính năng nâng cao (kiểm soát tiếng ồn, phát hiện tai, v.v.) cần có kết nối AACP, hiện không có trên thiết bị này.</string>
     <string name="connections_empty">Chưa có điện thoại nào khác được thêm vào.</string>
-    <string name="connections_guide">Quản lý các thiết bị Android dùng chung AirPods này. Cần kết nối BT để chuyển giao giữa các thiết bị. Cần kết nối Wi-Fi để truyền âm thanh.</string>
+    <string name="connections_guide">Quản lý các thiết bị Android dùng chung AirPods này. Thêm kết nối BT trên cả hai điện thoại để bật chuyển giao. Cần Wi-Fi để truyền âm thanh.</string>
     <string name="connections_title">Kết nối</string>
     <string name="contact">Liên hệ</string>
     <string name="conversational_awareness_master_description">Giảm âm lượng phương tiện (và tùy ý tạm dừng nhạc) khi bạn bắt đầu nói. Cần thiết cho các tùy chọn bên dưới.</string>
@@ -210,7 +210,7 @@
     <string name="focus_strongest">Tập trung mạnh nhất</string>
     <string name="focused">Tập trung</string>
     <string name="free_features">Tính năng miễn phí</string>
-    <string name="get_help_guide">Liên hệ với bộ phận hỗ trợ qua email hoặc mở vấn đề GitHub.</string>
+    <string name="get_help_guide">Liên hệ bộ phận hỗ trợ qua email.</string>
     <string name="get_help_title">Nhận trợ giúp</string>
     <string name="github_issues">Sự cố GitHub</string>
     <string name="handover_guide">Khi được bật, điện thoại này có thể nhận AirPods nếu bạn bắt đầu nghe nhạc hoặc nhận cuộc gọi. Chỉ hoạt động giữa các thiết bị được kết nối.</string>
@@ -1031,4 +1031,5 @@ Yêu cầu giao thức: %4$d</string>
     <string name="speech_heart_rate_value">Nhịp tim: %1$d nhịp mỗi phút</string>
     <string name="speech_heart_rate_unavailable">Không có dữ liệu nhịp tim</string>
     <string name="privacy_policy">Chính sách quyền riêng tư</string>
+    <string name="source_code_request">Yêu cầu mã nguồn qua email</string>
 </resources>

@@ -246,7 +246,7 @@ class MainActivity : ComponentActivity() {
         Log.i(StartupGate.TAG, "activity onDestroy finishing=$isFinishing")
         // Service bind/unbind is owned by Main()'s DisposableEffect so onStop no longer
         // drops the connection (that left the UI stuck on "Starting…" after any stop).
-        sendBroadcast(Intent(AirPodsNotifications.DISCONNECT_RECEIVERS))
+        sendBroadcast(Intent(AirPodsNotifications.DISCONNECT_RECEIVERS).setPackage(packageName))
         super.onDestroy()
     }
 }

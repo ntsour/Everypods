@@ -24,7 +24,7 @@ and firmware in use.
 ## Support
 
 - Email: `automated.ventures.apps@gmail.com`
-- Bug reports and feature requests: [GitHub Issues](https://github.com/ntsour/Everypods/issues)
+- Bug reports, feature requests, and source-code requests: email the support address above.
 
 Please include the Android version, AirPods model, app version, and a short
 description of the problem. Do not post private logs, Bluetooth addresses, or
@@ -53,8 +53,9 @@ See [docs/versioning.md](./docs/versioning.md) for release numbering.
 ## Privacy and Security
 
 See the [privacy policy](https://ntsour.github.io/Everypods/privacy/) for the
-permissions and local data model. The source is also available in
-[PRIVACY.md](./PRIVACY.md). See [SECURITY.md](./SECURITY.md) for private
+permissions and local data model. The public policy is hosted separately in
+`ntsour/ntsour.github.io`; update that repository when changing the policy.
+The source is also available in [PRIVACY.md](./PRIVACY.md). See [SECURITY.md](./SECURITY.md) for private
 vulnerability reporting guidance.
 
 ## License and Attribution

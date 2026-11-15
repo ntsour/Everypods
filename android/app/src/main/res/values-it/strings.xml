@@ -181,7 +181,7 @@
     <string name="connected_via_bluetooth">Connesso tramite Bluetooth</string>
     <string name="connected_via_bluetooth_description">Lavoro audio e di consegna. Le funzionalità avanzate (controllo del rumore, rilevamento dell\'orecchio, ecc.) richiedono la connessione AACP, che non è disponibile su questo dispositivo.</string>
     <string name="connections_empty">Nessun altro telefono ancora aggiunto.</string>
-    <string name="connections_guide">Gestisci i dispositivi Android che condividono questi AirPods. Le connessioni BT sono necessarie per Handover. Le connessioni Wi-Fi sono necessarie per la trasmissione audio.</string>
+    <string name="connections_guide">Gestisci i dispositivi Android che condividono questi AirPods. Aggiungi la connessione BT su entrambi i telefoni per attivare il passaggio. Il Wi-Fi è necessario per trasmettere audio.</string>
     <string name="connections_title">Connessioni</string>
     <string name="contact">Contatto</string>
     <string name="conversational_awareness_master_description">Abbassa il volume dei contenuti multimediali (e facoltativamente metti in pausa la musica) quando inizi a parlare. Obbligatorio per le opzioni seguenti.</string>
@@ -210,7 +210,7 @@
     <string name="focus_strongest">Concentrati al massimo</string>
     <string name="focused">Concentrato</string>
     <string name="free_features">Funzionalità gratuite</string>
-    <string name="get_help_guide">Contatta l\'assistenza via email o apri un problema su GitHub.</string>
+    <string name="get_help_guide">Contatta il supporto via email.</string>
     <string name="get_help_title">Ottieni aiuto</string>
     <string name="github_issues">Problemi di GitHub</string>
     <string name="handover_guide">Se abilitato, questo telefono può supportare gli AirPods se avvii contenuti multimediali o ricevi una chiamata. Funziona solo tra dispositivi collegati.</string>
@@ -1031,4 +1031,5 @@ Richieste protocollo: %4$d</string>
     <string name="speech_heart_rate_value">Frequenza cardiaca: %1$d battiti al minuto</string>
     <string name="speech_heart_rate_unavailable">Frequenza cardiaca non disponibile</string>
     <string name="privacy_policy">Informativa sulla privacy</string>
+    <string name="source_code_request">Richiedi il codice sorgente via email</string>
 </resources>

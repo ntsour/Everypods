@@ -24,6 +24,9 @@ class DeviceConnectionStore(context: Context) {
 
     fun handoverReady(address: String): Boolean = has(address, DeviceConnectionType.BT_HANDOVER) && !preferences.contains(handoverPendingKey(address))
 
+    /** Only a completed local handover grant or a verified relay permits coordination. */
+    fun coordinationAuthorized(address: String): Boolean = handoverReady(address) || authorized(address)
+
     fun configuredHandoverPeers(addresses: Collection<String>): Set<String> = addresses
         .filter(::handoverReady).map(::mac).toSet()
 
@@ -61,7 +64,8 @@ class DeviceConnectionStore(context: Context) {
         val edit = preferences.edit().putStringSet(key(address), types)
         if (type == DeviceConnectionType.WIFI_RELAY) {
             edit.putBoolean("verified_${mac(address)}", verified)
-            edit.putStringSet("pending_revocations", pendingRevocations() - mac(address))
+            // A new pairing attempt is not consent to cancel a pending removal.
+            if (verified) edit.putStringSet("pending_revocations", pendingRevocations() - mac(address))
         }
         if (type == DeviceConnectionType.BT_HANDOVER) {
             initializeHandoverOptions(preserveChoices = hasHandoverHistory())
@@ -121,6 +125,16 @@ class DeviceConnectionStore(context: Context) {
     /** Commit before replying: replayed requests and delayed replies cannot undo newer user actions. */
     fun mergeRemoteHandover(address: String, remote: HandoverSyncState): HandoverSyncState = synchronized(mutationLock) {
         val local = handoverState(address)
+        // A Bluetooth bond alone is not consent to grant or restore handover.
+        // A removal from an unknown device is acknowledged without creating state.
+        if (local == null && !has(address, DeviceConnectionType.BT_HANDOVER) && !remote.enabled) {
+            return@synchronized remote
+        }
+        if (remote.enabled && !has(address, DeviceConnectionType.BT_HANDOVER)) {
+            // A saved local removal wins regardless of the remote revision.
+            return@synchronized local?.takeIf { !it.enabled }
+                ?: throw IllegalArgumentException("Enable BT handover on this device first")
+        }
         if (local != null && local > remote) return@synchronized local
         if (remote.enabled) initializeHandoverOptions(preserveChoices = hasHandoverHistory())
         val types = preferences.getStringSet(key(address), emptySet())!!.toMutableSet()

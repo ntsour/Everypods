@@ -37,7 +37,7 @@
     <string name="disconnected_hero_guide">Tap Reconnect if you paired before to force connection.</string>
     <string name="reconnect_to_last">Reconnect to last device</string>
     <string name="connections_title">Connections</string>
-    <string name="connections_guide">Manage the Android phones that share these AirPods. BT connections are required for handover. Wi-Fi connections are required for audio transmission.</string>
+    <string name="connections_guide">Manage the Android phones that share these AirPods. Add the BT connection on both phones to enable handover. Wi-Fi connections are required for audio transmission.</string>
     <string name="connections_empty">No other phones added yet.</string>
     <string name="add_peer">Add device</string>
     <string name="add_peer_android_device">Add Android device</string>
@@ -57,7 +57,7 @@
     <string name="find_my_airpods_title">Find My AirPods</string>
     <string name="find_my_airpods_guide">Walk room to room and use signal strength to locate the case.</string>
     <string name="get_help_title">Get Help</string>
-    <string name="get_help_guide">Contact support by email or open a GitHub issue.</string>
+    <string name="get_help_guide">Contact support by email.</string>
     <string name="connected_via_bluetooth">Connected via Bluetooth</string>
     <string name="connected_via_bluetooth_description">Audio and handover work. Advanced features (noise control, ear detection, etc.) need the AACP connection, which is unavailable on this device.</string>
     <string name="back">Back</string>
@@ -1048,4 +1048,5 @@ Protocol requests: %4$d</string>
     <string name="speech_heart_rate_value">Heart rate: %1$d beats per minute</string>
     <string name="speech_heart_rate_unavailable">Heart rate unavailable</string>
     <string name="privacy_policy">Privacy policy</string>
+    <string name="source_code_request">Request source code by email</string>
 </resources>

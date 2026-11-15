@@ -131,7 +131,6 @@ class NotificationAnnouncementService : NotificationListenerService() {
         if (!shouldAnnounce(sbn)) return
         val text = buildAnnouncement(sbn) ?: return
         if (isDuplicateAnnouncement(sbn, text)) return
-        Log.d(TAG, "Announcing from ${sbn.packageName}: \"$text\"")
         announceText(text)
     }
 

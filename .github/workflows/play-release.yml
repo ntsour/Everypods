@@ -29,6 +29,11 @@ jobs:
           RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: |
+          set -euo pipefail
+          : "${RELEASE_KEYSTORE_FILE:?Missing release keystore}"
+          : "${RELEASE_STORE_PASSWORD:?Missing store password}"
+          : "${RELEASE_KEY_ALIAS:?Missing key alias}"
+          : "${RELEASE_KEY_PASSWORD:?Missing key password}"
           echo "$RELEASE_KEYSTORE_FILE" | base64 --decode > android/release.keystore
           cat > android/local.properties <<EOF
           RELEASE_STORE_FILE=../release.keystore

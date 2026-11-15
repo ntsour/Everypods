@@ -103,7 +103,6 @@ object ElevenLabsEngine {
         executor.submit {
             // Abort early if stop() was called after this task was enqueued.
             if (generation.get() != myGen) {
-                Log.d(TAG, "Task superseded, skipping \"${text.take(40)}\"")
                 speaking.set(false)
                 return@submit
             }
@@ -120,7 +119,6 @@ object ElevenLabsEngine {
                 return@submit
             }
             try {
-                Log.d(TAG, "Fetching audio (gen=$myGen): \"${text.take(60)}\"")
                 val bytes = fetchAudio(text, apiKey, voiceId, languageCode)
                 // Re-check: stop() may have been called during the network fetch.
                 if (generation.get() != myGen) {
@@ -166,9 +164,9 @@ object ElevenLabsEngine {
                 latch.await()   // wait for MediaPlayer onCompletion/onError
                 playbackLatch = null
             } catch (e: Exception) {
-                Log.e(TAG, "speak() failed: ${e.message}")
+                Log.e(TAG, "ElevenLabs speech failed (${e.javaClass.simpleName})")
                 speaking.set(false)
-                onFallback(e.message ?: "Unknown error")
+                onFallback("ElevenLabs speech failed")
             }
         }
     }
@@ -289,8 +287,9 @@ object ElevenLabsEngine {
 
         val code = conn.responseCode
         if (code != 200) {
-            val err = conn.errorStream?.use { it.readBytes().toString(Charsets.UTF_8) } ?: ""
-            Log.w(TAG, "fetchAudio HTTP $code: $err")
+            // Server error bodies can echo the submitted announcement or credentials.
+            conn.errorStream?.close()
+            Log.w(TAG, "fetchAudio HTTP $code")
             return null
         }
         return conn.inputStream.use { it.readBytes() }
