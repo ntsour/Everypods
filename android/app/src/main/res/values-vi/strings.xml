@@ -210,7 +210,7 @@
     <string name="focus_strongest">Tập trung mạnh nhất</string>
     <string name="focused">Tập trung</string>
     <string name="free_features">Tính năng miễn phí</string>
-    <string name="get_help_guide">Liên hệ với bộ phận hỗ trợ qua email hoặc mở vấn đề GitHub.</string>
+    <string name="get_help_guide">Liên hệ bộ phận hỗ trợ qua email.</string>
     <string name="get_help_title">Nhận trợ giúp</string>
     <string name="github_issues">Sự cố GitHub</string>
     <string name="handover_guide">Khi được bật, điện thoại này có thể nhận AirPods nếu bạn bắt đầu nghe nhạc hoặc nhận cuộc gọi. Chỉ hoạt động giữa các thiết bị được kết nối.</string>
@@ -1031,4 +1031,5 @@ Yêu cầu giao thức: %4$d</string>
     <string name="speech_heart_rate_value">Nhịp tim: %1$d nhịp mỗi phút</string>
     <string name="speech_heart_rate_unavailable">Không có dữ liệu nhịp tim</string>
     <string name="privacy_policy">Chính sách quyền riêng tư</string>
+    <string name="source_code_request">Yêu cầu mã nguồn qua email</string>
 </resources>

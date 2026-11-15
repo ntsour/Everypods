@@ -215,7 +215,7 @@
     <string name="focus_strongest">Seleccionar señal más intensa</string>
     <string name="focused">Señal seleccionada</string>
     <string name="free_features">Funciones gratuitas</string>
-    <string name="get_help_guide">Contacta con nosotros por correo electrónico o abre una incidencia en GitHub.</string>
+    <string name="get_help_guide">Contacta con soporte por correo electrónico.</string>
     <string name="get_help_title">Obtener ayuda</string>
     <string name="github_issues">Incidencias en GitHub</string>
     <string name="handover_guide">Si activas esta opción, este teléfono puede conectarse a los AirPods cuando reproduzcas audio o recibas una llamada. Solo funciona entre dispositivos conectados.</string>
@@ -1033,4 +1033,5 @@ Solicitudes del protocolo: %4$d</string>
     <string name="speech_heart_rate_value">Frecuencia cardíaca: %1$d latidos por minuto</string>
     <string name="speech_heart_rate_unavailable">Frecuencia cardíaca no disponible</string>
     <string name="privacy_policy">Política de privacidad</string>
+    <string name="source_code_request">Solicitar el código fuente por correo</string>
 </resources>

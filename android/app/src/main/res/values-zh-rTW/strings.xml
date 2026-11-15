@@ -220,7 +220,7 @@
     <string name="focus_strongest">焦點最強</string>
     <string name="focused">專注</string>
     <string name="free_features">免費功能</string>
-    <string name="get_help_guide">透過電子郵件聯絡支援人員或開啟 GitHub 問題。</string>
+    <string name="get_help_guide">透過電子郵件聯絡支援人員。</string>
     <string name="get_help_title">獲取協助</string>
     <string name="handover_guide">啟用後，如果您開始播放媒體或接聽電話，此手機可以接聽 AirPods。僅適用於連接的裝置之間。</string>
     <string name="handover_needs_peer_helper">新增藍牙連接以協調裝置。播放開始時的自動連線也可在沒有對等裝置的情況下運作。</string>
@@ -1031,4 +1031,5 @@
     <string name="speech_heart_rate_value">心率：每分鐘 %1$d 下</string>
     <string name="speech_heart_rate_unavailable">心率無法使用</string>
     <string name="privacy_policy">隱私權政策</string>
+    <string name="source_code_request">透過電子郵件索取原始碼</string>
 </resources>

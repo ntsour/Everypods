@@ -133,7 +133,6 @@ import io.automated.ventures.everypods.utils.GymTimer
 import io.automated.ventures.everypods.utils.SleepTimer
 import io.automated.ventures.everypods.utils.SmartFeaturesPrefs
 import io.automated.ventures.everypods.utils.openEveryPodsPrivacyPolicy
-import io.automated.ventures.everypods.utils.openEveryPodsIssues
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.VolunteerActivism
 import androidx.compose.material3.Icon
@@ -968,9 +967,6 @@ private fun HelpContent(
         MenuDivider()
         MenuNavRow(stringResource(R.string.ui_email_support), dark) {
             context.openEveryPodsSupportEmail()
-        }
-        MenuNavRow(stringResource(R.string.github_issues), dark) {
-            context.openEveryPodsIssues()
         }
         MenuDivider()
         MenuNavRow(stringResource(R.string.privacy_policy), dark) { context.openEveryPodsPrivacyPolicy() }

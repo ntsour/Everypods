@@ -24,7 +24,7 @@ and firmware in use.
 ## Support
 
 - Email: `automated.ventures.apps@gmail.com`
-- Bug reports and feature requests: [GitHub Issues](https://github.com/ntsour/Everypods/issues)
+- Bug reports, feature requests, and source-code requests: email the support address above.
 
 Please include the Android version, AirPods model, app version, and a short
 description of the problem. Do not post private logs, Bluetooth addresses, or

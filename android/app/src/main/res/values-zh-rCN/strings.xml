@@ -209,7 +209,7 @@
     <string name="focus_strongest">焦点最强</string>
     <string name="focused">专注</string>
     <string name="free_features">免费功能</string>
-    <string name="get_help_guide">通过电子邮件联系支持人员或打开 GitHub 问题。</string>
+    <string name="get_help_guide">通过电子邮件联系支持人员。</string>
     <string name="get_help_title">获取帮助</string>
     <string name="github_issues">GitHub 问题</string>
     <string name="handover_guide">启用后，如果您开始播放媒体或接听电话，此手机可以接听 AirPods。仅适用于连接的设备之间。</string>
@@ -1030,4 +1030,5 @@
     <string name="speech_heart_rate_value">心率：每分钟 %1$d 次</string>
     <string name="speech_heart_rate_unavailable">心率不可用</string>
     <string name="privacy_policy">隐私政策</string>
+    <string name="source_code_request">通过电子邮件请求源代码</string>
 </resources>

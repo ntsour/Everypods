@@ -56,7 +56,7 @@
     <string name="find_my_airpods_title">Εύρεση AirPods</string>
     <string name="find_my_airpods_guide">Μετακινηθείτε από δωμάτιο σε δωμάτιο και χρησιμοποιήστε την ισχύ του σήματος για να εντοπίσετε τη θήκη.</string>
     <string name="get_help_title">Βοήθεια</string>
-    <string name="get_help_guide">Επικοινωνήστε μέσω email ή αναφέρετε πρόβλημα στο GitHub.</string>
+    <string name="get_help_guide">Επικοινωνήστε με την υποστήριξη μέσω email.</string>
     <string name="connected_via_bluetooth">Σύνδεση μέσω Bluetooth</string>
     <string name="connected_via_bluetooth_description">Ο ήχος και η εναλλαγή συσκευής λειτουργούν. Οι προηγμένες λειτουργίες, όπως ο έλεγχος θορύβου και η ανίχνευση αυτιού, απαιτούν σύνδεση AACP, η οποία δεν διατίθεται σε αυτή τη συσκευή.</string>
     <string name="back">Πίσω</string>
@@ -996,4 +996,5 @@
     <string name="speech_heart_rate_value">Καρδιακός ρυθμός: %1$d παλμοί ανά λεπτό</string>
     <string name="speech_heart_rate_unavailable">Ο καρδιακός ρυθμός δεν είναι διαθέσιμος</string>
     <string name="privacy_policy">Πολιτική απορρήτου</string>
+    <string name="source_code_request">Ζητήστε τον πηγαίο κώδικα μέσω email</string>
 </resources>

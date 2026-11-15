@@ -210,7 +210,7 @@
     <string name="focus_strongest">Concentrati al massimo</string>
     <string name="focused">Concentrato</string>
     <string name="free_features">Funzionalità gratuite</string>
-    <string name="get_help_guide">Contatta l\'assistenza via email o apri un problema su GitHub.</string>
+    <string name="get_help_guide">Contatta il supporto via email.</string>
     <string name="get_help_title">Ottieni aiuto</string>
     <string name="github_issues">Problemi di GitHub</string>
     <string name="handover_guide">Se abilitato, questo telefono può supportare gli AirPods se avvii contenuti multimediali o ricevi una chiamata. Funziona solo tra dispositivi collegati.</string>
@@ -1031,4 +1031,5 @@ Richieste protocollo: %4$d</string>
     <string name="speech_heart_rate_value">Frequenza cardiaca: %1$d battiti al minuto</string>
     <string name="speech_heart_rate_unavailable">Frequenza cardiaca non disponibile</string>
     <string name="privacy_policy">Informativa sulla privacy</string>
+    <string name="source_code_request">Richiedi il codice sorgente via email</string>
 </resources>

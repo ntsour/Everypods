@@ -162,7 +162,6 @@ import io.automated.ventures.everypods.presentation.viewmodel.AirPodsViewModel
 import io.automated.ventures.everypods.presentation.viewmodel.AppSettingsViewModel
 import io.automated.ventures.everypods.utils.SleepTimer
 import io.automated.ventures.everypods.utils.SmartFeaturesPrefs
-import io.automated.ventures.everypods.utils.openEveryPodsIssues
 import io.automated.ventures.everypods.utils.openEveryPodsSupportEmail
 import kotlin.io.encoding.ExperimentalEncodingApi
 import java.text.Normalizer
@@ -322,7 +321,6 @@ private fun buildSearchIndex(context: Context): List<SearchableItem> = listOf(
     SearchableItem(context.getString(R.string.ui_app_version), "Help & Troubleshooting", "help", "category/help?anchor=app_version", keywords = listOf("about app", "versión de la aplicación")),
     SearchableItem(context.getString(R.string.buy_price),       "Help & Troubleshooting", "help", "purchase_screen", keywords = listOf("tip", "donate", "support", "coffee")),
     SearchableItem(context.getString(R.string.ui_email_support),            "Help & Troubleshooting", "help", "email_support", keywords = listOf("contact")),
-    SearchableItem(context.getString(R.string.ui_github_issues),            "Help & Troubleshooting", "help", "github_issues", keywords = listOf("bug", "report")),
     SearchableItem(context.getString(R.string.ui_speech_language), "Smart Features", "smart", "notification_announcements?target=speech_language", keywords = listOf("Speech language", "voice language", "idioma de voz", "idioma hablado")),
     SearchableItem(context.getString(R.string.ui_quiet_hours), "Smart Features", "smart", "notification_announcements?target=quiet_hours", keywords = listOf("Quiet hours", "do not disturb", "horas tranquilas", "no molestar")),
     SearchableItem(context.getString(R.string.ui_battery_in_widget), "App Settings", "appsettings", "phone_battery", keywords = listOf("phone battery", "widget battery", "batería del teléfono")),
@@ -1364,9 +1362,6 @@ private fun DisconnectedScreen(
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         StyledButton(onClick = onOpenContact, backdrop = backdrop, modifier = Modifier.weight(1f)) {
                             Text(stringResource(R.string.ui_email), style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro, color = textColor))
-                        }
-                        StyledButton(onClick = { context.openEveryPodsIssues() }, backdrop = backdrop, modifier = Modifier.weight(1f)) {
-                            Text(stringResource(R.string.ui_github), style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro, color = textColor))
                         }
                     }
                 }

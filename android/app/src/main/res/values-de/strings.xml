@@ -114,7 +114,7 @@
     <string name="focused">Konzentriert</string>
     <string name="free_features">Kostenlose Funktionen</string>
     <string name="general_settings_header">Allgemein</string>
-    <string name="get_help_guide">Kontaktieren Sie den Support per E-Mail oder öffnen Sie ein GitHub-Problem.</string>
+    <string name="get_help_guide">Kontaktieren Sie den Support per E-Mail.</string>
     <string name="get_help_title">Holen Sie sich Hilfe</string>
     <string name="github_issues">GitHub-Probleme</string>
     <string name="handover_guide">Wenn diese Option aktiviert ist, kann dieses Telefon die AirPods annehmen, wenn Sie Medien starten oder einen Anruf erhalten. Funktioniert nur zwischen verbundenen Geräten.</string>
@@ -1030,4 +1030,5 @@ Protokollanfragen: %4$d</string>
     <string name="speech_heart_rate_value">Herzfrequenz: %1$d Schläge pro Minute</string>
     <string name="speech_heart_rate_unavailable">Herzfrequenz nicht verfügbar</string>
     <string name="privacy_policy">Datenschutzerklärung</string>
+    <string name="source_code_request">Quellcode per E-Mail anfordern</string>
 </resources>

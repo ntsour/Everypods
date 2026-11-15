@@ -30,7 +30,7 @@ import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import io.automated.ventures.everypods.presentation.components.StyledButton
 import io.automated.ventures.everypods.presentation.components.StyledScaffold
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
-import io.automated.ventures.everypods.utils.openEveryPodsIssues
+import io.automated.ventures.everypods.utils.openEveryPodsSupportEmail
 
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
@@ -39,7 +39,7 @@ fun GitHubIssuesScreen() {
     val dark = isSystemInDarkTheme()
     val cardColor = if (dark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
     
-    StyledScaffold(title = stringResource(R.string.ui_github_issues)) { topPadding, hazeState, bottomPadding ->
+    StyledScaffold(title = stringResource(R.string.ui_email_support)) { topPadding, hazeState, bottomPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -51,12 +51,12 @@ fun GitHubIssuesScreen() {
             Spacer(Modifier.height(topPadding))
             
             Column(Modifier.fillMaxWidth().background(cardColor, RoundedCornerShape(18.dp)).padding(16.dp)) {
-                Text(stringResource(R.string.ui_report_bugs_or_request_feature), style = TextStyle(fontSize = 16.sp, fontFamily = SfPro, color = if (dark) Color.White else Color.Black))
+                Text(stringResource(R.string.get_help_guide), style = TextStyle(fontSize = 16.sp, fontFamily = SfPro, color = if (dark) Color.White else Color.Black))
                 Spacer(Modifier.height(16.dp))
                 StyledButton(onClick = {
-                    context.openEveryPodsIssues()
+                    context.openEveryPodsSupportEmail()
                 }, backdrop = rememberLayerBackdrop(), modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.ui_open_github_issues), style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro, color = Color.White))
+                    Text(stringResource(R.string.ui_email), style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium, fontFamily = SfPro, color = Color.White))
                 }
             }
             

@@ -210,7 +210,7 @@
     <string name="focus_strongest">En Güçlü Odaklanma</string>
     <string name="focused">Odaklanmış</string>
     <string name="free_features">Ücretsiz özellikler</string>
-    <string name="get_help_guide">Destek ekibine e-posta yoluyla ulaşın veya bir GitHub sorunu açın.</string>
+    <string name="get_help_guide">Destek ekibine e-posta ile ulaşın.</string>
     <string name="get_help_title">Yardım Alın</string>
     <string name="github_issues">GitHub Sorunları</string>
     <string name="handover_guide">Etkinleştirildiğinde, medyayı başlatırsanız veya bir çağrı alırsanız bu telefon AirPod\'ları alabilir. Yalnızca bağlı cihazlar arasında çalışır.</string>
@@ -1031,4 +1031,5 @@ Protokol istekleri: %4$d</string>
     <string name="speech_heart_rate_value">Kalp hızı: dakikada %1$d atış</string>
     <string name="speech_heart_rate_unavailable">Kalp hızı kullanılamıyor</string>
     <string name="privacy_policy">Gizlilik politikası</string>
+    <string name="source_code_request">Kaynak kodunu e-posta ile isteyin</string>
 </resources>

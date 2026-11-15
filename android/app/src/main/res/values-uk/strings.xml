@@ -210,7 +210,7 @@
     <string name="focus_strongest">Фокус найсильніший</string>
     <string name="focused">Зосереджений</string>
     <string name="free_features">Безкоштовні функції</string>
-    <string name="get_help_guide">Зв’яжіться зі службою підтримки електронною поштою або відкрийте проблему GitHub.</string>
+    <string name="get_help_guide">Зв’яжіться зі службою підтримки електронною поштою.</string>
     <string name="get_help_title">Отримати допомогу</string>
     <string name="github_issues">Проблеми GitHub</string>
     <string name="handover_guide">Коли ввімкнено, цей телефон може прийняти AirPods, якщо ви запускаєте медіафайл або отримуєте дзвінок. Працює лише між підключеними пристроями.</string>
@@ -1031,4 +1031,5 @@
     <string name="speech_heart_rate_value">Пульс: %1$d ударів на хвилину</string>
     <string name="speech_heart_rate_unavailable">Пульс недоступний</string>
     <string name="privacy_policy">Політика конфіденційності</string>
+    <string name="source_code_request">Запросити вихідний код електронною поштою</string>
 </resources>
