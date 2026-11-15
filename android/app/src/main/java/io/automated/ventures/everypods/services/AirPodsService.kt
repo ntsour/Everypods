@@ -2914,20 +2914,18 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             StemAction.ANNOUNCE_HEART_RATE -> announceHeartRate()
 
             StemAction.TOGGLE_PAUSE_TRANSPARENCY -> {
-                // Play/pause toggle that also flips the listening mode:
-                // pausing -> Transparency (hear surroundings), playing -> Noise Cancellation.
-                val setListeningMode: (Boolean) -> Unit = { wasPlaying ->
-                    val target = if (wasPlaying) NoiseControlMode.TRANSPARENCY else NoiseControlMode.NOISE_CANCELLATION
-                    sendBroadcast(Intent("io.automated.ventures.everypods.SET_ANC_MODE").apply {
-                        setPackage(packageName)
-                        putExtra("mode", target.ordinal + 1)  // wire value = ordinal + 1
-                    })
-                }
-                if (!io.automated.ventures.everypods.relay.RelayPreviewService.toggleReceiverPlayback(setListeningMode)) {
-                    val wasPlaying = MediaController.getMusicActive()
-                    MediaController.sendPlayPause()
-                    setListeningMode(wasPlaying)
-                }
+                // Two independent actions: flip the listening mode (Transparency <-> Noise
+                // Cancellation) from the AirPods' current mode, and send play/pause. Neither
+                // waits for or depends on the other, so a player that ignores play/pause (or a
+                // relay that never answers) cannot block the AirPods mode change.
+                val target = if (ancNotification.status == NoiseControlMode.TRANSPARENCY.ordinal + 1)
+                    NoiseControlMode.NOISE_CANCELLATION else NoiseControlMode.TRANSPARENCY
+                sendBroadcast(Intent("io.automated.ventures.everypods.SET_ANC_MODE").apply {
+                    setPackage(packageName)
+                    putExtra("mode", target.ordinal + 1)  // wire value = ordinal + 1
+                })
+                runCatching { MediaController.sendPlayPause() }
+                    .onFailure { Log.w("AirPodsParser", "Play/pause failed: ${it.message}") }
             }
 
             StemAction.GYM_TIMER_START_STOP -> {
