@@ -269,22 +269,22 @@ fun HeadTrackingScreen(
     }
 }
 
-/** Debug builds only: raw payload capture for gesture research. Text is intentionally untranslated. */
+/** Debug builds only: raw payload capture for gesture research. Its strings are marked non-translatable. */
 @Composable
 private fun MotionRecorderSection() {
     val context = LocalContext.current
     val recorder = io.automated.ventures.everypods.utils.HeadMotionRecorder
     val recording by recorder.state.collectAsState()
-    SettingsSection("Motion recorder (debug)") {
-        Text("Saves raw sensor payloads with the selected label. Recording continues in the background while head tracking is running.",
+    SettingsSection(stringResource(R.string.debug_motion_recorder)) {
+        Text(stringResource(R.string.debug_motion_recorder_help),
             style = gestureSupportingStyle(), modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-        GestureSettingPicker("Label", recording.label, recorder.LABELS.map { it to it }) { recorder.setLabel(it) }
-        GestureSettingAction(if (recording.recording) "Stop recording" else "Start recording") {
+        GestureSettingPicker(stringResource(R.string.debug_motion_recorder_label), recording.label, recorder.LABELS.map { it to it }) { recorder.setLabel(it) }
+        GestureSettingAction(stringResource(if (recording.recording) R.string.debug_motion_recorder_stop else R.string.debug_motion_recorder_start)) {
             if (recording.recording) recorder.stop()
             else recorder.start(java.io.File(context.filesDir, "head-motion"), android.os.SystemClock.elapsedRealtime())
         }
         recording.file?.let {
-            Text("${recording.rows} rows → ${it.name}", style = gestureSupportingStyle(),
+            Text(stringResource(R.string.debug_motion_recorder_rows, recording.rows, it.name), style = gestureSupportingStyle(),
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
         }
     }

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Shown only in debug builds, for gesture research. Deliberately not translated. -->
+<resources>
+    <string name="debug_motion_recorder" translatable="false">Motion recorder (debug)</string>
+    <string name="debug_motion_recorder_help" translatable="false">Saves raw sensor payloads with the selected label. Recording continues in the background while head tracking is running.</string>
+    <string name="debug_motion_recorder_label" translatable="false">Label</string>
+    <string name="debug_motion_recorder_start" translatable="false">Start recording</string>
+    <string name="debug_motion_recorder_stop" translatable="false">Stop recording</string>
+    <string name="debug_motion_recorder_rows" translatable="false">%1$d rows → %2$s</string>
+</resources>
