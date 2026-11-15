@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="audio_relay_preset_test_jitter">Thử: dao động %1$d/%2$d ms</string>
+    <string name="audio_relay_preset_test_jitter_desc">So sánh với Độ trễ thấp. Chỉ thay đổi mức đệm dao động ban đầu và tối đa.</string>
+    <string name="audio_relay_preset_test_playback">Thử: phát %1$d ms</string>
+    <string name="audio_relay_preset_test_playback_desc">So sánh với Độ trễ thấp. Chỉ thay đổi bộ đệm phát; Android có thể dùng bộ đệm lớn hơn.</string>
+    <string name="audio_relay_preset_test_capture">Thử: thu %1$d ms</string>
+    <string name="audio_relay_preset_test_capture_desc">So sánh với Độ trễ thấp. Chỉ thay đổi bộ đệm thu; Android có thể dùng bộ đệm lớn hơn.</string>
+    <string name="audio_relay_preset_test_retransmission">Thử: truyền lại %1$d ms</string>
+    <string name="audio_relay_preset_test_retransmission_desc">So sánh với Độ trễ thấp. Chỉ thay đổi thời hạn truyền lại; giá trị 0 có thể gây ngắt âm thanh nhiều hơn.</string>
+    <string name="audio_relay_preset_test_combined">Thử: kết hợp</string>
+    <string name="audio_relay_preset_test_combined_desc">Đệm dao động 40–80 ms và bộ đệm thu, phát 20 ms. Các cài đặt khác giống Độ trễ thấp. Âm thanh có thể bị ngắt nhiều hơn.</string>
+</resources>

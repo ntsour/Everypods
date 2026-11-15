@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="audio_relay_preset_test_jitter">測試：抖動 %1$d/%2$d 毫秒</string>
+    <string name="audio_relay_preset_test_jitter_desc">與低延遲預設比較。僅變更初始和最大抖動緩衝目標。</string>
+    <string name="audio_relay_preset_test_playback">測試：播放 %1$d 毫秒</string>
+    <string name="audio_relay_preset_test_playback_desc">與低延遲預設比較。僅變更播放緩衝區；Android 可能使用較大的緩衝區。</string>
+    <string name="audio_relay_preset_test_capture">測試：擷取 %1$d 毫秒</string>
+    <string name="audio_relay_preset_test_capture_desc">與低延遲預設比較。僅變更擷取緩衝區；Android 可能使用較大的緩衝區。</string>
+    <string name="audio_relay_preset_test_retransmission">測試：重傳 %1$d 毫秒</string>
+    <string name="audio_relay_preset_test_retransmission_desc">與低延遲預設比較。僅變更重傳時限；設為零可能增加音訊中斷。</string>
+    <string name="audio_relay_preset_test_combined">測試：組合</string>
+    <string name="audio_relay_preset_test_combined_desc">抖動緩衝為 40–80 毫秒，擷取和播放緩衝均為 20 毫秒。其他設定與低延遲預設相同。音訊中斷可能增加。</string>
+</resources>

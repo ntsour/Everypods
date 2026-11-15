@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="audio_relay_preset_test_jitter">Test : gigue %1$d/%2$d ms</string>
+    <string name="audio_relay_preset_test_jitter_desc">Comparez avec Faible latence. Seules les cibles initiale et maximale du tampon de gigue changent.</string>
+    <string name="audio_relay_preset_test_playback">Test : lecture %1$d ms</string>
+    <string name="audio_relay_preset_test_playback_desc">Comparez avec Faible latence. Seul le tampon de lecture change ; Android peut utiliser un tampon plus grand.</string>
+    <string name="audio_relay_preset_test_capture">Test : capture %1$d ms</string>
+    <string name="audio_relay_preset_test_capture_desc">Comparez avec Faible latence. Seul le tampon de capture change ; Android peut utiliser un tampon plus grand.</string>
+    <string name="audio_relay_preset_test_retransmission">Test : retransmission %1$d ms</string>
+    <string name="audio_relay_preset_test_retransmission_desc">Comparez avec Faible latence. Seul le délai de retransmission change ; zéro peut entraîner davantage de coupures audio.</string>
+    <string name="audio_relay_preset_test_combined">Test : combiné</string>
+    <string name="audio_relay_preset_test_combined_desc">Tampon de gigue de 40–80 ms et tampons de capture et de lecture de 20 ms. Les autres réglages correspondent à Faible latence. Des coupures supplémentaires sont possibles.</string>
+</resources>
