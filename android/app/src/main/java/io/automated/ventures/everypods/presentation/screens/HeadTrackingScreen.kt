@@ -108,8 +108,6 @@ import io.automated.ventures.everypods.presentation.components.SettingsSection
 import io.automated.ventures.everypods.presentation.screens.MenuNavRow
 import io.automated.ventures.everypods.presentation.components.StyledToggle
 import io.automated.ventures.everypods.presentation.viewmodel.AirPodsViewModel
-import androidx.lifecycle.viewmodel.compose.viewModel
-import io.automated.ventures.everypods.presentation.viewmodel.AppSettingsViewModel
 import io.automated.ventures.everypods.services.ServiceManager
 import io.automated.ventures.everypods.utils.HeadTracking
 import io.automated.ventures.everypods.utils.HeadGesturePrefs
@@ -127,12 +125,10 @@ import kotlin.random.Random
 fun HeadTrackingScreen(
     viewModel: AirPodsViewModel,
     navController: NavController,
-    appSettingsViewModel: AppSettingsViewModel = viewModel(),
     initialGym: Boolean = false,
     anchor: String? = null,
 ) {
     val state by viewModel.uiState.collectAsState()
-    val appState by appSettingsViewModel.uiState.collectAsState()
     val (prefs, settings) = rememberHeadGestureSettings()
     val service = ServiceManager.getService()
     var advancedExpanded by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
@@ -234,7 +230,7 @@ fun HeadTrackingScreen(
             GestureSettingAction(stringResource(R.string.hg_reset_tuning), enabled = enabled && (!gymProfile || editGym)) {
                 HeadGesturePrefs.resetTuning(prefs, editGym)
             }
-            val advancedAnchor = anchor in setOf("gesture_test", "head_tracking_packets", "head_diagnostics")
+            val advancedAnchor = anchor in setOf("gesture_test", "head_diagnostics")
             LaunchedEffect(advancedAnchor) { if (advancedAnchor) advancedExpanded = true }
             SettingsExpansionHeader(label = stringResource(R.string.hg_advanced_diagnostics), expanded = advancedExpanded,
                 onToggle = {
@@ -264,12 +260,6 @@ fun HeadTrackingScreen(
                 GestureLogSection(gestureLog) { settings.tuningFor(it, gymProfile).axisDominancePercent }
                 SettingsHeading(stringResource(R.string.ui_head_orientation))
                 HeadVisualization()
-            } }
-            AnchorWrapper("head_tracking_packets") { modifier -> SettingsSection(stringResource(R.string.advanced_options), modifier) {
-                StyledToggle(label = stringResource(R.string.use_alternate_head_tracking_packets),
-                    description = stringResource(R.string.use_alternate_head_tracking_packets_description),
-                    checked = appState.useAlternateHeadTrackingPackets, onCheckedChange = appSettingsViewModel::setUseAlternateHeadTrackingPackets,
-                    independent = true, enabled = enabled)
             } }
             if (io.automated.ventures.everypods.BuildConfig.DEBUG) MotionRecorderSection()
             }

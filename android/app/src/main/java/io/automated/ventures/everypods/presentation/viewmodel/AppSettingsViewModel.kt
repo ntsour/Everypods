@@ -25,7 +25,6 @@ data class AppSettingsUiState(
     val takeoverWhenCall: Boolean = false,
     val takeoverWhenRingingCall: Boolean = false,
     val takeoverWhenMediaStart: Boolean = false,
-    val useAlternateHeadTrackingPackets: Boolean = true,
     val conversationalAwarenessVolume: Float = 43f,
     val isPremium: Boolean = true,
     val connectionSuccessful: Boolean = false,
@@ -84,7 +83,6 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
                 takeoverWhenCall = sharedPreferences.getBoolean("takeover_when_call", true),
                 takeoverWhenRingingCall = sharedPreferences.getBoolean("takeover_when_ringing_call", true),
                 takeoverWhenMediaStart = sharedPreferences.getBoolean("takeover_when_media_start", true),
-                useAlternateHeadTrackingPackets = sharedPreferences.getBoolean("use_alternate_head_tracking_packets", true),
                 conversationalAwarenessVolume = sharedPreferences.getInt("conversational_awareness_volume", 43).toFloat(),
                 connectionSuccessful = sharedPreferences.getBoolean("connection_successful", false),
                 showBottomSheetPopup = sharedPreferences.getBoolean("show_bottom_sheet_popup", false),
@@ -141,12 +139,6 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
     fun setTakeoverWhenMediaStart(enabled: Boolean) {
         sharedPreferences.edit { putBoolean("takeover_when_media_start", enabled) }
         _uiState.update { it.copy(takeoverWhenMediaStart = enabled) }
-    }
-
-
-    fun setUseAlternateHeadTrackingPackets(enabled: Boolean) {
-        sharedPreferences.edit { putBoolean("use_alternate_head_tracking_packets", enabled) }
-        _uiState.update { it.copy(useAlternateHeadTrackingPackets = enabled) }
     }
 
     fun setConversationalAwarenessVolume(volume: Float) {

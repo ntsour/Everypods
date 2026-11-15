@@ -16,7 +16,10 @@ object HeadMotionProtocol {
         val vertical: Int,
         /** Head-turning rate, payload offset 26: strong in a shake, weak in a side tilt (2026-11-15 captures). */
         val lateral: Int = 0,
+        /** Sensor service the sample came from. The lateral field is verified on [VERIFIED_SERVICE] only. */
+        val service: Int = VERIFIED_SERVICE,
     )
+    const val VERIFIED_SERVICE = 16
 
     /** One sensor command as sent by the earbuds, before any field interpretation. */
     class RawCommand(val service: Int, val payload: ByteArray)
@@ -26,7 +29,7 @@ object HeadMotionProtocol {
         if (command.service !in 14..16 || payload.size != 58) return@mapNotNull null
         fun signed16(offset: Int): Int = ((payload[offset].toInt() and 255) or
             ((payload[offset + 1].toInt() and 255) shl 8)).toShort().toInt()
-        Sample(signed16(20), signed16(22), signed16(24), signed16(28), signed16(30), signed16(26))
+        Sample(signed16(20), signed16(22), signed16(24), signed16(28), signed16(30), signed16(26), command.service)
     }
 
     /** Every sensor command in wire order, whatever its service or payload length. */

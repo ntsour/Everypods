@@ -122,8 +122,6 @@
     <string name="advanced_options">進階選項</string>
     <string name="set_identity_resolving_key">設定身分解析金鑰 (IRK)</string>
     <string name="set_identity_resolving_key_description">手動設定用於解析 BLE 隨機位址的 IRK 值</string>
-    <string name="use_alternate_head_tracking_packets">使用替代頭部追蹤封包</string>
-    <string name="use_alternate_head_tracking_packets_description">如果頭部追蹤對你無效，請啟用此選項。這會傳送不同的資料給 AirPods 以請求/停止頭部追蹤資料。</string>
     <string name="digital_assistant">語音助理</string>
     <string name="on">開啟</string>
     <string name="camera_remote">相機遙控</string>

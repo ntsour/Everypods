@@ -122,8 +122,6 @@
     <string name="advanced_options">Розширені Налаштування</string>
     <string name="set_identity_resolving_key">Встановити Ключ Ідентифікації (IRK)</string>
     <string name="set_identity_resolving_key_description">Вручну встановити значення IRK, що використовується для розпізнавання випадкових адрес BLE</string>
-    <string name="use_alternate_head_tracking_packets">Використовувати альтернативні пакети відстеження голови</string>
-    <string name="use_alternate_head_tracking_packets_description">Ввімкніть це, якщо відстеження голови не працює у вас. Це надсилає різні дані до AirPods для запиту/зупинки даних відстеження голови.</string>
     <string name="digital_assistant">Цифровий Асистент</string>
     <string name="on">Увімкнено</string>
     <string name="camera_remote">Дистанційне Управління Камерою</string>

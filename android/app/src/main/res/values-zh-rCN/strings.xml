@@ -121,8 +121,6 @@
     <string name="advanced_options">高级选项</string>
     <string name="set_identity_resolving_key">设置身份解析密钥 (IRK)</string>
     <string name="set_identity_resolving_key_description">手动设置用于解析蓝牙低功耗随机地址的 IRK 值。</string>
-    <string name="use_alternate_head_tracking_packets">使用备用头部追踪数据包</string>
-    <string name="use_alternate_head_tracking_packets_description">如果头部追踪对你无效，请启用此选项。这将向 AirPods 发送不同的数据以请求/停止头部追踪数据。</string>
     <string name="digital_assistant">数字助理</string>
     <string name="on">开启</string>
     <string name="camera_remote">相机遥控</string>

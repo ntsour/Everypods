@@ -122,8 +122,6 @@
     <string name="advanced_options">Tùy chọn nâng cao</string>
     <string name="set_identity_resolving_key">Đặt khóa phân giải danh tính (IRK)</string>
     <string name="set_identity_resolving_key_description">Đặt thủ công giá trị IRK được sử dụng để phân giải địa chỉ ngẫu nhiên BLE</string>
-    <string name="use_alternate_head_tracking_packets">Sử dụng gói theo dõi đầu thay thế</string>
-    <string name="use_alternate_head_tracking_packets_description">Bật tính năng này nếu theo dõi chuyển động đầu không hoạt động. Điều này gửi dữ liệu khác đến AirPods để yêu cầu/dừng dữ liệu theo dõi chuyển động đầu.</string>
     <string name="digital_assistant">Trợ lý kỹ thuật số</string>
     <string name="on">Bật</string>
     <string name="camera_remote">Điều khiển máy ảnh từ xa</string>

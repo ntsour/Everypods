@@ -37,7 +37,7 @@ class HeadMotionProtocolTest {
     }
 
     @Test fun `only known motion services produce samples`() {
-        for (service in listOf(14, 15, 16)) assertNotNull(decode(frame(byteArrayOf(1), service)))
+        for (service in listOf(14, 15, 16)) assertEquals(service, decode(frame(byteArrayOf(1), service))!!.service)
         for (service in listOf(11, 19, 20, 84)) assertNull(decode(frame(byteArrayOf(1), service)))
     }
 

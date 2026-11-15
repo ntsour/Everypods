@@ -129,5 +129,19 @@ class HeadGestureStreamTest {
         reconcile(2040)
         assertEquals(HeadGestureStream.State.RECOVERING, stream.state(2040))
     }
+    @Test fun `a request that never delivered is reported once retries are spent`() {
+        reconcile(0); reconcile(2000); reconcile(5000)
+        assertFalse(stream.receivedNothing(9999))
+        reconcile(10000)
+        assertFalse(stream.receivedNothing(11999))
+        assertTrue(stream.receivedNothing(12000))
+    }
+    @Test fun `a stream that delivered and then went quiet is not treated as never delivering`() {
+        reconcile(0)
+        stream.onSample(1, 100)
+        reconcile(2100); reconcile(5100); reconcile(10100)
+        assertEquals(HeadGestureStream.State.UNAVAILABLE, stream.state(13000))
+        assertFalse(stream.receivedNothing(13000))
+    }
 
 }
