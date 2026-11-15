@@ -155,8 +155,10 @@ class RelayPreviewService : Service(), RelaySessionApi {
             override fun onState(mac: String, state: RelayPeerSessionController.PeerState) {
                 scope.launch {
                     if (state.stage == RelayPeerSessionController.Stage.VERIFYING) {
-                        ensurePeerConfigured(mac)
+                        // Create the explicit unverified record before adding peer membership,
+                        // so legacy migration cannot mistake verification for prior consent.
                         if (!connections.authorized(mac)) connections.add(mac, DeviceConnectionType.WIFI_RELAY)
+                        ensurePeerConfigured(mac)
                         promote(ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
                     }
                     Log.i(TAG, "Peer signaling state: ${state.stage}${state.reason?.let { ": $it" } ?: ""}")
@@ -172,7 +174,8 @@ class RelayPreviewService : Service(), RelaySessionApi {
                     }
                     mutableState.value = mutableState.value.copy(peerVerifications = mutableState.value.peerVerifications +
                         (mac.uppercase() to RelayPeerVerification(if (stage in setOf(RelayStage.VERIFYING, RelayStage.TRUSTED, RelayStage.FAILED)) stage else RelayStage.STOPPED, state.verificationCode, state.reason)))
-                    if (mac.uppercase() in connections.pendingRevocations()) return@launch
+                    if (mac.uppercase() in connections.pendingRevocations() &&
+                        state.stage != RelayPeerSessionController.Stage.VERIFYING) return@launch
                     if (mutableState.value.peerMac != mac && mutableState.value.role != RelayRole.NONE) return@launch
                     // Coordination-link updates are not media-playback state changes.
                     if (transports[mac] != null && mutableState.value.stage == RelayStage.SUSPENDED &&
@@ -285,7 +288,7 @@ class RelayPreviewService : Service(), RelaySessionApi {
             while (true) {
                 delay(500)
                 connections.pendingRevocations().forEach { address ->
-                    if (CrossDevice.isConnectedTo(address) && android.os.SystemClock.elapsedRealtime() - (revocationAttempts[address] ?: -5_000L) >= 5_000L) {
+                    if (android.os.SystemClock.elapsedRealtime() - (revocationAttempts[address] ?: -30_000L) >= 30_000L) {
                         revocationAttempts[address] = android.os.SystemClock.elapsedRealtime()
                         deliverRevocation(address)
                     }
@@ -508,6 +511,7 @@ class RelayPreviewService : Service(), RelaySessionApi {
         if (pendingSwitch?.mac.equals(peerMac, ignoreCase = true)) declinePendingSwitch()
         if (mutableState.value.peerMac.equals(peerMac, ignoreCase = true)) stopRelay()
         connections.remove(peerMac, DeviceConnectionType.WIFI_RELAY)
+        if (!connections.coordinationAuthorized(peerMac)) CrossDevice.removePeerTransport(peerMac)
         deliverRevocation(peerMac)
     }
 
@@ -1055,6 +1059,7 @@ class RelayPreviewService : Service(), RelaySessionApi {
         when (signal) {
             WebRtcRelayTransport.Signal.RevokeRelay -> {
                 connections.remove(mac, DeviceConnectionType.WIFI_RELAY, propagate = false)
+                if (!connections.coordinationAuthorized(mac)) CrossDevice.removePeerTransport(mac)
                 if (pendingSwitch?.mac.equals(mac, true)) declinePendingSwitch()
                 if (mutableState.value.peerMac.equals(mac, true)) stopRelay()
                 controller?.sendAuthenticated(mac, RelaySignalCodec.encode(WebRtcRelayTransport.Signal.RevokeRelayAck))

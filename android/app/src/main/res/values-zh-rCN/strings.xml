@@ -181,7 +181,7 @@
     <string name="connected_via_bluetooth">通过蓝牙连接</string>
     <string name="connected_via_bluetooth_description">音频和切换工作。高级功能（噪声控制、耳朵检测等）需要 AACP 连接，该连接在此设备上不可用。</string>
     <string name="connections_empty">尚未添加其他手机。</string>
-    <string name="connections_guide">管理共享这些 AirPods 的 Android 设备。设备切换需要蓝牙连接，音频传输需要 Wi-Fi 连接。</string>
+    <string name="connections_guide">管理共享这些 AirPods 的 Android 设备。在两部手机上添加蓝牙连接以启用设备切换。音频传输需要 Wi-Fi 连接。</string>
     <string name="connections_title">连接</string>
     <string name="contact">联系方式</string>
     <string name="conversational_awareness_master_description">当您开始讲话时，降低媒体音量（并可选择暂停音乐）。以下选项是必需的。</string>

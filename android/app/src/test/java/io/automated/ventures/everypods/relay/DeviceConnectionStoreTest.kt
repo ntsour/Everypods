@@ -21,6 +21,23 @@ class DeviceConnectionStoreTest {
         store.preferences.edit().clear().commit()
     }
 
+    @Test fun `coordination requires completed handover or verified relay`() {
+        assertFalse(store.coordinationAuthorized(first))
+        store.add(first, DeviceConnectionType.WIFI_RELAY)
+        assertFalse(store.coordinationAuthorized(first))
+        store.add(first, DeviceConnectionType.BT_HANDOVER)
+        assertFalse(store.coordinationAuthorized(first))
+        store.mergeRemoteHandover(first, store.handoverState(first)!!)
+        assertTrue(store.coordinationAuthorized(first))
+        store.remove(first, DeviceConnectionType.BT_HANDOVER)
+        assertFalse(store.coordinationAuthorized(first))
+        store.add(first, DeviceConnectionType.WIFI_RELAY, verified = true)
+        assertTrue(store.coordinationAuthorized(first))
+        store.remove(first, DeviceConnectionType.WIFI_RELAY)
+        assertTrue(first in store.pendingRevocations())
+        assertFalse(store.coordinationAuthorized(first))
+    }
+
     @Test fun `only a saved BT handover peer that is online unlocks handover`() {
         assertTrue(store.onlineHandoverPeers(listOf(first)).isEmpty())
         store.add(first, DeviceConnectionType.WIFI_RELAY, verified = true)
@@ -67,6 +84,17 @@ class DeviceConnectionStoreTest {
         assertTrue(store.onlineHandoverPeers(listOf(first)).isEmpty())
         assertTrue(store.authorized(first))
         assertTrue(store.pendingRevocations().isEmpty())
+    }
+
+    @Test fun `unverified pairing attempt cannot cancel a pending relay revocation`() {
+        store.add(first, DeviceConnectionType.WIFI_RELAY, verified = true)
+        store.remove(first, DeviceConnectionType.WIFI_RELAY)
+        store.add(first, DeviceConnectionType.WIFI_RELAY, verified = false)
+        assertTrue(first in store.pendingRevocations())
+        assertFalse(store.coordinationAuthorized(first))
+        store.add(first, DeviceConnectionType.WIFI_RELAY, verified = true)
+        assertFalse(first in store.pendingRevocations())
+        assertTrue(store.coordinationAuthorized(first))
     }
 
     @Test fun `Wi-Fi removal queues revocation and preserves BT handover`() {

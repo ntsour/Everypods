@@ -66,7 +66,7 @@
     <string name="connected_via_bluetooth">Verbunden über Bluetooth</string>
     <string name="connected_via_bluetooth_description">Audio- und Übergabearbeiten. Für erweiterte Funktionen (Geräuschschutz, Ohrerkennung usw.) ist eine AACP-Verbindung erforderlich, die auf diesem Gerät nicht verfügbar ist.</string>
     <string name="connections_empty">Es wurden noch keine weiteren Telefone hinzugefügt.</string>
-    <string name="connections_guide">Verwalten Sie die Android-Geräte, die diese AirPods gemeinsam nutzen. BT-Verbindungen sind für Handover erforderlich. WLAN-Verbindungen sind für die Audioübertragung erforderlich.</string>
+    <string name="connections_guide">Verwalten Sie die Android-Geräte, die diese AirPods gemeinsam nutzen. Fügen Sie die BT-Verbindung auf beiden Geräten hinzu, um Handover zu aktivieren. Für die Audioübertragung ist WLAN erforderlich.</string>
     <string name="connections_title">Verbindungen</string>
     <string name="contact">Kontakt</string>
     <string name="conversational_awareness">Konversationsbewusstsein</string>

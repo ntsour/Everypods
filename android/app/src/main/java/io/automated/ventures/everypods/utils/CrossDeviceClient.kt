@@ -503,6 +503,10 @@ object CrossDeviceClient {
                 val count = socket.inputStream.read(bytes)
                 if (count < 0) break
                 for (frame in decoder.feed(bytes.copyOf(count))) {
+                    val capabilityContext = ServiceManager.getService()?.applicationContext ?: error("service_unavailable")
+                    require(io.automated.ventures.everypods.relay.DeviceConnectionStore(capabilityContext).coordinationAuthorized(link.mac)) {
+                        "unauthorized_coordination_peer"
+                    }
                     val message = PeerV2Message.decode(frame)
                     when (message.type) {
                         PeerV2Frame.Type.HELLO -> {

@@ -37,7 +37,7 @@
     <string name="disconnected_hero_guide">Tap Reconnect if you paired before to force connection.</string>
     <string name="reconnect_to_last">Reconnect to last device</string>
     <string name="connections_title">Connections</string>
-    <string name="connections_guide">Manage the Android phones that share these AirPods. BT connections are required for handover. Wi-Fi connections are required for audio transmission.</string>
+    <string name="connections_guide">Manage the Android phones that share these AirPods. Add the BT connection on both phones to enable handover. Wi-Fi connections are required for audio transmission.</string>
     <string name="connections_empty">No other phones added yet.</string>
     <string name="add_peer">Add device</string>
     <string name="add_peer_android_device">Add Android device</string>

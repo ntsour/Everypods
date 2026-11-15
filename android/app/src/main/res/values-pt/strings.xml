@@ -187,7 +187,7 @@
     <string name="connected_via_bluetooth">Conectado via Bluetooth</string>
     <string name="connected_via_bluetooth_description">Trabalho de áudio e entrega. Recursos avançados (controle de ruído, detecção de ouvido, etc.) precisam da conexão AACP, que não está disponível neste dispositivo.</string>
     <string name="connections_empty">Nenhum outro telefone adicionado ainda.</string>
-    <string name="connections_guide">Gerencie os dispositivos Android que compartilham estes AirPods. As conexões BT são necessárias para a transferência. As conexões Wi-Fi são necessárias para transmitir áudio.</string>
+    <string name="connections_guide">Gerencie os dispositivos Android que compartilham estes AirPods. Adicione a conexão BT nos dois telefones para ativar a transferência. O Wi-Fi é necessário para transmitir áudio.</string>
     <string name="connections_title">Conexões</string>
     <string name="contact">Contato</string>
     <string name="conversational_awareness_master_description">Reduza o volume da mídia (e, opcionalmente, pause a música) quando começar a falar. Obrigatório para as opções abaixo.</string>

@@ -182,7 +182,7 @@
     <string name="connected_via_bluetooth">Bluetooth aracılığıyla bağlanıldı</string>
     <string name="connected_via_bluetooth_description">Ses ve devir teslim işleri. Gelişmiş özellikler (gürültü kontrolü, kulak algılama vb.) bu cihazda bulunmayan AACP bağlantısına ihtiyaç duyar.</string>
     <string name="connections_empty">Henüz başka telefon eklenmedi.</string>
-    <string name="connections_guide">Bu AirPods’u paylaşan Android cihazları yönetin. Cihazlar arasında geçiş için BT bağlantıları gereklidir. Ses iletimi için Wi-Fi bağlantıları gereklidir.</string>
+    <string name="connections_guide">Bu AirPods’u paylaşan Android cihazları yönetin. Cihazlar arası geçişi etkinleştirmek için BT bağlantısını her iki telefonda da ekleyin. Ses iletimi için Wi-Fi gereklidir.</string>
     <string name="connections_title">Bağlantılar</string>
     <string name="contact">İletişim</string>
     <string name="conversational_awareness_master_description">Konuşmaya başladığınızda medya sesini azaltın (ve isteğe bağlı olarak müziği duraklatın). Aşağıdaki seçenekler için gereklidir.</string>

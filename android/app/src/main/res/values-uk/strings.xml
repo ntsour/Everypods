@@ -182,7 +182,7 @@
     <string name="connected_via_bluetooth">Підключено через Bluetooth</string>
     <string name="connected_via_bluetooth_description">Аудіо та приймальні роботи. Розширені функції (контроль шуму, розпізнавання вуха тощо) потребують підключення AACP, яке недоступне на цьому пристрої.</string>
     <string name="connections_empty">Інших телефонів ще не додано.</string>
-    <string name="connections_guide">Керуйте пристроями Android, що спільно використовують ці AirPods. З’єднання BT потрібні для передачі між пристроями. З’єднання Wi-Fi потрібні для передавання аудіо.</string>
+    <string name="connections_guide">Керуйте пристроями Android, що спільно використовують ці AirPods. Додайте з’єднання BT на обох телефонах, щоб увімкнути перемикання. Для передавання аудіо потрібен Wi-Fi.</string>
     <string name="connections_title">Зв\'язки</string>
     <string name="contact">контакт</string>
     <string name="conversational_awareness_master_description">Зменште гучність медіа (і, можливо, призупиніть музику), коли почнете говорити. Необхідний для наведених нижче параметрів.</string>

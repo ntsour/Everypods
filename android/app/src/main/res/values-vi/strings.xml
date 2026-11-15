@@ -182,7 +182,7 @@
     <string name="connected_via_bluetooth">Đã kết nối qua Bluetooth</string>
     <string name="connected_via_bluetooth_description">Công việc âm thanh và chuyển giao. Các tính năng nâng cao (kiểm soát tiếng ồn, phát hiện tai, v.v.) cần có kết nối AACP, hiện không có trên thiết bị này.</string>
     <string name="connections_empty">Chưa có điện thoại nào khác được thêm vào.</string>
-    <string name="connections_guide">Quản lý các thiết bị Android dùng chung AirPods này. Cần kết nối BT để chuyển giao giữa các thiết bị. Cần kết nối Wi-Fi để truyền âm thanh.</string>
+    <string name="connections_guide">Quản lý các thiết bị Android dùng chung AirPods này. Thêm kết nối BT trên cả hai điện thoại để bật chuyển giao. Cần Wi-Fi để truyền âm thanh.</string>
     <string name="connections_title">Kết nối</string>
     <string name="contact">Liên hệ</string>
     <string name="conversational_awareness_master_description">Giảm âm lượng phương tiện (và tùy ý tạm dừng nhạc) khi bạn bắt đầu nói. Cần thiết cho các tùy chọn bên dưới.</string>
