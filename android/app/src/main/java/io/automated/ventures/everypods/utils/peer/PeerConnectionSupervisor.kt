@@ -22,7 +22,7 @@ fun interface PeerSocketFactory {
 class PeerConnectionSupervisor(
     dispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val socketFactory: PeerSocketFactory = PeerSocketFactory { adapter, mac, service ->
-        adapter.getRemoteDevice(mac).createInsecureRfcommSocketToServiceRecord(service)
+        adapter.getRemoteDevice(mac).createRfcommSocketToServiceRecord(service)
     },
     private val elapsedRealtime: () -> Long = android.os.SystemClock::elapsedRealtime,
 ) {

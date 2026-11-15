@@ -61,6 +61,8 @@ class RelayPeerSessionController(
     private val pairingRequested = ConcurrentHashMap.newKeySet<String>()
     private val pairing = ConcurrentHashMap<String, PairAttempt>()
     private val sessions = ConcurrentHashMap<String, ActiveSession>()
+    private data class PendingSession(val peerId: String, val peerPublicKey: ByteArray, val nonce: ByteArray)
+    private val pendingSessions = ConcurrentHashMap<String, PendingSession>()
     private val executor = Executors.newSingleThreadScheduledExecutor { runnable ->
         Thread(runnable, "EveryPodsRelayPairingTimeout").apply { isDaemon = true }
     }
@@ -124,6 +126,11 @@ class RelayPeerSessionController(
         val mac = normalize(macAddress)
         if (pairing.containsKey(mac) || mac in pairingRequested) return
         require(identity.peerIdForAddress(mac) != null) { "Verify this EveryPods peer before starting relay" }
+        val current = sessions[mac]
+        if (current?.ready == true && hub.isConnected(mac)) {
+            listener.onSecurityReady(mac, current.peerId, current.signalingInitiator)
+            return
+        }
         publish(mac, PeerState(Stage.CONNECTING))
         if (hub.isConnected(mac)) beginTrustedSession(mac) else hub.connect(mac)
     }
@@ -222,12 +229,12 @@ class RelayPeerSessionController(
             publish(mac, PeerState(Stage.FAILED, reason = "Verify this EveryPods peer first"))
             return
         }
+        if (sessions.containsKey(mac) || pendingSessions.containsKey(mac)) return
         val nonce = identity.newPairingNonce()
-        val codec = AuthenticatedSignalCodec(identity.deriveSessionKey(peerPublicKey, nonce), initiator = true)
-        sessions.put(mac, ActiveSession(peerId, codec, signalingInitiator = true, ready = false))?.codec?.close()
+        pendingSessions[mac] = PendingSession(peerId, peerPublicKey, nonce)
         publish(mac, PeerState(Stage.CONNECTING, peerId))
         if (!hub.send(mac, encodeSessionHello(identity.stableId(identity.localPublicKey()), nonce))) {
-            sessions.remove(mac)?.codec?.close()
+            pendingSessions.remove(mac)
             publish(mac, PeerState(Stage.FAILED, peerId, reason = "Could not start authenticated signaling"))
         }
     }
@@ -242,6 +249,7 @@ class RelayPeerSessionController(
             }
         } catch (error: Exception) {
             pairing.remove(mac)?.let { it.timeout?.cancel(false); it.codec?.close() }
+            pendingSessions.remove(mac)
             sessions.remove(mac)?.codec?.close()
             publish(mac, PeerState(Stage.FAILED, reason = error.message ?: "Authenticated setup failed"))
             listener.onFailure(mac, error.message ?: error.javaClass.simpleName)
@@ -253,6 +261,7 @@ class RelayPeerSessionController(
         require(input.int == MAGIC && input.get().toInt() and 0xff == VERSION) { "Invalid relay handshake" }
         when (input.get().toInt() and 0xff) {
             TYPE_PAIR_HELLO -> {
+                require(sessions[mac] == null && pendingSessions[mac] == null) { "Unexpected pairing reset" }
                 val keySize = input.short.toInt() and 0xffff
                 require(keySize in 64..512 && input.remaining() == keySize + RelayPeerIdentity.NONCE_BYTES) {
                     "Invalid pairing identity message"
@@ -284,23 +293,37 @@ class RelayPeerSessionController(
                 }
             }
             TYPE_SESSION_HELLO -> receiveSessionHello(mac, input)
+            TYPE_SESSION_CHALLENGE -> receiveSessionChallenge(mac, input)
             else -> error("Unknown relay handshake message")
         }
         require(!input.hasRemaining()) { "Trailing relay handshake data" }
     }
 
     private fun receiveSessionHello(mac: String, input: ByteBuffer) {
+        require(sessions[mac] == null && pendingSessions[mac] == null && pairing[mac] == null) { "Unexpected session reset" }
         require(input.remaining() == ID_BYTES + RelayPeerIdentity.NONCE_BYTES) { "Invalid relay session hello" }
         val peerId = ByteArray(ID_BYTES).also(input::get).toString(StandardCharsets.US_ASCII)
-        val nonce = ByteArray(RelayPeerIdentity.NONCE_BYTES).also(input::get)
+        val initiatorNonce = ByteArray(RelayPeerIdentity.NONCE_BYTES).also(input::get)
+        require(identity.peerIdForAddress(mac) == peerId) { "Bluetooth peer identity changed" }
         val peerPublicKey = checkNotNull(identity.trustedPublicKey(peerId)) { "Unverified peer identity" }
-        val mappedPeerId = identity.peerIdForAddress(mac)
-        require(mappedPeerId == null || mappedPeerId == peerId) { "Bluetooth peer identity changed" }
-        val codec = AuthenticatedSignalCodec(identity.deriveSessionKey(peerPublicKey, nonce), initiator = false)
-        sessions.put(mac, ActiveSession(peerId, codec, signalingInitiator = false, ready = true))?.codec?.close()
-        require(hub.send(mac, codec.encode(byteArrayOf(MSG_SESSION_READY.toByte())))) { "Could not confirm authenticated signaling" }
-        publish(mac, PeerState(Stage.CONNECTED, peerId))
-        listener.onSecurityReady(mac, peerId, signalingInitiator = false)
+        val responderNonce = identity.newPairingNonce()
+        val sessionNonce = RelaySessionHandshake.sessionNonce(initiatorNonce, responderNonce)
+        val key = identity.deriveSessionKey(peerPublicKey, sessionNonce)
+        val codec = try { AuthenticatedSignalCodec(key, initiator = false) } finally { key.fill(0) }
+        sessions[mac] = ActiveSession(peerId, codec, signalingInitiator = false, ready = false)
+        require(hub.send(mac, encodeSessionChallenge(initiatorNonce, responderNonce))) { "Could not send relay challenge" }
+    }
+
+    private fun receiveSessionChallenge(mac: String, input: ByteBuffer) {
+        require(input.remaining() == 2 * RelayPeerIdentity.NONCE_BYTES) { "Invalid relay challenge" }
+        val pending = checkNotNull(pendingSessions.remove(mac)) { "Unexpected relay challenge" }
+        val initiatorNonce = ByteArray(RelayPeerIdentity.NONCE_BYTES).also(input::get)
+        val responderNonce = ByteArray(RelayPeerIdentity.NONCE_BYTES).also(input::get)
+        require(initiatorNonce.contentEquals(pending.nonce)) { "Relay challenge does not match request" }
+        val key = identity.deriveSessionKey(pending.peerPublicKey, RelaySessionHandshake.sessionNonce(initiatorNonce, responderNonce))
+        val codec = try { AuthenticatedSignalCodec(key, initiator = true) } finally { key.fill(0) }
+        check(sessions.putIfAbsent(mac, ActiveSession(pending.peerId, codec, signalingInitiator = true, ready = false)) == null)
+        require(hub.send(mac, codec.encode(byteArrayOf(MSG_SESSION_CONFIRM.toByte())))) { "Could not confirm relay challenge" }
     }
 
     private fun receivePairingConfirmation(mac: String, payload: ByteArray) {
@@ -314,12 +337,17 @@ class RelayPeerSessionController(
     private fun receiveSessionMessage(mac: String, payload: ByteArray) {
         val session = checkNotNull(sessions[mac]) { "No authenticated session" }
         val clear = session.codec.decode(payload)
-        if (clear.contentEquals(byteArrayOf(MSG_SESSION_READY.toByte()))) {
+        if (!session.ready) {
+            if (session.signalingInitiator) {
+                require(clear.contentEquals(byteArrayOf(MSG_SESSION_READY.toByte()))) { "Expected relay ready" }
+            } else {
+                require(clear.contentEquals(byteArrayOf(MSG_SESSION_CONFIRM.toByte()))) { "Expected relay confirmation" }
+                require(hub.send(mac, session.codec.encode(byteArrayOf(MSG_SESSION_READY.toByte())))) { "Could not confirm authenticated signaling" }
+            }
             session.ready = true
             publish(mac, PeerState(Stage.CONNECTED, session.peerId))
             listener.onSecurityReady(mac, session.peerId, session.signalingInitiator)
         } else {
-            require(session.ready) { "Peer sent data before signaling was ready" }
             listener.onAuthenticatedMessage(mac, clear)
         }
     }
@@ -360,6 +388,7 @@ class RelayPeerSessionController(
 
     private fun clearPeer(mac: String) {
         pairingRequested.remove(mac)
+        pendingSessions.remove(mac)
         pairing.remove(mac)?.let { it.timeout?.cancel(false); it.codec?.close() }
         sessions.remove(mac)?.codec?.close()
     }
@@ -381,7 +410,13 @@ class RelayPeerSessionController(
             .putInt(MAGIC).put(VERSION.toByte()).put(TYPE_SESSION_HELLO.toByte()).put(id).put(nonce).array()
     }
 
+    private fun encodeSessionChallenge(initiatorNonce: ByteArray, responderNonce: ByteArray): ByteArray =
+        ByteBuffer.allocate(6 + initiatorNonce.size + responderNonce.size).order(ByteOrder.BIG_ENDIAN)
+            .putInt(MAGIC).put(VERSION.toByte()).put(TYPE_SESSION_CHALLENGE.toByte())
+            .put(initiatorNonce).put(responderNonce).array()
+
     override fun close() {
+        pendingSessions.clear()
         pairing.values.forEach { it.timeout?.cancel(false); it.codec?.close() }
         pairing.clear()
         sessions.values.forEach { it.codec.close() }
@@ -394,9 +429,11 @@ class RelayPeerSessionController(
         private const val MAGIC = 0x45505248 // EPRH
         private const val VERSION = 1
         private const val TYPE_PAIR_HELLO = 1
-        private const val TYPE_SESSION_HELLO = 2
+        private const val TYPE_SESSION_HELLO = 3 // v2: responder challenge required
+        private const val TYPE_SESSION_CHALLENGE = 4
         private const val MSG_PAIR_CONFIRM = 1
         private const val MSG_SESSION_READY = 2
+        private const val MSG_SESSION_CONFIRM = 3
         private const val PAIRING_TIMEOUT_SECONDS = 60L
         private const val ID_BYTES = 64
     }

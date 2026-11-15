@@ -42,7 +42,7 @@ class RelayBluetoothSignalHub(
         serverStarting = true
         Thread({
             try {
-                val socketServer = adapter.listenUsingInsecureRfcommWithServiceRecord(SERVICE_NAME, SERVICE_UUID)
+                val socketServer = adapter.listenUsingRfcommWithServiceRecord(SERVICE_NAME, SERVICE_UUID)
                 server = socketServer
                 serverStarting = false
                 while (!closed.get()) {
@@ -75,7 +75,7 @@ class RelayBluetoothSignalHub(
             var socket: BluetoothSocket? = null
             try {
                 adapter.cancelDiscovery()
-                socket = adapter.getRemoteDevice(mac).createInsecureRfcommSocketToServiceRecord(SERVICE_UUID)
+                socket = adapter.getRemoteDevice(mac).createRfcommSocketToServiceRecord(SERVICE_UUID)
                 socket.connect()
                 attach(socket, initiator = true)
             } catch (error: Exception) {
