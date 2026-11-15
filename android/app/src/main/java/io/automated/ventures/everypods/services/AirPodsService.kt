@@ -2913,13 +2913,18 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             StemAction.TOGGLE_PAUSE_TRANSPARENCY -> {
                 // Play/pause toggle that also flips the listening mode:
                 // pausing -> Transparency (hear surroundings), playing -> Noise Cancellation.
-                val wasPlaying = MediaController.getMusicActive()
-                MediaController.sendPlayPause()
-                val target = if (wasPlaying) NoiseControlMode.TRANSPARENCY else NoiseControlMode.NOISE_CANCELLATION
-                sendBroadcast(Intent("io.automated.ventures.everypods.SET_ANC_MODE").apply {
-                    setPackage(packageName)
-                    putExtra("mode", target.ordinal + 1)  // wire value = ordinal + 1
-                })
+                val setListeningMode: (Boolean) -> Unit = { wasPlaying ->
+                    val target = if (wasPlaying) NoiseControlMode.TRANSPARENCY else NoiseControlMode.NOISE_CANCELLATION
+                    sendBroadcast(Intent("io.automated.ventures.everypods.SET_ANC_MODE").apply {
+                        setPackage(packageName)
+                        putExtra("mode", target.ordinal + 1)  // wire value = ordinal + 1
+                    })
+                }
+                if (!io.automated.ventures.everypods.relay.RelayPreviewService.toggleReceiverPlayback(setListeningMode)) {
+                    val wasPlaying = MediaController.getMusicActive()
+                    MediaController.sendPlayPause()
+                    setListeningMode(wasPlaying)
+                }
             }
 
             StemAction.GYM_TIMER_START_STOP -> {
@@ -3247,7 +3252,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                             Log.d("MediaController", "A2DP connected but both pods in case — not auto-playing")
                         } else {
                             Log.d("MediaController", "A2DP connected, sending play command")
-                            MediaController.sendPlay()
+                            MediaController.sendPlay(routeToRelay = false)
                             MediaController.iPausedTheMedia = false
                         }
 
@@ -6491,7 +6496,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     if (profile == BluetoothProfile.A2DP && offlineAudioDriver.isReleaseCurrent(releaseToken)) {
                         val connectedDevices = proxy.connectedDevices
                         if (connectedDevices.isNotEmpty()) {
-                            MediaController.sendPause()
+                            MediaController.sendPause(routeToRelay = false)
                         }
                     }
                     bluetoothAdapter.closeProfileProxy(profile, proxy)
@@ -6511,7 +6516,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     if (profile == BluetoothProfile.HEADSET && offlineAudioDriver.isReleaseCurrent(releaseToken)) {
                         val connectedDevices = proxy.connectedDevices
                         if (connectedDevices.isNotEmpty()) {
-                            MediaController.sendPause()
+                            MediaController.sendPause(routeToRelay = false)
                         }
                     }
                     bluetoothAdapter.closeProfileProxy(profile, proxy)

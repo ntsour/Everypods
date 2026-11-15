@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="audio_relay_preset_test_jitter">Test: dalgalanma %1$d/%2$d ms</string>
+    <string name="audio_relay_preset_test_jitter_desc">Düşük gecikme ile karşılaştırın. Yalnızca başlangıç ve en yüksek dalgalanma tamponu hedefleri değişir.</string>
+    <string name="audio_relay_preset_test_playback">Test: oynatma %1$d ms</string>
+    <string name="audio_relay_preset_test_playback_desc">Düşük gecikme ile karşılaştırın. Yalnızca oynatma tamponu değişir; Android daha büyük bir tampon kullanabilir.</string>
+    <string name="audio_relay_preset_test_capture">Test: yakalama %1$d ms</string>
+    <string name="audio_relay_preset_test_capture_desc">Düşük gecikme ile karşılaştırın. Yalnızca yakalama tamponu değişir; Android daha büyük bir tampon kullanabilir.</string>
+    <string name="audio_relay_preset_test_retransmission">Test: yeniden iletim %1$d ms</string>
+    <string name="audio_relay_preset_test_retransmission_desc">Düşük gecikme ile karşılaştırın. Yalnızca yeniden iletim süresi değişir; sıfır daha fazla ses kesintisine neden olabilir.</string>
+    <string name="audio_relay_preset_test_combined">Test: birleşik</string>
+    <string name="audio_relay_preset_test_combined_desc">40–80 ms dalgalanma tamponu ve 20 ms yakalama ve oynatma tamponları. Diğer ayarlar Düşük gecikme ile aynıdır. Daha fazla kesinti olabilir.</string>
+</resources>

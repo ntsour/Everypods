@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="audio_relay_preset_test_jitter">Test: jitter %1$d/%2$d ms</string>
+    <string name="audio_relay_preset_test_jitter_desc">Compare with Low latency. Only the initial and maximum jitter targets change.</string>
+    <string name="audio_relay_preset_test_playback">Test: playback %1$d ms</string>
+    <string name="audio_relay_preset_test_playback_desc">Compare with Low latency. Only the playback buffer changes; Android may use a larger buffer.</string>
+    <string name="audio_relay_preset_test_capture">Test: capture %1$d ms</string>
+    <string name="audio_relay_preset_test_capture_desc">Compare with Low latency. Only the capture buffer changes; Android may use a larger buffer.</string>
+    <string name="audio_relay_preset_test_retransmission">Test: retransmission %1$d ms</string>
+    <string name="audio_relay_preset_test_retransmission_desc">Compare with Low latency. Only the retransmission deadline changes; zero may cause more audio gaps.</string>
+    <string name="audio_relay_preset_test_combined">Test: combined</string>
+    <string name="audio_relay_preset_test_combined_desc">40–80 ms jitter and 20 ms capture and playback buffers. Other settings match Low latency. More dropouts are possible.</string>
+</resources>

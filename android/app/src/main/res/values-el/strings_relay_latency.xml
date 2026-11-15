@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="audio_relay_preset_test_jitter">Δοκιμή: διακύμανση %1$d/%2$d ms</string>
+    <string name="audio_relay_preset_test_jitter_desc">Συγκρίνετε με τη Χαμηλή καθυστέρηση. Αλλάζουν μόνο ο αρχικός και ο μέγιστος στόχος του buffer διακύμανσης.</string>
+    <string name="audio_relay_preset_test_playback">Δοκιμή: αναπαραγωγή %1$d ms</string>
+    <string name="audio_relay_preset_test_playback_desc">Συγκρίνετε με τη Χαμηλή καθυστέρηση. Αλλάζει μόνο το buffer αναπαραγωγής· το Android μπορεί να χρησιμοποιήσει μεγαλύτερο.</string>
+    <string name="audio_relay_preset_test_capture">Δοκιμή: καταγραφή %1$d ms</string>
+    <string name="audio_relay_preset_test_capture_desc">Συγκρίνετε με τη Χαμηλή καθυστέρηση. Αλλάζει μόνο το buffer καταγραφής· το Android μπορεί να χρησιμοποιήσει μεγαλύτερο.</string>
+    <string name="audio_relay_preset_test_retransmission">Δοκιμή: αναμετάδοση %1$d ms</string>
+    <string name="audio_relay_preset_test_retransmission_desc">Συγκρίνετε με τη Χαμηλή καθυστέρηση. Αλλάζει μόνο η προθεσμία αναμετάδοσης· το μηδέν μπορεί να προκαλέσει περισσότερες διακοπές ήχου.</string>
+    <string name="audio_relay_preset_test_combined">Δοκιμή: συνδυαστική</string>
+    <string name="audio_relay_preset_test_combined_desc">Buffer διακύμανσης 40–80 ms και buffer καταγραφής και αναπαραγωγής 20 ms. Οι άλλες ρυθμίσεις αντιστοιχούν στη Χαμηλή καθυστέρηση. Ενδέχεται να υπάρξουν περισσότερες διακοπές.</string>
+</resources>

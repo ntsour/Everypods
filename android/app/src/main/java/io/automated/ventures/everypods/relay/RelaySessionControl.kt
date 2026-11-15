@@ -23,6 +23,9 @@ object RelaySessionControl {
     const val PLAYBACK_INTERRUPTION: Byte = 14
     const val RESUME_REQUEST: Byte = 15
     const val SUSPENSION_EXPIRED: Byte = 16
+    const val PLAYBACK_TOGGLE: Byte = 17
+    const val PLAYBACK_TOGGLE_RESULT: Byte = 18
+    const val PLAYBACK_COMMAND: Byte = 19
 
     fun interruption(reason: RelayInterruption, resumeUnavailable: Boolean): ByteArray = byteArrayOf(
         PLAYBACK_INTERRUPTION,

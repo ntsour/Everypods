@@ -40,6 +40,9 @@ import android.util.Log
 import android.view.KeyEvent
 import androidx.annotation.RequiresApi
 import io.automated.ventures.everypods.services.ServiceManager
+import io.automated.ventures.everypods.relay.RelayPlaybackCommand
+import io.automated.ventures.everypods.relay.RelayPlaybackCommand.Action
+import io.automated.ventures.everypods.relay.RelayPreviewService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlin.io.encoding.ExperimentalEncodingApi
@@ -164,7 +167,7 @@ object MediaController {
             // Music dropped — re-issue play (auto-pause from the late route change).
             Log.d("MediaController", "routeLandPoller: music not active at ${elapsedMs}ms (check $checkCount), re-issuing play")
             LidAutoconnectDiagnostics.logEvent("route_recovery_play", mapOf("ageMs" to elapsedMs, "check" to checkCount))
-            sendPlay(force = true)
+            sendPlay(force = true, routeToRelay = false)
             // Schedule next check with arithmetic backoff.
             handler.postDelayed(this, delay)
         }
@@ -284,7 +287,7 @@ object MediaController {
             cancelMediaVerification()
             handler.removeCallbacks(processLatestPlayback)
             playbackCallbackPending = false
-            sendPause(force = true)
+            sendPause(force = true, routeToRelay = false)
             resetMusicActiveState(preserveCurrentPlayback = true)
             LidAutoconnectDiagnostics.logEvent("media_peer_yield", mapOf("active" to audioManager.isMusicActive))
         }
@@ -418,7 +421,7 @@ object MediaController {
                     // fragile single-shot timing guess.
                     Log.d("MediaController", "  → expected AirPods route landed; starting routeLandPoller")
                     routeLandWatchPending = true
-                    sendPlay(force = true)
+                    sendPlay(force = true, routeToRelay = false)
                     handler.postDelayed(routeLandPoller, ROUTE_LAND_DELAYS_MS[0])
                     // Audio route is actually live now — show the takeover island.
                     // (Previously fired immediately on takeOver() request, ~3 s
@@ -730,7 +733,7 @@ object MediaController {
         Log.d("MediaController", "Playback observed: active=$active configurations=${configs?.size ?: 0} evidence=$evidence previousActive=${startDetector.active}")
         if (!active && lastPlayWithReplay && now - lastPlayTime < 2500L) {
             lastPlayWithReplay = false
-            sendPlay()
+            sendPlay(routeToRelay = false)
             startDetector.rearm(true)
             lastKnownIsMusicActive = true
             return
@@ -759,7 +762,8 @@ object MediaController {
     }
 
     @Synchronized
-    fun sendPlayPause() {
+    fun sendPlayPause(routeToRelay: Boolean = true) {
+        if (routeToRelay && RelayPreviewService.forwardReceiverPlayback(RelayPlaybackCommand(Action.PLAY_PAUSE))) return
         val wasActive = audioManager.isMusicActive
         Log.d("MediaController", "Sending play/pause toggle (wasActive=$wasActive)")
         if (!wasActive && tryDirectSessionResume("play/pause")) {
@@ -853,7 +857,8 @@ object MediaController {
     }
 
     @Synchronized
-    fun sendPreviousTrack() {
+    fun sendPreviousTrack(routeToRelay: Boolean = true) {
+        if (routeToRelay && RelayPreviewService.forwardReceiverPlayback(RelayPlaybackCommand(Action.PREVIOUS))) return
         Log.d("MediaController", "Sending previous track")
         audioManager.dispatchMediaKeyEvent(
             KeyEvent(
@@ -871,7 +876,8 @@ object MediaController {
     }
 
     @Synchronized
-    fun sendNextTrack() {
+    fun sendNextTrack(routeToRelay: Boolean = true) {
+        if (routeToRelay && RelayPreviewService.forwardReceiverPlayback(RelayPlaybackCommand(Action.NEXT))) return
         Log.d("MediaController", "Sending next track")
         audioManager.dispatchMediaKeyEvent(
             KeyEvent(
@@ -889,7 +895,8 @@ object MediaController {
     }
 
     @Synchronized
-    fun sendPause(force: Boolean = false) {
+    fun sendPause(force: Boolean = false, routeToRelay: Boolean = true) {
+        if (routeToRelay && RelayPreviewService.forwardReceiverPlayback(RelayPlaybackCommand(Action.PAUSE, force))) return
         Log.d("MediaController", "sendPause called: iPausedTheMedia=$iPausedTheMedia, userPlayedTheMedia=$userPlayedTheMedia, isMusicActive=${audioManager.isMusicActive}, force=$force")
         // Cancel any pending music-takeover replay — if we're pausing, the user
         // doesn't want auto-resume when a future A2DP route lands.
@@ -918,7 +925,8 @@ object MediaController {
     }
 
     @Synchronized
-    fun sendPlay(replayWhenPaused: Boolean = false, force: Boolean = false) {
+    fun sendPlay(replayWhenPaused: Boolean = false, force: Boolean = false, routeToRelay: Boolean = true) {
+        if (routeToRelay && RelayPreviewService.forwardReceiverPlayback(RelayPlaybackCommand(Action.PLAY, force, replayWhenPaused))) return
         Log.d("MediaController", "Sending play with iPausedTheMedia: $iPausedTheMedia, replayWhenPaused: $replayWhenPaused, force: $force")
         if (replayWhenPaused) {
             lastPlayWithReplay = true

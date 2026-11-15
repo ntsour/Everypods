@@ -64,7 +64,8 @@ class RelayJitterBuffer(
     private val adaptiveMode: Int = 0,
 ) {
     sealed interface Output {
-        data class Frame(val packet: RelayMediaPacket) : Output
+        /** Decode [catchUpFrom] first, then overlap it with [packet] into one PCM frame. */
+        data class Frame(val packet: RelayMediaPacket, val catchUpFrom: RelayMediaPacket? = null) : Output
         data class Missing(val sequence: Long, val timestampNanos: Long) : Output
     }
 
@@ -75,6 +76,7 @@ class RelayJitterBuffer(
         val refills: Long,
         val queued: Int,
         val targetDelayMillis: Int,
+        val caughtUpFrames: Long,
     )
 
     private val frames = java.util.TreeMap<Long, RelayMediaPacket>()
@@ -88,11 +90,13 @@ class RelayJitterBuffer(
     private var previousSequence: Long? = null
     private var estimatedJitterMillis = 0.0
     private var lowerTargetSinceMillis: Long? = null
+    private var reductionPending = false
     private var accepted = 0L
     private var rejected = 0L
     private var concealed = 0L
     private var refills = 0L
     private var consecutiveMissing = 0
+    private var caughtUpFrames = 0L
 
     init {
         require(initialTargetDelayMillis in 20..maximumDelayMillis)
@@ -148,6 +152,7 @@ class RelayJitterBuffer(
                 val adjustment = if (wanted > currentTargetDelayMillis) frameDurationMillis else 0
                 if (adjustment != 0) {
                     lowerTargetSinceMillis = null
+                    reductionPending = false
                     currentTargetDelayMillis = (currentTargetDelayMillis + adjustment).coerceIn(initialTargetDelayMillis, maximumDelayMillis)
                     playoutStartsAtMillis = (playoutStartsAtMillis ?: arrivalMillis) + adjustment
                 } else if (adaptiveMode > 0 && wanted < currentTargetDelayMillis && estimatedJitterMillis < 12.0) {
@@ -156,13 +161,15 @@ class RelayJitterBuffer(
                     // pull the deadline forward immediately after a burst.
                     val stableSince = lowerTargetSinceMillis ?: arrivalMillis.also { lowerTargetSinceMillis = it }
                     if (arrivalMillis - stableSince >= interval) {
-                        currentTargetDelayMillis = (currentTargetDelayMillis - frameDurationMillis).coerceAtLeast(initialTargetDelayMillis)
-                        // A frame is removed from the live timeline only at this paced interval.
-                        playoutStartsAtMillis = (playoutStartsAtMillis ?: arrivalMillis) - frameDurationMillis
-                        lowerTargetSinceMillis = arrivalMillis
+                        // Merely advancing deadlines moves queued audio into AudioTrack:
+                        // a fixed-rate sink cannot catch up while playing every sample.
+                        // Apply the reduction in poll only when two real frames can be
+                        // decoded in order and crossfaded into one output frame.
+                        reductionPending = true
                     }
                 } else {
                     lowerTargetSinceMillis = null
+                    reductionPending = false
                 }
             }
         }
@@ -189,8 +196,27 @@ class RelayJitterBuffer(
         val frameDeadline = playoutStart + sequenceOffset * frameDurationMillis
         if (nowMillis < frameDeadline) return null
 
+        val nextSequence = (expected + 1) and 0xffff_ffffL
+        val firstPacket = frames[expected]
+        val nextPacket = frames[nextSequence]
+        if (reductionPending && firstPacket != null && nextPacket != null) {
+            // Emit the pair at the OLD first-frame deadline. The following frame's
+            // deadline moves earlier by one duration, so output cadence stays continuous.
+            frames.remove(expected)
+            frames.remove(nextSequence)
+            expectedSequence = (nextSequence + 1) and 0xffff_ffffL
+            lastTimestampNanos = nextPacket.timestampNanos
+            consecutiveMissing = 0
+            currentTargetDelayMillis -= frameDurationMillis
+            playoutStartsAtMillis = playoutStart - frameDurationMillis
+            reductionPending = false
+            lowerTargetSinceMillis = nowMillis
+            caughtUpFrames++
+            return Output.Frame(nextPacket, catchUpFrom = firstPacket)
+        }
+
         val packet = frames.remove(expected)
-        expectedSequence = (expected + 1) and 0xffff_ffffL
+        expectedSequence = nextSequence
         if (packet != null) {
             lastTimestampNanos = packet.timestampNanos
             consecutiveMissing = 0
@@ -218,13 +244,15 @@ class RelayJitterBuffer(
         rejected = 0L
         concealed = 0L
         refills = 0L
+        caughtUpFrames = 0L
     }
 
     @Synchronized
-    fun statistics(): Statistics = Statistics(accepted, rejected, concealed, refills, frames.size, currentTargetDelayMillis)
+    fun statistics(): Statistics = Statistics(accepted, rejected, concealed, refills, frames.size, currentTargetDelayMillis, caughtUpFrames)
 
     private fun resetTimeline() {
         lowerTargetSinceMillis = null
+        reductionPending = false
         frames.clear()
         expectedSequence = null
         firstSequence = null

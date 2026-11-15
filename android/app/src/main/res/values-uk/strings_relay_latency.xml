@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="audio_relay_preset_test_jitter">Тест: джитер %1$d/%2$d мс</string>
+    <string name="audio_relay_preset_test_jitter_desc">Порівняйте з Низькою затримкою. Змінюються лише початкове та максимальне цільові значення буфера джитера.</string>
+    <string name="audio_relay_preset_test_playback">Тест: відтворення %1$d мс</string>
+    <string name="audio_relay_preset_test_playback_desc">Порівняйте з Низькою затримкою. Змінюється лише буфер відтворення; Android може використати більший буфер.</string>
+    <string name="audio_relay_preset_test_capture">Тест: захоплення %1$d мс</string>
+    <string name="audio_relay_preset_test_capture_desc">Порівняйте з Низькою затримкою. Змінюється лише буфер захоплення; Android може використати більший буфер.</string>
+    <string name="audio_relay_preset_test_retransmission">Тест: повторна передача %1$d мс</string>
+    <string name="audio_relay_preset_test_retransmission_desc">Порівняйте з Низькою затримкою. Змінюється лише термін повторної передачі; нуль може спричинити більше переривань звуку.</string>
+    <string name="audio_relay_preset_test_combined">Тест: комбінований</string>
+    <string name="audio_relay_preset_test_combined_desc">Буфер джитера 40–80 мс і буфери захоплення та відтворення 20 мс. Решта налаштувань відповідає Низькій затримці. Можливі частіші переривання.</string>
+</resources>

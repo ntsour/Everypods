@@ -92,8 +92,45 @@ class RelayPreviewService : Service(), RelaySessionApi {
     private var lastBroadcastStatus: String? = null
     private val statusAttemptedPeers = mutableSetOf<String>()
 
+    private val playbackToggle = RelayPlaybackToggle()
+    private var playbackToggleTimeout: Job? = null
+
+    /** Consumes relay controls even on a send failure: never start a local player instead. */
+    private fun togglePlayback(callback: (Boolean) -> Unit): Boolean {
+        if (!RelayPlaybackToggle.receivesPlaybackControls(state.value)) return false
+        val peer = state.value.peerMac ?: return true
+        scope.launch {
+            if (state.value.peerMac != peer || !RelayPlaybackToggle.receivesPlaybackControls(state.value) || stopTimeout != null) return@launch
+            val packet = playbackToggle.request(peer, callback) ?: return@launch
+            if (!sendControl(peer, packet)) {
+                playbackToggle.clear()
+                Log.w(TAG, "Playback toggle could not reach relay sender")
+                return@launch
+            }
+            playbackToggleTimeout?.cancel()
+            playbackToggleTimeout = scope.launch {
+                delay(3_000L)
+                playbackToggle.clear()
+                Log.w(TAG, "Relay sender did not answer playback toggle; both devices need a compatible build")
+            }
+        }
+        return true
+    }
+
+    private fun forwardPlayback(command: RelayPlaybackCommand): Boolean {
+        if (!RelayPlaybackToggle.receivesPlaybackControls(state.value)) return false
+        val peer = state.value.peerMac ?: return true
+        scope.launch {
+            if (state.value.peerMac != peer || !RelayPlaybackToggle.receivesPlaybackControls(state.value) || stopTimeout != null) return@launch
+            if (!sendControl(peer, command.encode())) Log.w(TAG, "Could not forward playback command: ${command.action}")
+        }
+        // A missing/broken transport must not redirect the action into a local app.
+        return true
+    }
+
     override fun onCreate() {
         super.onCreate()
+        activeInstance = this
         connections.migrate(CrossDevice.configuredPeers)
         DeviceConnectionStore.emitting = false
         scope.launch {
@@ -603,6 +640,8 @@ class RelayPreviewService : Service(), RelaySessionApi {
     }
 
     private fun stopLocalAudio() {
+        playbackToggle.clear()
+        playbackToggleTimeout?.cancel()
         playbackGeneration.incrementAndGet()
         suspensionTimeout?.cancel()
         suspensionTimeout = null
@@ -663,6 +702,10 @@ class RelayPreviewService : Service(), RelaySessionApi {
     }
 
     private fun closeTransport(mac: String) {
+        if (state.value.peerMac.equals(mac, ignoreCase = true)) {
+            playbackToggle.clear()
+            playbackToggleTimeout?.cancel()
+        }
         stopTimeout?.cancel()
         stopTimeout = null
         transportJobs.remove(mac)?.cancel()
@@ -792,6 +835,32 @@ class RelayPreviewService : Service(), RelaySessionApi {
             return
         }
         when (packet[0]) {
+            RelaySessionControl.PLAYBACK_COMMAND -> {
+                if (state.value.role != RelayRole.SOURCE || audioCapture == null) return
+                val command = RelayPlaybackCommand.decode(packet) ?: return
+                val media = io.automated.ventures.everypods.utils.MediaController
+                when (command.action) {
+                    RelayPlaybackCommand.Action.PLAY_PAUSE -> media.sendPlayPause(routeToRelay = false)
+                    RelayPlaybackCommand.Action.PREVIOUS -> media.sendPreviousTrack(routeToRelay = false)
+                    RelayPlaybackCommand.Action.NEXT -> media.sendNextTrack(routeToRelay = false)
+                    RelayPlaybackCommand.Action.PAUSE -> media.sendPause(force = command.force, routeToRelay = false)
+                    RelayPlaybackCommand.Action.PLAY -> media.sendPlay(command.replayWhenPaused, command.force, routeToRelay = false)
+                }
+                Log.i(TAG, "Receiver requested playback command: ${command.action}")
+            }
+            RelaySessionControl.PLAYBACK_TOGGLE -> {
+                if (state.value.role != RelayRole.SOURCE || audioCapture == null) return
+                val media = io.automated.ventures.everypods.utils.MediaController
+                val wasPlaying = media.getMusicActive()
+                val result = RelayPlaybackToggle.result(packet, wasPlaying) ?: return
+                media.sendPlayPause(routeToRelay = false)
+                sendControl(mac, result)
+                Log.i(TAG, "Receiver requested playback toggle: wasPlaying=$wasPlaying")
+            }
+            RelaySessionControl.PLAYBACK_TOGGLE_RESULT -> {
+                if (!RelayPlaybackToggle.receivesPlaybackControls(state.value)) return
+                if (playbackToggle.complete(mac, packet)) playbackToggleTimeout?.cancel()
+            }
             RelaySessionControl.PLAYBACK_INTERRUPTION -> {
                 if (mutableState.value.role != RelayRole.SOURCE) return
                 val (interruption, unavailable) = RelaySessionControl.decodeInterruption(packet)
@@ -1305,6 +1374,9 @@ class RelayPreviewService : Service(), RelaySessionApi {
     }
 
     override fun onDestroy() {
+        if (activeInstance === this) activeInstance = null
+        playbackToggle.clear()
+        playbackToggleTimeout?.cancel()
         stopRelay()
         controller?.close()
         controller = null
@@ -1317,6 +1389,16 @@ class RelayPreviewService : Service(), RelaySessionApi {
     }
 
     companion object {
+        @Volatile private var activeInstance: RelayPreviewService? = null
+
+        internal fun forwardReceiverPlayback(command: RelayPlaybackCommand): Boolean =
+            activeInstance?.forwardPlayback(command) ?: false
+
+
+        /** Returns false only when this device is not controlling a received relay stream. */
+        fun toggleReceiverPlayback(onSourceState: (wasPlaying: Boolean) -> Unit): Boolean =
+            activeInstance?.togglePlayback(onSourceState) ?: false
+
         private const val TAG = "RelayPreviewService"
         private const val CHANNEL_ID = "everypods_audio_relay"
         private const val NOTIFICATION_ID = 74102

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="audio_relay_preset_test_jitter">Prueba: búfer de fluctuación %1$d/%2$d ms</string>
+    <string name="audio_relay_preset_test_jitter_desc">Compara con Baja latencia. Solo cambian los objetivos inicial y máximo del búfer de fluctuación.</string>
+    <string name="audio_relay_preset_test_playback">Prueba: reproducción %1$d ms</string>
+    <string name="audio_relay_preset_test_playback_desc">Compara con Baja latencia. Solo cambia el búfer de reproducción; Android puede usar uno mayor.</string>
+    <string name="audio_relay_preset_test_capture">Prueba: captura %1$d ms</string>
+    <string name="audio_relay_preset_test_capture_desc">Compara con Baja latencia. Solo cambia el búfer de captura; Android puede usar uno mayor.</string>
+    <string name="audio_relay_preset_test_retransmission">Prueba: retransmisión %1$d ms</string>
+    <string name="audio_relay_preset_test_retransmission_desc">Compara con Baja latencia. Solo cambia el plazo de retransmisión; cero puede causar más cortes de audio.</string>
+    <string name="audio_relay_preset_test_combined">Prueba: combinada</string>
+    <string name="audio_relay_preset_test_combined_desc">Búfer de fluctuación de 40–80 ms y búferes de captura y reproducción de 20 ms. El resto coincide con Baja latencia. Puede haber más cortes.</string>
+</resources>

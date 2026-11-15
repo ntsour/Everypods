@@ -260,7 +260,7 @@ class RelayAudioPlayback(
                 val pcm = synchronized(resourceLock) {
                     if (closed.get() || interruption != RelayInterruption.NONE || playbackEpoch != epoch) return@synchronized null
                     when (output) {
-                        is RelayJitterBuffer.Output.Frame -> codec.decode(output.packet.opusPayload)
+                        is RelayJitterBuffer.Output.Frame -> RelayPcmCatchUp.decode(output, NativeOpusCodec.CHANNELS, codec::decode)
                         is RelayJitterBuffer.Output.Missing -> framer.concealLoss()
                     }
                 } ?: continue

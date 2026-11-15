@@ -56,6 +56,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -73,6 +74,7 @@ import io.automated.ventures.everypods.relay.RelaySessionBinder
 import io.automated.ventures.everypods.relay.RelayRole
 import io.automated.ventures.everypods.relay.RelayStage
 import io.automated.ventures.everypods.relay.RelayUiState
+import io.automated.ventures.everypods.relay.RelayBuiltInAudioPresets
 import io.automated.ventures.everypods.relay.NamedRelayAudioPreset
 import io.automated.ventures.everypods.relay.RelayNamedAudioPresets
 import io.automated.ventures.everypods.relay.RelayAudioTuning
@@ -117,16 +119,8 @@ fun DevicePlaybackScreen(
     var presetName by remember { mutableStateOf("") }
     var presetToDelete by remember { mutableStateOf<NamedRelayAudioPreset?>(null) }
 
-    val tuningPresets = listOf(
-        RelayAudioTuning.DEFAULT,
-        RelayAudioTuning(initialJitterMs = 80, maximumJitterMs = 160, adaptiveBufferMode = 2, playbackBufferMs = 40, captureBufferMs = 40, frameDurationMs = 10, lowDelayMode = true, bitrateKbps = 160, retransmissionMs = 20),
-        RelayAudioTuning(initialJitterMs = 240, maximumJitterMs = 500, adaptiveBufferMode = 1, playbackBufferMs = 120, captureBufferMs = 80, frameDurationMs = 20, lowDelayMode = false, bitrateKbps = 128, retransmissionMs = 80),
-    )
-    val tuningPresetNames = listOf(
-        stringResource(R.string.audio_relay_preset_balanced),
-        stringResource(R.string.audio_relay_preset_low_latency),
-        stringResource(R.string.audio_relay_preset_unstable),
-    )
+    val tuningPresets = RelayBuiltInAudioPresets.entries
+    val tuningPresetNames = tuningPresets.map { stringResource(it.nameRes, *it.nameArguments.toTypedArray()) }
     var autoStartConsumed by remember(peerMac) { mutableStateOf(false) }
     var relayService by remember { mutableStateOf<RelaySessionApi?>(null) }
     var showBluetoothConfirmation by remember { mutableStateOf(false) }
@@ -437,17 +431,13 @@ fun DevicePlaybackScreen(
                                     }
                                 }
                             }
-                            val presetIndex = tuningPresets.indexOf(tuning)
+                            val presetIndex = tuningPresets.indexOfFirst { it.tuning == tuning }
                             TuningChoiceRow(stringResource(R.string.audio_relay_tuning_preset), tuningPresetNames.getOrElse(presetIndex) { namedPresets.firstOrNull { it.tuning == tuning }?.name ?: stringResource(R.string.audio_relay_preset_custom) }, tuningPresetNames.mapIndexed { index, name -> name to index }, bodyColor) { value ->
-                                tuning = tuningPresets[value]
+                                tuning = tuningPresets[value].tuning
                                 RelayAudioTuning.save(preferences, peerMac, tuning)
                             }
-                            Text(stringResource(when (presetIndex) {
-                                0 -> R.string.audio_relay_preset_balanced_desc
-                                1 -> R.string.audio_relay_preset_low_latency_desc
-                                2 -> R.string.audio_relay_preset_unstable_desc
-                                else -> R.string.audio_relay_preset_custom_desc
-                            }), color = secondaryColor, style = TextStyle(fontSize = 13.sp))
+                            Text(stringResource(tuningPresets.getOrNull(presetIndex)?.descriptionRes
+                                ?: R.string.audio_relay_preset_custom_desc), color = secondaryColor, style = TextStyle(fontSize = 13.sp))
                             TuningChoiceRow(stringResource(R.string.audio_relay_tuning_initial), "${tuning.initialJitterMs} ms", RelayAudioTuning.JITTER_OPTIONS.filter { it <= tuning.maximumJitterMs && it % tuning.frameDurationMs == 0 }.map { "$it ms" to it }, bodyColor) { value ->
                                 tuning = tuning.copy(initialJitterMs = value); RelayAudioTuning.save(preferences, peerMac, tuning)
                             }
@@ -611,13 +601,14 @@ private fun TuningChoiceRow(label: String, selected: String, choices: List<Pair<
     var open by remember(label) { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { open = true }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(label, modifier = Modifier.weight(1f), color = textColor)
-        Text(selected, color = if (textColor == Color.White) Color(0xFF90CAF9) else Color(0xFF1565C0))
+        Text(selected, modifier = Modifier.weight(1f).padding(start = 12.dp), textAlign = TextAlign.End,
+            color = if (textColor == Color.White) Color(0xFF90CAF9) else Color(0xFF1565C0))
     }
     if (open) AlertDialog(
         onDismissRequest = { open = false },
         title = { Text(label, color = textColor) },
-        text = { Column { choices.forEach { (name, value) ->
-            TextButton(onClick = { open = false; onSelect(value) }, modifier = Modifier.fillMaxWidth()) {
+        text = { Column(Modifier.verticalScroll(rememberScrollState())) { choices.forEach { (name, value) ->
+            TextButton(onClick = { open = false; onSelect(value) }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
                 Text(if (name == selected) "✓  $name" else name, color = textColor)
             }
         } } },

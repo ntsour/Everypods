@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="audio_relay_preset_test_jitter">Test: Jitter %1$d/%2$d ms</string>
+    <string name="audio_relay_preset_test_jitter_desc">Mit Niedrige Latenz vergleichen. Nur der anfängliche und der maximale Jitter-Zielwert ändern sich.</string>
+    <string name="audio_relay_preset_test_playback">Test: Wiedergabe %1$d ms</string>
+    <string name="audio_relay_preset_test_playback_desc">Mit Niedrige Latenz vergleichen. Nur der Wiedergabepuffer ändert sich; Android kann einen größeren Puffer verwenden.</string>
+    <string name="audio_relay_preset_test_capture">Test: Aufnahme %1$d ms</string>
+    <string name="audio_relay_preset_test_capture_desc">Mit Niedrige Latenz vergleichen. Nur der Aufnahmepuffer ändert sich; Android kann einen größeren Puffer verwenden.</string>
+    <string name="audio_relay_preset_test_retransmission">Test: Neuübertragung %1$d ms</string>
+    <string name="audio_relay_preset_test_retransmission_desc">Mit Niedrige Latenz vergleichen. Nur die Frist für Neuübertragungen ändert sich; null kann mehr Audioaussetzer verursachen.</string>
+    <string name="audio_relay_preset_test_combined">Test: kombiniert</string>
+    <string name="audio_relay_preset_test_combined_desc">40–80 ms Jitter und 20 ms Aufnahme- und Wiedergabepuffer. Die übrigen Einstellungen entsprechen Niedrige Latenz. Mehr Aussetzer sind möglich.</string>
+</resources>
