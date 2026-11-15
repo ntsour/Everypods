@@ -766,12 +766,28 @@ object MediaController {
         if (routeToRelay && RelayPreviewService.forwardReceiverPlayback(RelayPlaybackCommand(Action.PLAY_PAUSE))) return
         val wasActive = audioManager.isMusicActive
         Log.d("MediaController", "Sending play/pause toggle (wasActive=$wasActive)")
+        if (!wasActive && releasePauseFocus("play/pause")) {
+            resumeAfterFocusRelease {
+                if (!tryDirectSessionResume("play/pause")) dispatchPlayPauseKey()
+                lastSelfActionAt = SystemClock.uptimeMillis()
+            }
+            lastSelfActionAt = SystemClock.uptimeMillis()
+            iPausedTheMedia = false
+            return
+        }
         if (!wasActive && tryDirectSessionResume("play/pause")) {
             lastSelfActionAt = SystemClock.uptimeMillis()
             iPausedTheMedia = false
             return
         }
+        if (wasActive && tryDirectSessionPause("play/pause")) {
+            lastSelfActionAt = SystemClock.uptimeMillis()
+            iPausedTheMedia = true
+            userPlayedTheMedia = false
+            return
+        }
         dispatchPlayPauseKey()
+        if (wasActive) ensurePausedViaAudioFocus("play/pause")
         lastSelfActionAt = SystemClock.uptimeMillis()
         // If music was active, this press paused it → remember so auto-resume on ear-in works.
         // If music was not active, this press is a play → clear the pause flag.
@@ -790,6 +806,80 @@ object MediaController {
         audioManager.dispatchMediaKeyEvent(
             KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)
         )
+    }
+
+    private var pauseFocusRequest: android.media.AudioFocusRequest? = null
+
+    /**
+     * Some players (e.g. Prime Video) report a stale PAUSED session and ignore media keys while
+     * playing, but still pause when they lose audio focus. If audio is still active shortly after
+     * a pause was requested, take transient focus so they pause, and HOLD it while paused:
+     * releasing it on resume lets that same player continue, instead of a resume key or
+     * session pick landing on some other app (e.g. a podcast player).
+     */
+    private fun ensurePausedViaAudioFocus(reason: String) {
+        handler.postDelayed({
+            if (!audioManager.isMusicActive || pauseFocusRequest != null) return@postDelayed
+            Log.i("MediaController", "Pause ($reason) not honoured after 700ms; holding transient audio focus")
+            val request = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+                .setAudioAttributes(
+                    android.media.AudioAttributes.Builder()
+                        .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .build()
+                )
+                .setOnAudioFocusChangeListener { change ->
+                    // Another app took focus for real: our hold is over.
+                    if (change == AudioManager.AUDIOFOCUS_LOSS) pauseFocusRequest = null
+                }
+                .build()
+            if (audioManager.requestAudioFocus(request) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+                pauseFocusRequest = request
+            }
+        }, 700L)
+    }
+
+    /** Releases a held pause-focus so the paused player resumes itself. True if one was held. */
+    private fun releasePauseFocus(reason: String): Boolean {
+        val request = pauseFocusRequest ?: return false
+        pauseFocusRequest = null
+        audioManager.abandonAudioFocusRequest(request)
+        Log.i("MediaController", "Resume ($reason): released held audio focus")
+        return true
+    }
+
+    /** After releasing focus, fall back to the normal resume if nothing started playing. */
+    private fun resumeAfterFocusRelease(fallback: () -> Unit) {
+        handler.postDelayed({
+            if (!audioManager.isMusicActive) fallback()
+        }, 1200L)
+    }
+
+    /**
+     * The media-button session can be a stale app (e.g. a video app that played earlier) while
+     * another app is the one actually playing, so a generic PLAY_PAUSE/PAUSE key pauses nothing.
+     * Pause the session that is really PLAYING directly. Returns true when a pause was issued.
+     */
+    private fun tryDirectSessionPause(reason: String): Boolean {
+        val msm = mediaSessionManager ?: return false
+        val component = mediaListenerComponent ?: return false
+        val playing = runCatching { msm.getActiveSessions(component) }.getOrElse {
+            Log.i("MediaController", "Direct pause ($reason): getActiveSessions failed (${it.message})")
+            emptyList()
+        }.filter { it.packageName != appPackageName && isPlayingLocalMedia(it) }
+        val target = playing.firstOrNull { it.packageName == lastPlayingSessionPackage } ?: playing.firstOrNull()
+        if (target == null) {
+            Log.i("MediaController", "Direct pause ($reason): no playing session; using media key")
+            return false
+        }
+        return try {
+            target.transportControls.pause()
+            Log.i("MediaController", "Direct pause ($reason): pkg=${target.packageName}")
+            true
+        } catch (t: Exception) {
+            Log.i("MediaController", "Direct pause ($reason) failed for ${target.packageName} (${t.message}); using media key")
+            false
+        }
     }
 
     /**
@@ -906,6 +996,10 @@ object MediaController {
             Log.d("MediaController", "  → DISPATCHING PAUSE KEY EVENT")
             iPausedTheMedia = if (force) audioManager.isMusicActive else true
             userPlayedTheMedia = false
+            if (tryDirectSessionPause("pause")) {
+                lastSelfActionAt = SystemClock.uptimeMillis()
+                return
+            }
             audioManager.dispatchMediaKeyEvent(
                 KeyEvent(
                     KeyEvent.ACTION_DOWN,
@@ -918,6 +1012,7 @@ object MediaController {
                     KeyEvent.KEYCODE_MEDIA_PAUSE
                 )
             )
+            ensurePausedViaAudioFocus("pause")
             lastSelfActionAt = SystemClock.uptimeMillis()
         } else {
             Log.d("MediaController", "  → skipped (not music active or user is controlling playback)")
@@ -931,6 +1026,16 @@ object MediaController {
         if (replayWhenPaused) {
             lastPlayWithReplay = true
             lastPlayTime = SystemClock.uptimeMillis()
+        }
+        if (releasePauseFocus("play")) {
+            resumeAfterFocusRelease {
+                audioManager.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY))
+                audioManager.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MEDIA_PLAY))
+                lastSelfActionAt = SystemClock.uptimeMillis()
+            }
+            userPlayedTheMedia = false
+            iPausedTheMedia = false
+            return
         }
         if (iPausedTheMedia || force) { // very creative, ik. thanks.
             Log.d("MediaController", "Sending play and setting userPlayedTheMedia to false")
