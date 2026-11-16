@@ -10,7 +10,9 @@ on:
 
 permissions:
   contents: read
-  security-events: write
+  # The CodeQL action reads the workflow run (get-a-workflow-run) even when results are not uploaded.
+  actions: read
+  security-events: read
 
 jobs:
   analyze:
