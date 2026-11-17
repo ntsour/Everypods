@@ -5528,8 +5528,6 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         ))
     }
 
-    @RequiresApi(Build.VERSION_CODES.R)
-    @SuppressLint("MissingPermission", "HardwareIds")
     /**
      * The AirPods opened a link to this phone. They often bring up A2DP on their
      * own shortly after; if they have not after [HEADSET_LINK_MEDIA_CHECK_DELAY_MS]
@@ -5558,6 +5556,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         MediaController.onHeadsetLinkAvailable(peerUsingAudio = CrossDevice.anyPeerUsingAudio())
     }
 
+    @RequiresApi(Build.VERSION_CODES.R)
+    @SuppressLint("MissingPermission", "HardwareIds")
     fun takeOver(
         takingOverFor: String,
         manualTakeOverAfterReversed: Boolean = false,
