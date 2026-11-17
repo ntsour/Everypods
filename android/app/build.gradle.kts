@@ -39,7 +39,7 @@ abstract class VerifyPlayReleaseSigningTask : DefaultTask() {
     }
 }
 
-val appVersionName = "1.0.7"
+val appVersionName = "1.0.8"
 
 plugins {
     alias(libs.plugins.protobuf)
@@ -93,7 +93,7 @@ android {
         minSdk = 33
         targetSdk = 37
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        versionCode = 137
+        versionCode = 138
         versionName = appVersionName
         buildConfigField("Boolean", "DIRCON_ENABLED", "false")
         manifestPlaceholders["appLabel"] = "EveryPods"
