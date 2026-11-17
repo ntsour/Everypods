@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
+import io.automated.ventures.everypods.services.AirPodsService
 import io.automated.ventures.everypods.services.ServiceManager
 import io.automated.ventures.everypods.utils.CrossDevice
 import kotlinx.coroutines.delay
@@ -76,6 +77,8 @@ class RelayPreviewService : Service(), RelaySessionApi {
     @Volatile private var sourceClockOffsetNanos: Long? = null
     private var bestClockSyncRttNanos = Long.MAX_VALUE
     @Volatile private var foregroundStarted = false
+    private var foregroundType = ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
+    @Volatile private var sharingNotification = false
     private var sourceSessionRequested = false
     @Volatile private var activeTuning = RelayAudioTuning.DEFAULT
     private var selectedNetworkPath: RelayNetworkPath? = null
@@ -147,7 +150,7 @@ class RelayPreviewService : Service(), RelaySessionApi {
                         android.content.ComponentName(this@RelayPreviewService, RelayQuickSettingsService::class.java),
                     )
                 }
-                if (foregroundStarted) getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, buildNotification())
+                refreshNotification()
                 broadcastPeerSessionStatus(it)
             }
         }
@@ -383,14 +386,12 @@ class RelayPreviewService : Service(), RelaySessionApi {
     override fun onBind(intent: Intent?): IBinder = binder
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val notification = buildNotification()
         val audioType = when {
             audioCapture != null -> ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
             audioPlayback != null -> ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
             else -> 0
         }
-        startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or audioType)
-        foregroundStarted = true
+        promote(audioType)
         if (intent?.action == ACTION_STOP) {
             stopRelay()
             scope.launch {
@@ -1295,7 +1296,44 @@ class RelayPreviewService : Service(), RelaySessionApi {
 
     private fun promote(type: Int) {
         foregroundStarted = true
-        startForeground(NOTIFICATION_ID, buildNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or type)
+        // Explicit promotions run before capture/playback exists, so claim the type as asked.
+        postForeground(ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or type)
+    }
+
+    /** Later updates re-claim only the media types still backed by live audio. */
+    private fun liveForegroundType(): Int = RelayNotificationPolicy.liveForegroundType(foregroundType,
+        capturing = audioCapture != null, playing = audioPlayback != null)
+
+    /**
+     * While idle the receiver has nothing to show, so it shares the AirPods
+     * service's ongoing notification (same id) instead of posting a second one.
+     * Android shows one notification and keeps it while either service needs it.
+     */
+    private fun postForeground(type: Int) {
+        val shared = if (RelayNotificationPolicy.isIdle(mutableState.value))
+            ServiceManager.getService()?.foregroundNotification else null
+        try {
+            if (shared != null) {
+                startForeground(AirPodsService.FOREGROUND_NOTIFICATION_ID, shared, type)
+            } else {
+                startForeground(NOTIFICATION_ID, buildNotification(), type)
+            }
+            foregroundType = type
+            sharingNotification = shared != null
+        } catch (e: Exception) {
+            Log.w(TAG, "Relay foreground update failed; keeping current notification: $e")
+            if (!sharingNotification) getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, buildNotification())
+        }
+    }
+
+    private fun refreshNotification() {
+        if (!foregroundStarted) return
+        val wantShared = RelayNotificationPolicy.isIdle(mutableState.value) &&
+            ServiceManager.getService()?.foregroundNotification != null
+        // Re-asserting a media type after its capture/playback ended throws a
+        // SecurityException, so switch with only the types still in use.
+        if (wantShared != sharingNotification) postForeground(liveForegroundType())
+        else if (!sharingNotification) getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, buildNotification())
     }
 
     private fun buildNotification(): Notification {
@@ -1374,9 +1412,7 @@ class RelayPreviewService : Service(), RelaySessionApi {
         }.getOrNull() ?: getString(R.string.audio_relay_device_fallback)
     }
 
-    private fun notifySessionChanged() {
-        if (foregroundStarted) getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, buildNotification())
-    }
+    private fun notifySessionChanged() = refreshNotification()
 
     override fun onDestroy() {
         if (activeInstance === this) activeInstance = null
@@ -1395,6 +1431,15 @@ class RelayPreviewService : Service(), RelaySessionApi {
 
     companion object {
         @Volatile private var activeInstance: RelayPreviewService? = null
+
+        /** The AirPods service changed the shared notification; re-share it if idle. */
+        fun onSharedNotificationChanged() {
+            val service = activeInstance ?: return
+            service.scope.launch {
+                if (service.foregroundStarted && service.sharingNotification) service.postForeground(service.liveForegroundType())
+                else service.refreshNotification()
+            }
+        }
 
         internal fun forwardReceiverPlayback(command: RelayPlaybackCommand): Boolean =
             activeInstance?.forwardPlayback(command) ?: false
