@@ -201,4 +201,32 @@ class MediaControllerDetectionTest {
         assertFalse(messages().any { it.contains("DISPATCHING PAUSE KEY EVENT") })
     }
 
+    private fun playLocalMedia() {
+        shadowOf(audio).setIsMusicActive(true)
+        shadowOf(audio).setActivePlaybackConfigurationsFor(listOf(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).build()))
+    }
+
+    @Test fun headsetLinkWhileMediaAlreadyPlayingRequestsTakeover() {
+        playLocalMedia()
+        MediaController.onHeadsetLinkAvailable(peerUsingAudio = false)
+        main.idle()
+        assertTrue(messages().any { it.contains("AirPods service unavailable; trigger=headset link") })
+    }
+
+    @Test fun headsetLinkWithoutLocalMediaDoesNothing() {
+        shadowOf(audio).setIsMusicActive(false)
+        MediaController.onHeadsetLinkAvailable(peerUsingAudio = false)
+        main.idle()
+        assertTrue(messages().any { it.contains("media takeover skipped: no local music active") })
+        assertFalse(messages().any { it.contains("trigger=headset link") })
+    }
+
+    @Test fun headsetLinkDoesNotStealFromAPeerUsingAudio() {
+        playLocalMedia()
+        MediaController.onHeadsetLinkAvailable(peerUsingAudio = true)
+        main.idle()
+        assertTrue(messages().any { it.contains("media takeover skipped: peer using audio") })
+        assertFalse(messages().any { it.contains("trigger=headset link") })
+    }
+
 }
