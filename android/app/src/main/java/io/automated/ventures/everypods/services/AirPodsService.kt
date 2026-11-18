@@ -1145,6 +1145,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         private const val GYM_MODE_NOTIFICATION_REQUEST_CODE = 73
         private const val CONNECT_LAST_DEVICE_NOTIFICATION_REQUEST_CODE = 75
         private const val GYM_TIMER_NOTIFICATION_ID = 4
+        /** Ongoing EveryPods notification, shared by the AirPods service and an idle relay receiver. */
+        const val FOREGROUND_NOTIFICATION_ID = 1
         private const val GYM_TIMER_NOTIFICATION_REQUEST_CODE = 74
         private const val GYM_TIMER_NOTIFICATION_CHANNEL = "gym_timer_lock_screen"
         private const val GYM_TIMER_PAUSED_VISIBILITY_MS = 60_000L
@@ -3891,12 +3893,6 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             description = getString(R.string.channel_connection_background_description)
         }
 
-        val connectedNotificationChannel = NotificationChannel(
-            "airpods_connection_status",
-            getString(R.string.channel_airpods_connection_status),
-            NotificationManager.IMPORTANCE_LOW,
-        )
-
         val socketFailureChannel = NotificationChannel(
             "socket_connection_failure",
             getString(R.string.channel_airpods_socket_issues),
@@ -3920,7 +3916,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
         val notificationManager = getSystemService(NotificationManager::class.java)
         notificationManager.createNotificationChannel(disconnectedNotificationChannel)
-        notificationManager.createNotificationChannel(connectedNotificationChannel)
+        // Connection status now lives in the foreground notification (id 1).
+        notificationManager.deleteNotificationChannel("airpods_connection_status")
         notificationManager.createNotificationChannel(socketFailureChannel)
         notificationManager.createNotificationChannel(gymTimerChannel)
 
@@ -3940,24 +3937,40 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             getString(R.string.qs_maintaining_connection),
             gymModeNotificationStatus()
         ).joinToString(" · ")
-        val presentation = statusPresentation(getString(R.string.qs_connection_active), foregroundText)
+        // One ongoing notification: AirPods status while connected, service status otherwise.
+        val connected = connectedStatus
+        val presentation = connected
+            ?: statusPresentation(getString(R.string.qs_connection_active), foregroundText)
         if (foregroundPresentation == presentation) return
+        val contentIntent = if (connected != null) {
+            PendingIntent.getActivity(this, 0,
+                Intent(this, MainActivity::class.java).setPackage(packageName),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        } else {
+            pendingIntentNotifDisable
+        }
         val notificationBuilder = NotificationCompat.Builder(this, "background_service_status")
-            .setSmallIcon(R.drawable.airpods).setContentTitle(getString(R.string.qs_connection_active))
-            .setContentText(foregroundText)
-            .setContentIntent(pendingIntentNotifDisable).setCategory(Notification.CATEGORY_SERVICE)
-            .setPriority(NotificationCompat.PRIORITY_LOW).setOngoing(true)
+            .setSmallIcon(R.drawable.airpods).setContentTitle(presentation.title)
+            .setContentText(presentation.text)
+            .setContentIntent(contentIntent).setCategory(Notification.CATEGORY_SERVICE)
+            .setPriority(NotificationCompat.PRIORITY_LOW).setOngoing(true).setOnlyAlertOnce(true)
         addConnectLastDeviceNotificationAction(notificationBuilder)
         addGymModeNotificationAction(notificationBuilder)
+        if (connected?.reversed == true) notificationBuilder.addAction(R.drawable.ic_bluetooth, "Reconnect",
+            PendingIntent.getService(this, 0, Intent(this, AirPodsService::class.java)
+                .setPackage(packageName).setAction("io.automated.ventures.everypods.RECONNECT_AFTER_REVERSE"),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
         val notification = notificationBuilder.build()
 
         try {
             startForeground(
-                1,
+                FOREGROUND_NOTIFICATION_ID,
                 notification,
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
             )
             foregroundPresentation = presentation
+            foregroundNotification = notification
+            io.automated.ventures.everypods.relay.RelayPreviewService.onSharedNotificationChanged()
             LidAutoconnectDiagnostics.logEvent("notification_publish", mapOf("id" to 1, "operation" to "foreground"))
             Log.i(TAG, "startForeground connectedDevice ok")
             Log.i(StartupGate.TAG, "startForeground connectedDevice ok")
@@ -4429,6 +4442,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     @Volatile private var notificationUpdatesStopped = false
     private var pendingNotificationUpdate: Runnable? = null
     private var foregroundPresentation: StatusPresentation? = null
+    /** Last notification posted as id [FOREGROUND_NOTIFICATION_ID]; an idle relay receiver shares it. */
+    @Volatile var foregroundNotification: Notification? = null
+        private set
+    /** AirPods status shown in the foreground notification while connected; null otherwise. */
+    private var connectedStatus: StatusPresentation? = null
     private val statusPublisherDelegate = lazy {
         io.automated.ventures.everypods.utils.LatestStatePublisher<StatusPresentation>(
             nowMs = SystemClock::elapsedRealtime,
@@ -4500,30 +4518,13 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         requestStatusNotification(statusPresentation(airpodsName ?: config.deviceName, notificationText))
     }
 
-    @OptIn(ExperimentalMaterial3Api::class)
     private fun publishStatusNotification(state: StatusPresentation?) {
-        val manager = getSystemService(NotificationManager::class.java)
-        if (state == null) {
-            manager.cancel(2)
-        } else {
-            val pendingIntent = PendingIntent.getActivity(this, 0,
-                Intent(this, MainActivity::class.java).setPackage(packageName),
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-            val builder = NotificationCompat.Builder(this, "airpods_connection_status")
-                .setSmallIcon(R.drawable.airpods)
-                .setContentTitle(state.title).setContentText(state.text)
-                .setContentIntent(pendingIntent).setCategory(Notification.CATEGORY_STATUS)
-                .setPriority(NotificationCompat.PRIORITY_LOW).setOngoing(true).setOnlyAlertOnce(true)
-            addConnectLastDeviceNotificationAction(builder)
-            addGymModeNotificationAction(builder)
-            if (state.reversed) builder.addAction(R.drawable.ic_bluetooth, "Reconnect",
-                PendingIntent.getService(this, 0, Intent(this, AirPodsService::class.java)
-                    .setPackage(packageName).setAction("io.automated.ventures.everypods.RECONNECT_AFTER_REVERSE"),
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
-            manager.notify(2, builder.build())
-        }
-        LidAutoconnectDiagnostics.logEvent("notification_publish", mapOf("id" to 2,
-            "operation" to if (state == null) "cancel" else "post"))
+        connectedStatus = state
+        // Older versions posted status as a second notification (id 2).
+        getSystemService(NotificationManager::class.java).cancel(2)
+        startForegroundNotification()
+        LidAutoconnectDiagnostics.logEvent("notification_publish", mapOf("id" to 1,
+            "operation" to if (state == null) "service" else "status"))
     }
 
     private fun addGymModeNotificationAction(builder: NotificationCompat.Builder) {
