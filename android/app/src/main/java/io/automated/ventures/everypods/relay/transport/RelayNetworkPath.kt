@@ -4,6 +4,8 @@ package io.automated.ventures.everypods.relay.transport
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import android.system.Os
+import android.system.OsConstants
 import org.webrtc.NetworkChangeDetector
 import org.webrtc.NetworkMonitor
 import java.net.Inet4Address
@@ -32,6 +34,25 @@ data class RelayNetworkPath(
             it.networkHandle == networkHandle
         }
     }.getOrDefault(false)
+
+    /**
+     * A VPN that does not allow bypass makes Netd reject binding this app's sockets to
+     * any other Network, even when the VPN excludes the LAN from its routes. WebRTC
+     * then gathers no candidate on the pinned network. In that case pin by interface
+     * address only (handle zero), as for unregistered hotspot interfaces.
+     */
+    fun forSocketBinding(context: Context): RelayNetworkPath {
+        if (networkHandle == 0L) return this
+        val bindable = runCatching {
+            val network = context.getSystemService(ConnectivityManager::class.java).allNetworks
+                .firstOrNull { it.networkHandle == networkHandle } ?: return@runCatching false
+            val fd = Os.socket(OsConstants.AF_INET, OsConstants.SOCK_DGRAM, OsConstants.IPPROTO_UDP)
+            try { network.bindSocket(fd); true } finally { Os.close(fd) }
+        }.getOrDefault(false)
+        return withNetworkBinding(bindable)
+    }
+
+    fun withNetworkBinding(bindable: Boolean): RelayNetworkPath = if (bindable) this else copy(networkHandle = 0L)
 
     companion object {
         fun ipv4(text: String): Long {
