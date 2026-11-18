@@ -1032,4 +1032,7 @@ Protokol istekleri: %4$d</string>
     <string name="speech_heart_rate_unavailable">Kalp hızı kullanılamıyor</string>
     <string name="privacy_policy">Gizlilik politikası</string>
     <string name="source_code_request">Kaynak kodunu e-posta ile isteyin</string>
+    <string name="companion_pairing_description">Gelen aramaların AirPods\'a daha hızlı geçmesi için AirPods\'unuzu EveryPods ile bağlayın. Android bir kez onay ister.</string>
+    <string name="companion_pairing_action">AirPods\'u bağla</string>
+    <string name="companion_pairing_failed">AirPods bağlanamadı. Bağlı olduklarından emin olup tekrar deneyin.</string>
 </resources>

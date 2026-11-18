@@ -997,4 +997,7 @@
     <string name="speech_heart_rate_unavailable">Ο καρδιακός ρυθμός δεν είναι διαθέσιμος</string>
     <string name="privacy_policy">Πολιτική απορρήτου</string>
     <string name="source_code_request">Ζητήστε τον πηγαίο κώδικα μέσω email</string>
+    <string name="companion_pairing_description">Συνδέστε τα AirPods με το EveryPods ώστε οι εισερχόμενες κλήσεις να μεταφέρονται σε αυτά πιο γρήγορα. Το Android θα ζητήσει επιβεβαίωση μία φορά.</string>
+    <string name="companion_pairing_action">Σύνδεση AirPods</string>
+    <string name="companion_pairing_failed">Δεν ήταν δυνατή η σύνδεση των AirPods. Βεβαιωθείτε ότι είναι συνδεδεμένα και δοκιμάστε ξανά.</string>
 </resources>

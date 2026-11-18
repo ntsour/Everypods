@@ -1032,4 +1032,7 @@
     <string name="speech_heart_rate_unavailable">心率無法使用</string>
     <string name="privacy_policy">隱私權政策</string>
     <string name="source_code_request">透過電子郵件索取原始碼</string>
+    <string name="companion_pairing_description">將 AirPods 連結至 EveryPods，來電可更快切換到 AirPods。Android 只會要求確認一次。</string>
+    <string name="companion_pairing_action">連結 AirPods</string>
+    <string name="companion_pairing_failed">無法連結 AirPods。請確認已連線後再試一次。</string>
 </resources>

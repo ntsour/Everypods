@@ -1049,4 +1049,7 @@ Protocol requests: %4$d</string>
     <string name="speech_heart_rate_unavailable">Heart rate unavailable</string>
     <string name="privacy_policy">Privacy policy</string>
     <string name="source_code_request">Request source code by email</string>
+    <string name="companion_pairing_description">Link your AirPods to EveryPods so incoming calls switch to them faster. Android asks you to confirm once.</string>
+    <string name="companion_pairing_action">Link AirPods</string>
+    <string name="companion_pairing_failed">Couldn\'t link the AirPods. Make sure they\'re connected, then try again.</string>
 </resources>

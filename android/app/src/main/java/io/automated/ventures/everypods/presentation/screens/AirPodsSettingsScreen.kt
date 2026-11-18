@@ -1316,6 +1316,7 @@ private fun DisconnectedScreen(
                         independent = true,
                         enabled = handoverUnlocked && !handoverTemporarilyPaused
                     )
+                    if (appState.takeoverWhenRingingCall && handoverUnlocked) io.automated.ventures.everypods.presentation.components.CompanionPairingNotice()
                 }
             }
         }

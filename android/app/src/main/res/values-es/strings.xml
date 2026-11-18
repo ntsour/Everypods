@@ -1034,4 +1034,7 @@ Solicitudes del protocolo: %4$d</string>
     <string name="speech_heart_rate_unavailable">Frecuencia cardíaca no disponible</string>
     <string name="privacy_policy">Política de privacidad</string>
     <string name="source_code_request">Solicitar el código fuente por correo</string>
+    <string name="companion_pairing_description">Vincula tus AirPods con EveryPods para que las llamadas entrantes pasen a ellos más rápido. Android te pedirá confirmación una sola vez.</string>
+    <string name="companion_pairing_action">Vincular AirPods</string>
+    <string name="companion_pairing_failed">No se pudieron vincular los AirPods. Asegúrate de que estén conectados e inténtalo de nuevo.</string>
 </resources>
