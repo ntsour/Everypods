@@ -181,6 +181,12 @@ object CrossDevice {
 
     fun allPeersRelease(headsetId: String): Boolean = peerOwnershipStore.allPeersRelease(headsetId)
 
+    /** True when any peer's latest snapshot says it is playing media or on a call. */
+    fun anyPeerUsingAudio(): Boolean = peerOwnershipStore.observations().values.any {
+        it.audioUse == io.automated.ventures.everypods.utils.peer.PeerAudioUse.MEDIA ||
+            it.audioUse == io.automated.ventures.everypods.utils.peer.PeerAudioUse.CALL
+    }
+
     internal fun currentV2Snapshot(): Map<String, Any?> = localSnapshot()
 
     internal fun bindV2PeerIdentity(mac: String, installationId: String): String? {

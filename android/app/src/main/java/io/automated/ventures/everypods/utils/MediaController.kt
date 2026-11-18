@@ -641,6 +641,38 @@ object MediaController {
         service.takeOver("music")
     }
 
+    /**
+     * The AirPods opened a link to this phone on their own (ACL_CONNECTED) while
+     * no audio profile is up. If media is already playing here, that playback
+     * started earlier, perhaps while the AirPods were unreachable and the
+     * takeover attempts timed out, so no fresh start event will arrive. Treat
+     * the link as a new chance to take the route, unless a peer reports that it
+     * is actively using the AirPods for media or a call.
+     */
+    fun onHeadsetLinkAvailable(peerUsingAudio: Boolean) {
+        handler.post {
+            if (!this::audioManager.isInitialized) return@post
+            val sessionMedia = sessionCallbacks.keys.any(::isPlayingLocalMedia)
+            val configMedia = audioManager.activePlaybackConfigurations.any {
+                isUserMediaPlayback(it.audioAttributes.usage, it.audioAttributes.contentType)
+            }
+            val skip = when {
+                !audioManager.isMusicActive -> "no local music active"
+                !sessionMedia && !configMedia -> "no user media playing"
+                peerUsingAudio -> "peer using audio"
+                else -> null
+            }
+            LidAutoconnectDiagnostics.logEvent("headset_link_media_check", mapOf(
+                "decision" to if (skip == null) "takeover" else "skip", "reason" to skip,
+            ))
+            if (skip != null) {
+                Log.d("MediaController", "Headset link available; media takeover skipped: $skip")
+                return@post
+            }
+            requestMediaTakeover("headset link")
+        }
+    }
+
     private fun cancelMediaVerification() {
         mediaDetectionGeneration++
         mediaVerification?.let(handler::removeCallbacks)

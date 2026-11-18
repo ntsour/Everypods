@@ -1288,6 +1288,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
          * active again) and Xiaomi/Pixel fights the peer for the connection.
          */
         const val A2DP_STATE_FLUX_WINDOW_MS: Long = 2_500L
+        /** Grace period for the AirPods to bring up A2DP themselves after linking. */
+        const val HEADSET_LINK_MEDIA_CHECK_DELAY_MS: Long = 2_000L
 
         /** Debounce for lid-open Option-1 auto-grab (see AudioLeasePrefs). */
         const val LID_AUTOCONNECT_DEBOUNCE_MS: Long = AudioLeasePrefs.LID_AUTOCONNECT_DEBOUNCE_MS
@@ -5230,6 +5232,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     if (CrossDevice.configuredPeers.any { it.equals(bluetoothDevice.address, ignoreCase = true) }) {
                         CrossDeviceClient.retryNow(bluetoothDevice.address)
                     }
+                    ServiceManager.getService()?.onHeadsetAclConnected(bluetoothDevice.address)
 
                     val uuid = ParcelUuid.fromString("74ec2172-0bad-4d01-8f77-997b2be0722a")
                     if (bluetoothDevice.uuids != null && bluetoothDevice.uuids.contains(uuid)) {
@@ -5290,6 +5293,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     val savedMac = context?.getSharedPreferences("settings", MODE_PRIVATE)
                         ?.getString("mac_address", null)
                     if (savedMac != null && bluetoothDevice.address == savedMac) {
+                        ServiceManager.getService()?.onHeadsetAclDisconnected()
                         val now = SystemClock.elapsedRealtime()
                         // A1 fix: confirmPeerOwnership() clears expectingPeerTakeover early
                         // (when the peer's kAirPodsConnected arrives) and arms the cooldown.
@@ -5522,6 +5526,34 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         offlineAudioDriver.submit(io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator.Intent(
             intentId, target.address, trigger, SystemClock.elapsedRealtime() + 45_000L,
         ))
+    }
+
+    /**
+     * The AirPods opened a link to this phone. They often bring up A2DP on their
+     * own shortly after; if they have not after [HEADSET_LINK_MEDIA_CHECK_DELAY_MS]
+     * and media is playing here, ask MediaController to take the route. Without
+     * this, a takeover that gave up while the AirPods were unreachable leaves
+     * them sitting on a bare link until they drop it.
+     */
+    fun onHeadsetAclConnected(address: String) {
+        val saved = sharedPreferences.getString("mac_address", null)
+        if (saved == null || !saved.equals(address, ignoreCase = true)) return
+        lidAutoconnectHandler.removeCallbacks(headsetLinkMediaCheck)
+        lidAutoconnectHandler.postDelayed(headsetLinkMediaCheck, HEADSET_LINK_MEDIA_CHECK_DELAY_MS)
+    }
+
+    /** The link is gone, so a pending check would only page AirPods that just left. */
+    fun onHeadsetAclDisconnected() {
+        lidAutoconnectHandler.removeCallbacks(headsetLinkMediaCheck)
+    }
+
+    private val headsetLinkMediaCheck = Runnable {
+        val mac = sharedPreferences.getString("mac_address", null) ?: return@Runnable
+        val a2dpHere = try {
+            bluetoothA2dpProxy?.connectedDevices?.any { it.address.equals(mac, ignoreCase = true) } == true
+        } catch (_: SecurityException) { false }
+        if (a2dpHere) return@Runnable
+        MediaController.onHeadsetLinkAvailable(peerUsingAudio = CrossDevice.anyPeerUsingAudio())
     }
 
     @RequiresApi(Build.VERSION_CODES.R)
