@@ -143,14 +143,18 @@ class WebRtcRelayTransport(
             )
             // The custom monitor exposes exactly the negotiated adapter, including
             // downstream hotspot interfaces omitted by ConnectivityManager.
-            RelayNetworkMonitor.install(networkPath)
+            val socketPath = networkPath.forSocketBinding(appContext)
+            if (socketPath.networkHandle != networkPath.networkHandle) {
+                Log.w(TAG, "Network ${networkPath.networkHandle} refuses socket binding (VPN without bypass?); pinning by interface address")
+            }
+            RelayNetworkMonitor.install(socketPath)
             val options = PeerConnectionFactory.Options().apply {
                 disableNetworkMonitor = false
             }
             factory = PeerConnectionFactory.builder()
                 .setOptions(options)
                 .createPeerConnectionFactory()
-            Log.i(TAG, "Pinned relay interface=${networkPath.interfaceName} address=${networkPath.address} handle=${networkPath.networkHandle} peer=$peerAddress")
+            Log.i(TAG, "Pinned relay interface=${socketPath.interfaceName} address=${socketPath.address} handle=${socketPath.networkHandle} peer=$peerAddress")
             val config = PeerConnection.RTCConfiguration(emptyList()).apply {
                 sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
                 iceTransportsType = PeerConnection.IceTransportsType.ALL
