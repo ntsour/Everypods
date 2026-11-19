@@ -56,7 +56,10 @@ class AudioConnectionCoordinator(private val maxPassiveCommands: Int = 2) {
         require(intent.headset.isNotBlank())
         val old = snapshot
         val active = old.intent
-        if (active?.id == intent.id) return emptyList() // Duplicate delivery is idempotent.
+        // Duplicate delivery of a live intent is idempotent. A finished one (e.g. STALE_INTENT
+        // after the lid closed) may be resubmitted: a case episode reuses its id for retries,
+        // and dropping them left a re-opened lid ignored until the 45 s episode expired.
+        if (active?.id == intent.id && (old.result == null || old.result == Result.UNRESOLVED)) return emptyList()
         val oldIsLive = active != null && (old.result == null || old.result == Result.UNRESOLVED) &&
             evidence.nowMs < active.expiresAtMs
         if (oldIsLive && active!!.trigger == Trigger.PASSIVE && intent.trigger == Trigger.PASSIVE &&

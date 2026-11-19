@@ -135,6 +135,15 @@ class AudioConnectionCoordinatorTest {
         assertEquals(1, c.snapshot.commands)
     }
 
+    @Test fun `episode intent refused as stale can be resubmitted when the lid reopens`() {
+        val c = AudioConnectionCoordinator()
+        // Lid closed before the command: the attempt finishes as stale.
+        val stale = c.submit(intent(), evidence().copy(fresh = false))
+        assertEquals(AudioConnectionCoordinator.Effect.Outcome(1, AudioConnectionCoordinator.Result.STALE_INTENT), stale.single())
+        // Same episode id, fresh lid-open evidence: connect instead of dropping it as a duplicate.
+        assertTrue(c.submit(intent(), evidence(now = 20_000)).single() is AudioConnectionCoordinator.Effect.Connect)
+    }
+
     @Test fun `late rejection resolves the original command after replacement`() {
         val c = AudioConnectionCoordinator()
         c.submit(intent(), evidence())
