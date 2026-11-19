@@ -90,13 +90,10 @@ object BatteryAlertWatcher {
 
             val s = stateFor(b.component)
 
-            // Buds report fresh low levels while entering the case; queue those until
-            // they are worn again. The case often reports only while open/charging, so
-            // do not suppress case alerts just because it is charging.
-            if ((b.status == BatteryStatus.CHARGING ||
-                    b.status == BatteryStatus.OPTIMIZED_CHARGING ||
-                    b.status == BatteryStatus.DISCONNECTED) &&
-                b.component != BatteryComponent.CASE
+            // Nothing charging needs a low-battery warning: buds in the case, or a case on
+            // its charger. Drop any queued alert so plugging in silences it.
+            if (b.status == BatteryStatus.CHARGING || b.status == BatteryStatus.OPTIMIZED_CHARGING ||
+                (b.status == BatteryStatus.DISCONNECTED && b.component != BatteryComponent.CASE)
             ) {
                 s.pendingLevel = null
                 continue

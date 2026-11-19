@@ -201,6 +201,19 @@ class BatteryAlertWatcherTest {
         )
         verify(exactly = 1) { AnnouncementCoordinator.announceSpeech(any(), any(), any()) }
     }
+
+    @Test
+    fun `charging case never triggers or keeps a low-battery alert`() {
+        setSystemTtsEngine()
+        setBatteryAlertsEnabled(threshold = 40)
+        // Queued while the buds were out of ear...
+        BatteryAlertWatcher.checkAndMaybeAlert(context,
+            listOf(Battery(BatteryComponent.CASE, 16, BatteryStatus.NOT_CHARGING)), anyBudInEar = false)
+        // ...then the case goes on its charger before the buds are worn.
+        BatteryAlertWatcher.checkAndMaybeAlert(context,
+            listOf(Battery(BatteryComponent.CASE, 16, BatteryStatus.CHARGING)), anyBudInEar = true, forceSpeakIfLow = true)
+        verify(exactly = 0) { AnnouncementCoordinator.announceSpeech(any(), any(), any()) }
+    }
 }
 
 class CaseBatteryRetentionTest {
@@ -223,5 +236,15 @@ class CaseBatteryRetentionTest {
         n.updateCaseBattery(caseLevel = 60, caseCharging = true)
         assertEquals(60, caseOf(n)?.level)
         assertEquals(BatteryStatus.CHARGING, caseOf(n)?.status)
+    }
+
+    @Test
+    fun `stale kept case level is left out of alerts but still shown`() {
+        val n = io.automated.ventures.everypods.data.AirPodsNotifications.BatteryNotification()
+        n.setBatteryDirect(79, false, 78, false, caseLevel = 16, caseCharging = false)
+        n.setBatteryDirect(79, false, 78, false, caseLevel = null, caseCharging = false)
+        assertEquals(16, caseOf(n)?.level)
+        assertTrue(n.getBatteryForAlerts().any { it.component == BatteryComponent.CASE })
+        assertTrue(n.getBatteryForAlerts(maxCaseAgeMs = -1).none { it.component == BatteryComponent.CASE })
     }
 }
