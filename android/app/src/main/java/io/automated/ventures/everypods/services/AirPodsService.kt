@@ -1292,6 +1292,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         const val A2DP_STATE_FLUX_WINDOW_MS: Long = 2_500L
         /** Grace period for the AirPods to bring up A2DP themselves after linking. */
         const val HEADSET_LINK_MEDIA_CHECK_DELAY_MS: Long = 2_000L
+        /** Peer-forwarded advert battery/wear older than this is ignored or not sent. */
+        const val PEER_BATTERY_FRESH_MS: Long = 60_000L
+        /** Resend an unchanged peer battery reading at most this often. */
+        const val PEER_BATTERY_RESEND_MS: Long = 30_000L
         /** Time for a yielding peer to pause and close its control link before we page. */
         const val MANUAL_HANDOVER_PEER_RELEASE_MS: Long = 600L
         /** Longer than Android's 30 s A2DP connect timeout plus one coordinator retry. */
@@ -1341,6 +1345,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         override fun onDeviceStatusChanged(
             device: BLEManager.AirPodsStatus, previousStatus: BLEManager.AirPodsStatus?
         ) {
+            sharePeerBattery(device)
             val caseNow = SystemClock.elapsedRealtime()
             submitPassiveBleAvailability(device, caseNow)
             if (bleConfirmsStored(device, caseNow) && !hasFreshAacpRemovalEvidence(caseNow)) {
@@ -1412,6 +1417,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
         override fun onBroadcastFromNewAddress(device: BLEManager.AirPodsStatus) {
             Log.d(TAG, "New address detected")
+            // The AirPods rotate their address; a first advert from a new address carries
+            // battery too, but only this callback fires for it.
+            sharePeerBattery(device)
             submitPassiveBleAvailability(device, SystemClock.elapsedRealtime())
             // New address often means the case opened and rotated its MAC.
             // Refresh the case battery from the new advertisement.
@@ -1519,10 +1527,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             submitPassiveBleAvailability(device, SystemClock.elapsedRealtime())
             gestureHandler.post { reconcileHeadGestures(wearHint = true) }
             reconcileGymHeartRateReadiness(wearHint = true)
+            sharePeerBattery(device)
             if (leftInEar || rightInEar) {
                 io.automated.ventures.everypods.utils.BatteryAlertWatcher.checkAndMaybeAlert(
                     this@AirPodsService,
-                    batteryNotification.getBattery(),
+                    batteryNotification.getBatteryForAlerts(),
                     true
                 )
                 scheduleStartupBatteryAlertAfterInEar()
@@ -1535,6 +1544,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         }
 
         override fun onBatteryChanged(device: BLEManager.AirPodsStatus) {
+            sharePeerBattery(bleManager.getMostRecentStatus())
             if (this@AirPodsService::socket.isInitialized && socket.isConnected) {
                 updateCaseBatteryFromBLE()
                 return
@@ -4050,8 +4060,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         })
         io.automated.ventures.everypods.utils.BatteryAlertWatcher.checkAndMaybeAlert(
             this,
-            batteryNotification.getBattery(),
-            bleManager.getMostRecentStatus()?.let { it.isLeftInEar || it.isRightInEar } == true
+            batteryNotification.getBatteryForAlerts(),
+            isAnyBudInEarFromBle()
         )
     }
 
@@ -4223,14 +4233,80 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         startupBatteryAlertJob = null
         io.automated.ventures.everypods.utils.BatteryAlertWatcher.checkAndMaybeAlert(
             this@AirPodsService,
-            batteryNotification.getBattery(),
+            batteryNotification.getBatteryForAlerts(),
             anyBudInEar = isAnyBudInEarFromBle(),
             forceSpeakIfLow = true
         )
     }
 
     private fun isAnyBudInEarFromBle(): Boolean =
-        bleManager.getMostRecentStatus()?.let { it.isLeftInEar || it.isRightInEar } == true
+        bleManager.getMostRecentStatus()?.let { it.isLeftInEar || it.isRightInEar } == true || peerReportsBudInEar()
+
+    // --- Battery shared between phones (see PeerBatteryPacket) ---
+    @Volatile private var peerBudInEar = false
+    @Volatile private var peerBatteryAtMs = 0L
+    private var lastSharedBattery: ByteArray? = null
+    private var lastSharedBatteryAtMs = 0L
+
+    private fun peerReportsBudInEar(): Boolean =
+        peerBudInEar && SystemClock.elapsedRealtime() - peerBatteryAtMs < PEER_BATTERY_FRESH_MS
+
+    /** Forward our advert-derived battery to linked peers that may not receive the advert. */
+    private fun sharePeerBattery(status: BLEManager.AirPodsStatus?) {
+        if (status == null || !CrossDevice.isPeerConnected) return
+        val now = SystemClock.elapsedRealtime()
+        if (now - status.observedAtElapsedMs > PEER_BATTERY_FRESH_MS) return
+        if (status.leftBattery == null && status.rightBattery == null) return
+        val packet = io.automated.ventures.everypods.utils.peer.PeerBatteryPacket.encode(
+            io.automated.ventures.everypods.utils.peer.PeerBatteryPacket.Reading(
+                status.leftBattery, status.rightBattery, status.caseBattery,
+                status.isLeftCharging, status.isRightCharging, status.isCaseCharging,
+                status.isLeftInEar, status.isRightInEar,
+            ))
+        if (packet.contentEquals(lastSharedBattery) && now - lastSharedBatteryAtMs < PEER_BATTERY_RESEND_MS) return
+        lastSharedBattery = packet
+        lastSharedBatteryAtMs = now
+        CrossDevice.sendToConnectedPeers(packet)
+    }
+
+    /**
+     * A peer forwarded battery from the AirPods' advert. Use it only while we hold the audio
+     * without a control link of our own; the control link is authoritative when present.
+     */
+    fun onPeerBattery(source: String, reading: io.automated.ventures.everypods.utils.peer.PeerBatteryPacket.Reading) {
+        Handler(Looper.getMainLooper()).post {
+            peerBudInEar = reading.leftInEar || reading.rightInEar
+            peerBatteryAtMs = SystemClock.elapsedRealtime()
+            lastPeerReading = reading
+            applyPeerBattery("received from $source")
+        }
+    }
+
+    @Volatile private var lastPeerReading: io.automated.ventures.everypods.utils.peer.PeerBatteryPacket.Reading? = null
+
+    /**
+     * Apply the latest fresh peer reading if we hold the audio without our own control link.
+     * Called on receipt, when audio lands here and when our control link fails: the peer's
+     * last advert often arrives just before we get the audio, and while the buds stay in
+     * the ear a new one can be minutes away.
+     */
+    fun applyPeerBattery(reason: String) {
+        Handler(Looper.getMainLooper()).post {
+            val reading = lastPeerReading ?: return@post
+            if (SystemClock.elapsedRealtime() - peerBatteryAtMs > PEER_BATTERY_FRESH_MS) return@post
+            if (isConnected() || reading.left == null || reading.right == null) return@post
+            val mac = sharedPreferences.getString("mac_address", null) ?: return@post
+            if (!isA2dpConnectedTo(mac)) return@post
+            Log.d(TAG, "Peer battery applied ($reason): L=${reading.left} R=${reading.right} " +
+                "C=${reading.case} inEar=${reading.leftInEar || reading.rightInEar}")
+            batteryNotification.setBatteryDirect(
+                leftLevel = reading.left, leftCharging = reading.leftCharging,
+                rightLevel = reading.right, rightCharging = reading.rightCharging,
+                caseLevel = reading.case, caseCharging = reading.caseCharging,
+            )
+            updateBattery()
+        }
+    }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     fun sendBatteryNotification() {
@@ -5396,6 +5472,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                                     }
                                     LidAutoconnectDiagnostics.logEvent("a2dp_connected")
                                     ServiceManager.getService()?.updateNotificationContent(true)
+                                    ServiceManager.getService()?.applyPeerBattery("audio connected")
                                     CrossDevice.confirmPassiveAcquisitionIfHeld()
                                     val sinceLid = SystemClock.elapsedRealtime() - lastLidAutoconnectAttemptElapsedMs
                                     if (lastLidAutoconnectAttemptElapsedMs > 0L && sinceLid < 6_000L) {
@@ -6279,6 +6356,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     readJob.join() // socket closed → read loop unblocks and exits
                     val failedCurrent = BluetoothConnectionManager.clearCurrentConnectionIfGeneration(myConnectionGeneration)
                     if (failedCurrent) sendBroadcast(disconnectedIntent(myConnectionGeneration).apply { setPackage(packageName) })
+                    applyPeerBattery("control link unanswered")
                     return@launch
                 }
 
