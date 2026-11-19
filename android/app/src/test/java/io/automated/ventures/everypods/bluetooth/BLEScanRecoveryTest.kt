@@ -36,7 +36,7 @@ class BLEScanRecoveryTest {
         val scanner = mockk<BluetoothLeScanner>(relaxed = true)
         val existing = mockk<ScanCallback>(relaxed = true)
         val probe = slot<ScanCallback>()
-        every { scanner.startScan(null, any<ScanSettings>(), capture(probe)) } just runs
+        every { scanner.startScan(any<List<android.bluetooth.le.ScanFilter>>(), any<ScanSettings>(), capture(probe)) } just runs
         manager.setField("mBluetoothLeScanner", scanner)
         manager.setField("mScanCallback", existing)
         manager.setField("scanCallbackActive", true)
@@ -54,7 +54,7 @@ class BLEScanRecoveryTest {
         val scanner = mockk<BluetoothLeScanner>(relaxed = true)
         val existing = mockk<ScanCallback>(relaxed = true)
         val probe = slot<ScanCallback>()
-        every { scanner.startScan(null, any<ScanSettings>(), capture(probe)) } just runs
+        every { scanner.startScan(any<List<android.bluetooth.le.ScanFilter>>(), any<ScanSettings>(), capture(probe)) } just runs
         manager.setField("mBluetoothLeScanner", scanner)
         manager.setField("mScanCallback", existing)
         manager.setField("scanCallbackActive", true)
@@ -76,7 +76,7 @@ class BLEScanRecoveryTest {
         val scanner = mockk<BluetoothLeScanner>(relaxed = true)
         val existing = mockk<ScanCallback>(relaxed = true)
         val probe = slot<ScanCallback>()
-        every { scanner.startScan(null, any<ScanSettings>(), capture(probe)) } just runs
+        every { scanner.startScan(any<List<android.bluetooth.le.ScanFilter>>(), any<ScanSettings>(), capture(probe)) } just runs
         manager.setField("mBluetoothLeScanner", scanner)
         manager.setField("mScanCallback", existing)
         manager.setField("scanCallbackActive", true)
