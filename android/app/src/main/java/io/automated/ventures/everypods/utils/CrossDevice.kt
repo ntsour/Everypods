@@ -1371,6 +1371,12 @@ object CrossDevice {
             raw.contentEquals(CrossDevicePackets.COURTESY_GRANT.packet) -> {
                 // No-op: veto mechanism removed.
             }
+            io.automated.ventures.everypods.utils.peer.PeerBatteryPacket.isPacket(raw) -> {
+                // Advert-derived battery from a peer: never implies the peer holds the AirPods.
+                io.automated.ventures.everypods.utils.peer.PeerBatteryPacket.decode(raw)?.let {
+                    ServiceManager.getService()?.onPeerBattery(sourceMac, it)
+                }
+            }
             raw.size >= 4 && raw.sliceArray(0..3)
                 .contentEquals(CrossDevicePackets.AIRPODS_DATA_HEADER.packet) -> {
                 holders.add(sourceMac)
@@ -1423,6 +1429,11 @@ object CrossDevice {
                 }
             }
         }
+    }
+
+    /** Send to every configured peer that is currently linked, over whichever transport reaches it. */
+    fun sendToConnectedPeers(data: ByteArray) {
+        configuredPeers.filter(::isConnectedTo).forEach { sendTo(it, data) }
     }
 
     fun sendRemotePacket(data: ByteArray) {

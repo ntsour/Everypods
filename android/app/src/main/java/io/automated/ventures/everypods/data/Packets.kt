@@ -156,6 +156,20 @@ class AirPodsNotifications {
         private var first: Battery = Battery(BatteryComponent.LEFT, 0, BatteryStatus.DISCONNECTED)
         private var second: Battery = Battery(BatteryComponent.RIGHT, 0, BatteryStatus.DISCONNECTED)
         private var case: Battery? = null
+        /** Monotonic time of the last real case reading; the kept value may be much older. */
+        private var caseObservedAtMs = 0L
+        private fun nowMs() = System.nanoTime() / 1_000_000L
+
+        /**
+         * Batteries for low-battery alerts. The case is only reported while the lid is open or
+         * a bud is inside, so a kept case level can be hours old (and the case charged since).
+         * Leave it out once it is older than [maxCaseAgeMs] instead of announcing stale levels.
+         */
+        fun getBatteryForAlerts(maxCaseAgeMs: Long = 10 * 60_000L): List<Battery> {
+            val all = getBattery()
+            return if (case != null && nowMs() - caseObservedAtMs > maxCaseAgeMs)
+                all.filter { it.component != BatteryComponent.CASE } else all
+        }
 
         fun isBatteryData(data: ByteArray): Boolean {
             if (data.joinToString("") { "%02x".format(it) }.startsWith("040004000400")) {
@@ -184,11 +198,17 @@ class AirPodsNotifications {
             updateCaseBattery(caseLevel, caseCharging)
         }
 
-        /** Update only the case battery, leaving bud levels untouched. */
+        /**
+         * Update only the case battery, leaving bud levels untouched. The AirPods stop
+         * reporting the case once both buds are out, so an unknown reading keeps the last
+         * known level instead of erasing it (it can't change much while the buds are out).
+         */
         fun updateCaseBattery(caseLevel: Int?, caseCharging: Boolean) {
-            case = caseLevel?.takeIf { it in 0..100 }?.let {
+            val fresh = caseLevel?.takeIf { it in 0..100 }?.let {
                 Battery(BatteryComponent.CASE, it, if (caseCharging) BatteryStatus.CHARGING else BatteryStatus.NOT_CHARGING)
             }
+            if (fresh != null) caseObservedAtMs = nowMs()
+            case = fresh ?: case
         }
 
         fun setBattery(data: ByteArray) {
@@ -217,9 +237,11 @@ class AirPodsNotifications {
             second = Battery(
                 data[12].toInt(), data[14].toInt(), data[15].toInt()
             )
-            case = Battery(
+            val freshCase = Battery(
                 data[17].toInt(), data[19].toInt(), data[20].toInt()
             ).takeIf { it.component == BatteryComponent.CASE && it.level in 0..100 && it.status != BatteryStatus.DISCONNECTED }
+            if (freshCase != null) caseObservedAtMs = nowMs()
+            case = freshCase ?: case // case out of reach: keep the last known level
         }
 
         fun getBattery(): List<Battery> {

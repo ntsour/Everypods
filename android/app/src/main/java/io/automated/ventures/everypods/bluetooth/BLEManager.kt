@@ -22,6 +22,7 @@ import android.annotation.SuppressLint
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.le.ScanCallback
+import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Context
@@ -228,7 +229,7 @@ class BLEManager(private val context: Context) {
             // Keep the Apple manufacturer/type check in processScanResult rather
             // than the controller filter. Some OEM stacks suppress filtered results
             // for AirPods while their native helper still receives the advertisements.
-            mBluetoothLeScanner?.startScan(null, scanSettings(), mScanCallback)
+            mBluetoothLeScanner?.startScan(scanFilters(), scanSettings(), mScanCallback)
             scanCallbackActive = true
             lastScanStartAtMs = SystemClock.elapsedRealtime()
             consecutiveScanFailures = 0
@@ -245,6 +246,19 @@ class BLEManager(private val context: Context) {
             }
         }
     }
+
+    /**
+     * Match only Apple proximity-pairing adverts (company 0x004C, type 0x07, length 0x19),
+     * the only payload [processScanResult] parses. Android suspends unfiltered scans while
+     * the screen is off (seen on a Pixel: 129 h suspended vs 15 h active, 2% of results
+     * screen-off), which left lid opens unnoticed until the screen woke. Filtered scans are
+     * offloaded to the controller and keep running with the screen off.
+     */
+    private fun scanFilters(): List<ScanFilter> = listOf(
+        ScanFilter.Builder()
+            .setManufacturerData(76, byteArrayOf(0x07, 0x19), byteArrayOf(0xFF.toByte(), 0xFF.toByte()))
+            .build()
+    )
 
     private fun scanSettings(): ScanSettings = ScanSettings.Builder()
         .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
@@ -312,7 +326,7 @@ class BLEManager(private val context: Context) {
         } }
         probeTimeout = timeout
         try {
-            scanner.startScan(null, scanSettings(), callback)
+            scanner.startScan(scanFilters(), scanSettings(), callback)
             scanRetryHandler.postDelayed(timeout, SCAN_PROBE_TIMEOUT_MS)
         } catch (t: Throwable) {
             Log.w(TAG, "BLE scan probe could not start", t)
@@ -419,6 +433,19 @@ class BLEManager(private val context: Context) {
         return Pair(charging, level)
     }
 
+    // Diagnostics: AirPods-style proximity adverts seen vs. rejected by the identity check.
+    // Rejections are otherwise silent, which hides "adverts present but IRK mismatch".
+    private var proximityAdverts = 0L
+    private var proximityRejected = 0L
+    private var lastProximitySummaryMs = 0L
+
+    private fun logProximitySummary(nowMs: Long, address: String, rssi: Int) {
+        if (nowMs - lastProximitySummaryMs < 15_000L) return
+        lastProximitySummaryMs = nowMs
+        Log.d(TAG, "proximity adverts=$proximityAdverts rejectedByIrk=$proximityRejected " +
+            "verified=${verifiedAddresses.size} lastRejected=$address rssi=$rssi")
+    }
+
     private fun processScanResult(result: ScanResult) {
         try {
             val observedAt = result.timestampNanos / 1_000_000L
@@ -441,12 +468,15 @@ class BLEManager(private val context: Context) {
             // This payload layout is specific to the AirPods proximity subtype;
             // other Apple company advertisements are scanned but never parsed here.
             if (manufacturerData[0].toInt() != 7 || manufacturerData[1].toInt() != 25) return
+            proximityAdverts++
 
             if (!verifiedAddresses.contains(address)) {
                 val irk = getIrkFromPreferences()
                 if (irk != null) {
                     // IRK available — verify the RPA belongs to our AirPods
                     if (!BluetoothCryptography.verifyRPA(address, irk)) {
+                        proximityRejected++
+                        logProximitySummary(receivedAt, address, result.rssi)
                         return
                     }
                     verifiedAddresses.add(address)

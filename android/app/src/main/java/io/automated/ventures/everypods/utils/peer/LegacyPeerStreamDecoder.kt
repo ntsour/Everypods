@@ -18,6 +18,7 @@ class LegacyPeerStreamDecoder {
             val header = pending.copyOfRange(0, 4)
             val length = when {
                 controls.any { it.contentEquals(header) } -> 4
+                PeerBatteryPacket.HEADER.contentEquals(header) -> PeerBatteryPacket.SIZE
                 relay.contentEquals(header) -> payloadLength(4)?.let { if (it < 0) -1 else it + 4 }
                 aacp.contentEquals(header) -> payloadLength(0)
                 else -> -1
