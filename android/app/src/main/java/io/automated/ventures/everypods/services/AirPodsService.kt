@@ -1356,7 +1356,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             // The [connectInFlight] gate in connectToSocket prevents 5-second-interval
             // BLE ticks from spawning concurrent attempts.
             val mac = sharedPreferences.getString("mac_address", "") ?: ""
-            if (!isConnected() && mac.isNotEmpty() && !connectInFlight.get()) {
+            if (!isConnected() && mac.isNotEmpty() && !connectInFlight.isHeld) {
                 val now = SystemClock.elapsedRealtime()
                 val cooldownActive = now < peerDropCooldownUntilMs
                 // Resolve A2DP only if cooldown is clear, to avoid extra IPC.
@@ -5789,7 +5789,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
     // Single in-flight gate. Set true at the very start of [connectToSocket] and cleared in finally.
     // Stops the BLE listener from spawning a second concurrent connect attempt every 5 s.
-    private val connectInFlight = java.util.concurrent.atomic.AtomicBoolean(false)
+    // A full attempt is at most 4 × 5 s connects + 7 s of backoff (~27 s); anything held far
+    // longer is a wedged thread, and the gate is reclaimed instead of blocking forever.
+    private val connectInFlight = io.automated.ventures.everypods.bluetooth.connection.InFlightGate(
+        maxHoldMs = 60_000L, now = { SystemClock.elapsedRealtime() },
+    )
 
     /**
      * Long-lived A2DP profile proxy, acquired on service start and held for the
@@ -5998,14 +6002,20 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             Log.d(TAG, "<LogCollector:Conn> connect skipped — socket already open to AirPods (manual=$manual)")
             return
         }
-        if (!connectInFlight.compareAndSet(false, true)) {
-            Log.d(TAG, "<LogCollector:Conn> connect already in flight, skipping (manual=$manual)")
-            return
+        when (val gate = connectInFlight.tryAcquire()) {
+            is io.automated.ventures.everypods.bluetooth.connection.InFlightGate.Result.Busy -> {
+                Log.d(TAG, "<LogCollector:Conn> connect already in flight for ${gate.heldForMs} ms, skipping (manual=$manual)")
+                return
+            }
+            is io.automated.ventures.everypods.bluetooth.connection.InFlightGate.Result.Reclaimed ->
+                Log.w(TAG, "<LogCollector:Conn> previous connect wedged for ${gate.heldForMs} ms; reclaiming (manual=$manual)")
+            io.automated.ventures.everypods.bluetooth.connection.InFlightGate.Result.Acquired -> Unit
         }
+        val gateToken = connectInFlight.token()
         try {
             connectToSocketLocked(adapter, device, manual)
         } finally {
-            connectInFlight.set(false)
+            connectInFlight.release(gateToken)
         }
     }
 
@@ -6075,9 +6085,14 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 return
             }
             val ok = try {
-                runBlocking { withTimeout(5_000L) { candidate.connect() } }
+                // close() from the watchdog is the only thing that unblocks a stuck connect().
+                io.automated.ventures.everypods.bluetooth.connection.BlockingConnect.run(
+                    timeoutMs = 5_000L,
+                    connect = { candidate.connect() },
+                    abort = { candidate.close() },
+                )
                 true
-            } catch (e: TimeoutCancellationException) {
+            } catch (e: java.util.concurrent.TimeoutException) {
                 Log.w(TAG, "<LogCollector:Conn> [Conn-#$attemptId] attempt $attempt/$maxAttempts: timeout")
                 try { candidate.close() } catch (_: Exception) {}
                 lastError = e
