@@ -181,4 +181,47 @@ class BatteryAlertWatcherTest {
 
         verify(exactly = 1) { AnnouncementCoordinator.announceSpeech(any(), any(), any()) }
     }
+
+    @Test
+    fun `alert blocked by audio route stays pending and plays once audio is routed here`() {
+        setSystemTtsEngine()
+        setBatteryAlertsEnabled(threshold = 40)
+        val case = Battery(BatteryComponent.CASE, 19, BatteryStatus.NOT_CHARGING)
+
+        // Another phone holds the AirPods: the speech would be dropped, so don't spend it.
+        every { AnnouncementAudioRoute.canAnnounceToAirPods(any()) } returns false
+        BatteryAlertWatcher.checkAndMaybeAlert(context, listOf(case), anyBudInEar = true)
+        BatteryAlertWatcher.checkAndMaybeAlert(context, listOf(case), anyBudInEar = false, forceSpeakIfLow = true)
+        verify(exactly = 0) { AnnouncementCoordinator.announceSpeech(any(), any(), any()) }
+
+        // This phone takes the AirPods with the case one percent lower: alert now.
+        every { AnnouncementAudioRoute.canAnnounceToAirPods(any()) } returns true
+        BatteryAlertWatcher.checkAndMaybeAlert(
+            context, listOf(Battery(BatteryComponent.CASE, 18, BatteryStatus.NOT_CHARGING)), anyBudInEar = true,
+        )
+        verify(exactly = 1) { AnnouncementCoordinator.announceSpeech(any(), any(), any()) }
+    }
+}
+
+class CaseBatteryRetentionTest {
+    private fun caseOf(n: io.automated.ventures.everypods.data.AirPodsNotifications.BatteryNotification) =
+        n.getBattery().find { it.component == BatteryComponent.CASE }
+
+    @Test
+    fun `case level survives once the AirPods stop reporting it`() {
+        val n = io.automated.ventures.everypods.data.AirPodsNotifications.BatteryNotification()
+        n.setBatteryDirect(79, false, 78, false, caseLevel = 18, caseCharging = false)
+        assertEquals(18, caseOf(n)?.level)
+
+        // Both buds out of the case: BLE reports no case level.
+        n.setBatteryDirect(79, false, 78, false, caseLevel = null, caseCharging = false)
+        assertEquals(18, caseOf(n)?.level)
+        n.updateCaseBattery(caseLevel = null, caseCharging = false)
+        assertEquals(18, caseOf(n)?.level)
+
+        // A fresh reading replaces it.
+        n.updateCaseBattery(caseLevel = 60, caseCharging = true)
+        assertEquals(60, caseOf(n)?.level)
+        assertEquals(BatteryStatus.CHARGING, caseOf(n)?.status)
+    }
 }

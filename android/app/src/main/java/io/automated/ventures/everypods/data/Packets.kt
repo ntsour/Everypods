@@ -184,11 +184,15 @@ class AirPodsNotifications {
             updateCaseBattery(caseLevel, caseCharging)
         }
 
-        /** Update only the case battery, leaving bud levels untouched. */
+        /**
+         * Update only the case battery, leaving bud levels untouched. The AirPods stop
+         * reporting the case once both buds are out, so an unknown reading keeps the last
+         * known level instead of erasing it (it can't change much while the buds are out).
+         */
         fun updateCaseBattery(caseLevel: Int?, caseCharging: Boolean) {
             case = caseLevel?.takeIf { it in 0..100 }?.let {
                 Battery(BatteryComponent.CASE, it, if (caseCharging) BatteryStatus.CHARGING else BatteryStatus.NOT_CHARGING)
-            }
+            } ?: case
         }
 
         fun setBattery(data: ByteArray) {
@@ -220,6 +224,7 @@ class AirPodsNotifications {
             case = Battery(
                 data[17].toInt(), data[19].toInt(), data[20].toInt()
             ).takeIf { it.component == BatteryComponent.CASE && it.level in 0..100 && it.status != BatteryStatus.DISCONNECTED }
+                ?: case // case out of reach: keep the last known level
         }
 
         fun getBattery(): List<Battery> {

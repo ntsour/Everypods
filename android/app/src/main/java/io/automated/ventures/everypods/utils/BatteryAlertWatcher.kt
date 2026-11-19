@@ -73,6 +73,11 @@ object BatteryAlertWatcher {
     ) {
         if (!SmartFeaturesPrefs.batteryAlertsEnabled(ctx)) return
         val threshold = SmartFeaturesPrefs.batteryAlertThreshold(ctx)
+        // Only count an alert as given if it can actually play on the AirPods. When another
+        // phone holds the audio the speech is dropped, and marking it spoken here would
+        // silence the alert until the level fell another step.
+        val canSpeak = (anyBudInEar || forceSpeakIfLow) &&
+            AnnouncementAudioRoute.canAnnounceToAirPods(ctx)
         if (batteries.none { it.component == BatteryComponent.CASE }) {
             state[BatteryComponent.CASE]?.pendingLevel = null
         }
@@ -119,7 +124,7 @@ object BatteryAlertWatcher {
                     "pending=${s.pendingLevel} previousAlert=${s.lastAlertedLevel}")
             }
 
-            if (s.pendingLevel != null && (anyBudInEar || forceSpeakIfLow)) {
+            if (s.pendingLevel != null && canSpeak) {
                 val pendingLevel = if (b.component == BatteryComponent.CASE) level else s.pendingLevel ?: level
                 Log.d(TAG, "${b.component} low battery pending alert ($pendingLevel%)")
                 speak(ctx, Battery(b.component, pendingLevel, b.status))
@@ -129,12 +134,13 @@ object BatteryAlertWatcher {
             }
 
             if (shouldSpeak) {
-                if (anyBudInEar || forceSpeakIfLow) {
+                if (canSpeak) {
                     Log.d(TAG, "${b.component} low battery alert at $level%")
                     speak(ctx, b)
                     markAlerted(s, level, now)
                 } else {
-                    Log.d(TAG, "${b.component} low battery queued until buds are in ear ($level%)")
+                    val why = if (anyBudInEar || forceSpeakIfLow) "audio is routed here" else "buds are in ear"
+                    Log.d(TAG, "${b.component} low battery queued until $why ($level%)")
                     s.pendingLevel = minOf(s.pendingLevel ?: level, level)
                     s.armed = true
                 }
