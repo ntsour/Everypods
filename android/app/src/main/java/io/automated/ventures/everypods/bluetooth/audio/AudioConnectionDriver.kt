@@ -11,7 +11,9 @@ class AudioConnectionDriver(
     private val port: Port,
     // The observed failures took 16–21 seconds; leave room for Android to finish,
     // then stop active work without pretending the command has been released.
-    private val commandTimeoutMs: Long = 30_000L,
+    // Must exceed Android's own 30 s A2DP CONNECT_TIMEOUT: at exactly 30 s this timer
+    // won the race, marked the command UNRESOLVED and skipped the definite-failure retry.
+    private val commandTimeoutMs: Long = 33_000L,
 ) {
     init { require(commandTimeoutMs > 0) }
     interface Port {

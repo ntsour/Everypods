@@ -1292,6 +1292,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         const val A2DP_STATE_FLUX_WINDOW_MS: Long = 2_500L
         /** Grace period for the AirPods to bring up A2DP themselves after linking. */
         const val HEADSET_LINK_MEDIA_CHECK_DELAY_MS: Long = 2_000L
+        /** Time for a yielding peer to pause and close its control link before we page. */
+        const val MANUAL_HANDOVER_PEER_RELEASE_MS: Long = 600L
+        /** Longer than Android's 30 s A2DP connect timeout plus one coordinator retry. */
+        const val MANUAL_CONTROL_LINK_WAIT_MS: Long = 75_000L
 
         /** Debounce for lid-open Option-1 auto-grab (see AudioLeasePrefs). */
         const val LID_AUTOCONNECT_DEBOUNCE_MS: Long = AudioLeasePrefs.LID_AUTOCONNECT_DEBOUNCE_MS
@@ -5554,7 +5558,28 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             bluetoothA2dpProxy?.connectedDevices?.any { it.address.equals(mac, ignoreCase = true) } == true
         } catch (_: SecurityException) { false }
         if (a2dpHere) return@Runnable
-        MediaController.onHeadsetLinkAvailable(peerUsingAudio = CrossDevice.anyPeerUsingAudio())
+        val peerUsingAudio = CrossDevice.anyPeerUsingAudio()
+        val restore = io.automated.ventures.everypods.bluetooth.audio.HeadsetLinkRestore.shouldRestore(
+            autoConnectEnabled = AudioLeasePrefs.isFeatureEnabled(sharedPreferences),
+            lastHolderHere = AudioLeasePrefs.isLeaseHolder(sharedPreferences),
+            // A peer that just asked us to yield (cooldown) gets the AirPods, even if they
+            // bounce back to us while its connect is still in progress.
+            peerHolding = CrossDevice.isAvailable || expectingPeerTakeover ||
+                SystemClock.elapsedRealtime() < peerDropCooldownUntilMs,
+            peerUsingAudio = peerUsingAudio,
+        )
+        LidAutoconnectDiagnostics.logEvent("headset_link_restore", mapOf("decision" to restore))
+        if (restore) {
+            // Connect only: don't resume whatever was paused when the link dropped.
+            MediaController.clearAutoPlayForPassiveConnect("headset_link")
+            val target = runCatching {
+                getSystemService(BluetoothManager::class.java).adapter?.getRemoteDevice(mac)
+            }.getOrNull()
+            submitExplicitAudioIntent(target,
+                io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator.Trigger.MEDIA)
+            return@Runnable
+        }
+        MediaController.onHeadsetLinkAvailable(peerUsingAudio = peerUsingAudio)
     }
 
     @RequiresApi(Build.VERSION_CODES.R)
@@ -7095,16 +7120,40 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             val manualToken = takeoverAttemptFence.next()
             offlineAudioDriver.invalidateRelease()
             LidAutoconnectDiagnostics.logEvent("takeover_intent", mapOf("reason" to "manual_reconnect", "generation" to manualToken))
+            val target = device!!
             CoroutineScope(Dispatchers.IO).launch {
                 if (!takeoverAttemptFence.isCurrent(manualToken)) return@launch
+                // Hand over like a media takeover: ask the holding peer to yield (pause,
+                // close its control link, arm its cooldown) before paging the AirPods.
+                // Connecting while the peer still drives them left A2DP stuck in
+                // CONNECTING until Android's 30 s timeout, after which they went back.
+                if (CrossDevice.isPeerConnected && CrossDevice.isAvailable) {
+                    Log.d(TAG, "manual reconnect: asking holding peer to release first")
+                    val connections = io.automated.ventures.everypods.relay.DeviceConnectionStore(this@AirPodsService)
+                    connections.onlineHandoverPeers(CrossDevice.configuredPeers.filter(CrossDevice::isConnectedTo)).forEach { peer ->
+                        CrossDevice.sendTo(peer, CrossDevicePackets.REQUEST_DISCONNECT.packet)
+                    }
+                    delay(MANUAL_HANDOVER_PEER_RELEASE_MS)
+                    if (!takeoverAttemptFence.isCurrent(manualToken)) return@launch
+                }
                 Log.d(TAG, "connecting to $macAddress")
-                // The control-channel connection can block or remain open until a
-                // later disconnect. It must not delay the user's audio request.
-                submitExplicitAudioIntent(device,
+                submitExplicitAudioIntent(target,
                     io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator.Trigger.MANUAL,
                     manualToken)
+                // Open the control link only once audio is ours, as the automatic path does.
+                // A control connect racing the audio setup coincided with the AirPods
+                // ignoring that setup; without audio the control link is useless anyway.
+                val audioDeadline = SystemClock.elapsedRealtime() + MANUAL_CONTROL_LINK_WAIT_MS
+                while (!isA2dpConnectedTo(target.address)) {
+                    if (!takeoverAttemptFence.isCurrent(manualToken) ||
+                        SystemClock.elapsedRealtime() >= audioDeadline) {
+                        Log.d(TAG, "manual reconnect: audio not connected; control link not opened")
+                        return@launch
+                    }
+                    delay(250L)
+                }
                 if (!takeoverAttemptFence.isCurrent(manualToken)) return@launch
-                connectToSocket(bluetoothAdapter, device!!, manual = true)
+                connectToSocket(bluetoothAdapter, target, manual = true)
                 // If A2DP is already ours after manual reconnect, claim immediately.
                 if (holdsAirPods()) {
                     AudioLeasePrefs.claimLease(sharedPreferences, "reconnect_from_saved_mac")
