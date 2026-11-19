@@ -1032,4 +1032,7 @@ Requêtes du protocole : %4$d</string>
     <string name="speech_heart_rate_unavailable">Fréquence cardiaque indisponible</string>
     <string name="privacy_policy">Politique de confidentialité</string>
     <string name="source_code_request">Demander le code source par e-mail</string>
+    <string name="companion_pairing_description">Associez vos AirPods à EveryPods pour que les appels entrants basculent plus vite vers eux. Android vous demandera une seule confirmation.</string>
+    <string name="companion_pairing_action">Associer les AirPods</string>
+    <string name="companion_pairing_failed">Impossible d\'associer les AirPods. Vérifiez qu\'ils sont connectés, puis réessayez.</string>
 </resources>

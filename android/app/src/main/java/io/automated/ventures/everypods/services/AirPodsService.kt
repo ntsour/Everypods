@@ -6682,16 +6682,33 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     if (profile == BluetoothProfile.HEADSET) {
                         try {
                             var dispatched = false
+                            // HeadsetService.connect enforces MODIFY_PHONE_STATE (verified on
+                            // Pixel 10: SecurityException without it). Without the permission
+                            // the AirPods connect HFP themselves, typically 7-12 s after A2DP.
+                            val mayConnectHfp = checkSelfPermission("android.permission.MODIFY_PHONE_STATE") == PackageManager.PERMISSION_GRANTED
                             secondaryProfileDispatch {
-                                if (passiveAttemptIsCurrent(commit = false, requireCommitted = true) &&
-                                    checkSelfPermission("android.permission.MODIFY_PHONE_STATE") == PackageManager.PERMISSION_GRANTED) {
+                                if (mayConnectHfp && passiveAttemptIsCurrent(commit = false, requireCommitted = true)) {
                                     io.automated.ventures.everypods.bluetooth.audio.AndroidHiddenProfileCommands.setPolicy(proxy, device, 100)
                                     io.automated.ventures.everypods.bluetooth.audio.AndroidHiddenProfileCommands.connect(proxy, device)
                                     dispatched = true
                                 }
                             }
+                            if (!mayConnectHfp) secondaryProfileDispatch {
+                                if (passiveAttemptIsCurrent(commit = false, requireCommitted = true)) {
+                                    // Hidden BluetoothDevice.connect() connects every enabled
+                                    // profile, HFP included. Android allows it once the app has a
+                                    // companion association with the AirPods (CompanionPairing).
+                                    val status = runCatching {
+                                        BluetoothDevice::class.java.getMethod("connect").invoke(device)
+                                    }
+                                    Log.i(TAG, "HFP fallback BluetoothDevice.connect(): " +
+                                        status.fold({ "status=$it" }, { "failed ${(it.cause ?: it)}" }))
+                                    dispatched = status.isSuccess
+                                }
+                            }
                             if (!dispatched) LidAutoconnectDiagnostics.logEvent("skip", mapOf(
-                                "reason" to "headset_callback_cancelled_or_unavailable", "source" to lidDiagSource))
+                                "reason" to if (mayConnectHfp) "headset_callback_cancelled" else "headset_no_modify_phone_state",
+                                "source" to lidDiagSource))
                         } catch (e: Exception) {
                             Log.w(TAG, "Secondary headset profile connection failed", e)
                         } finally {

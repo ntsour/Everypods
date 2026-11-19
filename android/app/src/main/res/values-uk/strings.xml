@@ -1032,4 +1032,7 @@
     <string name="speech_heart_rate_unavailable">Пульс недоступний</string>
     <string name="privacy_policy">Політика конфіденційності</string>
     <string name="source_code_request">Запросити вихідний код електронною поштою</string>
+    <string name="companion_pairing_description">Пов’яжіть AirPods з EveryPods, щоб вхідні дзвінки швидше переходили на них. Android попросить підтвердження лише один раз.</string>
+    <string name="companion_pairing_action">Пов’язати AirPods</string>
+    <string name="companion_pairing_failed">Не вдалося пов’язати AirPods. Переконайтеся, що їх підключено, і спробуйте ще раз.</string>
 </resources>

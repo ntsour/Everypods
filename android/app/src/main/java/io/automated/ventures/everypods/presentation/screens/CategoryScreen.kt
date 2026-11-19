@@ -869,6 +869,7 @@ private fun ConnectionContent(state: AirPodsUiState, appState: AppSettingsUiStat
             StyledToggle(label = stringResource(R.string.takeover_ringing_call), description = stringResource(R.string.takeover_ringing_call_desc),
                 checked = appState.takeoverWhenRingingCall && handoverAvailable && !handoverTemporarilyPaused, onCheckedChange = appSettingsViewModel::setTakeoverWhenRingingCall, enabled = handoverAvailable && !handoverTemporarilyPaused)
         } }
+        if (appState.takeoverWhenRingingCall && handoverAvailable) io.automated.ventures.everypods.presentation.components.CompanionPairingNotice()
         AnchorWrapper("takeover_media") { rowModifier -> Box(rowModifier) {
             StyledToggle(label = stringResource(R.string.takeover_media_start), description = stringResource(R.string.takeover_media_start_desc),
                 checked = appState.takeoverWhenMediaStart && !handoverTemporarilyPaused, onCheckedChange = appSettingsViewModel::setTakeoverWhenMediaStart, enabled = !handoverTemporarilyPaused)

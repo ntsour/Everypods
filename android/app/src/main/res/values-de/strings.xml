@@ -1031,4 +1031,7 @@ Protokollanfragen: %4$d</string>
     <string name="speech_heart_rate_unavailable">Herzfrequenz nicht verfügbar</string>
     <string name="privacy_policy">Datenschutzerklärung</string>
     <string name="source_code_request">Quellcode per E-Mail anfordern</string>
+    <string name="companion_pairing_description">Verknüpfe deine AirPods mit EveryPods, damit eingehende Anrufe schneller zu ihnen wechseln. Android fragt einmalig nach einer Bestätigung.</string>
+    <string name="companion_pairing_action">AirPods verknüpfen</string>
+    <string name="companion_pairing_failed">Die AirPods konnten nicht verknüpft werden. Stelle sicher, dass sie verbunden sind, und versuche es erneut.</string>
 </resources>

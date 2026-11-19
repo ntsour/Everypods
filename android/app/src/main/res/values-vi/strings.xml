@@ -1032,4 +1032,7 @@ Yêu cầu giao thức: %4$d</string>
     <string name="speech_heart_rate_unavailable">Không có dữ liệu nhịp tim</string>
     <string name="privacy_policy">Chính sách quyền riêng tư</string>
     <string name="source_code_request">Yêu cầu mã nguồn qua email</string>
+    <string name="companion_pairing_description">Liên kết AirPods với EveryPods để cuộc gọi đến chuyển sang AirPods nhanh hơn. Android sẽ yêu cầu xác nhận một lần.</string>
+    <string name="companion_pairing_action">Liên kết AirPods</string>
+    <string name="companion_pairing_failed">Không thể liên kết AirPods. Hãy đảm bảo AirPods đã kết nối rồi thử lại.</string>
 </resources>
