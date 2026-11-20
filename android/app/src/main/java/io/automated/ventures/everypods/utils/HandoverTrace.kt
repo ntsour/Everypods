@@ -40,7 +40,9 @@ import java.util.Locale
  * `<external app files>/handover-trace/android-<yyyyMMdd>.log`. Files are
  * append-only and never rotated while running; old files are pruned only when
  * recording starts: older than [RETENTION_DAYS], then oldest first above
- * [MAX_TOTAL_BYTES]. The folder is app-private but adb-readable:
+ * [MAX_TOTAL_BYTES]. While recording, [TraceUploadReceiver] also accepts the
+ * Windows client's traces into `handover-trace/windows/`. The folder is
+ * app-private but adb-readable:
  * `adb pull /sdcard/Android/data/<package>/files/handover-trace`.
  */
 object HandoverTrace {
@@ -73,10 +75,15 @@ object HandoverTrace {
         if (isEnabled(app)) start(app) else stop()
     }
 
-    fun files(context: Context): List<File> = directory(context).listFiles()
-        ?.filter { it.isFile && it.name.startsWith("android-") && it.extension == "log" }
-        ?.sortedBy { it.name }
-        .orEmpty()
+    /** Android traces, then traces uploaded by the Windows client. */
+    fun files(context: Context): List<File> {
+        fun logs(dir: File, prefix: String) = dir.listFiles()
+            ?.filter { it.isFile && it.name.startsWith(prefix) && it.extension == "log" }
+            ?.sortedBy { it.name }
+            .orEmpty()
+        val dir = directory(context)
+        return logs(dir, "android-") + logs(File(dir, "windows"), "windows-")
+    }
 
     private fun start(context: Context) {
         if (running) return
@@ -86,14 +93,17 @@ object HandoverTrace {
             return
         }
         prune(dir)
+        prune(File(dir, "windows"))
         running = true
         val gen = ++generation
         worker = Thread({ pump(dir, gen) }, "handover-trace").apply { isDaemon = true; start() }
+        TraceUploadReceiver.start(context)
     }
 
     private fun stop() {
         if (!running) return
         running = false
+        TraceUploadReceiver.stop()
         logcat?.destroy()
         worker?.interrupt()
         worker = null
