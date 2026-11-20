@@ -49,4 +49,13 @@ class RoleElectionTest {
         assertTrue(CrossDevice.electClient(self, higher))   // client to Charlie
         assertFalse(CrossDevice.electClient(self, lower))   // server-only to Alpha
     }
+
+    @Test
+    fun `never dials a computer peer, whatever the names`() {
+        // The Windows client only dials out; a phone dialing it can only fail.
+        assertFalse(CrossDevice.electClient("Pixel 10", "TE99PWYX3P2P7BZ", peerIsComputer = true))
+        assertFalse(CrossDevice.electClient("A phone", "Z laptop", peerIsComputer = true))
+        // Phone-to-phone election is unchanged.
+        assertTrue(CrossDevice.electClient("Pixel 10", "TE99PWYX3P2P7BZ", peerIsComputer = false))
+    }
 }
