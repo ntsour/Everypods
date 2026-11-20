@@ -1034,4 +1034,8 @@
     <string name="companion_pairing_description">将 AirPods 关联到 EveryPods，来电可更快切换到 AirPods。Android 只会请求确认一次。</string>
     <string name="companion_pairing_action">关联 AirPods</string>
     <string name="companion_pairing_failed">无法关联 AirPods。请确认已连接后重试。</string>
+    <string name="ui_handover_trace_title">完整切换日志</string>
+    <string name="ui_handover_trace_desc">将 EveryPods 的每一行日志（包括其他设备的蓝牙地址）记录到单独的文件中，保留 14 天。在你分享之前，这些文件只保存在本设备上。</string>
+    <string name="ui_handover_trace_share">分享日志</string>
+    <string name="ui_handover_trace_empty">尚未记录日志</string>
 </resources>

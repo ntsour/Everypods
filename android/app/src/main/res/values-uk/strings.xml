@@ -1035,4 +1035,8 @@
     <string name="companion_pairing_description">Пов’яжіть AirPods з EveryPods, щоб вхідні дзвінки швидше переходили на них. Android попросить підтвердження лише один раз.</string>
     <string name="companion_pairing_action">Пов’язати AirPods</string>
     <string name="companion_pairing_failed">Не вдалося пов’язати AirPods. Переконайтеся, що їх підключено, і спробуйте ще раз.</string>
+    <string name="ui_handover_trace_title">Повний журнал передачі</string>
+    <string name="ui_handover_trace_desc">Записує кожен рядок журналу EveryPods, зокрема Bluetooth-адреси інших пристроїв, в окремі файли, що зберігаються 14 днів. Вони залишаються на цьому пристрої, доки ви ними не поділитеся.</string>
+    <string name="ui_handover_trace_share">Поділитися журналом</string>
+    <string name="ui_handover_trace_empty">Журнал ще не записано</string>
 </resources>

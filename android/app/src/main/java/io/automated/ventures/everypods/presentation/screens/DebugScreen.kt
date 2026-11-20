@@ -58,6 +58,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -313,6 +314,11 @@ fun DebugScreen(navController: NavController) {
     val shareLidReportLabel = stringResource(R.string.ui_share_lid_report)
     val debugFieldTemplate = stringResource(R.string.ui_debug_field)
     val debugRawTemplate = stringResource(R.string.ui_debug_raw)
+    val traceEmptyLabel = stringResource(R.string.ui_handover_trace_empty)
+    val shareTraceLabel = stringResource(R.string.ui_handover_trace_share)
+    val traceEnabled = remember {
+        mutableStateOf(io.automated.ventures.everypods.utils.HandoverTrace.isEnabled(context))
+    }
 
     val airPodsService = remember { ServiceManager.getService() }
     val packetLogs = airPodsService?.packetLogsFlow?.collectAsState(emptySet())?.value ?: emptySet()
@@ -437,6 +443,79 @@ fun DebugScreen(navController: NavController) {
                     ) {
                         Text(
                             text = stringResource(R.string.ui_export_share_report),
+                            style = TextStyle(
+                                fontFamily = FontFamily(Font(R.font.sf_pro)),
+                                color = Color.White
+                            )
+                        )
+                    }
+                }
+            }
+
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                shape = RoundedCornerShape(8.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (isSystemInDarkTheme()) Color(0xFF1C1B20) else Color(0xFFF2F2F7),
+                )
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = stringResource(R.string.ui_handover_trace_title),
+                            modifier = Modifier.weight(1f),
+                            style = TextStyle(
+                                fontSize = 16.sp,
+                                fontFamily = FontFamily(Font(R.font.sf_pro)),
+                                fontWeight = FontWeight.Bold,
+                                color = if (isSystemInDarkTheme()) Color.White else Color.Black
+                            )
+                        )
+                        Switch(
+                            checked = traceEnabled.value,
+                            onCheckedChange = { enabled ->
+                                traceEnabled.value = enabled
+                                io.automated.ventures.everypods.utils.HandoverTrace.setEnabled(context, enabled)
+                            }
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = stringResource(R.string.ui_handover_trace_desc),
+                        style = TextStyle(
+                            fontSize = 13.sp,
+                            fontFamily = FontFamily(Font(R.font.sf_pro)),
+                            color = if (isSystemInDarkTheme()) Color(0xFFAEAEB2) else Color(0xFF6C6C70)
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = {
+                            val files = io.automated.ventures.everypods.utils.HandoverTrace.files(context)
+                            if (files.isEmpty()) {
+                                Toast.makeText(context, traceEmptyLabel, Toast.LENGTH_SHORT).show()
+                            } else {
+                                val uris = ArrayList(files.map {
+                                    FileProvider.getUriForFile(context, "${context.packageName}.provider", it)
+                                })
+                                val share = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+                                    type = "text/plain"
+                                    putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+                                    putExtra(Intent.EXTRA_SUBJECT, "EveryPods handover trace")
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                context.startActivity(Intent.createChooser(share, shareTraceLabel))
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isSystemInDarkTheme()) Color(0xFF0A84FF) else Color(0xFF007AFF)
+                        )
+                    ) {
+                        Text(
+                            text = shareTraceLabel,
                             style = TextStyle(
                                 fontFamily = FontFamily(Font(R.font.sf_pro)),
                                 color = Color.White

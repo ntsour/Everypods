@@ -1000,4 +1000,8 @@
     <string name="companion_pairing_description">Συνδέστε τα AirPods με το EveryPods ώστε οι εισερχόμενες κλήσεις να μεταφέρονται σε αυτά πιο γρήγορα. Το Android θα ζητήσει επιβεβαίωση μία φορά.</string>
     <string name="companion_pairing_action">Σύνδεση AirPods</string>
     <string name="companion_pairing_failed">Δεν ήταν δυνατή η σύνδεση των AirPods. Βεβαιωθείτε ότι είναι συνδεδεμένα και δοκιμάστε ξανά.</string>
+    <string name="ui_handover_trace_title">Πλήρες ιστορικό μεταβίβασης</string>
+    <string name="ui_handover_trace_desc">Καταγράφει κάθε γραμμή καταγραφής του EveryPods, μαζί με τις διευθύνσεις Bluetooth των άλλων συσκευών, σε ξεχωριστά αρχεία που διατηρούνται για 14 ημέρες. Παραμένουν σε αυτή τη συσκευή μέχρι να τα κοινοποιήσετε.</string>
+    <string name="ui_handover_trace_share">Κοινοποίηση ιστορικού</string>
+    <string name="ui_handover_trace_empty">Δεν έχει καταγραφεί ιστορικό ακόμη</string>
 </resources>

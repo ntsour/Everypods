@@ -1034,4 +1034,8 @@ Protokollanfragen: %4$d</string>
     <string name="companion_pairing_description">Verknüpfe deine AirPods mit EveryPods, damit eingehende Anrufe schneller zu ihnen wechseln. Android fragt einmalig nach einer Bestätigung.</string>
     <string name="companion_pairing_action">AirPods verknüpfen</string>
     <string name="companion_pairing_failed">Die AirPods konnten nicht verknüpft werden. Stelle sicher, dass sie verbunden sind, und versuche es erneut.</string>
+    <string name="ui_handover_trace_title">Vollständiges Übergabe-Protokoll</string>
+    <string name="ui_handover_trace_desc">Speichert jede EveryPods-Protokollzeile, einschließlich der Bluetooth-Adressen anderer Geräte, 14 Tage lang in separaten Dateien. Sie bleiben auf diesem Gerät, bis du sie teilst.</string>
+    <string name="ui_handover_trace_share">Protokoll teilen</string>
+    <string name="ui_handover_trace_empty">Noch kein Protokoll aufgezeichnet</string>
 </resources>
