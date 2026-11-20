@@ -1096,16 +1096,28 @@ object CrossDevice {
     @SuppressLint("MissingPermission")
     private fun shouldBeClientTo(adapter: android.bluetooth.BluetoothAdapter, peerMac: String): Boolean {
         val ownName = adapter.name
-        val peerName = runCatching { adapter.getRemoteDevice(peerMac).name }.getOrNull()
-        val client = electClient(ownName, peerName)
-        Log.d(TAG, "Role election [$peerMac]: ${if (client) "CLIENT" else "SERVER-only"} (own='$ownName' peer='$peerName')")
+        val peer = runCatching { adapter.getRemoteDevice(peerMac) }.getOrNull()
+        val peerName = runCatching { peer?.name }.getOrNull()
+        val peerIsComputer = runCatching {
+            peer?.bluetoothClass?.majorDeviceClass == android.bluetooth.BluetoothClass.Device.Major.COMPUTER
+        }.getOrDefault(false)
+        val client = electClient(ownName, peerName, peerIsComputer)
+        Log.d(TAG, "Role election [$peerMac]: ${if (client) "CLIENT" else "SERVER-only"} " +
+            "(own='$ownName' peer='$peerName' computer=$peerIsComputer)")
         return client
     }
 
     /** Pure role-election predicate (extracted for testing). Returns true iff this
      *  device should be the CLIENT for the pair. SERVER-only when names are unusable
-     *  (null/blank or equal): no client started, so no duplicate-channel collision. */
-    internal fun electClient(ownName: String?, peerName: String?): Boolean {
+     *  (null/blank or equal): no client started, so no duplicate-channel collision.
+     *
+     *  Always SERVER-only toward a computer: the Windows client only dials out and
+     *  never listens on the CrossDevice service, so dialing it can only fail. Each
+     *  failed dial still pages the PC and opens a Bluetooth link that drops seconds
+     *  later; on 2026-11-20 that was ~94 PC link drops in 50 minutes (two pages
+     *  every ~15 s) while the PC had no session open. */
+    internal fun electClient(ownName: String?, peerName: String?, peerIsComputer: Boolean = false): Boolean {
+        if (peerIsComputer) return false
         if (ownName.isNullOrBlank() || peerName.isNullOrBlank() || ownName.equals(peerName, ignoreCase = true)) {
             return false
         }
