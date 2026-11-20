@@ -1035,4 +1035,8 @@ Protokol istekleri: %4$d</string>
     <string name="companion_pairing_description">Gelen aramaların AirPods\'a daha hızlı geçmesi için AirPods\'unuzu EveryPods ile bağlayın. Android bir kez onay ister.</string>
     <string name="companion_pairing_action">AirPods\'u bağla</string>
     <string name="companion_pairing_failed">AirPods bağlanamadı. Bağlı olduklarından emin olup tekrar deneyin.</string>
+    <string name="ui_handover_trace_title">Tam aktarım kaydı</string>
+    <string name="ui_handover_trace_desc">EveryPods günlüğündeki her satırı, diğer cihazların Bluetooth adresleri dahil, 14 gün saklanan ayrı dosyalara kaydeder. Paylaşana kadar bu cihazda kalır.</string>
+    <string name="ui_handover_trace_share">Kaydı paylaş</string>
+    <string name="ui_handover_trace_empty">Henüz kayıt yok</string>
 </resources>

@@ -1052,4 +1052,8 @@ Protocol requests: %4$d</string>
     <string name="companion_pairing_description">Link your AirPods to EveryPods so incoming calls switch to them faster. Android asks you to confirm once.</string>
     <string name="companion_pairing_action">Link AirPods</string>
     <string name="companion_pairing_failed">Couldn\'t link the AirPods. Make sure they\'re connected, then try again.</string>
+    <string name="ui_handover_trace_title">Full handover trace</string>
+    <string name="ui_handover_trace_desc">Records every EveryPods log line, including peer Bluetooth addresses, to separate files kept for 14 days. They stay on this device until you share them.</string>
+    <string name="ui_handover_trace_share">Share trace</string>
+    <string name="ui_handover_trace_empty">No trace recorded yet</string>
 </resources>

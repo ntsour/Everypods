@@ -1035,4 +1035,8 @@ Yêu cầu giao thức: %4$d</string>
     <string name="companion_pairing_description">Liên kết AirPods với EveryPods để cuộc gọi đến chuyển sang AirPods nhanh hơn. Android sẽ yêu cầu xác nhận một lần.</string>
     <string name="companion_pairing_action">Liên kết AirPods</string>
     <string name="companion_pairing_failed">Không thể liên kết AirPods. Hãy đảm bảo AirPods đã kết nối rồi thử lại.</string>
+    <string name="ui_handover_trace_title">Nhật ký chuyển đổi đầy đủ</string>
+    <string name="ui_handover_trace_desc">Ghi mọi dòng nhật ký của EveryPods, kể cả địa chỉ Bluetooth của các thiết bị khác, vào các tệp riêng được giữ trong 14 ngày. Các tệp ở lại trên thiết bị này cho đến khi bạn chia sẻ.</string>
+    <string name="ui_handover_trace_share">Chia sẻ nhật ký</string>
+    <string name="ui_handover_trace_empty">Chưa có nhật ký nào</string>
 </resources>

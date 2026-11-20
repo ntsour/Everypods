@@ -1035,4 +1035,8 @@ Requêtes du protocole : %4$d</string>
     <string name="companion_pairing_description">Associez vos AirPods à EveryPods pour que les appels entrants basculent plus vite vers eux. Android vous demandera une seule confirmation.</string>
     <string name="companion_pairing_action">Associer les AirPods</string>
     <string name="companion_pairing_failed">Impossible d\'associer les AirPods. Vérifiez qu\'ils sont connectés, puis réessayez.</string>
+    <string name="ui_handover_trace_title">Journal complet de transfert</string>
+    <string name="ui_handover_trace_desc">Enregistre chaque ligne de journal d’EveryPods, y compris les adresses Bluetooth des autres appareils, dans des fichiers séparés conservés 14 jours. Ils restent sur cet appareil jusqu’à ce que vous les partagiez.</string>
+    <string name="ui_handover_trace_share">Partager le journal</string>
+    <string name="ui_handover_trace_empty">Aucun journal enregistré pour l’instant</string>
 </resources>

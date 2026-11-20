@@ -1035,4 +1035,8 @@
     <string name="companion_pairing_description">將 AirPods 連結至 EveryPods，來電可更快切換到 AirPods。Android 只會要求確認一次。</string>
     <string name="companion_pairing_action">連結 AirPods</string>
     <string name="companion_pairing_failed">無法連結 AirPods。請確認已連線後再試一次。</string>
+    <string name="ui_handover_trace_title">完整切換紀錄</string>
+    <string name="ui_handover_trace_desc">將 EveryPods 的每一行記錄（包括其他裝置的藍牙位址）寫入獨立檔案，保留 14 天。在你分享之前，這些檔案只會保存在這部裝置上。</string>
+    <string name="ui_handover_trace_share">分享紀錄</string>
+    <string name="ui_handover_trace_empty">尚未有任何紀錄</string>
 </resources>

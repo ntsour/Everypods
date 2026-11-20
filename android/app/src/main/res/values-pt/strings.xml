@@ -1035,4 +1035,8 @@ Pedidos do protocolo: %4$d</string>
     <string name="companion_pairing_description">Vincule seus AirPods ao EveryPods para que as chamadas recebidas mudem para eles mais rápido. O Android pede confirmação uma única vez.</string>
     <string name="companion_pairing_action">Vincular AirPods</string>
     <string name="companion_pairing_failed">Não foi possível vincular os AirPods. Verifique se estão conectados e tente novamente.</string>
+    <string name="ui_handover_trace_title">Registo completo de transferência</string>
+    <string name="ui_handover_trace_desc">Guarda cada linha de registo do EveryPods, incluindo os endereços Bluetooth dos outros dispositivos, em ficheiros separados mantidos durante 14 dias. Ficam neste dispositivo até os partilhar.</string>
+    <string name="ui_handover_trace_share">Partilhar registo</string>
+    <string name="ui_handover_trace_empty">Ainda não há registo</string>
 </resources>
