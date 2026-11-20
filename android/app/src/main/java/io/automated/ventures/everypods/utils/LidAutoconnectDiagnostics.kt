@@ -205,11 +205,6 @@ object LidAutoconnectDiagnostics {
     fun fingerprint(value: String): String = java.security.MessageDigest.getInstance("SHA-256")
         .digest(value.toByteArray(Charsets.UTF_8)).take(6).joinToString("") { "%02x".format(it) }
 
-    private fun redactIdentifiers(value: String): String = value
-        .replace(Regex("(?i)([0-9a-f]{2}:){5}[0-9a-f]{2}"), "[redacted-mac]")
-        .replace(Regex("(?i)\\b[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\\b"), "[redacted-id]")
-        .replace(Regex("(?<![0-9])(?:[0-9]{1,3}\\.){3}[0-9]{1,3}(?![0-9])"), "[redacted-address]")
-
     private fun updateSnapshotFromEvent(event: String, fields: Map<String, Any?>) {
         val s = snapshot
         s.wallClockMs = System.currentTimeMillis()
@@ -317,6 +312,8 @@ object LidAutoconnectDiagnostics {
             file.appendText("retention=48h minimum; no line-count or size eviction\n")
             java.io.FileOutputStream(file, true).bufferedWriter().use { writer ->
                 journal?.copyTo(writer)
+                writer.write("\n")
+                CrashLog.appendRecent(logsDir, writer)
             }
         }.get()
         return file
