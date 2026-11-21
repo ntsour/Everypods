@@ -976,6 +976,8 @@ object CrossDevice {
         if (ownership == PeerOwnership.HELD && localHeadset != null && snapshot["headsetId"] == localHeadset) {
             passiveAcquisitionCoordinator?.observePeerHeld(expectedInstallId, localHeadset)
         }
+        passiveAcquisitionCoordinator?.observePeerAcquisition(expectedInstallId,
+            (snapshot["acquisition"] as? Map<*, *>)?.get("requestId") as? String)
         // The v2 HELD field also includes AACP-only ownership. It cannot prove
         // that an acknowledged A2DP command has completed; the requester sends
         // an authenticated terminal release after observing the profile result.
