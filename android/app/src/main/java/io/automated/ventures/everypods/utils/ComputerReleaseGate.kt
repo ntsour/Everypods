@@ -29,9 +29,13 @@ package io.automated.ventures.everypods.utils
  * The phone therefore waits for each computer holder's AIRPODS_DISCONNECTED
  * (bounded by [ACK_TIMEOUT_MS]) and then [SETTLE_MS] for the link to drop.
  * Phone peers keep the immediate connect.
+ *
+ * The Windows client acks only once its link is actually down (up to 5 s),
+ * so [ACK_TIMEOUT_MS] must outlast that: at 2 s the phone gave up while the
+ * PC was still tearing down and the handover took 29 s.
  */
 object ComputerReleaseGate {
-    const val ACK_TIMEOUT_MS = 2_000L
+    const val ACK_TIMEOUT_MS = 6_000L
     const val SETTLE_MS = 1_000L
     const val POLL_MS = 100L
 
