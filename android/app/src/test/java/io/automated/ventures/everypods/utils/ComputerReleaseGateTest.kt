@@ -1,6 +1,7 @@
 package io.automated.ventures.everypods.utils
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ComputerReleaseGateTest {
@@ -25,8 +26,7 @@ class ComputerReleaseGateTest {
     }
 
     @Test
-    fun `settles only after a confirmed release`() {
-        assertEquals(ComputerReleaseGate.SETTLE_MS, ComputerReleaseGate.connectDelayMs(released = true))
-        assertEquals(0L, ComputerReleaseGate.connectDelayMs(released = false))
+    fun `ack timeout outlasts the Windows client's 5 s link-down wait`() {
+        assertTrue(ComputerReleaseGate.ACK_TIMEOUT_MS > 5_000L)
     }
 }

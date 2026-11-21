@@ -27,16 +27,16 @@ package io.automated.ventures.everypods.utils
  * timeout (handover took ~41 s instead of ~4 s).
  *
  * The phone therefore waits for each computer holder's AIRPODS_DISCONNECTED
- * (bounded by [ACK_TIMEOUT_MS]) and then [SETTLE_MS] for the link to drop.
+ * (bounded by [ACK_TIMEOUT_MS]) and connects as soon as it arrives.
  * Phone peers keep the immediate connect.
  *
  * The Windows client acks only once its link is actually down (up to 5 s),
  * so [ACK_TIMEOUT_MS] must outlast that: at 2 s the phone gave up while the
- * PC was still tearing down and the handover took 29 s.
+ * PC was still tearing down and the handover took 29 s. Because the ack means
+ * the link is down, no extra settle delay is added after it.
  */
 object ComputerReleaseGate {
     const val ACK_TIMEOUT_MS = 6_000L
-    const val SETTLE_MS = 1_000L
     const val POLL_MS = 100L
 
     /** Online handover peers that hold the AirPods and are computers. */
@@ -48,7 +48,4 @@ object ComputerReleaseGate {
         val held = holders.map { it.uppercase() }.toSet()
         return onlineHandoverPeers.map { it.uppercase() }.filter { it in held && isComputer(it) }.toSet()
     }
-
-    /** Delay before connecting once waiting ends: settle only after a real release. */
-    fun connectDelayMs(released: Boolean): Long = if (released) SETTLE_MS else 0L
 }

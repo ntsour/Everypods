@@ -5605,7 +5605,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             .bluetoothClass?.majorDeviceClass == android.bluetooth.BluetoothClass.Device.Major.COMPUTER
     }.getOrDefault(false)
 
-    /** Poll until the computer holders released (or the ack timeout), settle, then connect. */
+    /** Poll until the computer holders released (or the ack timeout), then connect. */
     private fun awaitComputerRelease(peers: Set<String>, token: Long, startedAt: Long, connect: () -> Unit) {
         val gate = io.automated.ventures.everypods.utils.ComputerReleaseGate
         val handler = Handler(Looper.getMainLooper())
@@ -5620,14 +5620,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             return
         }
         val released = stillHeld.isEmpty()
-        val delay = gate.connectDelayMs(released)
         LidAutoconnectDiagnostics.logEvent("takeover_computer_release", mapOf(
-            "released" to released, "waitedMs" to waited, "settleMs" to delay))
-        Log.d(TAG, "takeOver: computer ${if (released) "released after ${waited}ms" else "did not confirm release in ${waited}ms"}; connecting in ${delay}ms")
-        handler.postDelayed({
-            if (takeoverAttemptFence.isCurrent(token)) connect()
-            else Log.d(TAG, "takeOver: superseded before connecting")
-        }, delay)
+            "released" to released, "waitedMs" to waited))
+        Log.d(TAG, "takeOver: computer ${if (released) "released after ${waited}ms" else "did not confirm release in ${waited}ms"}; connecting now")
+        connect()
     }
 
     private fun submitExplicitAudioIntent(target: BluetoothDevice?,
