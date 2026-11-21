@@ -17,11 +17,14 @@ class PeerAcquisitionProtocol(
         enabled: Boolean,
         localSnapshotRevision: Long,
         peers: Map<String, PassiveAcquisitionCoordinator.PeerStatus>,
+        intent: HandoverIntent = HandoverIntent.PASSIVE,
+        allPeersSupportIntent: Boolean = false,
     ): List<PeerV2Frame.Frame> {
         coordinator.cancelExpiredPreparation()
         val event = coordinator.begin(headsetId, localSessionId(), membership,
-            localUnowned, lastOwnerEligible, lidOpen, enabled, localSnapshotRevision, peers)
-        return frames(coordinator.pendingCancellations()) + if (event is PassiveAcquisitionCoordinator.Event.Request) frames(listOf(event)) else emptyList()
+            localUnowned, lastOwnerEligible, lidOpen, enabled, localSnapshotRevision, peers, intent)
+        return frames(coordinator.pendingCancellations()) +
+            if (event is PassiveAcquisitionCoordinator.Event.Request) frames(listOf(event), allPeersSupportIntent) else emptyList()
     }
 
     fun receive(
@@ -31,6 +34,7 @@ class PeerAcquisitionProtocol(
         localStatus: PassiveAcquisitionCoordinator.PeerStatus?,
         configuredMembership: Set<String>,
         currentSnapshotRevisions: Map<String, Long>? = null,
+        peerSupportsIntent: Boolean = false,
     ): Result {
         val message = PeerV2Message.decode(frame)
         val f = message.fields
@@ -50,8 +54,9 @@ class PeerAcquisitionProtocol(
                     configuredMembership = configuredMembership,
                     snapshotRevisions = longMap(f.getValue("snapshotRevisions")),
                     currentSnapshotRevisions = currentSnapshotRevisions,
+                    requestIntent = PeerV2Message.intentOf(f),
                 )
-                return Result(frames(coordinator.pendingCancellations()) + participantReply(decision, f))
+                return Result(frames(coordinator.pendingCancellations()) + participantReply(decision, f, peerSupportsIntent))
             }
             PeerV2Frame.Type.ACQUIRE_START -> {
                 require(f.getValue("requesterId") == authenticatedPeerId &&
@@ -65,7 +70,7 @@ class PeerAcquisitionProtocol(
                     (f.getValue("membership") as List<*>).filterIsInstance<String>(),
                     configuredMembership,
                 )
-                return Result(listOf(participantReply(decision, f)))
+                return Result(listOf(participantReply(decision, f, peerSupportsIntent)))
             }
             PeerV2Frame.Type.ACQUIRE_CANCEL -> {
                 require(f.getValue("requesterId") == authenticatedPeerId &&
@@ -110,7 +115,8 @@ class PeerAcquisitionProtocol(
 
     fun terminalProfileFailure(): List<PeerV2Frame.Frame> = frames(coordinator.failAfterProfileDisconnect())
 
-    private fun participantReply(event: PassiveAcquisitionCoordinator.Event, request: Map<String, Any?>): PeerV2Frame.Frame = when (event) {
+    private fun participantReply(event: PassiveAcquisitionCoordinator.Event, request: Map<String, Any?>,
+                                  peerSupportsIntent: Boolean): PeerV2Frame.Frame = when (event) {
         is PassiveAcquisitionCoordinator.Event.Grant -> PeerV2Message.encode(PeerV2Frame.Type.ACQUIRE_GRANT,
             identityFields(request) + mapOf("grantorId" to localInstallationId,
                 "grantorSessionId" to localSessionId(), "grantId" to event.grantId))
@@ -119,17 +125,18 @@ class PeerAcquisitionProtocol(
                 "grantorSessionId" to localSessionId(), "grantId" to event.grantId))
         is PassiveAcquisitionCoordinator.Event.Deny -> PeerV2Message.encode(PeerV2Frame.Type.ACQUIRE_DENY,
             identityFields(request) + mapOf("grantorId" to localInstallationId,
-                "grantorSessionId" to localSessionId(), "reason" to event.reason.wireValue))
+                "grantorSessionId" to localSessionId(), "reason" to denyWireReason(event.reason, peerSupportsIntent)))
         else -> error("unexpected_participant_event")
     }
 
-    private fun frames(events: List<PassiveAcquisitionCoordinator.Event>): List<PeerV2Frame.Frame> = events.map { event ->
+    private fun frames(events: List<PassiveAcquisitionCoordinator.Event>, includeIntent: Boolean = false): List<PeerV2Frame.Frame> = events.map { event ->
         when (event) {
             is PassiveAcquisitionCoordinator.Event.Request -> PeerV2Message.encode(PeerV2Frame.Type.ACQUIRE_REQUEST,
                 mapOf("requestId" to event.requestId, "headsetId" to event.headsetId,
                     "requesterId" to localInstallationId, "requesterSessionId" to event.requesterSessionId,
                     "membership" to event.membership, "membershipDigest" to event.membershipDigest,
-                    "snapshotRevisions" to event.snapshotRevisions))
+                    "snapshotRevisions" to event.snapshotRevisions) +
+                    if (includeIntent) mapOf("intent" to event.intent.wire) else emptyMap())
             is PassiveAcquisitionCoordinator.Event.Start -> PeerV2Message.encode(PeerV2Frame.Type.ACQUIRE_START,
                 mapOf("requestId" to event.requestId, "headsetId" to event.headsetId,
                     "requesterId" to event.requesterId, "requesterSessionId" to event.requesterSessionId,
@@ -169,9 +176,13 @@ class PeerAcquisitionProtocol(
         }
     }
 
-    private val PassiveAcquisitionCoordinator.Denial.wireValue: String
-        get() = when (this) {
+    companion object {
+        /** Peers without acquire-v2 reject unknown deny reasons, so the new ones degrade to HELD. */
+        internal fun denyWireReason(denial: PassiveAcquisitionCoordinator.Denial, peerSupportsIntent: Boolean): String = when (denial) {
             PassiveAcquisitionCoordinator.Denial.EXPIRED -> "UNKNOWN"
-            else -> name
+            PassiveAcquisitionCoordinator.Denial.POLICY, PassiveAcquisitionCoordinator.Denial.CALL_ACTIVE ->
+                if (peerSupportsIntent) denial.name else "HELD"
+            else -> denial.name
         }
+    }
 }

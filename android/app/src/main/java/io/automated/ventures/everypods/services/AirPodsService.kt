@@ -23,6 +23,12 @@ package io.automated.ventures.everypods.services
 import io.automated.ventures.everypods.bluetooth.hrm.SharingError
 import io.automated.ventures.everypods.bluetooth.hrm.HeartRateSharingState
 import io.automated.ventures.everypods.utils.peer.PeerAudioUse
+import io.automated.ventures.everypods.utils.peer.GrantDecision
+import io.automated.ventures.everypods.utils.peer.HandoverGrantPolicy
+import io.automated.ventures.everypods.utils.peer.HandoverIntent
+import io.automated.ventures.everypods.utils.peer.HolderState
+import io.automated.ventures.everypods.utils.peer.YieldSettings
+import io.automated.ventures.everypods.utils.peer.YieldSettingsMigration
 import io.automated.ventures.everypods.bluetooth.hrm.HeartRateSharingMethod
 import io.automated.ventures.everypods.bluetooth.hrm.HeartRateSharingPrefs
 import io.automated.ventures.everypods.bluetooth.hrm.HeartRateSharingIntent
@@ -1055,8 +1061,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         // AirPods state-based takeover
         var takeoverWhenDisconnected: Boolean = true,
         var takeoverWhenIdle: Boolean = true,
-        var takeoverWhenMusic: Boolean = false,
-        var takeoverWhenCall: Boolean = true,
+        var takeoverWhenMusic: Boolean = true,
+        var takeoverWhenCall: Boolean = false,
 
         // Phone state-based takeover
         var takeoverWhenRingingCall: Boolean = true,
@@ -1773,7 +1779,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 )
                 if (!contains("takeover_when_idle")) putBoolean("takeover_when_idle", true)
                 if (!contains("takeover_when_music")) putBoolean("takeover_when_music", true)
-                if (!contains("takeover_when_call")) putBoolean("takeover_when_call", true)
+                if (!contains("takeover_when_call")) putBoolean("takeover_when_call", false)
 
                 // Phone state-based takeover — handover (media-start + ringing-call)
                 // is the core feature, so fresh installs get it on by default.
@@ -1796,6 +1802,13 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     putBoolean("takeover_when_ringing_call", true)
                     putBoolean("takeover_when_media_start", true)
                     putBoolean("handover_defaults_v2", true)
+                }
+
+                // One-time migration: takeover_when_call was never enforced and was seeded
+                // true; it now gates yielding during a call (spec §5: default off).
+                YieldSettingsMigration.callSettingToWrite(contains(YieldSettingsMigration.FLAG))?.let {
+                    putBoolean("takeover_when_call", it)
+                    putBoolean(YieldSettingsMigration.FLAG, true)
                 }
 
                 if (!contains("adaptive_strength")) putInt("adaptive_strength", 51)
@@ -3349,14 +3362,14 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             ),
             takeoverWhenIdle = sharedPreferences.getBoolean("takeover_when_idle", true),
             takeoverWhenMusic = sharedPreferences.getBoolean("takeover_when_music", true),
-            takeoverWhenCall = sharedPreferences.getBoolean("takeover_when_call", true),
+            takeoverWhenCall = sharedPreferences.getBoolean("takeover_when_call", false),
 
             // Phone state-based takeover
             takeoverWhenRingingCall = sharedPreferences.getBoolean(
-                "takeover_when_ringing_call", false
+                "takeover_when_ringing_call", true
             ),
             takeoverWhenMediaStart = sharedPreferences.getBoolean(
-                "takeover_when_media_start", false
+                "takeover_when_media_start", true
             ),
 
             // Stem actions
@@ -3613,7 +3626,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
             "takeover_when_idle" -> config.takeoverWhenIdle = preferences.getBoolean(key, true)
             "takeover_when_music" -> config.takeoverWhenMusic = preferences.getBoolean(key, true)
-            "takeover_when_call" -> config.takeoverWhenCall = preferences.getBoolean(key, true)
+            "takeover_when_call" -> config.takeoverWhenCall = preferences.getBoolean(key, false)
 
             // Phone state-based takeover
             "takeover_when_ringing_call" -> config.takeoverWhenRingingCall =
@@ -6576,19 +6589,31 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         Log.d(TAG, "Peer confirmed ownership via AIRPODS_CONNECTED — cooldown armed proactively")
     }
 
+    /** Holder-side grant decision for a legacy peer request (docs/peer-mesh-spec.md §4.3). */
+    fun peerHandoverDecision(intent: HandoverIntent): GrantDecision {
+        val now = System.currentTimeMillis()
+        val takeoverMs = lastTakeoverIntentMs
+        val holder = HolderState(
+            holds = holdsAirPods(),
+            // isInAnyCall() also sees ringing and VoIP-notification calls that peerAudioUse()
+            // misses; the old call-hold veto used it, so keep protecting those calls.
+            audioUse = if (isInAnyCall()) PeerAudioUse.CALL else peerAudioUse(),
+            msSinceOwnTakeover = if (takeoverMs > 0L) now - takeoverMs else null,
+        )
+        val settings = YieldSettings(
+            whenIdle = config.takeoverWhenIdle,
+            whenMedia = config.takeoverWhenMusic,
+            whenCall = config.takeoverWhenCall,
+        )
+        val decision = HandoverGrantPolicy.decide(intent, holder, settings)
+        Log.d(TAG, "peerHandoverDecision: intent=$intent holder=$holder settings=$settings -> $decision")
+        return decision
+    }
+
     fun disconnectForCD() {
         val wasAudioHolder = isA2dpConnected()
-        // Call-hold veto: if this device is currently ringing or in a call, do not yield
-        // the AirPods. All devices receive the same Teams/VoIP ring simultaneously and each
-        // issues kRequestDisconnect — without this veto the first requester blindly wins
-        // even when this device is the one actually handling the call. Music-only requests
-        // are unaffected (they never call disconnectForCD while isInCall/isCallRinging).
-        if (isInAnyCall()) {
-            Log.d(TAG, "Call-hold veto: ignoring REQUEST_DISCONNECT — active call detected")
-            CrossDevice.notifyConnected()   // re-assert ownership so requester doesn't hang
-            return
-        }
-
+        // The call veto now lives in HandoverGrantPolicy (peerHandoverDecision), which
+        // processPacket consults before calling this.
         val yieldToken = takeoverAttemptFence.next()
         val audioReleaseToken = offlineAudioDriver.beginRelease()
         MediaController.yieldPlaybackToPeer(

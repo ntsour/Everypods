@@ -13,7 +13,8 @@ class PassiveAcquisitionCoordinator(
     sealed interface Event {
         data class Request(val requestId: String, val headsetId: String, val requesterSessionId: String,
                            val membership: List<String>, val membershipDigest: String,
-                           val snapshotRevisions: Map<String, Long>) : Event
+                           val snapshotRevisions: Map<String, Long>,
+                           val intent: HandoverIntent = HandoverIntent.PASSIVE) : Event
         data class Start(val requestId: String, val headsetId: String, val requesterSessionId: String,
                          val requesterId: String, val grantorId: String, val grantorSessionId: String,
                          val membership: List<String>, val membershipDigest: String, val grantId: String) : Event
@@ -24,7 +25,7 @@ class PassiveAcquisitionCoordinator(
         data class StartAck(val requestId: String, val grantId: String, val grantorId: String) : Event
         data class ReadyToConnect(val requestId: String, val headsetId: String, val generation: Long) : Event
     }
-    enum class Denial { HELD, UNKNOWN, MEMBERSHIP_MISMATCH, BUSY, STALE_SNAPSHOT, SESSION_CHANGED, EXPIRED }
+    enum class Denial { HELD, UNKNOWN, MEMBERSHIP_MISMATCH, BUSY, STALE_SNAPSHOT, SESSION_CHANGED, EXPIRED, POLICY, CALL_ACTIVE }
     enum class Phase { PREPARING, STARTING, IN_PROGRESS, RESOLVED, CANCELLED }
     data class PeerStatus(val installationId: String, val sessionId: String, val revision: Long,
                           val protocolVersion: Int, val ready: Boolean, val headsetId: String?,
@@ -35,7 +36,8 @@ class PassiveAcquisitionCoordinator(
                       val snapshotRevisions: Map<String, Long>, val peerSessions: Map<String, String>,
                       val phase: Phase, val grants: Map<String, String>,
                       val grantorSessions: Map<String, String>, val startAcks: Set<String>,
-                      val connectIssued: Boolean = false, val connectionObserved: Boolean = false)
+                      val connectIssued: Boolean = false, val connectionObserved: Boolean = false,
+                      val handoverIntent: HandoverIntent = HandoverIntent.PASSIVE)
     data class ParticipantReservation(val requestId: String, val requesterId: String,
                                       val requesterSessionId: String, val headsetId: String,
                                       val membershipDigest: String, val snapshotRevisions: Map<String, Long>, val grantId: String,
@@ -96,6 +98,7 @@ class PassiveAcquisitionCoordinator(
         enabled: Boolean,
         localSnapshotRevision: Long,
         peers: Map<String, PeerStatus>,
+        handoverIntent: HandoverIntent = HandoverIntent.PASSIVE,
     ): Event {
         val now = clock.nowMs()
         if (!lidOpen || !enabled || !localUnowned || !lastOwnerEligible) return Event.Deny("", Denial.UNKNOWN)
@@ -127,7 +130,7 @@ class PassiveAcquisitionCoordinator(
                 active.requesterSessionId == requesterSessionId && active.membership == members &&
                 active.membershipDigest == membersDigest && active.snapshotRevisions == revisions && active.peerSessions == peers.mapKeys { it.key.lowercase() }.mapValues { it.value.sessionId }) {
                 return Event.Request(active.requestId, active.headsetId, active.requesterSessionId,
-                    active.membership, active.membershipDigest, active.snapshotRevisions)
+                    active.membership, active.membershipDigest, active.snapshotRevisions, active.handoverIntent)
             }
             return Event.Deny(active.requestId, Denial.BUSY)
         }
@@ -135,9 +138,10 @@ class PassiveAcquisitionCoordinator(
         val requestId = idFactory()
         val digest = membersDigest
         intent = Intent(requestId, headsetId, generation, now + INTENT_TTL_MS, members, digest, requesterSessionId,
-            now, revisions, peers.mapKeys { it.key.lowercase() }.mapValues { it.value.sessionId }, Phase.PREPARING, emptyMap(), emptyMap(), emptySet())
+            now, revisions, peers.mapKeys { it.key.lowercase() }.mapValues { it.value.sessionId }, Phase.PREPARING, emptyMap(), emptyMap(), emptySet(),
+            handoverIntent = handoverIntent)
         changed("requester", requestId, Phase.PREPARING, "begin")
-        return Event.Request(requestId, headsetId, requesterSessionId, members, digest, revisions)
+        return Event.Request(requestId, headsetId, requesterSessionId, members, digest, revisions, handoverIntent)
     }
 
     @Synchronized fun onGrant(peerId: String, grantorSessionId: String, requestId: String, grantId: String): List<Event> {
@@ -272,6 +276,7 @@ class PassiveAcquisitionCoordinator(
         localStatus: PeerStatus?, configuredMembership: Set<String>,
         snapshotRevisions: Map<String, Long>? = null,
         currentSnapshotRevisions: Map<String, Long>? = null,
+        requestIntent: HandoverIntent = HandoverIntent.PASSIVE,
     ): Event {
         val now = clock.nowMs()
         val members = membership.map { it.lowercase() }

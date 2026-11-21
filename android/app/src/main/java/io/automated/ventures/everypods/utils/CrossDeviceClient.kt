@@ -474,6 +474,7 @@ object CrossDeviceClient {
         var remoteInstall: String? = null
         var remoteSession: String? = null
         var remoteAcquisitionCapable = false
+        var remoteIntentCapable = false
         var initialSnapshot = false
         val initialPong = AtomicBoolean(false)
         val heartbeatState = PeerHeartbeat()
@@ -499,7 +500,7 @@ object CrossDeviceClient {
             val hello = PeerV2Message.encode(PeerV2Frame.Type.HELLO, mapOf(
                 "installationId" to localInstall,
                 "sessionId" to localSession,
-                "capabilities" to listOf("acquire-v1", "snapshot"),
+                "capabilities" to PeerV2Message.LOCAL_CAPABILITIES,
                 "initiatorId" to localInstall,
                 "connectionId" to connectionId,
             ))
@@ -521,7 +522,9 @@ object CrossDeviceClient {
                             require(fields["initiatorId"] == localInstall && fields["connectionId"] == connectionId) { "v2_connection_identity_mismatch" }
                             remoteInstall = fields["installationId"] as String
                             remoteSession = fields["sessionId"] as String
-                            remoteAcquisitionCapable = "acquire-v1" in (fields["capabilities"] as List<*>).filterIsInstance<String>()
+                            val remoteCaps = (fields["capabilities"] as List<*>).filterIsInstance<String>()
+                            remoteAcquisitionCapable = "acquire-v1" in remoteCaps
+                            remoteIntentCapable = "acquire-v2" in remoteCaps
                             require(CrossDevice.registerV2Connection(link.mac, socket,
                                 PeerConnectionKey(localInstall, connectionId))) { "duplicate_v2_link_loser" }
                             CrossDevice.bindV2PeerIdentity(link.mac, remoteInstall!!)
@@ -558,7 +561,7 @@ object CrossDeviceClient {
                                     "v2_pong_snapshot_not_authoritative"
                                 }
                                 initialPong.set(true)
-                                CrossDevice.markV2PeerReady(link.mac, session, socket, remoteAcquisitionCapable)
+                                CrossDevice.markV2PeerReady(link.mac, session, socket, remoteAcquisitionCapable, remoteIntentCapable)
                                 publishState(link, PeerConnectionState.Ready(link.generation, 2, session,
                                     snapshot["revision"] as Long))
                             }

@@ -223,4 +223,17 @@ class PassiveAcquisitionCoordinatorTest {
         coordinator.observePeerAcquisition(b, second.requestId)
         assertEquals(listOf(second.requestId), coordinator.pendingCancellations().map { it.requestId })
     }
+
+    @Test fun `begin defaults to passive intent and carries an explicit intent through retries`() {
+        val passive = PassiveAcquisitionCoordinator(a, Clock()) { "request-1" }
+        val p = passive.begin(headset, "sess-a", setOf(a, b), true, true, true, true, 4,
+            mapOf(b to status(b, "sess-b"))) as PassiveAcquisitionCoordinator.Event.Request
+        assertEquals(HandoverIntent.PASSIVE, p.intent)
+
+        val coordinator = PassiveAcquisitionCoordinator(a, Clock()) { "request-2" }
+        fun begin() = coordinator.begin(headset, "sess-a", setOf(a, b), true, true, true, true, 4,
+            mapOf(b to status(b, "sess-b")), HandoverIntent.MANUAL) as PassiveAcquisitionCoordinator.Event.Request
+        assertEquals(HandoverIntent.MANUAL, begin().intent)
+        assertEquals(HandoverIntent.MANUAL, begin().intent)
+    }
 }

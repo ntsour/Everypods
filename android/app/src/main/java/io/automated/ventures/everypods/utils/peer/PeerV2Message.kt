@@ -31,13 +31,26 @@ object PeerV2Message {
         return PeerV2Frame.Frame(type, payload)
     }
 
+    /**
+     * Old builds reject any HELLO capability outside {snapshot, acquire-v1}, so acquire-v2 may only be
+     * advertised once every deployed build accepts it.
+     */
+    const val ADVERTISE_ACQUIRE_V2 = false
+    val LOCAL_CAPABILITIES: List<String> =
+        if (ADVERTISE_ACQUIRE_V2) listOf("acquire-v1", "acquire-v2", "snapshot") else listOf("acquire-v1", "snapshot")
+
+    fun intentOf(fields: Map<String, Any?>): HandoverIntent =
+        HandoverIntent.fromWire(fields["intent"] as? String) ?: HandoverIntent.PASSIVE
+
     private fun validate(type: PeerV2Frame.Type, f: Map<String, Any?>) {
         when (type) {
             PeerV2Frame.Type.HELLO -> {
                 exact(f, setOf("installationId", "sessionId", "capabilities", "initiatorId", "connectionId"))
                 listOf("installationId", "sessionId", "initiatorId", "connectionId").forEach { uuid(f, it) }
                 val caps = f["capabilities"] as? List<*> ?: invalid("invalid_capabilities")
-                require(caps.all { it is String && it in CAPABILITIES }) { "invalid_capabilities" }
+                // Unknown capability names are ignored, not rejected, so a newer peer can
+                // advertise a capability without breaking links to this build.
+                require(caps.all { it is String && CAPABILITY_NAME.matches(it) }) { "invalid_capabilities" }
                 val strings = caps.filterIsInstance<String>()
                 require(strings == strings.distinct().sorted()) { "invalid_capabilities" }
             }
@@ -50,7 +63,9 @@ object PeerV2Message {
                 snapshot(s as Map<String, Any?>)
             }
             PeerV2Frame.Type.ACQUIRE_REQUEST -> {
-                exact(f, REQUEST_FIELDS); acquireIdentity(f)
+                exact(f, if ("intent" in f) REQUEST_FIELDS + "intent" else REQUEST_FIELDS)
+                require("intent" !in f || HandoverIntent.fromWire(f["intent"] as? String) != null) { "invalid_intent" }
+                acquireIdentity(f)
                 val membership = membership(f)
                 val revisions = f["snapshotRevisions"] as? Map<*, *> ?: invalid("invalid_snapshot_revisions")
                 require(revisions.keys.all { it is String && isUuid(it) }) { "invalid_snapshot_revisions" }
@@ -140,10 +155,10 @@ object PeerV2Message {
     private val REQUEST_FIELDS = setOf("requestId", "headsetId", "requesterId", "requesterSessionId", "membership", "membershipDigest", "snapshotRevisions")
     private val GRANTOR_FIELDS = setOf("grantorId", "grantorSessionId")
     private val START_FIELDS = (REQUEST_FIELDS - "snapshotRevisions") + GRANTOR_FIELDS + "grantId"
-    private val CAPABILITIES = setOf("snapshot", "acquire-v1")
+    private val CAPABILITY_NAME = Regex("[a-z0-9][a-z0-9-]{0,31}")
     private val OWNERSHIP = setOf("unknown", "held", "released")
     private val AUDIO_USE = setOf("unknown", "idle", "media", "call")
-    private val DENIALS = setOf("HELD", "UNKNOWN", "STALE_SNAPSHOT", "MEMBERSHIP_MISMATCH", "BUSY", "UNSUPPORTED", "SESSION_CHANGED")
+    private val DENIALS = setOf("HELD", "UNKNOWN", "STALE_SNAPSHOT", "MEMBERSHIP_MISMATCH", "BUSY", "UNSUPPORTED", "SESSION_CHANGED", "POLICY", "CALL_ACTIVE")
     private val RELAY_TYPES = setOf("battery", "anc", "ear_state")
 
     private class JsonParser(private val source: String) {
