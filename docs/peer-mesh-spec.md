@@ -1,6 +1,6 @@
 # EveryPods peer mesh: one protocol for every device
 
-Status: proposed, 2026-11-21. Nothing here is implemented yet. It replaces the
+Status: agreed, 2026-11-21. Nothing here is implemented yet. It replaces the
 mix of rules in `peer-protocol-v2.md`, `bt-handover-sync.md`, the legacy
 4-byte handover path and the Windows/Mac special cases with one set of rules.
 
@@ -289,13 +289,10 @@ today's messages unchanged (v2 objects reject unknown fields).
 4. Mac: v2 client to the same spec. Test against both.
 5. Remove the phone-only special cases (§8) once all three ship `acquire-v2`.
 
-## Open questions
+## Decisions (2026-11-21)
 
-1. Should "Let the AirPods move when this device is playing media" default to
-   on (today's "requester always wins") or off (protects what you are
-   listening to)? This spec keeps today's behaviour: on.
-2. Should settings optionally sync across devices, so the user sets them once?
-   This spec keeps them local, like today.
-3. When the holder is unreachable but may still hold the AirPods, `media`
-   waits 2 s and then connects anyway. Is that the right trade-off between
-   responsiveness and fighting an unseen holder?
+1. "Let the AirPods move when this device is playing media" defaults to
+   **on**, keeping today's "requester wins" behaviour.
+2. Settings stay **per device**; they are not synchronised.
+3. When the holder is unreachable, a `media` request waits **2 s** and then
+   connects anyway.
