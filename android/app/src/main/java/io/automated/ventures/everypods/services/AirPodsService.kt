@@ -1369,8 +1369,17 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 val now = SystemClock.elapsedRealtime()
                 val cooldownActive = now < peerDropCooldownUntilMs
                 // Resolve A2DP only if cooldown is clear, to avoid extra IPC.
-                val a2dpOurs = if (!cooldownActive) isA2dpConnectedTo(mac) else false
+                val a2dpOurs = if (!cooldownActive && !expectingPeerTakeover) isA2dpConnectedTo(mac) else false
                 when {
+                    // We just yielded to a peer that is still connecting. Without
+                    // the ability to drop A2DP ourselves it still looks "ours", and
+                    // a socket connect here pages the AirPods back from the peer
+                    // (2026-11-21: Pixel -> Xiaomi bounced back 2 s after the
+                    // Xiaomi got audio). The cooldown arms once the peer confirms.
+                    expectingPeerTakeover -> Log.d(
+                        TAG,
+                        "<LogCollector:Conn> BLE saw AirPods but a peer is taking them over — skip reconnect"
+                    )
                     cooldownActive -> Log.d(
                         TAG,
                         "<LogCollector:Conn> BLE saw AirPods but peer-drop cooldown is active (${peerDropCooldownUntilMs - now} ms left) — skip reconnect"
