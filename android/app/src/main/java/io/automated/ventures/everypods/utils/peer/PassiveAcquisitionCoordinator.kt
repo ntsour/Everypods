@@ -52,11 +52,35 @@ class PassiveAcquisitionCoordinator(
     private var generation = 0L
     private var intent: Intent? = null
     private var reservation: ParticipantReservation? = null
-    private val pendingCancellations = linkedMapOf<String, Event.Cancel>()
-    @Synchronized fun pendingCancellations(): List<Event.Cancel> = pendingCancellations.values.toList()
-    private fun rememberCancellation(current: Intent): Event.Cancel =
-        Event.Cancel(current.requestId, localInstallationId, current.requesterSessionId, current.membershipDigest)
-            .also { pendingCancellations[current.requestId] = it }
+    /**
+     * A cancellation is replayed (for peers whose link was down when it was sent)
+     * only while some peer may still hold a reservation for that request. A peer
+     * holds at most one reservation and reports it in every snapshot, so once a
+     * peer's snapshot shows any other acquisition (or none) it no longer needs
+     * this cancel. Without this, every cancelled request was replayed on every
+     * later event until a whole new round was granted (2026-11-21: one phone
+     * resent up to 7 stale cancels per event, then one every ~60 s).
+     */
+    private class PendingCancellation(val event: Event.Cancel, val holders: MutableSet<String>)
+    private val pendingCancellations = linkedMapOf<String, PendingCancellation>()
+    @Synchronized fun pendingCancellations(): List<Event.Cancel> = pendingCancellations.values.map { it.event }
+    private fun rememberCancellation(current: Intent): Event.Cancel {
+        val event = Event.Cancel(current.requestId, localInstallationId, current.requesterSessionId, current.membershipDigest)
+        val holders = current.membership.filter { it != localInstallationId.lowercase() }.toMutableSet()
+        if (holders.isNotEmpty()) pendingCancellations[current.requestId] = PendingCancellation(event, holders)
+        return event
+    }
+
+    /** A peer's authoritative snapshot showed which request (if any) it reserves. */
+    @Synchronized fun observePeerAcquisition(peerId: String, reservedRequestId: String?) {
+        val peer = peerId.lowercase()
+        val iterator = pendingCancellations.entries.iterator()
+        while (iterator.hasNext()) {
+            val (requestId, pending) = iterator.next()
+            if (requestId != reservedRequestId) pending.holders.remove(peer)
+            if (pending.holders.isEmpty()) iterator.remove()
+        }
+    }
 
     @Synchronized fun currentIntent(): Intent? = intent
     @Synchronized fun currentReservation(): ParticipantReservation? = reservation

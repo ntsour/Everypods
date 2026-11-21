@@ -7,6 +7,7 @@ class PassiveAcquisitionCoordinatorTest {
     private class Clock(var now: Long = 1_000L) : ElapsedClock { override fun nowMs() = now }
     private val a = "00000000-0000-4000-8000-000000000001"
     private val b = "00000000-0000-4000-8000-000000000002"
+    private val c = "00000000-0000-4000-8000-000000000003"
     private val headset = "00000000-0000-4000-8000-000000000099"
 
     private fun status(id: String, session: String, headsetId: String? = headset,
@@ -191,4 +192,35 @@ class PassiveAcquisitionCoordinatorTest {
         assertTrue(coordinator.pendingCancellations().isEmpty())
     }
 
+    @Test fun `cancellation stops replaying once no peer reports reserving it`() {
+        var nextId = 0
+        val coordinator = PassiveAcquisitionCoordinator(a, Clock()) { "request-${++nextId}" }
+        val peers = mapOf(b to status(b, "sess-b"), c to status(c, "sess-c"))
+        val first = coordinator.begin(headset, "sess-a", setOf(a, b, c), true, true, true, true, 4, peers)
+            as PassiveAcquisitionCoordinator.Event.Request
+        coordinator.cancelIntent()
+        assertEquals(listOf(first.requestId), coordinator.pendingCancellations().map { it.requestId })
+        // b still reserves it: keep replaying for b.
+        coordinator.observePeerAcquisition(b, first.requestId)
+        coordinator.observePeerAcquisition(c, null)
+        assertEquals(listOf(first.requestId), coordinator.pendingCancellations().map { it.requestId })
+        // b released it (snapshot shows no acquisition): nothing left to replay.
+        coordinator.observePeerAcquisition(b.uppercase(), null)
+        assertTrue(coordinator.pendingCancellations().isEmpty())
+    }
+
+    @Test fun `a peer reserving a newer request no longer needs older cancellations`() {
+        var nextId = 0
+        val coordinator = PassiveAcquisitionCoordinator(a, Clock()) { "request-${++nextId}" }
+        val peers = mapOf(b to status(b, "sess-b"))
+        val first = coordinator.begin(headset, "sess-a", setOf(a, b), true, true, true, true, 4, peers)
+            as PassiveAcquisitionCoordinator.Event.Request
+        coordinator.cancelIntent()
+        val second = coordinator.begin(headset, "sess-a", setOf(a, b), true, true, true, true, 4, peers)
+            as PassiveAcquisitionCoordinator.Event.Request
+        coordinator.cancelIntent()
+        assertEquals(listOf(first.requestId, second.requestId), coordinator.pendingCancellations().map { it.requestId })
+        coordinator.observePeerAcquisition(b, second.requestId)
+        assertEquals(listOf(second.requestId), coordinator.pendingCancellations().map { it.requestId })
+    }
 }
