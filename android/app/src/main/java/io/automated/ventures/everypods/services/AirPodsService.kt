@@ -5608,6 +5608,33 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
     private val takeoverAttemptFence = io.automated.ventures.everypods.utils.TakeoverAttemptFence()
 
+    @SuppressLint("MissingPermission")
+    private fun isComputerPeer(address: String): Boolean = runCatching {
+        getSystemService(BluetoothManager::class.java).adapter.getRemoteDevice(address)
+            .bluetoothClass?.majorDeviceClass == android.bluetooth.BluetoothClass.Device.Major.COMPUTER
+    }.getOrDefault(false)
+
+    /** Poll until the computer holders released (or the ack timeout), then connect. */
+    private fun awaitComputerRelease(peers: Set<String>, token: Long, startedAt: Long, connect: () -> Unit) {
+        val gate = io.automated.ventures.everypods.utils.ComputerReleaseGate
+        val handler = Handler(Looper.getMainLooper())
+        if (!takeoverAttemptFence.isCurrent(token)) {
+            Log.d(TAG, "takeOver: superseded while waiting for computer release")
+            return
+        }
+        val stillHeld = peers.filter { peer -> CrossDevice.holders.any { it.equals(peer, ignoreCase = true) } }
+        val waited = SystemClock.elapsedRealtime() - startedAt
+        if (stillHeld.isNotEmpty() && waited < gate.ACK_TIMEOUT_MS) {
+            handler.postDelayed({ awaitComputerRelease(peers, token, startedAt, connect) }, gate.POLL_MS)
+            return
+        }
+        val released = stillHeld.isEmpty()
+        LidAutoconnectDiagnostics.logEvent("takeover_computer_release", mapOf(
+            "released" to released, "waitedMs" to waited))
+        Log.d(TAG, "takeOver: computer ${if (released) "released after ${waited}ms" else "did not confirm release in ${waited}ms"}; connecting now")
+        connect()
+    }
+
     private fun submitExplicitAudioIntent(target: BluetoothDevice?,
         trigger: io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator.Trigger,
         takeoverToken: Long? = null) {
@@ -5797,22 +5824,37 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 // connect. Without this, a device holding the A2DP link (Pixel)
                 // never learns it should pause and drop — our connect() silently
                 // no-ops on limited-mode devices that can't force a takeover.
+                var requestedPeers: Set<String> = emptySet()
                 if (CrossDevice.isPeerConnected) {
                     Log.d(TAG, "takeOver: sending REQUEST_DISCONNECT to BT handover peers")
                     val connections = io.automated.ventures.everypods.relay.DeviceConnectionStore(this)
-                    connections.onlineHandoverPeers(CrossDevice.configuredPeers.filter(CrossDevice::isConnectedTo)).forEach { peer ->
+                    requestedPeers = connections.onlineHandoverPeers(CrossDevice.configuredPeers.filter(CrossDevice::isConnectedTo))
+                    requestedPeers.forEach { peer ->
                         CrossDevice.sendTo(peer, CrossDevicePackets.REQUEST_DISCONNECT.packet)
                     }
                 }
 
-                Log.d(TAG, "takeOver: calling connectAudio()")
-                if (takingOverFor == "music" && macAddress.isNotEmpty()) {
-                    MediaController.armPendingMusicTakeover(macAddress)
+                val targetDevice = device
+                val connect = {
+                    Log.d(TAG, "takeOver: calling connectAudio()")
+                    if (takingOverFor == "music" && macAddress.isNotEmpty()) {
+                        MediaController.armPendingMusicTakeover(macAddress)
+                    }
+                    submitExplicitAudioIntent(targetDevice,
+                        if (takingOverFor == "call") io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator.Trigger.CALL
+                        else io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator.Trigger.MEDIA,
+                        takeoverToken)
                 }
-                submitExplicitAudioIntent(device,
-                    if (takingOverFor == "call") io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator.Trigger.CALL
-                    else io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator.Trigger.MEDIA,
-                    takeoverToken)
+                // A computer holder needs a moment to drop its link; connecting
+                // during its teardown made the first page fail with a 30 s timeout.
+                val computerHolders = io.automated.ventures.everypods.utils.ComputerReleaseGate.computerHolders(
+                    requestedPeers, CrossDevice.holders, ::isComputerPeer)
+                if (computerHolders.isEmpty()) {
+                    connect()
+                } else {
+                    Log.d(TAG, "takeOver: waiting for computer holder(s) $computerHolders to release before connecting")
+                    awaitComputerRelease(computerHolders, takeoverToken, SystemClock.elapsedRealtime(), connect)
+                }
 
             }
         } else {
