@@ -6,9 +6,7 @@ import io.automated.ventures.everypods.utils.peer.HandoverIntent
 import io.automated.ventures.everypods.utils.peer.LegacyHandoverRequest
 import io.automated.ventures.everypods.utils.peer.LegacyHandoverRequest.Action
 import io.automated.ventures.everypods.utils.peer.LegacyHandoverRequest.Kind
-import io.automated.ventures.everypods.utils.peer.YieldSettingsMigration
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Test
 
 class LegacyHandoverRequestTest {
@@ -34,10 +32,5 @@ class LegacyHandoverRequestTest {
 
     @Test fun grantYields() {
         assertEquals(Action.Yield, LegacyHandoverRequest.resolve(Kind.DISCONNECT) { GrantDecision.Grant })
-    }
-
-    @Test fun migrationSetsCallOffOnce() {
-        assertEquals(false, YieldSettingsMigration.callSettingToWrite(alreadyMigrated = false))
-        assertNull(YieldSettingsMigration.callSettingToWrite(alreadyMigrated = true))
     }
 }

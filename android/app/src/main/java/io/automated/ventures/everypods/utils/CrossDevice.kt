@@ -28,6 +28,7 @@ import android.content.SharedPreferences
 import android.util.Log
 import io.automated.ventures.everypods.services.ServiceManager
 import io.automated.ventures.everypods.utils.peer.GrantDecision
+import io.automated.ventures.everypods.utils.peer.GrantDenial
 import io.automated.ventures.everypods.utils.peer.LegacyHandoverRequest
 import io.automated.ventures.everypods.utils.peer.PeerHeartbeat
 import io.automated.ventures.everypods.utils.peer.PeerHeartbeatAction
@@ -1319,16 +1320,20 @@ object CrossDevice {
         val action = LegacyHandoverRequest.resolve(kind) { intent ->
             service?.peerHandoverDecision(intent) ?: GrantDecision.Grant
         }
-        when (action) {
-            LegacyHandoverRequest.Action.Yield -> {
+        // A call refusal takes the pre-existing path unchanged: disconnectForCD() applies the
+        // call-hold veto itself (it broadcasts AIRPODS_CONNECTED and keeps the AirPods).
+        val callVeto = action is LegacyHandoverRequest.Action.ReplyStillHeld &&
+            action.reason == GrantDenial.CALL_ACTIVE
+        when {
+            action == LegacyHandoverRequest.Action.Yield || callVeto -> {
                 Log.d(TAG, "[$sourceMac] $kind — releasing AirPods (eagerly marking peer as holder)")
                 holders.add(sourceMac)
                 service?.markPeerTakeoverAttempt()
                 service?.disconnectForCD()
             }
-            is LegacyHandoverRequest.Action.ReplyStillHeld -> {
-                Log.d(TAG, "[$sourceMac] $kind denied (${action.reason}) — keeping AirPods, replying AIRPODS_CONNECTED")
-                sendTo(sourceMac, CrossDevicePackets.AIRPODS_CONNECTED.packet)
+            action is LegacyHandoverRequest.Action.ReplyStillHeld -> {
+                Log.d(TAG, "[$sourceMac] $kind denied (${action.reason}) — keeping AirPods, broadcasting AIRPODS_CONNECTED")
+                notifyConnected()   // broadcast, like the former call-hold veto
             }
         }
     }

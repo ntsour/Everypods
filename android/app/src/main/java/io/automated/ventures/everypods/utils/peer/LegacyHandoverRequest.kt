@@ -31,14 +31,3 @@ object LegacyHandoverRequest {
     fun resolve(kind: Kind, decide: (HandoverIntent) -> GrantDecision): Action =
         actionFor(decide(intentFor(kind)))
 }
-
-/** One-time settings migration for the yield ("let the AirPods move when ...") settings. */
-object YieldSettingsMigration {
-    const val FLAG = "yield_settings_v1_migrated"
-
-    /**
-     * Value to write to `takeover_when_call`, or null when no migration is due. The setting was
-     * never enforced and was seeded true; enforcing it as stored would let calls be taken over.
-     */
-    fun callSettingToWrite(alreadyMigrated: Boolean): Boolean? = if (alreadyMigrated) null else false
-}
