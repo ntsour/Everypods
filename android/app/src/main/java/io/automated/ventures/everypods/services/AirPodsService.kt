@@ -5307,6 +5307,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     clearLocalConnectionForDisabledAdapter(context, state)
                 } else if (state == BluetoothAdapter.STATE_ON) {
                     CrossDevice.onBluetoothStateChanged(context, enabled = true)
+                    MediaController.onBluetoothTurnedOn()
                     // Scan is started once in onCreate and is otherwise sticky-dead after
                     // BT off/on or a failed startScan. Re-arm without requiring force-stop.
                     ServiceManager.getService()?.let { svc ->

@@ -602,9 +602,26 @@ object MediaController {
     private fun takeoverBlocked(): Boolean = relayAudioPlaybackActive ||
         shouldSuppressAutomaticTakeoverForRelay() || AnnouncementCoordinator.isAudiblySpeaking()
 
+    private val bluetoothOnSettle = BluetoothOnSettle()
+    private val recheckAfterBluetoothOn = Runnable {
+        if (!this::audioManager.isInitialized || !audioManager.isMusicActive) return@Runnable
+        val userMedia = audioManager.activePlaybackConfigurations.any {
+            isUserMediaPlayback(it.audioAttributes.usage, it.audioAttributes.contentType)
+        }
+        if (userMedia) requestMediaTakeover("playback after Bluetooth on")
+    }
+
+    /** Bluetooth just turned on: hold off takeovers while AVRCP media-service binding settles. */
+    fun onBluetoothTurnedOn() {
+        bluetoothOnSettle.onTurnedOn(SystemClock.uptimeMillis())
+        handler.removeCallbacks(recheckAfterBluetoothOn)
+        handler.postDelayed(recheckAfterBluetoothOn, BluetoothOnSettle.WINDOW_MS + 100L)
+    }
+
     private fun requestMediaTakeover(reason: String) {
         val now = SystemClock.uptimeMillis()
         val rejection = when {
+            bluetoothOnSettle.settling(now) -> "Bluetooth just turned on"
             takeoverBlocked() -> "relay or announcement active"
             now - lastSelfActionAt < SELF_ACTION_IGNORE_MS -> "recent EveryPods playback action"
             !audioManager.isMusicActive -> "no local music active"
