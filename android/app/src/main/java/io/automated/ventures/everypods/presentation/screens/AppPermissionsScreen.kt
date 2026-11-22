@@ -108,7 +108,8 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
     fun refreshAll() {
         localNetworkGranted = io.automated.ventures.everypods.relay.RelayNetworkPermission.granted(context)
         btGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
-            isGranted(Manifest.permission.BLUETOOTH_CONNECT) && isGranted(Manifest.permission.BLUETOOTH_SCAN)
+            isGranted(Manifest.permission.BLUETOOTH_CONNECT) && isGranted(Manifest.permission.BLUETOOTH_SCAN) &&
+                isGranted(Manifest.permission.BLUETOOTH_ADVERTISE)  // computers reach this phone over Bluetooth LE
         else isGranted(Manifest.permission.BLUETOOTH)
         // Fine location is optional and user-granted, but required for unfiltered
         // nearby AirPods advertisements on Android 12+; older Android also requires it.
@@ -215,7 +216,8 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
                     granted = btGranted, dark = dark, accent = accent, green = green
                 ) {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
-                        grantRuntime(arrayOf(Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN))
+                        grantRuntime(arrayOf(Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN,
+                            Manifest.permission.BLUETOOTH_ADVERTISE))
                     else
                         grantRuntime(arrayOf(Manifest.permission.BLUETOOTH, Manifest.permission.BLUETOOTH_ADMIN))
                 }
@@ -262,6 +264,7 @@ fun AppPermissionsScreen(onPermissionsGranted: (() -> Unit)? = null) {
                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                                     add(Manifest.permission.BLUETOOTH_CONNECT)
                                     add(Manifest.permission.BLUETOOTH_SCAN)
+                                    add(Manifest.permission.BLUETOOTH_ADVERTISE)
                                 } else {
                                     add(Manifest.permission.BLUETOOTH)
                                     add(Manifest.permission.BLUETOOTH_ADMIN)
