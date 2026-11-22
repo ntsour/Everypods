@@ -50,6 +50,8 @@ object PeerGattServer {
         fun onSessionEnded(address: String)
         /** Every [KEEPALIVE_MS] for each ready session (legacy status keep-alive). */
         fun onKeepAliveDue(address: String)
+        /** A record this server does not handle itself (V2, CASE, RELAY, FRAG, …), on a ready session. */
+        fun onRecord(address: String, type: Int, payload: ByteArray) {}
     }
 
     private const val TAG = "PeerGatt"
@@ -66,6 +68,8 @@ object PeerGattServer {
     private const val ADVERTISE_RETRY_MAX_MS = 30_000L
     private const val NOTIFY_RETRY_MS = 50L
     private const val NOTIFY_MAX_REFUSALS = 40
+    /** Room for one fragmented 160 KiB message (PeerLeChannel) on top of normal traffic. */
+    private const val QUEUE_LIMIT_BYTES = 256 * 1024
 
     /**
      * Handles a setup request (`SETUP_REQ`) from a bonded central that may not be a configured peer yet, and
@@ -75,7 +79,7 @@ object PeerGattServer {
     @Volatile var setupHandler: ((address: String, request: ByteArray) -> ByteArray?)? = null
 
     private class Session(val address: String) {
-        val outbox = PeerGattOutbox()
+        val outbox = PeerGattOutbox(QUEUE_LIMIT_BYTES)
         val decoder = PeerGattRecords.Decoder()
         var subscribed = false
         var hello: PeerGattRecords.Hello? = null
@@ -139,6 +143,15 @@ object PeerGattServer {
         val key = address.uppercase()
         if (key !in readyAddresses || packet.isEmpty() || packet.size > PeerGattRecords.MAX_PAYLOAD) return false
         val record = PeerGattRecords.encode(PeerGattRecords.LEGACY, packet)
+        handler.post { sessions[key]?.takeIf { it.ready }?.let { enqueue(it, record) } }
+        return true
+    }
+
+    /** Queues one record of any type (e.g. V2) to [address]; false if no ready session reaches it. */
+    fun sendRecord(address: String, type: Int, payload: ByteArray): Boolean {
+        val key = address.uppercase()
+        if (key !in readyAddresses || payload.size > PeerGattRecords.MAX_PAYLOAD) return false
+        val record = PeerGattRecords.encode(type, payload)
         handler.post { sessions[key]?.takeIf { it.ready }?.let { enqueue(it, record) } }
         return true
     }
@@ -423,7 +436,12 @@ object PeerGattServer {
             }
             PeerGattRecords.PING -> enqueue(session, PeerGattRecords.encode(PeerGattRecords.PONG, record.payload))
             PeerGattRecords.SETUP_REQ -> if (session.hello != null) onSetupRequest(session, record.payload)
-            else -> Unit  // PONG and V2 are not expected here yet; unknown types are skipped
+            PeerGattRecords.PONG -> Unit
+            else -> if (session.ready) {
+                val type = record.type
+                val payload = record.payload
+                deliver { onRecord(session.address, type, payload) }
+            }
         }
     }
 

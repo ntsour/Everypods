@@ -37,7 +37,7 @@ class PeerGattOutboxTest {
         assertEquals(182, box.next(0)!!.size)  // already-chunked data keeps its size
         val fresh = PeerGattOutbox().apply { mtu = 1000 }
         fresh.enqueue(ByteArray(600))
-        assertEquals(514, fresh.next(0)!!.size)  // clamped to the 517 maximum
+        assertEquals(512, fresh.next(0)!!.size)  // MTU clamped to 517, chunk to the 512 attribute limit
     }
 
     @Test
@@ -70,5 +70,17 @@ class PeerGattOutboxTest {
         box.clear()
         assertTrue(box.isEmpty)
         assertFalse(box.inFlight)
+    }
+
+    @Test
+    fun `chunks never exceed the 512 byte attribute limit even at MTU 517`() {
+        val box = PeerGattOutbox()
+        box.mtu = 517
+        assertTrue(box.enqueue(ByteArray(1300)))
+        assertEquals(512, box.next(0)!!.size)
+        box.onSent()
+        assertEquals(512, box.next(1)!!.size)
+        box.onSent()
+        assertEquals(276, box.next(2)!!.size)
     }
 }

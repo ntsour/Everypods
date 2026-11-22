@@ -55,6 +55,8 @@ object PeerGattClient {
     private const val WRITE_MAX_REFUSALS = 40
     private const val WRITE_TIMEOUT_MS = 2_000L
     private const val REDISCOVER_DELAY_MS = 200L
+    /** Room for one fragmented 160 KiB message (PeerLeChannel) on top of normal traffic. */
+    private const val QUEUE_LIMIT_BYTES = 256 * 1024
 
     private enum class Stage { CONNECTING, SETTLING, MTU, DISCOVERING, SUBSCRIBING, HANDSHAKE, READY, CLOSING }
 
@@ -65,7 +67,7 @@ object PeerGattClient {
         var rx: BluetoothGattCharacteristic? = null
         var tx: BluetoothGattCharacteristic? = null
         var cccd: BluetoothGattDescriptor? = null
-        val outbox = PeerGattOutbox()
+        val outbox = PeerGattOutbox(QUEUE_LIMIT_BYTES)
         val decoder = PeerGattRecords.Decoder()
         var peerHello: PeerGattRecords.Hello? = null
         var refreshed = false
