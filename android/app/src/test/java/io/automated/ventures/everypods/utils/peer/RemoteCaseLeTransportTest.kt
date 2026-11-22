@@ -12,7 +12,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [33])
+@Config(sdk = [33], application = android.app.Application::class)
 class RemoteCaseLeTransportTest {
     private val addrObserver = "00:11:22:33:44:01"
     private val addrOwner = "00:11:22:33:44:02"

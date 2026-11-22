@@ -1366,10 +1366,19 @@ object CrossDevice {
      */
     private fun startLeV2(address: String, hello: PeerGattRecords.Hello, central: Boolean) {
         val ctx = gattContext ?: return
-        if (!isLeAuthorizedPeer(address)) return
-        if (!central) {
-            val ownId = PeerIdentityStore.load(ctx).installationId
-            if (!PeerLinkElection.keepCentralLink(hello.installationId, ownId)) return
+        val adapter = ctx.getSystemService(BluetoothManager::class.java)?.adapter ?: return
+        val computer = isComputerPeer(adapter, address)
+        // V2 runs with computers too (they vote in passive acquisition); relay and case evidence stay phone-only
+        // through PeerLeChannel's authorizer. A computer is always the central, so no election applies to it.
+        if (computer) {
+            if (!isEnabled || configuredPeers.none { it.equals(address, ignoreCase = true) } ||
+                !io.automated.ventures.everypods.relay.DeviceConnectionStore(ctx).coordinationAuthorized(address)) return
+        } else {
+            if (!isLeAuthorizedPeer(address)) return
+            if (!central) {
+                val ownId = PeerIdentityStore.load(ctx).installationId
+                if (!PeerLinkElection.keepCentralLink(hello.installationId, ownId)) return
+            }
         }
         PeerLeChannel.onLinkUp(address, central)
         leV2Links.linkUp(address, central)
