@@ -1,8 +1,9 @@
 # Peer links over Bluetooth LE (GATT)
 
-Status: proposed, 2026-11-22. Nothing here is implemented. It adds a second
-transport under the peer mesh (`peer-mesh-spec.md`); the protocol on top (v2,
-EPH2 frames, HELLO/SNAPSHOT/PING, ACQUIRE_*) is unchanged.
+Status: proposed, 2026-11-22; phase 1 in progress (spike passed). It adds a second
+transport under the peer mesh (`peer-mesh-spec.md`). It carries the same
+messages as RFCOMM: the legacy 4-byte packets in phase 1 (all the Mac speaks
+today) and v2 EPH2 frames later.
 
 ## Why
 
@@ -63,142 +64,187 @@ Planned support:
 
 ## 2. Advertising
 
-The peripheral advertises while EveryPods' service runs and Bluetooth is on:
+The peripheral advertises while cross-device coordination is enabled, at
+least one peer is configured, and Bluetooth is on:
 
 - **Advertisement:** flags + the 128-bit service UUID
-  `EVERYPODS_PEER_GATT` (new, to be generated). Connectable, low-power mode
-  (Android `ADVERTISE_MODE_LOW_POWER` ~1 s interval; balanced while no linked
-  central is connected and the app just started).
-- **Scan response:** service data for that UUID: an 8-byte **member token**
-  `HMAC-SHA256(meshKey, "adv" ‖ installationId ‖ window)[0..8]`, where
-  `window = floor(unixTime / 900)`.
-
-The token lets a central recognise members without connecting and without
-the advertisement carrying a stable identifier: it changes every 15 minutes
-and is meaningless without `meshKey`. The central checks each configured
-member's `installationId` for the current and adjacent windows (clock skew).
-
-Android rotates its LE address, so the central never relies on the address or
-on CoreBluetooth's peripheral identifier across rotations; it identifies the
-peer by token and then by authenticated HELLO.
+  `78fc4c78-0bdc-435d-b4a8-7d8b5f0c0a04` (`EVERYPODS_PEER_GATT`). Connectable.
+- **Rate:** `ADVERTISE_MODE_LOW_LATENCY` (~100 ms) while no configured central
+  is linked, `ADVERTISE_MODE_LOW_POWER` (~1 s) once one is. The spike measured
+  1.3–2.9 s Mac relinks at low latency against 3.7–7.3 s at balanced.
+- **No identity in the advertisement.** The service UUID says "an EveryPods
+  device", not which one. The central connects and learns the identity from
+  the encrypted link (§4). In a household with a few devices that costs one
+  short connection each; it keeps the advertisement free of anything that
+  could track one person. (A rotating member token, as in the first draft of
+  this document, can be added later if connecting to every advertiser becomes
+  a problem.)
+- Failures are retried as bitchat-android does: `TOO_MANY_ADVERTISERS` and
+  `INTERNAL_ERROR` with a growing delay (2 s, 4 s, … 30 s);
+  `ALREADY_STARTED` ignored; `DATA_TOO_LARGE` and `FEATURE_UNSUPPORTED` logged
+  once and given up (the RFCOMM path stays).
+- A device whose adapter reports `isMultipleAdvertisementSupported == false`
+  (no peripheral role) does not advertise; computers reach it over RFCOMM.
 
 ## 3. GATT service
 
 One primary service `EVERYPODS_PEER_GATT` with two characteristics:
 
-| Characteristic | Properties | Direction |
-|---|---|---|
-| `RX` | write without response | central → peripheral |
-| `TX` | notify | peripheral → central |
+| Characteristic | UUID | Properties | Permissions |
+|---|---|---|---|
+| `RX` | `…0a05` | write, write without response | write **encrypted** |
+| `TX` | `…0a06` | notify; CCCD read/write **encrypted** | — |
 
 Both carry a **byte stream** of records (§4); a record may span several
-writes or notifications. The central requests the largest MTU (macOS
-negotiates up to 185–527; Android peripheral accepts up to 517) and chunks to
-`MTU − 3`.
+writes or notifications. Each side chunks to the current `MTU − 3`
+(Android: `onMtuChanged`, default 23; macOS:
+`maximumWriteValueLength(for: .withoutResponse)`).
 
-Flow control: the central writes only when `canSendWriteWithoutResponse` is
-true (CoreBluetooth) and the peripheral sends the next notification only after
-`onNotificationSent`. Order is preserved within one connection.
+Flow control:
+- **Central (CoreBluetooth):** write only while `canSendWriteWithoutResponse`
+  is true; queue the rest and drain on `peripheralIsReady(toSendWriteWithoutResponse:)`.
+- **Peripheral (Android):** one `notifyCharacteristicChanged` per central in
+  flight; send the next chunk from `onNotificationSent`.
 
-No characteristic requires LE encryption or bonding: that would need an LE
-pairing prompt on each device. Security is done in the record layer (§4).
+Order is preserved within one connection.
 
-## 4. Authentication and record layer
+## 4. Security and records
 
-### 4.1 Mesh key
+### 4.1 Encryption from the existing bond
 
-`meshKey` is 32 random bytes shared by all members. The first device to set up
-a peer generates it; the setup exchange (`bt-handover-sync.md`, secure RFCOMM
-`de51a5b3-…`, bonded devices only) gains a `meshKey` field in both directions,
-and a device that already has one keeps it (the lexicographically smaller key
-wins if two groups merge). Setup stays on classic Bluetooth in phase 1: it is
-rare, user-started and can be retried, so the stale-channel problem matters
-less there. Moving setup to GATT is phase 3.
+Peers are already paired over classic Bluetooth (the mesh spec's trust
+boundary). Android and macOS derive LE keys from that bond
+(cross-transport key derivation), so an **encrypted** characteristic works on
+a bonded pair with no prompt. The spike confirmed it on Pixel 10 + MacBook Air
+(encrypted CCCD and RX, no dialog). A pair without derived LE keys gets the
+operating system's one-time LE pairing prompt on first access; nothing in the
+app changes.
 
-### 4.2 Session handshake (after connect, before any v2 frame)
+Consequences:
+- A device that is not bonded cannot subscribe or write.
+- **The peripheral knows who the central is:** with LE keys the central's
+  address resolves to its identity address, which is the same public address
+  the peer is configured under (the spike saw the Mac as `68:5E:DD:55:7E:17`).
+  The phone accepts records only from a configured, coordination-authorized
+  peer, exactly as its RFCOMM server does.
+- **The central learns who the peripheral is from HELLO** (§4.3): CoreBluetooth
+  exposes no Bluetooth address. The Mac matches HELLO's Bluetooth name to a
+  configured peer and then remembers that peer's `installationId`, so a later
+  rename does not break the match.
 
-1. Central → `RX`: `HELLO_C = nonceC (16) ‖ installationIdC (16)`.
-2. Peripheral → `TX`: `nonceP (16) ‖ installationIdP (16) ‖
-   HMAC(meshKey, "P" ‖ nonceC ‖ nonceP ‖ idC ‖ idP)`.
-3. Central checks the MAC and that `idP` is a configured member, then →
-   `RX`: `HMAC(meshKey, "C" ‖ nonceC ‖ nonceP ‖ idC ‖ idP)`.
-4. Both derive `k = HKDF-SHA256(meshKey, nonceC ‖ nonceP, "everypods-gatt")`,
-   split into one key per direction.
+No application-level cryptography is needed in phase 1.
 
-A failed check closes the connection; the central ignores that peripheral
-until its token window changes.
+### 4.2 Records
 
-### 4.3 Records
+```
+type (u8) ‖ length (u16, big-endian) ‖ payload (length bytes, ≤ 4096)
+```
 
-`length (u16, big-endian) ‖ AES-128-GCM(k_dir, nonce = counter (u64), EPH2 frame)`.
-The 16-byte tag is part of the ciphertext. Counters start at 0 per direction
-and session; a repeated or skipped counter closes the link. The plaintext is
-an unchanged EPH2 frame, so the v2 decoder, validation and limits are reused
-as they are.
+| Type | Name | Payload | Sent by |
+|---|---|---|---|
+| `0x01` | HELLO | UTF-8 JSON `{"v":1,"id":installationId,"name":bluetoothName,"caps":[...]}` | both, first record |
+| `0x02` | LEGACY | one 4-byte legacy packet (`00010001`, …) | both |
+| `0x03` | PING | 4-byte sequence | central |
+| `0x04` | PONG | the PING's 4 bytes | peripheral, at once |
+| `0x05` | V2 | one EPH2 frame (reserved for when the Mac speaks v2) | both |
 
-This also gives the RFCOMM path's missing property: a device in range that is
-not a member cannot inject a takeover.
+An unknown type is skipped by its length. A length above 4096 or a HELLO
+that does not parse closes the session (the central cancels; the peripheral
+drops its state for that central).
+
+PING/PONG are transport-level: answered by the link itself, never by the
+handover logic, so a peer that is busy releasing the AirPods still proves it is
+alive.
+
+### 4.3 Session
+
+1. Central connects, discovers the service, subscribes to `TX`.
+2. Peripheral, on the subscribe (CCCD write), checks the central is a
+   configured peer and sends HELLO.
+3. Central sends HELLO. Both mark the link **ready** once they have the other's
+   HELLO.
+4. Peripheral announces its AirPods state (LEGACY `00010001`/`00010000`), as
+   its RFCOMM server does for a new client.
+5. Central PINGs every 2 s. A PING unanswered for 3 s means the service went
+   away under a link macOS kept: rediscover on the same connection (5 s
+   window), then reconnect.
 
 ## 5. Lifecycle (what makes it reliable)
 
-- **Central:** scans continuously for the service UUID (CoreBluetooth with a
-  service filter works for a background app on macOS). On a member token with
-  no ready link: `connect`. CoreBluetooth's `connect` never times out, so a
-  pending connect completes whenever the peripheral is reachable. On
-  disconnect: back to scanning; no backoff is needed because nothing is paged
-  until the peer advertises.
-- **Peripheral:** starts advertising when the service starts and on Bluetooth
-  on; restarts advertising on any failure (`ADVERTISE_FAILED_*`) after 2 s. It
-  keeps advertising while linked so a second central (another computer) can
-  connect.
-- **Liveness:** v2 PING/PONG every 10 s as today, plus the LE supervision
-  timeout. Either closes the session.
-- **Coexistence with AirPods audio:** after the handshake the peripheral
-  requests low-power connection parameters (Android
-  `CONNECTION_PRIORITY_LOW_POWER`, 100–125 ms interval) to keep airtime away
-  from A2DP/HFP. Verified in the spike (§7).
+Each rule below was either hit in the spike or is handled the same way in
+bitchat's iOS/macOS client (`jackjackbits/bitchat`, `BLEService+LinkLayerCentralRole.swift`)
+and Android client (`permissionlesstech/bitchat-android`, `BluetoothGattServerManager.kt`).
 
-Expected relink after a phone-app restart: advertising starts with the service
-(< 1 s), the Mac's scan sees it within one interval (~1 s), connect +
-handshake + HELLO ~1–2 s. **Target: < 5 s, every time.**
+**Central (Mac, CoreBluetooth)**
+- Scan with a service filter whenever a configured peer has no ready link.
+  CoreBluetooth's `connect` never times out; a pending connect completes when
+  the phone is reachable.
+- **Phone app restarted under a live link:** macOS keeps its LE link, so there
+  is no disconnect. Handle `peripheral(_:didModifyServices:)` and rediscover on
+  the same connection. If that notice does not come, the unanswered PING (3 s)
+  triggers the same rediscovery.
+- **Bluetooth off / resetting:** CoreBluetooth invalidates every `CBPeripheral`.
+  Drop all link state without issuing commands (they are rejected while not
+  powered on); start again on `.poweredOn`. Keeping the old object made the
+  spike ignore the phone for 8 hours.
+- **A phone macOS is already connected to is not reported by a scan.** While
+  unlinked, also poll `retrieveConnectedPeripherals(withServices:)` every 2 s
+  and attach to such a link.
+- After a disconnect: reconnect directly to the same peripheral and restart the
+  scan (its LE address may have rotated).
+- Only one session per peer: a second peripheral that HELLOs with an
+  `installationId` already linked is disconnected.
 
-## 6. Work per client
+**Peripheral (Android)**
+- Open the GATT server, wait for `onServiceAdded`, then advertise.
+- Restart server and advertising on Bluetooth on; close both on Bluetooth off,
+  service stop, or when coordination is disabled.
+- Never `cancelConnection` a central just because it is unknown: macOS shares
+  one LE link between its own services and ours. Ignore its writes instead.
+- A central that sends nothing for 30 s loses its **ready** state (not the
+  link); a new subscribe or HELLO restores it.
+- Runs inside the existing foreground service, so advertising continues in the
+  background (Android 12+ requires that).
 
-**Android (peripheral)**
-- `PeerGattServer`: `BluetoothGattServer` with the service, `BluetoothLeAdvertiser`
-  with token rotation every 15 min. `BluetoothHeartRatePeripheral` is the
-  existing pattern for a GATT server in this app. Permissions
-  (`BLUETOOTH_ADVERTISE`, `BLUETOOTH_CONNECT`) are already declared.
-- Record layer + handshake; feed decrypted EPH2 frames into the existing v2
-  session code as a new `PeerConnection` transport.
-- Setup exchange: `meshKey` field.
+## 6. Work per client (phase 1)
 
-**Mac (central)**
-- `PeerGattLink` on CoreBluetooth (`CBCentralManager`), one per member.
-- Implement v2 on top (already required by the mesh spec, §9 Mac).
-- Remove `PeerServer` (the RFCOMM listener does not work, see Why); keep
-  RFCOMM dialling only as the §1.4 fallback for phones without the GATT
-  service.
+**Android** (`utils/peer/`):
+- `PeerGattRecords`: record encoder and stream decoder (pure, unit-tested).
+- `PeerGattServer`: GATT server, advertiser, per-central session (MTU, chunked
+  notification queue, decoder, HELLO, ready state, PONG, 30 s idle).
+- `CrossDevice`: a ready GATT session counts as a link to that peer
+  (`isConnectedTo`, `sendTo`, `broadcast`); incoming LEGACY records go to
+  `processPacket(packet, mac)`; on ready, announce the AirPods state like the
+  RFCOMM server; on end, `onPeerTransportDisconnected`. Same 20 s status
+  keep-alive and liveness expiry as the RFCOMM server.
+- Request `BLUETOOTH_ADVERTISE` with the other Nearby-devices permissions
+  (`AppPermissionsScreen`). Without it the phone simply does not advertise.
 
-**Windows**: no change in phase 1 (RFCOMM works there). Later: central and,
-where the adapter supports it, peripheral.
+**Mac**:
+- `PeerGattRecords.swift`: the same codec, with a small test runner.
+- `PeerGattCentral.swift`: scanning, connecting, rediscovery, write queue,
+  HELLO, PING, matching HELLO to a configured peer.
+- `PeerRegistry`: per peer, send over the GATT session when it is ready, else
+  over RFCOMM; pause the RFCOMM dialler for a peer while its GATT session is
+  ready (one link per pair, and no more dialling stale channels); report
+  "connected" if either transport is up.
+
+**Windows**: unchanged in phase 1 (its RFCOMM links work). Later: a central
+using `Windows.Devices.Bluetooth.GenericAttributeProfile`, same records.
 
 ## 7. Plan
 
-1. **Spike (go/no-go), ~1 day.** Android: advertise + GATT echo service.
-   Mac: central that connects and echoes, no protocol. Pass if **20/20**
-   phone-app force-stop/restart cycles relink in < 5 s, plus: Mac app restart,
-   phone Bluetooth off/on, Mac sleep/wake, walking out of range and back, and
-   no audible dropouts while AirPods play on the phone and the link pings
-   every 10 s.
-2. Record layer, handshake, `meshKey` in setup, with unit tests on both sides
-   (shared test vectors for HMAC/HKDF/GCM).
-3. v2 over GATT between Android and Mac; handover tests (Mac plays → Mac takes
-   AirPods; phone plays → Mac releases; call refusal).
-4. Mac drops the RFCOMM listener; Android keeps "dial computers" (#96 undo)
-   only for computers without `gatt-central`.
-5. Later: Windows central/peripheral, Mac peripheral (Mac ↔ Mac, Windows →
-   Mac), setup over GATT.
+1. ~~Spike~~ (done, results below).
+2. Android: `PeerGattRecords` + tests, `PeerGattServer`, `CrossDevice`
+   integration, permission request. Branch `feat/peer-gatt-transport`.
+3. Mac: `PeerGattRecords` + tests, `PeerGattCentral`, `PeerRegistry`
+   integration; remove the spike.
+4. Hardware: phone-app restart, Mac restart, Bluetooth off/on both sides,
+   sleep/wake, handover both ways (Mac plays → Mac takes the AirPods; phone
+   plays → Mac releases; call refusal), on the Pixel, the second phone and the
+   tablet. A device without peripheral support must fall back to RFCOMM.
+5. Later: Mac speaks v2 over the same records (type `0x05`); Windows central;
+   Mac peripheral for Mac ↔ Windows.
 
 ## Spike results (2026-11-22, Pixel 10 + MacBook Air)
 
@@ -227,11 +273,8 @@ What the central must do (all learned in the spike):
 
 ## Open questions
 
-1. Does CoreBluetooth's scan service filter match a UUID that appears only in
-   the scan response? (Plan: UUID in the advertisement, token in the scan
-   response, so it does not matter; confirm in the spike.)
-2. Pixel and other Android peripherals while the phone also streams A2DP and
-   runs the heart-rate peripheral: number of concurrent advertising sets and
-   any audio impact (spike).
-3. Some OEMs stop advertising for background apps despite a foreground
-   service. Track per device; the RFCOMM fallback (§1.4) covers the gap.
+1. Devices without cross-transport key derivation: confirm the one-time LE
+   pairing prompt appears and is enough (second phone, tablet).
+2. Some OEMs stop advertising for background apps despite a foreground
+   service. Track per device; RFCOMM remains the fallback.
+3. Out-of-range-and-back was not exercised in the spike.
