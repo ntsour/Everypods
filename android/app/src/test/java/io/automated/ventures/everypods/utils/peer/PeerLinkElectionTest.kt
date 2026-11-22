@@ -33,4 +33,9 @@ class PeerLinkElectionTest {
         assertFalse(PeerLinkElection.keepCentralLink(small, small.uppercase()))
         assertFalse(PeerLinkElection.shouldDial(small, small))
     }
+
+    @Test fun rfcommFallbackOnlyForPhonesNeverSeenOverLe() {
+        assertTrue(PeerLinkElection.needsRfcommFallback(null))
+        assertFalse(PeerLinkElection.needsRfcommFallback(large))
+    }
 }

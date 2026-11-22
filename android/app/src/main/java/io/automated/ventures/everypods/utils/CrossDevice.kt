@@ -1175,7 +1175,12 @@ object CrossDevice {
             !isComputerPeer(adapter, it) && PeerLinkElection.shouldDial(ownId, knownPeerInstallationId(it))
         }.toSet() + pendingSetupPhones(adapter, connections)
         PeerGattClient.setTargets(gattTargets)
-        val rfcommPeers = authorized.filter { !isLinkedOverGatt(it) && shouldBeClientTo(adapter, it) }.toSet()
+        // A phone that has answered HELLO over Bluetooth LE is only dialled over LE: an RFCOMM dial to it competes
+        // with the LE connect on the same ACL and pages it while it is away (docs/rfcomm-removal-plan.md, phase 5).
+        val rfcommPeers = authorized.filter {
+            !isLinkedOverGatt(it) && PeerLinkElection.needsRfcommFallback(knownPeerInstallationId(it)) &&
+                shouldBeClientTo(adapter, it)
+        }.toSet()
         CrossDeviceClient.start(adapter, rfcommPeers)
     }
 

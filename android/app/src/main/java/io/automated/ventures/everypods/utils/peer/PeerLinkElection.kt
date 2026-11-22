@@ -16,5 +16,11 @@ internal object PeerLinkElection {
     /** After the peer's HELLO arrives over our central link: keep the link only if we are the elected central. */
     fun keepCentralLink(ownId: String, peerId: String): Boolean = isCentral(ownId, peerId)
 
+    /**
+     * Whether a phone still needs the RFCOMM client: only while it has never answered HELLO over LE ([peerId] null),
+     * i.e. it runs a build without the GATT service. Once its ID is known, LE is the only phone-to-phone link.
+     */
+    fun needsRfcommFallback(peerId: String?): Boolean = peerId == null
+
     private fun isCentral(ownId: String, peerId: String): Boolean = ownId.lowercase() < peerId.lowercase()
 }
