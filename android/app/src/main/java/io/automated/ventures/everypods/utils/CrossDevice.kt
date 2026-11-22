@@ -19,7 +19,9 @@
 package io.automated.ventures.everypods.utils
 
 import io.automated.ventures.everypods.utils.peer.PeerGattRecords
+import io.automated.ventures.everypods.utils.peer.PeerGattClient
 import io.automated.ventures.everypods.utils.peer.PeerGattServer
+import io.automated.ventures.everypods.utils.peer.PeerLinkElection
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothServerSocket
@@ -150,7 +152,8 @@ object CrossDevice {
     /** True when at least one RFCOMM client is connected to our server, or our client is connected. */
     val isServerClientConnected: Boolean get() =
         clientSockets.isNotEmpty() || v2ClientSockets.isNotEmpty() || PeerGattServer.hasReadySession()
-    val isPeerConnected: Boolean get() = isServerClientConnected || CrossDeviceClient.isConnected
+    val isPeerConnected: Boolean get() =
+        isServerClientConnected || CrossDeviceClient.isConnected || PeerGattClient.hasReadySession()
 
     /** True when the specific peer [mac] is reachable — either via an inbound server socket
      *  or via our outbound client link. Used by the UI to show per-peer connection status. */
@@ -158,6 +161,7 @@ object CrossDevice {
         clientSockets.any { it.remoteDevice.address.equals(mac, ignoreCase = true) } ||
         v2ClientSockets.any { it.remoteDevice.address.equals(mac, ignoreCase = true) } ||
         PeerGattServer.isReady(mac) ||
+        PeerGattClient.isReady(mac) ||
         CrossDeviceClient.isConnected(mac)
 
     /** Passive acquisition needs a fresh explicit RELEASED/IDLE report for the selected headset. */
@@ -246,6 +250,8 @@ object CrossDevice {
         cancelPassiveAcquisition()
         CrossDeviceClient.stop(normalized)
         PeerGattServer.forget(normalized)
+        PeerGattClient.drop(normalized, "peer removed", 0L)
+        forgetPeerInstallationId(normalized)
         clientSockets.filter { socket ->
             runCatching { socket.remoteDevice.address.equals(mac, ignoreCase = true) }.getOrDefault(false)
         }.forEach { socket ->
@@ -1058,26 +1064,73 @@ object CrossDevice {
         if (!isEnabled) {
             Log.d(TAG, "Cross-device disabled by preference")
             PeerGattServer.stop("coordination disabled")
+            PeerGattClient.stop("coordination disabled")
             return
         }
         val adapter = context.getSystemService(BluetoothManager::class.java).adapter
         if (!adapter.isEnabled) {
             Log.w(TAG, "Bluetooth not enabled, skipping server start")
             PeerGattServer.stop("bluetooth off")
+            PeerGattClient.stop("bluetooth off")
             return
         }
         startServer(adapter)
         gattContext = context.applicationContext
-        if (configuredPeers.isEmpty()) PeerGattServer.stop("no peers")
-        else PeerGattServer.start(context, gattListener)
+        if (configuredPeers.isEmpty()) {
+            PeerGattServer.stop("no peers")
+            PeerGattClient.stop("no peers")
+        } else {
+            PeerGattServer.start(context, gattListener)
+            PeerGattClient.start(context, gattClientListener)
+        }
+        refreshPeerLinks()
+    }
 
-        // Per-pair role election: client to peers whose name sorts higher than ours,
-        // server-only for the rest. Reconcile the client links against that set in
-        // one call so existing links aren't torn down (and re-added) needlessly.
-        val clientPeers = configuredPeers.filter {
-            connections.coordinationAuthorized(it) && shouldBeClientTo(adapter, it)
+    /**
+     * Reconciles the outbound links. Phones are dialled over Bluetooth LE by the elected central
+     * ([PeerLinkElection]); the RFCOMM client (role-elected by name, [shouldBeClientTo]) stays as the
+     * fallback only for peers that have no LE link in either direction. Both reconciles keep links that are
+     * still wanted, so calling this on every link change does not tear anything down needlessly.
+     */
+    @SuppressLint("MissingPermission")
+    private fun refreshPeerLinks() {
+        val ctx = gattContext ?: return
+        val adapter = ctx.getSystemService(BluetoothManager::class.java)?.adapter ?: return
+        if (!isEnabled || !adapter.isEnabled) return
+        val connections = io.automated.ventures.everypods.relay.DeviceConnectionStore(ctx)
+        val authorized = configuredPeers.map { it.uppercase() }.filter { connections.coordinationAuthorized(it) }
+        val ownId = PeerIdentityStore.load(ctx).installationId
+        val gattTargets = authorized.filter {
+            !isComputerPeer(adapter, it) && PeerLinkElection.shouldDial(ownId, knownPeerInstallationId(it))
         }.toSet()
-        CrossDeviceClient.start(adapter, clientPeers)
+        PeerGattClient.setTargets(gattTargets)
+        val rfcommPeers = authorized.filter { !isLinkedOverGatt(it) && shouldBeClientTo(adapter, it) }.toSet()
+        CrossDeviceClient.start(adapter, rfcommPeers)
+    }
+
+    private fun isLinkedOverGatt(mac: String): Boolean = PeerGattServer.isReady(mac) || PeerGattClient.isReady(mac)
+
+    @SuppressLint("MissingPermission")
+    private fun isComputerPeer(adapter: android.bluetooth.BluetoothAdapter, mac: String): Boolean = runCatching {
+        adapter.getRemoteDevice(mac).bluetoothClass?.majorDeviceClass ==
+            android.bluetooth.BluetoothClass.Device.Major.COMPUTER
+    }.getOrDefault(false)
+
+    // Installation IDs learned from peers' HELLOs, by Bluetooth address (drives [PeerLinkElection]).
+    private const val PEER_IDS_PREFS = "peer_gatt_installation_ids"
+
+    private fun knownPeerInstallationId(mac: String): String? =
+        gattContext?.getSharedPreferences(PEER_IDS_PREFS, Context.MODE_PRIVATE)?.getString(mac.uppercase(), null)
+
+    private fun rememberPeerInstallationId(mac: String, installationId: String) {
+        val prefs = gattContext?.getSharedPreferences(PEER_IDS_PREFS, Context.MODE_PRIVATE) ?: return
+        if (prefs.getString(mac.uppercase(), null) != installationId) {
+            prefs.edit().putString(mac.uppercase(), installationId).apply()
+        }
+    }
+
+    private fun forgetPeerInstallationId(mac: String) {
+        gattContext?.getSharedPreferences(PEER_IDS_PREFS, Context.MODE_PRIVATE)?.edit()?.remove(mac.uppercase())?.apply()
     }
 
     /**
@@ -1197,6 +1250,8 @@ object CrossDevice {
 
         override fun onSessionReady(address: String, hello: PeerGattRecords.Hello) {
             Log.d(TAG, "[$address] Bluetooth LE link ready ('${hello.name}')")
+            rememberPeerInstallationId(address, hello.installationId)
+            refreshPeerLinks()
             gattContext?.let {
                 it.sendBroadcast(Intent("io.automated.ventures.everypods.AIRPODS_CONNECTED_REMOTELY").setPackage(it.packageName))
             }
@@ -1211,12 +1266,53 @@ object CrossDevice {
         override fun onSessionEnded(address: String) {
             Log.d(TAG, "[$address] Bluetooth LE link ended")
             onPeerTransportDisconnected(address)
+            refreshPeerLinks()
         }
 
         override fun onKeepAliveDue(address: String) {
             PeerGattServer.send(address, CrossDevicePackets.REQUEST_CONNECTION_STATUS.packet)
         }
     }
+
+    /** Phone-to-phone links where this phone is the Bluetooth LE central ([PeerGattClient]). */
+    private val gattClientListener = object : PeerGattClient.Listener {
+        override fun localHello(): PeerGattRecords.Hello = gattListener.localHello()
+
+        override fun onSessionReady(address: String, hello: PeerGattRecords.Hello) {
+            rememberPeerInstallationId(address, hello.installationId)
+            val ownId = gattContext?.let { PeerIdentityStore.load(it).installationId }
+            if (ownId == null || !PeerLinkElection.keepCentralLink(ownId, hello.installationId)) {
+                // First contact: both phones dialled. The other phone is the elected central and keeps its link.
+                Log.d(TAG, "[$address] '${hello.name}' is the Bluetooth LE central for this pair; closing ours")
+                PeerGattClient.drop(address, "peer is the central", GATT_CENTRAL_HOLD_OFF_MS)
+                refreshPeerLinks()
+                return
+            }
+            Log.d(TAG, "[$address] Bluetooth LE link ready as central ('${hello.name}')")
+            refreshPeerLinks()
+            gattContext?.let {
+                it.sendBroadcast(Intent("io.automated.ventures.everypods.AIRPODS_CONNECTED_REMOTELY").setPackage(it.packageName))
+            }
+            PeerGattClient.send(address,
+                if (ServiceManager.getService()?.holdsAirPods() == true) CrossDevicePackets.AIRPODS_CONNECTED.packet
+                else CrossDevicePackets.AIRPODS_DISCONNECTED.packet)
+        }
+
+        override fun onLegacyPacket(address: String, packet: ByteArray) = processPacket(packet, address)
+
+        override fun onSessionEnded(address: String) {
+            Log.d(TAG, "[$address] Bluetooth LE central link ended")
+            onPeerTransportDisconnected(address)
+            refreshPeerLinks()
+        }
+
+        override fun onKeepAliveDue(address: String) {
+            PeerGattClient.send(address, CrossDevicePackets.REQUEST_CONNECTION_STATUS.packet)
+        }
+    }
+
+    /** How long a phone that lost the central election waits before it may dial that peer again. */
+    private const val GATT_CENTRAL_HOLD_OFF_MS = 60_000L
 
     @SuppressLint("MissingPermission")
     fun onBluetoothStateChanged(context: Context, enabled: Boolean) {
@@ -1236,6 +1332,7 @@ object CrossDevice {
         oldPeers.forEach(::onPeerTransportDisconnected)
         CrossDeviceClient.onBluetoothStateChanged(false)
         PeerGattServer.stop("bluetooth off")
+        PeerGattClient.stop("bluetooth off")
     }
 
     private fun handleClientConnection(socket: BluetoothSocket, clientScope: CoroutineScope) {
@@ -1559,6 +1656,7 @@ object CrossDevice {
             return
         }
         if (PeerGattServer.send(mac, data)) return
+        if (PeerGattClient.send(mac, data)) return
         CrossDeviceClient.send(mac, data)
     }
 
@@ -1573,6 +1671,20 @@ object CrossDevice {
     private fun broadcast(data: ByteArray) {
         sendRemotePacket(data)
         CrossDeviceClient.sendAll(data)
+        sendOverGattClient(data)
+    }
+
+    /** Sends to each phone this phone is the LE central for, unless another link already carried the packet. */
+    private fun sendOverGattClient(data: ByteArray) {
+        val viaSocket = clientSockets.mapNotNullTo(mutableSetOf()) {
+            runCatching { it.remoteDevice.address.uppercase() }.getOrNull()
+        }
+        configuredPeers.map { it.uppercase() }
+            .filter {
+                it !in viaSocket && !PeerGattServer.isReady(it) && !CrossDeviceClient.isConnected(it) &&
+                    PeerGattClient.isReady(it)
+            }
+            .forEach { PeerGattClient.send(it, data) }
     }
 
     fun notifyConnected() {
@@ -1585,6 +1697,7 @@ object CrossDevice {
     fun close() {
         CrossDeviceClient.stop()
         PeerGattServer.stop("coordination off")
+        PeerGattClient.stop("coordination off")
         invalidateServerGeneration()
         closeV2ClientSockets()
         clientSockets.forEach { it.runCatching { close() } }
