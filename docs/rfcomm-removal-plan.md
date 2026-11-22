@@ -164,6 +164,12 @@ Android GATT server and Mac LE central (#104, #7).
 - 4b. Relay signalling over `FRAG` (or a 4 KB cap).
 - 4c. Trace upload moved off Bluetooth.
 
+Done on `feat/peer-gatt-channels` (2026-11-22). What changed from the plan:
+- 4a carries the whole V2 protocol over `V2` records, not only case evidence: since phase 2, phones linked over LE ran no V2, so there were no ownership snapshots and no case evidence between them. Case evidence uses its own `CASE` (0x09) record.
+- 4b uses `FRAG` (0x08): WebRTC setup messages can reach 64 KB, so a 4 KB cap was unsafe. Relay signalling uses `RELAY` (0x0A) records with a link id in each.
+- 4c: no change. Only Windows sends traces, and Windows keeps RFCOMM.
+- Found on the way: GATT chunks must be at most 512 bytes (the attribute limit), not MTU − 3; computers are not sent case evidence (neither implements it).
+
 ### Phase 5: delete RFCOMM
 
 - Android: remove the phone ↔ phone RFCOMM client (#3, `PeerConnectionSupervisor`), the case-evidence and relay-signalling RFCOMM endpoints (#5, #6) and the trace receiver (#7) once their LE or Wi-Fi replacements pass. Keep the legacy and V2 servers (#1, #2) and the `BtHandoverSync` server (#4) for Windows. Keep the AirPods' SDP calls.
@@ -210,6 +216,22 @@ For every pair below, run each scenario once. A pair passes when all of them pas
 | T9 Absent peer configured (device off) | no delay to the AirPods connect (the original RFCOMM paging problem) |
 
 Pairs: Pixel ↔ tablet, Pixel ↔ second phone, every phone ↔ Mac, every phone ↔ Windows, Mac ↔ Windows. Then a mixed round across all of them, like the one run on 2026-11-22.
+
+#### Results so far (2026-11-22, Pixel 10, Xiaomi tablet, MacBook Air, Windows PC)
+
+| Scenario | Pixel ↔ tablet | Phone ↔ Mac | Phone ↔ Windows |
+|---|---|---|---|
+| T1/T6 app restart | pass: 2–7 s; 5 s with both restarted | phone restarted: 1.8–2.2 s. Mac app restarted: tablet 4.0 s, Pixel 6.9 s (**over the 3 s target**: macOS takes 0.4–2.8 s to discover and ~4 s to connect) | — |
+| T2 media takeover | pass (earlier rounds) | pass (earlier rounds) | pass: Pixel → PC → tablet → PC, sound at each step |
+| T4 Bluetooth off/on | pass: 3.8 s after both were on. First run took 11 s, because the RFCOMM fallback dial held up LE setup; fixed by dialling LE-known phones over LE only | Mac toggled: tablet 3.5 s, Pixel 9.1 s | — |
+| T5 range, sleep, doze | not run | not run | not run |
+| T7 add from nothing | not run | not run | — |
+| T8 remove a peer | pass: synced over LE, no redial; re-add on both sides synced over LE | — | — |
+| T9 absent peer | pass: AirPods connected 1.7 s after lid open, no classic paging of the absent tablet | — | — |
+
+Also verified over LE: case evidence exchanged between the phones, and a Wi-Fi relay session set up through LE signalling and streaming (after fixing dual Wi-Fi interface selection on the sender).
+
+A phone advertised slowly while its other phone was linked, so a Mac that dropped took 14 s to find it again. A phone now advertises fast while a computer that has linked over LE is missing.
 
 ### Soak and regression
 
