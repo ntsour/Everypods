@@ -99,4 +99,15 @@ class PeerGattRecordsTest {
         assertArrayEquals(data, chunks.reduce { a, b -> a + b })
         assertTrue(PeerGattRecords.chunk(ByteArray(0), 20).isEmpty())
     }
+
+    @Test
+    fun setupRecordsRoundTripTheSetupJson() {
+        val json = """{"version":1,"revision":1,"origin":"0f0e0d0c-0000-4000-8000-000000000001","enabled":true}"""
+        val decoder = PeerGattRecords.Decoder()
+        val bytes = PeerGattRecords.encode(PeerGattRecords.SETUP_REQ, json.toByteArray()) +
+            PeerGattRecords.encode(PeerGattRecords.SETUP_ACK, json.toByteArray())
+        val records = decoder.feed(bytes)
+        assertEquals(listOf(0x06, 0x07), records.map { it.type })
+        records.forEach { assertEquals(json, it.payload.toString(Charsets.UTF_8)) }
+    }
 }

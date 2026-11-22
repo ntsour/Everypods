@@ -10,6 +10,7 @@ import android.content.Context
 import android.os.SystemClock
 import android.util.Log
 import io.automated.ventures.everypods.utils.CrossDevice
+import io.automated.ventures.everypods.utils.peer.PeerGattServer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -38,12 +39,15 @@ object BtHandoverSync {
 
     @Synchronized fun start(context: Context) {
         if (worker == null) worker = Worker(context.applicationContext).also { it.start() }
+        // The same exchange over Bluetooth LE: a central sends SETUP_REQ, the GATT server answers SETUP_ACK.
+        PeerGattServer.setupHandler = { address, request -> worker?.handleRemoteRequest(address, request) }
         worker?.wake()
     }
 
     fun wake(address: String) { worker?.wake(address) }
 
     @Synchronized fun close() {
+        PeerGattServer.setupHandler = null
         worker?.close()
         worker = null
     }
@@ -86,6 +90,9 @@ object BtHandoverSync {
                     if (runCatching { adapter?.isEnabled == true }.getOrDefault(false)) {
                         ensureListener()
                         store.pendingHandoverChanges().forEach { (address, change) ->
+                            // Computers start the exchange themselves (the Mac over Bluetooth LE, Windows over
+                            // RFCOMM) and run no setup server, so dialling one only pages it: wait for its request.
+                            if (isComputer(address)) return@forEach
                             if (inFlight.size >= 2 || SystemClock.elapsedRealtime() < (retryAt[address] ?: 0L) || !inFlight.add(address)) return@forEach
                             scope.launch {
                                 try {
@@ -114,6 +121,11 @@ object BtHandoverSync {
             }
         }
 
+        private fun isComputer(address: String): Boolean = runCatching {
+            adapter?.getRemoteDevice(address)?.bluetoothClass?.majorDeviceClass ==
+                android.bluetooth.BluetoothClass.Device.Major.COMPUTER
+        }.getOrDefault(false)
+
         private fun ensureListener() {
             if (listenerJob?.isActive == true) return
             listenerJob = scope.launch {
@@ -132,12 +144,7 @@ object BtHandoverSync {
                             if (!isActive) { socket.close(); activeSockets.remove(socket); break }
                             scope.launch {
                                 boundedExchange(socket) {
-                                    val address = socket.remoteDevice.address.uppercase()
-                                    val request = read(socket)
-                                    val winner = store.mergeRemoteHandover(address, request)
-                                    reconcileMembership(address)
-                                    write(socket, winner)
-                                    Log.i(TAG, "Peer BT handover ${if (winner.enabled) "enabled" else "removed"} for $address revision=${winner.revision}")
+                                    write(socket, mergeRemote(socket.remoteDevice.address.uppercase(), read(socket)))
                                 }
                             }
                         }
@@ -148,6 +155,22 @@ object BtHandoverSync {
                     listener = null
                 }
             }
+        }
+
+        /** Merges a peer's request and returns the winning state: the receiving side of either transport. */
+        private fun mergeRemote(address: String, request: HandoverSyncState): HandoverSyncState {
+            val winner = store.mergeRemoteHandover(address, request)
+            reconcileMembership(address)
+            Log.i(TAG, "Peer BT handover ${if (winner.enabled) "enabled" else "removed"} for $address revision=${winner.revision}")
+            return winner
+        }
+
+        /** A SETUP_REQ over Bluetooth LE (bonded central, enforced by the GATT server). Returns the SETUP_ACK payload. */
+        fun handleRemoteRequest(address: String, request: ByteArray): ByteArray? {
+            if (request.isEmpty() || request.size > MAX_MESSAGE_BYTES) return null
+            val winner = mergeRemote(address.uppercase(), HandoverSyncState.decode(request.toString(Charsets.UTF_8)))
+            PeerGattServer.recheck(address)
+            return winner.encode().toByteArray(Charsets.UTF_8).takeIf { it.size in 1..MAX_MESSAGE_BYTES }
         }
 
         private fun exchange(address: String, change: HandoverSyncState) {
