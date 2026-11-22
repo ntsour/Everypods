@@ -1,7 +1,5 @@
 package io.automated.ventures.everypods.utils.peer
 
-import android.bluetooth.BluetoothAdapter
-import io.mockk.mockk
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -64,16 +62,15 @@ class RemoteCaseLeTransportTest {
         val ownerHooks = OwnerHooks(addrObserver, observerSession, ownerSession, headset)
         val toOwner = Link({ owner }, addrObserver)
         val toObserver = Link({ observer }, addrOwner)
-        val adapter = mockk<BluetoothAdapter>(relaxed = true)
-        observer = RemoteCaseBluetoothTransport(adapter, ObserverHooks(addrOwner, ownerSession, observation), le = toOwner)
-        owner = RemoteCaseBluetoothTransport(adapter, ownerHooks, le = toObserver)
+        observer = RemoteCaseBluetoothTransport(ObserverHooks(addrOwner, ownerSession, observation), le = toOwner)
+        owner = RemoteCaseBluetoothTransport(ownerHooks, le = toObserver)
         lastObservation = observation
         return Triple(observer, owner, ownerHooks)
     }
 
     private lateinit var lastObservation: RemoteCaseEvidenceExchange.Observation
 
-    @Test fun `observation is confirmed over the LE link without touching RFCOMM`() {
+    @Test fun `observation is confirmed over the LE link`() {
         val (observer, owner, hooks) = pair()
         try {
             observer.publish(lastObservation)

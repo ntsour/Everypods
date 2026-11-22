@@ -38,7 +38,7 @@ object BtHandoverSync {
     private val SERVICE_UUID = UUID.fromString("de51a5b3-4140-4fb7-a524-967379181773")
     private const val MAX_MESSAGE_BYTES = 1024
     private const val EXCHANGE_TIMEOUT_MS = 10_000L
-    /** How long a setup waits for the Bluetooth LE link to a phone before falling back to RFCOMM. */
+    /** How long a setup waits for the Bluetooth LE link to a phone before the setup is retried with backoff. */
     private const val LE_SETUP_WAIT_MS = 20_000L
     private val membershipLock = Any()
     @Volatile private var worker: Worker? = null
@@ -193,35 +193,15 @@ object BtHandoverSync {
         }
 
         private fun exchange(address: String, change: HandoverSyncState) {
-            // Prefer the phone's Bluetooth LE link (CrossDevice dials phones with a pending setup); RFCOMM stays as
-            // the fallback for phones running an older app.
+            // Phones are reached over their Bluetooth LE link (CrossDevice dials phones with a pending setup).
             if (!PeerGattClient.isReady(address)) {
                 CrossDevice.refreshPeerLinks()  // dials the phone over Bluetooth LE for setup
                 PeerGattClient.dialNow(address)  // a hold-off from the central election must not delay setup
                 val deadline = SystemClock.elapsedRealtime() + LE_SETUP_WAIT_MS
                 while (!PeerGattClient.isReady(address) && SystemClock.elapsedRealtime() < deadline) Thread.sleep(250)
             }
-            if (PeerGattClient.isReady(address)) return exchangeOverGatt(address.uppercase(), change)
-            Log.i(TAG, "No Bluetooth LE link to $address; using RFCOMM for setup")
-            val device = adapter!!.getRemoteDevice(address)
-            check(device.bondState == BluetoothDevice.BOND_BONDED) { "Pair the Android devices in Bluetooth settings first" }
-            val socket = device.createRfcommSocketToServiceRecord(SERVICE_UUID)
-            activeSockets.add(socket)
-            val timeout = scope.launch { delay(EXCHANGE_TIMEOUT_MS); socket.runCatching { close() } }
-            try {
-                socket.use {
-                    check(scope.isActive) { "BT setup stopped" }
-                    socket.connect()
-                    write(socket, change)
-                    val acknowledged = read(socket)
-                    store.mergeRemoteHandover(address, acknowledged)
-                    reconcileMembership(address)
-                    Log.i(TAG, "BT handover synchronized for $address revision=${acknowledged.revision}")
-                }
-            } finally {
-                timeout.cancel()
-                activeSockets.remove(socket)
-            }
+            check(PeerGattClient.isReady(address)) { "No Bluetooth LE link to $address" }
+            exchangeOverGatt(address.uppercase(), change)
         }
 
         private fun exchangeOverGatt(address: String, change: HandoverSyncState) {

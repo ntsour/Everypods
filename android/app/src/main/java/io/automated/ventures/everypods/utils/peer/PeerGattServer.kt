@@ -50,6 +50,11 @@ object PeerGattServer {
         fun onSessionEnded(address: String)
         /** Every [KEEPALIVE_MS] for each ready session (legacy status keep-alive). */
         fun onKeepAliveDue(address: String)
+        /**
+         * Whether to advertise at low latency, given the ready sessions. Default: until any session is ready.
+         * A phone that is the peripheral of another phone still wants a fast relink from a missing computer.
+         */
+        fun wantsFastAdvertising(readyAddresses: Set<String>): Boolean = readyAddresses.isEmpty()
         /** A record this server does not handle itself (V2, CASE, RELAY, FRAG, …), on a ready session. */
         fun onRecord(address: String, type: Int, payload: ByteArray) {}
     }
@@ -240,7 +245,7 @@ object PeerGattServer {
             scheduleAdvertiseRestart("no advertiser")
             return
         }
-        val lowPower = sessions.values.any { it.ready }
+        val lowPower = !wantsFast()
         val settings = AdvertiseSettings.Builder()
             .setAdvertiseMode(if (lowPower) AdvertiseSettings.ADVERTISE_MODE_LOW_POWER else AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
             .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_MEDIUM)
@@ -268,10 +273,20 @@ object PeerGattServer {
         advertising = false
     }
 
-    /** Low latency while no computer is linked (fast relink), low power once one is. */
+    private fun wantsFast(): Boolean {
+        val ready = sessions.values.filter { it.ready }.mapTo(mutableSetOf()) { it.address }
+        return runCatching { listener?.wantsFastAdvertising(ready) }.getOrNull() ?: ready.isEmpty()
+    }
+
+    /** Re-evaluates the advertising rate (e.g. after the peer configuration changed). */
+    fun refreshAdvertisingRate() {
+        if (threadStarted) handler.post { updateAdvertisingRate() }
+    }
+
+    /** Low latency while an expected computer is missing (fast relink), low power otherwise. */
     private fun updateAdvertisingRate() {
         if (!running || !advertising) return
-        val wantLowPower = sessions.values.any { it.ready }
+        val wantLowPower = !wantsFast()
         if (wantLowPower == advertisingLowPower) return
         stopAdvertising()
         startAdvertising()

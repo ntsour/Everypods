@@ -1,19 +1,10 @@
 /* Copyright (C) 2026 EveryPods contributors. GPL-3.0. */
 package io.automated.ventures.everypods.relay.security
 
-import android.annotation.SuppressLint
-import android.bluetooth.BluetoothAdapter
-import android.bluetooth.BluetoothServerSocket
-import android.bluetooth.BluetoothSocket
-import android.content.Context
 import android.util.Log
 import io.automated.ventures.everypods.utils.CrossDevice
 import io.automated.ventures.everypods.utils.peer.PeerGattRecords
 import io.automated.ventures.everypods.utils.peer.PeerLeChannel
-import java.io.DataInputStream
-import java.io.DataOutputStream
-import java.io.IOException
-import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
@@ -21,12 +12,10 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Length-framed signaling link over the already-bonded Bluetooth ACL. Between two phones with a ready
- * Bluetooth LE link ([PeerLeChannel]) it runs over RELAY records (OPEN / OPEN_ACK / DATA / CLOSE); RFCOMM
- * is the fallback when no LE link is ready.
+ * Signaling link between two phones over the Bluetooth LE link ([PeerLeChannel]), carried in RELAY
+ * records (OPEN / OPEN_ACK / DATA / CLOSE). Without a ready LE link, [connect] fails.
  */
 class RelayBluetoothSignalHub(
-    context: Context,
     private val listener: Listener,
 ) : AutoCloseable {
     interface Listener {
@@ -36,13 +25,9 @@ class RelayBluetoothSignalHub(
         fun onFailure(mac: String?, reason: String)
     }
 
-    private val adapter = context.getSystemService(android.bluetooth.BluetoothManager::class.java)?.adapter
-        ?: error("Bluetooth is unavailable")
     private val closed = AtomicBoolean(false)
     private val links = ConcurrentHashMap<String, Link>()
     private val connecting = ConcurrentHashMap.newKeySet<String>()
-    @Volatile private var server: BluetoothServerSocket? = null
-    @Volatile private var serverStarting = false
     /** An OPEN this phone sent and the peer has not answered yet. [id] names the link it will create. */
     private class PendingOpen(val id: Int, val timeout: ScheduledFuture<*>)
     private val pendingOpens = ConcurrentHashMap<String, PendingOpen>()
@@ -63,36 +48,6 @@ class RelayBluetoothSignalHub(
         PeerLeChannel.addLinkListener(leLinkListener)
     }
 
-    @SuppressLint("MissingPermission")
-    @Synchronized
-    fun startListening() {
-        check(!closed.get())
-        if (server != null || serverStarting) return
-        serverStarting = true
-        Thread({
-            try {
-                val socketServer = adapter.listenUsingRfcommWithServiceRecord(SERVICE_NAME, SERVICE_UUID)
-                server = socketServer
-                serverStarting = false
-                while (!closed.get()) {
-                    val socket = socketServer.accept() ?: break
-                    val mac = socket.remoteDevice.address.uppercase()
-                    if (socket.remoteDevice.bondState != android.bluetooth.BluetoothDevice.BOND_BONDED) {
-                        socket.close()
-                        continue
-                    }
-                    attach(socket, initiator = false)
-                }
-            } catch (error: Exception) {
-                if (!closed.get()) listener.onFailure(null, error.message ?: error.javaClass.simpleName)
-            } finally {
-                server = null
-                serverStarting = false
-            }
-        }, "EveryPodsRelaySignalServer").start()
-    }
-
-    @SuppressLint("MissingPermission")
     fun connect(macAddress: String) {
         check(!closed.get())
         val mac = macAddress.uppercase()
@@ -100,29 +55,17 @@ class RelayBluetoothSignalHub(
             "Connect only to a configured EveryPods peer"
         }
         if (links.containsKey(mac) || !connecting.add(mac)) return
-        if (PeerLeChannel.isReady(mac)) {
-            val id = random.nextInt()
-            pendingOpens.remove(mac)?.timeout?.cancel(false)
-            pendingOpens[mac] = PendingOpen(id, timer.schedule({ failPendingOpen(mac, id, "Bluetooth LE peer did not answer") },
-                OPEN_TIMEOUT_MS, TimeUnit.MILLISECONDS))
-            Log.i(TAG, "[$mac] relay signaling OPEN over Bluetooth LE (link ${id.toUInt().toString(16)})")
-            if (sendRelay(mac, KIND_OPEN, id)) return
-            pendingOpens.remove(mac)?.timeout?.cancel(false)
+        if (!PeerLeChannel.isReady(mac)) {
+            connecting.remove(mac)
+            listener.onFailure(mac, "Bluetooth LE link is not ready")
+            return
         }
-        Thread({
-            var socket: BluetoothSocket? = null
-            try {
-                adapter.cancelDiscovery()
-                socket = adapter.getRemoteDevice(mac).createRfcommSocketToServiceRecord(SERVICE_UUID)
-                socket.connect()
-                attach(socket, initiator = true)
-            } catch (error: Exception) {
-                runCatching { socket?.close() }
-                if (!closed.get()) listener.onFailure(mac, error.message ?: error.javaClass.simpleName)
-            } finally {
-                connecting.remove(mac)
-            }
-        }, "EveryPodsRelaySignalConnect").start()
+        val id = random.nextInt()
+        pendingOpens.remove(mac)?.timeout?.cancel(false)
+        pendingOpens[mac] = PendingOpen(id, timer.schedule({ failPendingOpen(mac, id, "Bluetooth LE peer did not answer") },
+            OPEN_TIMEOUT_MS, TimeUnit.MILLISECONDS))
+        Log.i(TAG, "[$mac] relay signaling OPEN over Bluetooth LE (link ${id.toUInt().toString(16)})")
+        if (!sendRelay(mac, KIND_OPEN, id)) failPendingOpen(mac, id, "Bluetooth LE write failed")
     }
 
     fun send(macAddress: String, payload: ByteArray): Boolean {
@@ -137,18 +80,6 @@ class RelayBluetoothSignalHub(
         connecting.remove(mac)
         pendingOpens.remove(mac)?.timeout?.cancel(false)
         links.remove(mac)?.close(notify = false)
-    }
-
-    private fun attach(socket: BluetoothSocket, initiator: Boolean) {
-        val mac = socket.remoteDevice.address.uppercase()
-        val link = SocketLink(mac, socket, initiator)
-        val existing = links.putIfAbsent(mac, link)
-        if (existing != null) {
-            link.close(notify = false)
-            return
-        }
-        listener.onPeerConnected(mac, initiator)
-        Thread({ link.readLoop() }, "EveryPodsRelaySignalRead").start()
     }
 
     // --- Bluetooth LE signalling (RELAY records) ---
@@ -208,7 +139,6 @@ class RelayBluetoothSignalHub(
             Log.i(TAG, "[$mac] relay signaling: peer reopened; replacing the old link")
             it.close(notify = true, tellPeer = false)
         }
-        if (links[mac] is SocketLink) { sendRelay(mac, KIND_CLOSE, id); return }
         val link = LeLink(mac, id, initiator = false)
         if (links.putIfAbsent(mac, link) != null) return
         sendRelay(mac, KIND_OPEN_ACK, id)
@@ -223,13 +153,11 @@ class RelayBluetoothSignalHub(
         pendingOpens.values.forEach { it.timeout.cancel(false) }
         pendingOpens.clear()
         runCatching { timer.shutdownNow() }
-        runCatching { server?.close() }
-        server = null
         links.values.toList().forEach { it.close(notify = false) }
         links.clear()
     }
 
-    /** One signaling link, over an RFCOMM socket or the Bluetooth LE channel. */
+    /** One signaling link over the Bluetooth LE channel. */
     private abstract inner class Link(val mac: String, val initiator: Boolean) {
         abstract fun send(payload: ByteArray): Boolean
         abstract fun close(notify: Boolean = true)
@@ -271,61 +199,13 @@ class RelayBluetoothSignalHub(
         }
     }
 
-    private inner class SocketLink(mac: String, private val socket: BluetoothSocket, initiator: Boolean) : Link(mac, initiator) {
-        private val ended = AtomicBoolean(false)
-        private val output = DataOutputStream(socket.outputStream)
-        private val input = DataInputStream(socket.inputStream)
-
-        @Synchronized
-        override fun send(payload: ByteArray): Boolean {
-            if (ended.get() || closed.get()) return false
-            return try {
-                output.writeInt(payload.size)
-                output.write(payload)
-                output.flush()
-                true
-            } catch (error: IOException) {
-                listener.onFailure(mac, error.message ?: "Bluetooth signaling write failed")
-                close()
-                false
-            }
-        }
-
-        fun readLoop() {
-            try {
-                while (!ended.get() && !closed.get()) {
-                    val length = input.readInt()
-                    if (length !in 1..MAX_FRAME_BYTES) throw IOException("Invalid relay signaling frame size")
-                    val payload = ByteArray(length)
-                    input.readFully(payload)
-                    listener.onMessage(mac, payload)
-                }
-            } catch (error: Exception) {
-                if (!ended.get() && !closed.get() && error !is java.io.EOFException) {
-                    listener.onFailure(mac, error.message ?: error.javaClass.simpleName)
-                }
-            } finally {
-                close()
-            }
-        }
-
-        override fun close(notify: Boolean) {
-            if (!ended.compareAndSet(false, true)) return
-            runCatching { socket.close() }
-            links.remove(mac, this)
-            if (notify && !closed.get()) listener.onPeerDisconnected(mac)
-        }
-    }
-
     companion object {
         private const val TAG = "RelaySignalHub"
-        private const val SERVICE_NAME = "EveryPodsRelaySignal"
         private const val MAX_FRAME_BYTES = 128 * 1024 + 64
         private const val OPEN_TIMEOUT_MS = 10_000L
         private const val KIND_OPEN = 1
         private const val KIND_OPEN_ACK = 2
         private const val KIND_DATA = 3
         private const val KIND_CLOSE = 4
-        private val SERVICE_UUID: UUID = UUID.fromString("6d3b1a70-1e83-4a29-a327-1993fd1b7e91")
     }
 }

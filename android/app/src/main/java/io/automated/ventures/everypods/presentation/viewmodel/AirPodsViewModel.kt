@@ -52,7 +52,6 @@ import io.automated.ventures.everypods.data.ControlCommandRepository
 import io.automated.ventures.everypods.data.StemAction
 import io.automated.ventures.everypods.services.AirPodsService
 import io.automated.ventures.everypods.utils.CrossDevice
-import io.automated.ventures.everypods.utils.CrossDeviceClient
 
 /** Per-peer status exposed to the UI. Built each poll tick from CrossDevice state. */
 data class PeerUiInfo(
@@ -677,12 +676,10 @@ class AirPodsViewModel(
         }
     }
 
-    /** Request one immediate user-initiated RFCOMM retry for [mac]. */
-    @android.annotation.SuppressLint("MissingPermission")
+    /** Request one immediate user-initiated Bluetooth LE reconnect for [mac]. */
     fun reconnectCrossDevicePeer(mac: String) {
-        val adapter = appContext.getSystemService(android.bluetooth.BluetoothManager::class.java)
-            ?.adapter ?: return
-        CrossDeviceClient.requestManualReconnect(adapter, mac)
+        CrossDevice.refreshPeerLinks()
+        io.automated.ventures.everypods.utils.peer.PeerGattClient.dialNow(mac)
     }
 
     /** Legacy single-peer setter — kept for callers that haven't been updated yet. */
@@ -692,14 +689,12 @@ class AirPodsViewModel(
             putString("cross_device_peers", org.json.JSONArray(listOf(mac)).toString())
             remove("cross_device_peer_mac")
         }
-        CrossDeviceClient.stop()
         CrossDevice.init(appContext)
     }
 
     @android.annotation.SuppressLint("MissingPermission")
     fun reconnectCrossDevice() {
         android.util.Log.d("AirPodsViewModel", "reconnectCrossDevice — cycling server + client")
-        CrossDeviceClient.stop()
         CrossDevice.restartServer(appContext)
         CrossDevice.init(appContext)
     }

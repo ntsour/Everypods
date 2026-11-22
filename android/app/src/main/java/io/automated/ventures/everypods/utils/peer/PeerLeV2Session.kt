@@ -4,7 +4,7 @@ package io.automated.ventures.everypods.utils.peer
 /**
  * The V2 protocol (HELLO / SNAPSHOT / PING / PONG / ACQUIRE_*) over one phone to phone Bluetooth LE link.
  * Every V2 record carries exactly one [PeerV2Frame.Frame]. The LE central is the initiator and mirrors
- * `CrossDeviceClient.runV2Session`; the peripheral mirrors `CrossDevice.handleV2ClientConnection`.
+ * the former RFCOMM client session; the peripheral mirrors `CrossDevice.handleV2ClientConnection`.
  *
  * Everything outside the protocol (identity, snapshots, authorization, the wire) is injected through [Hooks],
  * and time through [clock] and [tick], so the class has no Android or CrossDevice dependency. Methods are
