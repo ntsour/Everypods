@@ -161,8 +161,15 @@ object CrossDevice {
         clientSockets.any { it.remoteDevice.address.equals(mac, ignoreCase = true) } ||
         v2ClientSockets.any { it.remoteDevice.address.equals(mac, ignoreCase = true) } ||
         PeerGattServer.isReady(mac) ||
-        PeerGattClient.isReady(mac) ||
+        isAuthorizedGattClientLink(mac) ||
         CrossDeviceClient.isConnected(mac)
+
+    /** A central link counts only for an authorized peer: before that it carries setup only (BtHandoverSync). */
+    private fun isAuthorizedGattClientLink(mac: String): Boolean {
+        if (!PeerGattClient.isReady(mac)) return false
+        val ctx = gattContext ?: return false
+        return io.automated.ventures.everypods.relay.DeviceConnectionStore(ctx).coordinationAuthorized(mac)
+    }
 
     /** Passive acquisition needs a fresh explicit RELEASED/IDLE report for the selected headset. */
     fun hasFreshPeerOwnershipSnapshot(): Boolean {
@@ -1093,7 +1100,7 @@ object CrossDevice {
      * still wanted, so calling this on every link change does not tear anything down needlessly.
      */
     @SuppressLint("MissingPermission")
-    private fun refreshPeerLinks() {
+    internal fun refreshPeerLinks() {
         val ctx = gattContext ?: return
         val adapter = ctx.getSystemService(BluetoothManager::class.java)?.adapter ?: return
         if (!isEnabled || !adapter.isEnabled) return
@@ -1102,13 +1109,20 @@ object CrossDevice {
         val ownId = PeerIdentityStore.load(ctx).installationId
         val gattTargets = authorized.filter {
             !isComputerPeer(adapter, it) && PeerLinkElection.shouldDial(ownId, knownPeerInstallationId(it))
-        }.toSet()
+        }.toSet() + pendingSetupPhones(adapter, connections)
         PeerGattClient.setTargets(gattTargets)
         val rfcommPeers = authorized.filter { !isLinkedOverGatt(it) && shouldBeClientTo(adapter, it) }.toSet()
         CrossDeviceClient.start(adapter, rfcommPeers)
     }
 
-    private fun isLinkedOverGatt(mac: String): Boolean = PeerGattServer.isReady(mac) || PeerGattClient.isReady(mac)
+    /** Phones with a setup change to deliver: dialled over Bluetooth LE whatever the election says (setup link). */
+    private fun pendingSetupPhones(
+        adapter: android.bluetooth.BluetoothAdapter,
+        connections: io.automated.ventures.everypods.relay.DeviceConnectionStore,
+    ): Set<String> = connections.pendingHandoverChanges().keys.map { it.uppercase() }
+        .filter { !isComputerPeer(adapter, it) }.toSet()
+
+    private fun isLinkedOverGatt(mac: String): Boolean = PeerGattServer.isReady(mac) || isAuthorizedGattClientLink(mac)
 
     @SuppressLint("MissingPermission")
     private fun isComputerPeer(adapter: android.bluetooth.BluetoothAdapter, mac: String): Boolean = runCatching {
@@ -1280,6 +1294,13 @@ object CrossDevice {
 
         override fun onSessionReady(address: String, hello: PeerGattRecords.Hello) {
             rememberPeerInstallationId(address, hello.installationId)
+            val ctx = gattContext
+            if (ctx != null && !io.automated.ventures.everypods.relay.DeviceConnectionStore(ctx).coordinationAuthorized(address)) {
+                // Not a peer yet: this link carries the setup exchange only (BtHandoverSync sends SETUP_REQ).
+                Log.d(TAG, "[$address] Bluetooth LE link to '${hello.name}' ready for setup")
+                io.automated.ventures.everypods.relay.BtHandoverSync.wake(address)
+                return
+            }
             val ownId = gattContext?.let { PeerIdentityStore.load(it).installationId }
             if (ownId == null || !PeerLinkElection.keepCentralLink(ownId, hello.installationId)) {
                 // First contact: both phones dialled. The other phone is the elected central and keeps its link.
@@ -1308,6 +1329,10 @@ object CrossDevice {
 
         override fun onKeepAliveDue(address: String) {
             PeerGattClient.send(address, CrossDevicePackets.REQUEST_CONNECTION_STATUS.packet)
+        }
+
+        override fun onRecord(address: String, type: Int, payload: ByteArray) {
+            if (type == PeerGattRecords.SETUP_ACK) io.automated.ventures.everypods.relay.BtHandoverSync.onSetupAck(address, payload)
         }
     }
 
@@ -1682,7 +1707,7 @@ object CrossDevice {
         configuredPeers.map { it.uppercase() }
             .filter {
                 it !in viaSocket && !PeerGattServer.isReady(it) && !CrossDeviceClient.isConnected(it) &&
-                    PeerGattClient.isReady(it)
+                    isAuthorizedGattClientLink(it)
             }
             .forEach { PeerGattClient.send(it, data) }
     }

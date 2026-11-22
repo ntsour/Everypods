@@ -39,6 +39,8 @@ object PeerGattClient {
         fun onSessionEnded(address: String)
         /** Every 20 s while the link is ready. */
         fun onKeepAliveDue(address: String)
+        /** A record this client does not handle itself (SETUP_ACK, V2), on a ready link. */
+        fun onRecord(address: String, type: Int, payload: ByteArray) {}
     }
 
     private const val TAG = "PeerGattClient"
@@ -146,6 +148,25 @@ object PeerGattClient {
         val record = PeerGattRecords.encode(PeerGattRecords.LEGACY, packet)
         handler.post { links[key]?.takeIf { it.stage == Stage.READY }?.let { enqueue(it, record) } }
         return true
+    }
+
+    /** Queues one record of any type (e.g. SETUP_REQ) to [address]; false if that link is not ready. */
+    fun sendRecord(address: String, type: Int, payload: ByteArray): Boolean {
+        val key = address.uppercase()
+        if (key !in readyAddresses || payload.size > PeerGattRecords.MAX_PAYLOAD) return false
+        val record = PeerGattRecords.encode(type, payload)
+        handler.post { links[key]?.takeIf { it.stage == Stage.READY }?.let { enqueue(it, record) } }
+        return true
+    }
+
+    /** Dials [address] now if it is a target, clearing any hold-off and backoff (a user-started setup). */
+    fun dialNow(address: String) {
+        if (!threadStarted) return
+        val key = address.uppercase()
+        handler.post {
+            schedule.forget(key)
+            if (running) reconcile()
+        }
     }
 
     /** Closes the link to [address] and does not redial it for [holdOffMs]. */
@@ -397,7 +418,12 @@ object PeerGattClient {
                 deliver { onLegacyPacket(link.address, packet) }
             }
             PeerGattRecords.PING -> if (link.stage != Stage.SUBSCRIBING) enqueue(link, PeerGattRecords.encode(PeerGattRecords.PONG, record.payload))
-            else -> Unit  // PONG, V2 and unknown types only count as "heard"
+            PeerGattRecords.PONG -> Unit
+            else -> if (link.stage == Stage.READY) {
+                val type = record.type
+                val payload = record.payload
+                deliver { onRecord(link.address, type, payload) }
+            }
         }
     }
 
