@@ -16,6 +16,10 @@ object PeerGattRecords {
     const val PING: Int = 0x03
     const val PONG: Int = 0x04
     const val V2: Int = 0x05
+    /** Setup exchange (`docs/bt-handover-sync.md` JSON), central → phone; accepted before the central is authorized. */
+    const val SETUP_REQ: Int = 0x06
+    /** The phone's winning setup state, phone → central. */
+    const val SETUP_ACK: Int = 0x07
 
     const val MAX_PAYLOAD: Int = 4096
     private const val HEADER: Int = 3

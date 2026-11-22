@@ -67,6 +67,13 @@ object PeerGattServer {
     private const val NOTIFY_RETRY_MS = 50L
     private const val NOTIFY_MAX_REFUSALS = 40
 
+    /**
+     * Handles a setup request (`SETUP_REQ`) from a bonded central that may not be a configured peer yet, and
+     * returns the reply payload for `SETUP_ACK` (or null to send none). Called on the delivery thread. Set by
+     * [io.automated.ventures.everypods.relay.BtHandoverSync], which owns the setup merge.
+     */
+    @Volatile var setupHandler: ((address: String, request: ByteArray) -> ByteArray?)? = null
+
     private class Session(val address: String) {
         val outbox = PeerGattOutbox()
         val decoder = PeerGattRecords.Decoder()
@@ -298,6 +305,19 @@ object PeerGattServer {
 
     private fun allowed(address: String): Boolean = listener?.isAllowedPeer(address) == true
 
+    @SuppressLint("MissingPermission")
+    private fun bonded(device: BluetoothDevice): Boolean =
+        runCatching { device.bondState == BluetoothDevice.BOND_BONDED }.getOrDefault(false)
+
+    /** Re-evaluates a session after the peer was authorized (or removed), without reconnecting. */
+    fun recheck(address: String) {
+        if (!threadStarted) return
+        handler.post {
+            val session = sessions[address.uppercase()] ?: return@post
+            if (allowed(session.address)) maybeReady(session) else unready(session, "no longer authorized")
+        }
+    }
+
     private fun sessionFor(device: BluetoothDevice): Session =
         sessions.getOrPut(device.address.uppercase()) { Session(device.address.uppercase()) }
 
@@ -326,6 +346,10 @@ object PeerGattServer {
     private fun maybeReady(session: Session) {
         val hello = session.hello ?: return
         if (session.ready || !session.subscribed) return
+        if (!allowed(session.address)) {
+            Log.d(TAG, "[${session.address}] '${hello.name}' linked for setup only (not an authorized peer)")
+            return
+        }
         session.ready = true
         session.lastKeepAliveMs = SystemClock.elapsedRealtime()
         readyAddresses.add(session.address)
@@ -398,7 +422,22 @@ object PeerGattServer {
                 deliver { onLegacyPacket(session.address, packet) }
             }
             PeerGattRecords.PING -> enqueue(session, PeerGattRecords.encode(PeerGattRecords.PONG, record.payload))
+            PeerGattRecords.SETUP_REQ -> if (session.hello != null) onSetupRequest(session, record.payload)
             else -> Unit  // PONG and V2 are not expected here yet; unknown types are skipped
+        }
+    }
+
+    private fun onSetupRequest(session: Session, request: ByteArray) {
+        val handle = setupHandler ?: run { Log.w(TAG, "[${session.address}] setup request ignored: no handler"); return }
+        val address = session.address
+        delivery.execute {
+            val reply = runCatching { handle(address, request) }
+                .onFailure { Log.w(TAG, "[$address] setup request failed: ${it.message}") }.getOrNull()
+            handler.post {
+                if (sessions[address] !== session) return@post
+                if (reply != null) enqueue(session, PeerGattRecords.encode(PeerGattRecords.SETUP_ACK, reply))
+                if (allowed(address)) maybeReady(session)
+            }
         }
     }
 
@@ -452,7 +491,9 @@ object PeerGattServer {
             preparedWrite: Boolean, responseNeeded: Boolean, offset: Int, value: ByteArray?,
         ) {
             val key = device.address.uppercase()
-            val ok = descriptor.uuid == CCCD_UUID && allowed(key)
+            // A bonded central that is not a configured peer yet may subscribe and run setup; handover packets
+            // still need [allowed] (see maybeReady). Encryption is enforced by the characteristic permissions.
+            val ok = descriptor.uuid == CCCD_UUID && (allowed(key) || bonded(device))
             if (responseNeeded) {
                 server?.sendResponse(device, requestId,
                     if (ok) BluetoothGatt.GATT_SUCCESS else BluetoothGatt.GATT_INSUFFICIENT_AUTHORIZATION, 0, null)
@@ -480,7 +521,7 @@ object PeerGattServer {
             preparedWrite: Boolean, responseNeeded: Boolean, offset: Int, value: ByteArray?,
         ) {
             val key = device.address.uppercase()
-            val ok = characteristic.uuid == RX_UUID && !preparedWrite && offset == 0 && allowed(key)
+            val ok = characteristic.uuid == RX_UUID && !preparedWrite && offset == 0 && (allowed(key) || bonded(device))
             if (responseNeeded) {
                 server?.sendResponse(device, requestId,
                     if (ok) BluetoothGatt.GATT_SUCCESS else BluetoothGatt.GATT_INSUFFICIENT_AUTHORIZATION, 0, null)
