@@ -231,6 +231,8 @@ Pairs: Pixel ↔ tablet, Pixel ↔ second phone, every phone ↔ Mac, every phon
 
 Also verified over LE: case evidence exchanged between the phones, and a Wi-Fi relay session set up through LE signalling and streaming (after fixing dual Wi-Fi interface selection on the sender).
 
+Phase 5 build (2026-11-22): a handover round Pixel → Mac → tablet → Pixel ran over LE only, with sound at each step. Pixel → PC → Pixel also worked, but the first PC attempt failed on the Windows side: the Pixel released at once, yet all 5 of the PC's connects ended "no link within 6 s" and the AirPods only connected about 30 s later. Tracked in ntsour/Everypods-private#10. It is not caused by the LE work, since Windows still uses RFCOMM.
+
 A phone advertised slowly while its other phone was linked, so a Mac that dropped took 14 s to find it again. A phone now advertises fast while a computer that has linked over LE is missing.
 
 ### Soak and regression
