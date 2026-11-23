@@ -190,6 +190,11 @@ object MediaController {
     // ownership loss, so a genuinely stale entry can't misfire much later.
     private const val PENDING_TAKEOVER_MAX_AGE_MS = 15_000L
 
+    /** Stamp our own media/focus action so the playback callbacks don't treat it as the user's. */
+    fun markSelfAction() {
+        lastSelfActionAt = SystemClock.uptimeMillis()
+    }
+
     /** Called by AirPodsService.takeOver() right before it actually invokes connectAudio(). */
     fun armPendingMusicTakeover(mac: String) {
         if (mac.isEmpty()) return
@@ -282,6 +287,8 @@ object MediaController {
                 return@Runnable
             }
             onYield()
+            // A held (paused) playback must stay paused when a peer takes the AirPods.
+            PlaybackHold.onOwnershipLost()
             clearAutoPlayForPassiveConnect("peer_yield")
             lastPlayWithReplay = false
             cancelMediaVerification()
@@ -296,6 +303,10 @@ object MediaController {
 
     /** Give a real music handover one recovery restart when its A2DP stream starts. */
     fun restartRouteLandPoller(mac: String) {
+        if (PlaybackHold.isMediaHold || PlaybackHold.releasedRecently(3_000L)) {
+            Log.d("MediaController", "restartRouteLandPoller skipped — playback hold owns the release")
+            return
+        }
         val now = System.currentTimeMillis()
         if (now < suppressRouteLandRestartUntilMs) {
             Log.d(
@@ -393,6 +404,19 @@ object MediaController {
                     val pendingMac = pendingMusicTakeoverForMac
                     Log.d("MediaController", "AudioDevice added: type=A2DP name='${dev.productName}' addr='${dev.address}' pendingFor='$pendingMac'")
                     if (pendingMac == null) return@forEach
+                    if (PlaybackHold.isMediaHold) {
+                        // The hold owns release and overlay: forward the event, skip
+                        // the sendPlay / routeLandPoller / island path below.
+                        if (dev.address.equals(pendingMac, ignoreCase = true)) {
+                            PlaybackHold.onAudioDeviceAdded(dev.address)
+                        }
+                        return@forEach
+                    }
+                    if (PlaybackHold.releasedRecently(3_000L) && dev.address.equals(pendingMac, ignoreCase = true)) {
+                        Log.d("MediaController", "  → hold just released; skipping old route-land path")
+                        cancelPendingMusicTakeover()
+                        return@forEach
+                    }
                     // Age-out: if the pending state is older than the max age, drop it.
                     // Protects against a route blip happening minutes after a no-op takeOver.
                     val ageMs = System.currentTimeMillis() - pendingMusicTakeoverSetAt

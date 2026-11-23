@@ -42,6 +42,7 @@ import android.view.animation.AccelerateInterpolator
 import android.view.animation.DecelerateInterpolator
 import android.widget.ImageButton
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.TextView
 import android.media.AudioManager
 import android.widget.VideoView
@@ -50,6 +51,10 @@ import io.automated.ventures.everypods.data.AirPodsNotifications
 import io.automated.ventures.everypods.data.Battery
 import io.automated.ventures.everypods.data.BatteryComponent
 import io.automated.ventures.everypods.data.BatteryStatus
+import io.automated.ventures.everypods.utils.HoldKind
+import io.automated.ventures.everypods.utils.HoldPhase
+import io.automated.ventures.everypods.utils.HoldStatus
+import io.automated.ventures.everypods.utils.PlaybackHold
 
 @SuppressLint("InflateParams", "ClickableViewAccessibility")
 class PopupWindow(
@@ -61,6 +66,11 @@ class PopupWindow(
     private var autoCloseHandler = Handler(Looper.getMainLooper())
     private var autoCloseRunnable: Runnable? = null
     private var batteryUpdateReceiver: BroadcastReceiver? = null
+    private var holdMode = false
+    private var holdMorphed = false
+
+    /** True while this popup shows the connecting/failed hold look. */
+    val isHolding: Boolean get() = holdMode
 
     @Suppress("DEPRECATION")
     private val mParams: WindowManager.LayoutParams = WindowManager.LayoutParams().apply {
@@ -127,11 +137,21 @@ class PopupWindow(
             }
         }
         mWindowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+
+        mView.findViewById<View>(R.id.hold_retry).setOnClickListener { PlaybackHold.retry() }
+        mView.findViewById<View>(R.id.hold_play_on_phone).setOnClickListener { PlaybackHold.playOnPhone() }
     }
 
     @SuppressLint("InlinedApi", "SetTextI18s")
-    fun open(name: String = "AirPods Pro", batteryNotification: AirPodsNotifications.BatteryNotification) {
+    fun open(
+        name: String = "AirPods Pro",
+        batteryNotification: AirPodsNotifications.BatteryNotification,
+        holdMode: Boolean = false
+    ) {
         try {
+            this.holdMode = holdMode
+            this.holdMorphed = false
+            applyHoldVisibility(holdMode)
             if (mView.windowToken == null && mView.parent == null && !isClosing) {
                 mView.findViewById<TextView>(R.id.name).text = name
 
@@ -172,12 +192,75 @@ class PopupWindow(
 
                 registerBatteryUpdateReceiver()
 
-                autoCloseRunnable = Runnable { close() }
-                autoCloseHandler.postDelayed(autoCloseRunnable!!, 12000)
+                if (!holdMode) startAutoCloseTimer()
             }
         } catch (e: Exception) {
             Log.e("PopupWindow", "Error opening popup: ${e.message}")
             onCloseCallback()
+        }
+    }
+
+    private fun startAutoCloseTimer() {
+        autoCloseRunnable?.let { autoCloseHandler.removeCallbacks(it) }
+        autoCloseRunnable = Runnable { close() }
+        autoCloseHandler.postDelayed(autoCloseRunnable!!, 12000)
+    }
+
+    private fun applyHoldVisibility(hold: Boolean) {
+        mView.findViewById<View>(R.id.hold_container).visibility = if (hold) View.VISIBLE else View.GONE
+        mView.findViewById<View>(R.id.battery_row).visibility = if (hold) View.GONE else View.VISIBLE
+    }
+
+    /**
+     * Playback-hold update; safe to call repeatedly on an open popup. Shows the phase text and
+     * a progress bar, or Retry / Play on phone on FAILED. CONNECTED switches to the normal
+     * popup content and starts the normal auto-close.
+     */
+    fun updateHold(status: HoldStatus, progress: Float) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            autoCloseHandler.post { updateHold(status, progress) }
+            return
+        }
+        if (isClosing || mView.parent == null || holdMorphed) return
+        val text = mView.findViewById<TextView>(R.id.hold_status_text)
+        val bar = mView.findViewById<ProgressBar>(R.id.hold_progress)
+        val buttons = mView.findViewById<View>(R.id.hold_buttons)
+        when (status.phase) {
+            HoldPhase.CONNECTED -> {
+                holdMorphed = true
+                holdMode = false
+                applyHoldVisibility(false)
+                startAutoCloseTimer()
+            }
+            HoldPhase.FAILED -> {
+                holdMode = true
+                applyHoldVisibility(true)
+                text.text = context.getString(R.string.hold_failed, status.deviceName)
+                mView.findViewById<TextView>(R.id.hold_play_on_phone)?.text = context.getString(
+                    if (status.kind == HoldKind.CALL) R.string.hold_use_phone else R.string.hold_play_on_phone
+                )
+                bar.visibility = View.GONE
+                buttons.visibility = View.VISIBLE
+            }
+            else -> {
+                holdMode = true
+                applyHoldVisibility(true)
+                text.text = when (status.phase) {
+                    HoldPhase.REQUESTING_RELEASE ->
+                        if (status.peerName.isNullOrEmpty()) context.getString(R.string.hold_asking_peer_generic)
+                        else context.getString(R.string.hold_asking_peer, status.peerName)
+                    HoldPhase.CONNECTING -> context.getString(
+                        if (status.kind == HoldKind.CALL) R.string.hold_call_connecting else R.string.hold_connecting,
+                        status.deviceName
+                    )
+                    else -> context.getString(
+                        if (status.kind == HoldKind.CALL) R.string.hold_call_switching else R.string.hold_switching_audio
+                    )
+                }
+                bar.visibility = View.VISIBLE
+                buttons.visibility = View.GONE
+                bar.progress = (progress.coerceIn(0f, 1f) * 100f).toInt()
+            }
         }
     }
 

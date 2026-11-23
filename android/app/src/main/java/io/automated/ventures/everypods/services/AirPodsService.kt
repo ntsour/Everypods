@@ -165,6 +165,7 @@ import io.automated.ventures.everypods.utils.GymTimerAnnouncementPolicy
 import io.automated.ventures.everypods.utils.GymTimerNotificationText
 import io.automated.ventures.everypods.utils.TtsEngine
 import io.automated.ventures.everypods.utils.MediaController
+import io.automated.ventures.everypods.utils.PlaybackHold
 import io.automated.ventures.everypods.utils.SystemApisUtils
 import io.automated.ventures.everypods.utils.SystemApisUtils.DEVICE_TYPE_UNTETHERED_HEADSET
 import io.automated.ventures.everypods.utils.SystemApisUtils.METADATA_COMPANION_APP
@@ -1877,6 +1878,12 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             ),
             this@AirPodsService
         )
+        PlaybackHold.init(
+            this@AirPodsService, audioManager, this@AirPodsService.getSharedPreferences(
+                "settings", MODE_PRIVATE
+            )
+        )
+        io.automated.ventures.everypods.presentation.overlays.HoldOverlayController.start(this@AirPodsService)
         Log.d(TAG, "Initializing CrossDevice")
         CrossDevice.init(this@AirPodsService)
         CrossDevice.setPassiveAcquisitionReadyListener { ready ->
@@ -1955,6 +1962,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     }
 
                     TelephonyManager.CALL_STATE_IDLE -> {
+                        PlaybackHold.onCallEnded()
                         Log.d(TAG, "Call state: IDLE")
                         reconcileHeadGestures()
                         isInCall = false
@@ -1997,6 +2005,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             } else {
                 if (isVoIPCallActive) {
                     isVoIPCallActive = false
+                    PlaybackHold.onCallEnded()
                     Log.d(TAG, "VoIP call ended (audio mode changed to $mode)")
                     reconcileHeadGestures()
                     stopMutedReminder()
@@ -2417,6 +2426,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     // Drop any pending takeover replay — we just lost the route, so
                     // a stale pendingMac shouldn't auto-resume on a later A2DP blip.
                     MediaController.cancelPendingMusicTakeover()
+                    PlaybackHold.onOwnershipLost()
                 }
             }
 
@@ -2440,6 +2450,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 )
                 // Clear any pending music-takeover replay — we just gave up ownership.
                 MediaController.cancelPendingMusicTakeover()
+                PlaybackHold.onOwnershipLost()
                 val inCase = areBothPodsInCase()
                 if (reasonReverseTapped) {
                     Log.d(TAG, "reverse tapped (already disconnected above)")
@@ -5443,6 +5454,15 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                         // Headset transitions don't count — only audio routing matters.
                         if (action == "android.bluetooth.a2dp.profile.action.CONNECTION_STATE_CHANGED") {
                             lastA2dpStateChangeMs = System.currentTimeMillis()
+                            // Feed the playback hold's phase (connecting → routing).
+                            if (connectionState == BluetoothProfile.STATE_CONNECTING) {
+                                PlaybackHold.onA2dpConnecting(bluetoothDevice.address)
+                            } else if (connectionState == BluetoothProfile.STATE_CONNECTED) {
+                                PlaybackHold.onA2dpConnected(bluetoothDevice.address)
+                            }
+                        } else {
+                            // Headset (HFP) transitions drive the call-status phases.
+                            PlaybackHold.onHeadsetState(bluetoothDevice.address, connectionState)
                         }
                         if (connectionState == BluetoothProfile.STATE_CONNECTED) {
                             if (action == "android.bluetooth.a2dp.profile.action.CONNECTION_STATE_CHANGED" &&
@@ -5838,6 +5858,29 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     }
                 }
 
+                // Playback hold: pause the user's media via transient audio focus while the
+                // peer releases and the AirPods connect; released once media is verified on
+                // the AirPods (docs/playback-hold.md). Started before any computer-release
+                // wait so the speaker stays quiet for that phase too. On retry a hold is
+                // already active and is kept.
+                if (takingOverFor == "music" && macAddress.isNotEmpty() &&
+                    sharedPreferences.getBoolean("hold_playback_until_connected", false) &&
+                    !PlaybackHold.isActive
+                ) {
+                    PlaybackHold.start(
+                        macAddress,
+                        config.deviceName.ifEmpty { sharedPreferences.getString("name", null) ?: "AirPods" },
+                        null
+                    )
+                }
+                // Calls are never held: just show handover progress in the bottom popup.
+                if (takingOverFor == "call" && macAddress.isNotEmpty()) {
+                    PlaybackHold.startCall(
+                        macAddress,
+                        config.deviceName.ifEmpty { sharedPreferences.getString("name", null) ?: "AirPods" }
+                    )
+                }
+
                 val targetDevice = device
                 val connect = {
                     Log.d(TAG, "takeOver: calling connectAudio()")
@@ -5879,6 +5922,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
      * with our MAC). Safe to call from any thread — showIsland posts to UI.
      */
     fun showTakeoverIsland() {
+        // The playback hold's overlay owns the CONNECTED look while a hold is active.
+        if (PlaybackHold.isActive) return
         try {
             val battery = batteryNotification.getBattery()
             val left = battery.find { it.component == BatteryComponent.LEFT }?.level
@@ -6976,6 +7021,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }
 
     override fun onDestroy() {
+        io.automated.ventures.everypods.presentation.overlays.HoldOverlayController.stop()
+        PlaybackHold.shutdown()
         io.automated.ventures.everypods.automation.GymAutomationDiagnostics.record(this,
             "service destroyed ${io.automated.ventures.everypods.automation.GymAutomationDiagnostics.environment(this)}")
         caseEpisodeWakeGuard.close()
