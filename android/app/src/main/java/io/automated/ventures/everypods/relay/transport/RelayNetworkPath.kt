@@ -125,9 +125,23 @@ data class RelayNetworkPath(
             val registeredNames = registered.map { it.interfaceName }.toSet()
             val localInterfaces = unregisteredPrivatePaths(context)
             val all = registered + localInterfaces.filter { it.interfaceName !in registeredNames }
-            return all.filter { it.prefix == prefix && it.address != receiverAddress && remote.contains(it.address) }.distinctBy { it.interfaceName to it.address }.singleOrNull()
-                ?: error("No unique Wi-Fi interface on receiver subnet")
+            val candidates = all.filter { it.prefix == prefix && it.address != receiverAddress && remote.contains(it.address) }
+                .distinctBy { it.interfaceName to it.address }
+            val activeHandle = context.getSystemService(ConnectivityManager::class.java).activeNetwork?.networkHandle
+            android.util.Log.i("RelayNetworkPath", "Sender choices=${candidates.map { "${it.interfaceName}:${it.address}/${it.prefix} handle=${it.networkHandle}" }} active=$activeHandle")
+            return pickSender(candidates, activeHandle) ?: error("No Wi-Fi interface on receiver subnet")
         }
+
+        /**
+         * Picks the sender's interface among those on the receiver's subnet. Phones with dual Wi-Fi (e.g. Xiaomi
+         * "Wi-Fi acceleration") join the same LAN on two interfaces: prefer the system's default network, then a
+         * registered Wi-Fi network over an unregistered interface, then the first in a stable order.
+         */
+        internal fun pickSender(candidates: List<RelayNetworkPath>, activeHandle: Long?): RelayNetworkPath? =
+            candidates.singleOrNull()
+                ?: candidates.firstOrNull { activeHandle != null && it.networkHandle == activeHandle }
+                ?: candidates.filter { it.networkHandle != 0L }.minByOrNull { it.interfaceName }
+                ?: candidates.minByOrNull { it.interfaceName }
     }
 }
 
