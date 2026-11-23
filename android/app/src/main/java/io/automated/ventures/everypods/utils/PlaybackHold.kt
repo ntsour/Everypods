@@ -251,7 +251,12 @@ object PlaybackHold {
     fun onA2dpConnected(deviceMac: String) = onMain {
         if (!active || !deviceMac.equals(mac, true)) return@onMain
         if (kind == HoldKind.CALL) {
-            if (current?.phase == HoldPhase.REQUESTING_RELEASE) setPhase(HoldPhase.CONNECTING)
+            // Media link up; the call link (HFP) usually follows a few seconds later.
+            val p = current?.phase
+            if (p != HoldPhase.ROUTING && p != HoldPhase.CONNECTED) {
+                if (p == HoldPhase.FAILED) handler.removeCallbacks(failedChoiceTimeout)
+                setPhase(HoldPhase.ROUTING)
+            }
             return@onMain
         }
         Log.d(TAG, "A2DP connected → ROUTING")
@@ -298,7 +303,12 @@ object PlaybackHold {
             android.bluetooth.BluetoothProfile.STATE_CONNECTED -> {
                 Log.d(TAG, "call: headset connected → ROUTING")
                 headsetConnected = true
-                enterRouting()
+                handler.removeCallbacks(failedChoiceTimeout)
+                if (current?.phase == HoldPhase.ROUTING) {
+                    routeVerifyStartedAt = SystemClock.uptimeMillis()
+                    handler.removeCallbacks(routePoll)
+                    handler.post(routePoll)
+                } else enterRouting()
             }
         }
     }
@@ -348,8 +358,24 @@ object PlaybackHold {
     private fun setPhase(phase: HoldPhase) {
         val s = current ?: return
         if (s.phase == phase) return
-        current = s.copy(phase = phase, phaseStartedAtMs = SystemClock.uptimeMillis())
+        val now = SystemClock.uptimeMillis()
+        // Progress resets the failure timer: only fail after ATTEMPT_TIMEOUT_MS with no progress.
+        val restart = phase != HoldPhase.FAILED && phase != HoldPhase.CONNECTED
+        current = s.copy(phase = phase, phaseStartedAtMs = now,
+            attemptStartedAtMs = if (restart) now else s.attemptStartedAtMs)
         publish(current)
+        if (restart) armAttemptTimeout()
+    }
+
+    /** The Bluetooth connect really starts (after any wait for another device to let go). */
+    fun onConnectStarted() = onMain {
+        val s = current ?: return@onMain
+        if (!active || s.phase == HoldPhase.FAILED || s.phase == HoldPhase.CONNECTED) return@onMain
+        val now = SystemClock.uptimeMillis()
+        current = s.copy(phase = if (s.phase == HoldPhase.REQUESTING_RELEASE) HoldPhase.CONNECTING else s.phase,
+            phaseStartedAtMs = now, attemptStartedAtMs = now)
+        publish(current)
+        armAttemptTimeout()
     }
 
     private fun enterRouting() {

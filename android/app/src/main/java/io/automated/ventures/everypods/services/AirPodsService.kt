@@ -5884,6 +5884,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 val targetDevice = device
                 val connect = {
                     Log.d(TAG, "takeOver: calling connectAudio()")
+                    PlaybackHold.onConnectStarted()
                     if (takingOverFor == "music" && macAddress.isNotEmpty()) {
                         MediaController.armPendingMusicTakeover(macAddress)
                     }
