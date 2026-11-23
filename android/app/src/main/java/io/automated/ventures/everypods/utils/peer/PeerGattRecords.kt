@@ -20,6 +20,12 @@ object PeerGattRecords {
     const val SETUP_REQ: Int = 0x06
     /** The phone's winning setup state, phone → central. */
     const val SETUP_ACK: Int = 0x07
+    /** One fragment of a payload larger than [MAX_PAYLOAD] (see [PeerLeFragments]). */
+    const val FRAG: Int = 0x08
+    /** Case evidence: `role (u8) ‖ exchangeId (u16) ‖ one EPC1 frame`. */
+    const val CASE: Int = 0x09
+    /** Relay signalling: `kind (u8: 1 OPEN, 2 OPEN_ACK, 3 DATA, 4 CLOSE) ‖ bytes (DATA only)`. */
+    const val RELAY: Int = 0x0A
 
     const val MAX_PAYLOAD: Int = 4096
     private const val HEADER: Int = 3

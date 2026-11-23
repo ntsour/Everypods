@@ -285,7 +285,7 @@ class RelayPreviewService : Service(), RelaySessionApi {
                     }
                 }
             }
-        }).also(RelayPeerSessionController::startListening)
+        })
         // Service-owned: ownership changes must stop capture even with no screen bound.
         scope.launch {
             while (true) {
@@ -407,7 +407,6 @@ class RelayPreviewService : Service(), RelaySessionApi {
         if (intent?.action == ACTION_FORGET_PEER) {
             intent.getStringExtra(EXTRA_PEER_MAC)?.let { forgetPeer(it) }
         }
-        controller?.startListening()
         return START_NOT_STICKY
     }
 
@@ -416,7 +415,6 @@ class RelayPreviewService : Service(), RelaySessionApi {
         if (!requireLocalNetwork(peerMac)) return
         if (mutableState.value.stage in setOf(RelayStage.CONNECTING, RelayStage.VERIFYING, RelayStage.TRUSTED, RelayStage.WAITING_FOR_AUDIO, RelayStage.STREAMING, RelayStage.BUFFERING, RelayStage.SUSPENDED)) return
         mutableState.value = RelayUiState(role = RelayRole.RECEIVER, stage = RelayStage.WAITING_FOR_SOURCE)
-        controller?.startListening()
     }
 
     override fun pairPeer(peerMac: String) {

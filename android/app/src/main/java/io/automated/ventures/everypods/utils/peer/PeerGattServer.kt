@@ -50,6 +50,13 @@ object PeerGattServer {
         fun onSessionEnded(address: String)
         /** Every [KEEPALIVE_MS] for each ready session (legacy status keep-alive). */
         fun onKeepAliveDue(address: String)
+        /**
+         * Whether to advertise at low latency, given the ready sessions. Default: until any session is ready.
+         * A phone that is the peripheral of another phone still wants a fast relink from a missing computer.
+         */
+        fun wantsFastAdvertising(readyAddresses: Set<String>): Boolean = readyAddresses.isEmpty()
+        /** A record this server does not handle itself (V2, CASE, RELAY, FRAG, …), on a ready session. */
+        fun onRecord(address: String, type: Int, payload: ByteArray) {}
     }
 
     private const val TAG = "PeerGatt"
@@ -64,8 +71,15 @@ object PeerGattServer {
     private const val KEEPALIVE_MS = 20_000L
     private const val ADVERTISE_RETRY_BASE_MS = 2_000L
     private const val ADVERTISE_RETRY_MAX_MS = 30_000L
+    /**
+     * How long to advertise at low latency while a peer is missing. Longer and a sleeping Mac, bonded to this phone,
+     * is woken by the adverts every few seconds (~240 dark wakes an hour); after this the rate drops to low power.
+     */
+    private const val FAST_ADVERTISE_WINDOW_MS = 3 * 60_000L
     private const val NOTIFY_RETRY_MS = 50L
     private const val NOTIFY_MAX_REFUSALS = 40
+    /** Room for one fragmented 160 KiB message (PeerLeChannel) on top of normal traffic. */
+    private const val QUEUE_LIMIT_BYTES = 256 * 1024
 
     /**
      * Handles a setup request (`SETUP_REQ`) from a bonded central that may not be a configured peer yet, and
@@ -75,7 +89,7 @@ object PeerGattServer {
     @Volatile var setupHandler: ((address: String, request: ByteArray) -> ByteArray?)? = null
 
     private class Session(val address: String) {
-        val outbox = PeerGattOutbox()
+        val outbox = PeerGattOutbox(QUEUE_LIMIT_BYTES)
         val decoder = PeerGattRecords.Decoder()
         var subscribed = false
         var hello: PeerGattRecords.Hello? = null
@@ -101,6 +115,8 @@ object PeerGattServer {
     private var running = false
     private var advertising = false
     private var advertisingLowPower = false
+    /** When low latency was first wanted in the current stretch; null while low power is wanted. */
+    private var fastWantedSinceMs: Long? = null
     private var advertiseRetries = 0
     private var advertiseGivenUp = false
     private val sessions = HashMap<String, Session>()
@@ -139,6 +155,15 @@ object PeerGattServer {
         val key = address.uppercase()
         if (key !in readyAddresses || packet.isEmpty() || packet.size > PeerGattRecords.MAX_PAYLOAD) return false
         val record = PeerGattRecords.encode(PeerGattRecords.LEGACY, packet)
+        handler.post { sessions[key]?.takeIf { it.ready }?.let { enqueue(it, record) } }
+        return true
+    }
+
+    /** Queues one record of any type (e.g. V2) to [address]; false if no ready session reaches it. */
+    fun sendRecord(address: String, type: Int, payload: ByteArray): Boolean {
+        val key = address.uppercase()
+        if (key !in readyAddresses || payload.size > PeerGattRecords.MAX_PAYLOAD) return false
+        val record = PeerGattRecords.encode(type, payload)
         handler.post { sessions[key]?.takeIf { it.ready }?.let { enqueue(it, record) } }
         return true
     }
@@ -210,6 +235,8 @@ object PeerGattServer {
         running = false
         handler.removeCallbacks(tick)
         handler.removeCallbacks(restartAdvertising)
+        handler.removeCallbacks(fastWindowEnded)
+        fastWantedSinceMs = null  // a restart (e.g. Bluetooth back on) gets a fresh fast window
         stopAdvertising()
         sessions.values.toList().forEach { endSession(it, reason) }
         sessions.clear()
@@ -227,7 +254,7 @@ object PeerGattServer {
             scheduleAdvertiseRestart("no advertiser")
             return
         }
-        val lowPower = sessions.values.any { it.ready }
+        val lowPower = !wantsFast()
         val settings = AdvertiseSettings.Builder()
             .setAdvertiseMode(if (lowPower) AdvertiseSettings.ADVERTISE_MODE_LOW_POWER else AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
             .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_MEDIUM)
@@ -255,10 +282,34 @@ object PeerGattServer {
         advertising = false
     }
 
-    /** Low latency while no computer is linked (fast relink), low power once one is. */
+    private fun wantsFast(): Boolean {
+        val ready = sessions.values.filter { it.ready }.mapTo(mutableSetOf()) { it.address }
+        val wanted = runCatching { listener?.wantsFastAdvertising(ready) }.getOrNull() ?: ready.isEmpty()
+        if (!wanted) {
+            fastWantedSinceMs = null
+            handler.removeCallbacks(fastWindowEnded)
+            return false
+        }
+        val now = SystemClock.elapsedRealtime()
+        val since = fastWantedSinceMs ?: now.also {
+            fastWantedSinceMs = it
+            handler.removeCallbacks(fastWindowEnded)
+            handler.postDelayed(fastWindowEnded, FAST_ADVERTISE_WINDOW_MS)
+        }
+        return now - since < FAST_ADVERTISE_WINDOW_MS
+    }
+
+    private val fastWindowEnded = Runnable { updateAdvertisingRate() }
+
+    /** Re-evaluates the advertising rate (e.g. after the peer configuration changed). */
+    fun refreshAdvertisingRate() {
+        if (threadStarted) handler.post { updateAdvertisingRate() }
+    }
+
+    /** Low latency while an expected computer is missing (fast relink), low power otherwise. */
     private fun updateAdvertisingRate() {
         if (!running || !advertising) return
-        val wantLowPower = sessions.values.any { it.ready }
+        val wantLowPower = !wantsFast()
         if (wantLowPower == advertisingLowPower) return
         stopAdvertising()
         startAdvertising()
@@ -423,7 +474,12 @@ object PeerGattServer {
             }
             PeerGattRecords.PING -> enqueue(session, PeerGattRecords.encode(PeerGattRecords.PONG, record.payload))
             PeerGattRecords.SETUP_REQ -> if (session.hello != null) onSetupRequest(session, record.payload)
-            else -> Unit  // PONG and V2 are not expected here yet; unknown types are skipped
+            PeerGattRecords.PONG -> Unit
+            else -> if (session.ready) {
+                val type = record.type
+                val payload = record.payload
+                deliver { onRecord(session.address, type, payload) }
+            }
         }
     }
 

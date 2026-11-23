@@ -66,7 +66,7 @@ class RelayPeerSessionController(
     private val executor = Executors.newSingleThreadScheduledExecutor { runnable ->
         Thread(runnable, "EveryPodsRelayPairingTimeout").apply { isDaemon = true }
     }
-    private val hub = RelayBluetoothSignalHub(context, object : RelayBluetoothSignalHub.Listener {
+    private val hub = RelayBluetoothSignalHub(object : RelayBluetoothSignalHub.Listener {
         override fun onPeerConnected(mac: String, initiator: Boolean) {
             if (initiator) {
                 if (pairingRequested.remove(mac)) beginPairing(mac)
@@ -91,8 +91,6 @@ class RelayPeerSessionController(
             listener.onFailure(mac, reason)
         }
     })
-
-    fun startListening() = hub.startListening()
 
     fun state(mac: String): PeerState? = states[normalize(mac)]
 

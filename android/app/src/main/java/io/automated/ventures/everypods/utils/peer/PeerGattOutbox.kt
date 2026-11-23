@@ -20,7 +20,7 @@ class PeerGattOutbox(private val maxQueuedBytes: Int = 64 * 1024) {
     /** Queues a whole record; false (nothing queued) if it would exceed the queue limit. */
     fun enqueue(record: ByteArray): Boolean {
         if (queuedBytes + record.size > maxQueuedBytes) return false
-        PeerGattRecords.chunk(record, mtu - 3).forEach { chunks.addLast(it) }
+        PeerGattRecords.chunk(record, chunkSize(mtu)).forEach { chunks.addLast(it) }
         queuedBytes += record.size
         return true
     }
@@ -56,5 +56,13 @@ class PeerGattOutbox(private val maxQueuedBytes: Int = 64 * 1024) {
         chunks.clear()
         queuedBytes = 0
         inFlightSinceMs = null
+    }
+
+    companion object {
+        /** An attribute value is at most 512 bytes (Core spec Vol 3 Part F 3.2.9); Android refuses longer writes. */
+        const val MAX_ATTRIBUTE_VALUE = 512
+
+        /** Bytes per write or notification: the ATT payload (MTU − 3), capped at [MAX_ATTRIBUTE_VALUE]. */
+        fun chunkSize(mtu: Int): Int = minOf(mtu - 3, MAX_ATTRIBUTE_VALUE)
     }
 }

@@ -35,7 +35,6 @@ import io.automated.ventures.everypods.startup.StartupGate
 import androidx.compose.ui.res.stringResource
 
 import io.automated.ventures.everypods.utils.CrossDevice
-import io.automated.ventures.everypods.utils.CrossDeviceClient
 import io.automated.ventures.everypods.utils.CrossDevicePackets
 import io.automated.ventures.everypods.utils.CrossDeviceReconnectPolicy
 import io.automated.ventures.everypods.utils.AudioLeasePrefs
@@ -5317,11 +5316,6 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             if (bluetoothDevice != null && !action.isNullOrEmpty()) {
                 Log.d(TAG, "Received bluetooth connection broadcast: action=$action, device=${bluetoothDevice.address}")
                 if (BluetoothDevice.ACTION_ACL_CONNECTED == action) {
-                    // If this is a configured CrossDevice peer, kick the RFCOMM client
-                    // for that peer immediately instead of waiting out the backoff timer.
-                    if (CrossDevice.configuredPeers.any { it.equals(bluetoothDevice.address, ignoreCase = true) }) {
-                        CrossDeviceClient.retryNow(bluetoothDevice.address)
-                    }
                     ServiceManager.getService()?.onHeadsetAclConnected(bluetoothDevice.address)
 
                     val uuid = ParcelUuid.fromString("74ec2172-0bad-4d01-8f77-997b2be0722a")
@@ -6554,8 +6548,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }
 
     /**
-     * Called from the inbound AIRPODS_CONNECTED packet handlers (CrossDevice and
-     * CrossDeviceClient) when the peer announces it has the AirPods. If we are
+     * Called from the inbound AIRPODS_CONNECTED packet handlers (CrossDevice and the LE
+     * peer session) when the peer announces it has the AirPods. If we are
      * currently expecting a takeover, arm the peer-drop cooldown proactively
      * (don't wait for ACL_DISCONNECTED) and clear the flag.
      */
