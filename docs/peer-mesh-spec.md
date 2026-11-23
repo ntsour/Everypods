@@ -6,6 +6,10 @@ mix of rules in `peer-protocol-v2.md`, `bt-handover-sync.md`, the legacy
 
 ## Principle
 
+**Every EveryPods app is an equal peer.** Android's existing
+peer behaviour is the reference: where clients differ today, Windows and Mac
+change to match Android, not the other way round.
+
 **Every EveryPods app is an equal peer.** Android, Windows and Mac run the same
 protocol, follow the same rules and expose the same handover settings. A user
 should be able to predict what happens from the settings alone, without
@@ -24,7 +28,7 @@ or "is this a computer".
 | Who dials | Computers dial phones; phones never dial computers; computers can't link to each other | Every peer listens and dials; one link per pair |
 | Protocol | Phones: v2 + legacy. Windows: legacy + part of v2. Mac: legacy | v2 (extended here) on every peer; legacy only for old builds |
 | Explicit takeover | Legacy 4-byte packets; Windows connects without waiting; phones wait only for computers | One handshake for all: request, grant, release, connect |
-| Who can refuse | Only Windows (call protection, 3 s guard); phones always yield | Same grant rules on every holder, driven by shared settings |
+| Who can refuse | Android: call veto. Windows: call veto + 3 s guard + its own rules | Android's call veto + 3 s guard on every holder |
 | Case-open (passive) booking | Phones only; Windows only respects bookings | Any peer can book |
 | What a peer knows | Windows: "here / somewhere else" | Every peer knows which peer holds the AirPods |
 | Settings | Different per app | Same handover settings on every app |
@@ -118,7 +122,7 @@ included), so there is one path instead of two:
 1. **Requester → every ready peer:** `ACQUIRE_REQUEST` with the new `intent`
    field (§7).
 2. **Each peer → requester:** `ACQUIRE_GRANT` or `ACQUIRE_DENY` (reasons as
-   today, plus `POLICY` and `CALL_ACTIVE`, §7). A non-holder grants unless it
+   today, plus `CALL_ACTIVE`, §7). A non-holder grants unless it
    is itself mid-acquisition (`BUSY`).
 3. **Requester → every granter:** `ACQUIRE_START`; granters answer
    `ACQUIRE_START_ACK`. For non-passive intents the **holder starts releasing
@@ -133,29 +137,30 @@ packets are no longer used between peers that both speak `acquire-v2`.
 ### 4.3 Who wins: the grant rules
 
 Only the **holder's** decision matters for whether the AirPods move. Every
-holder applies the same rules, in this order:
+holder applies Android's existing rules, plus one guard, in this order:
 
-1. `call` intent: always granted. A call anywhere beats anything except
-   a call already active on the holder; then rule 2 applies.
-2. Holder is in an active call (`audioUse: call`) and the intent is not `call`:
-   deny `CALL_ACTIVE`. If both have calls, the newer call wins (the user just
-   answered it).
-3. Holder took the AirPods less than **3 s** ago and the intent is `media` or
-   `passive`: deny `BUSY` (ping-pong guard). `manual` and `call` are never
-   blocked by this.
-4. The holder's **"Let the AirPods move to another device when"** setting
-   (§5) does not allow the holder's current state (idle / playing media / on
-   a call): deny `POLICY`. `manual` overrides this rule.
-5. `passive` intent while the holder is `held` (any state): deny `HELD`.
-   Passive reconnect never takes the AirPods from a device that has them.
-6. Otherwise: grant.
+1. Not holding the AirPods: grant (a non-holder never blocks).
+2. `passive` intent: deny `HELD`. Passive reconnect never takes the AirPods
+   from a device that has them.
+3. Holder is ringing or in a call (any call it can detect: phone, VoIP,
+   Teams): deny `CALL_ACTIVE`, for every intent. This is Android's call veto;
+   it is always on and has no setting. The holder also tells every peer it
+   still has the AirPods.
+4. `call` intent: grant.
+5. `media` intent less than **3 s** after the holder took the AirPods itself:
+   deny `BUSY` (ping-pong guard, added 2026-11-21).
+6. Otherwise grant: whoever asks wins.
 
-On the **requester** side, each intent is raised only if the matching
-"Take the AirPods when" setting (§5) is on. `manual` is always allowed.
+There is no "let the AirPods move when" setting. The idle / playing media /
+on a call switches that exist in the Android code are not shown in the app and
+are not used.
 
-Ties: two requesters at once with the same intent → the holder grants the
-first request it receives and denies the other `BUSY`; between two non-holders
-the existing v2 membership/digest rules already prevent double grants.
+On the **requester** side, an intent is raised only if the matching "Take the
+AirPods when" setting (§5) is on. `manual` is always allowed.
+
+Ties: two requesters at once → the holder grants the first request it
+receives; between two non-holders the existing v2 membership/digest rules
+already prevent double grants.
 
 ### 4.4 How each side acts (where capabilities matter)
 
@@ -201,22 +206,15 @@ synchronised.
 | **Take the AirPods when this device:** | | | | | |
 | … receives a call | Raise `call` intent on ring / call start | on | `takeover_when_ringing_call` | Teams/WASAPI trigger (no switch) | call detection (no switch) |
 | … starts playing media | Raise `media` intent | on | `takeover_when_media_start` | always (no switch) | `autoTake` |
-| **Let the AirPods move to another device when this device is:** | Holder-side grant policy (§4.3 rule 4) | | | | |
-| … not using them (idle) | | on | `takeover_when_idle` (UI only, not wired) | always | always |
-| … playing media | | on | `takeover_when_music` (UI only) | always | always |
-| … on a call | | off | `takeover_when_call` (UI only) | never (call veto) | never (call hold-off) |
 | **Auto-connect on case open (last device)** | Raise `passive` intent if this device held them last | on | `lid_open_last_holder_autoconnect` | none | none |
 | **Pause audio here when the AirPods leave** | §4.5 | on | none (Android pauses via the OS) | `pauseOnRelease` | Accessibility media pause |
 | **Make the AirPods the audio output when they connect** | Route audio to them on connect | on | OS does it | `autoRoute` | OS does it |
 | **Start with the system** | Launch at login | on | n/a (service) | Start with Windows | Launch at login |
 
 Notes:
-- "On a call" defaults to **off**: today every client except Android
-  protects a call, and Android's phone-call path already does in practice.
-  Making it a visible setting replaces the hidden Windows call veto and the
-  Mac call hold-off.
-- `takeover_when_disconnected` is removed: "AirPods not connected anywhere"
-  always allows a takeover.
+- Call protection is not a setting (§4.3 rule 3).
+- `takeover_when_idle`, `takeover_when_music`, `takeover_when_call` and
+  `takeover_when_disconnected` stay unused.
 - Settings that only make sense on one OS (Android ear detection, Windows
   audio routing) stay per-app; they are not part of the handover rules.
 
@@ -239,7 +237,11 @@ today's messages unchanged (v2 objects reject unknown fields).
 
 - `ACQUIRE_REQUEST`: add `"intent": "call|manual|media|passive"`. Missing is
   only legal from peers without `acquire-v2` and means `passive`.
-- `ACQUIRE_DENY.reason`: add `POLICY` and `CALL_ACTIVE`.
+- `ACQUIRE_DENY.reason`: add `CALL_ACTIVE` (and `POLICY`, reserved; no rule
+  emits it).
+- HELLO: unknown capability names are ignored, not rejected. Older Android
+  builds and the current Windows client reject them, so `acquire-v2` is only
+  advertised once every client tolerates unknown names.
 - Grant validity stays 5 s; for non-passive intents the holder's release
   starts at START_ACK, so the grant cannot expire mid-release.
 - No new message types.
@@ -263,8 +265,7 @@ today's messages unchanged (v2 objects reject unknown fields).
 - Route explicit takeovers (media start, ringing, manual) through
   `PassiveAcquisitionCoordinator` with an intent, instead of the legacy
   packets; rename it accordingly.
-- Apply the grant rules (§4.3) and wire the "Let the AirPods move when"
-  settings, which are UI-only today.
+- Apply the grant rules (§4.3): the existing call veto plus the 3 s guard.
 - Replace `ComputerReleaseGate` with the capability-based wait (§4.4).
 - Show the holder's name.
 
@@ -273,8 +274,9 @@ today's messages unchanged (v2 objects reject unknown fields).
   `feat/computer-peer-link` into the v2 mesh instead of a separate service).
 - Replace the legacy handover in `HandoverController` with the handshake;
   become a full requester (book for `passive`, `media`, `call`, `manual`).
-- Replace the hard-coded call veto and 3 s guard with the shared grant rules
-  and settings; add the missing settings to the tray.
+- Apply the same grant rules as Android (§4.3): keep the call veto, keep the
+  3 s guard only for media requests, drop any other refusal; add the missing
+  "Take the AirPods when" settings to the tray.
 - Serve and start the setup exchange with any peer.
 
 **Mac**
@@ -299,8 +301,8 @@ today's messages unchanged (v2 objects reject unknown fields).
 
 ## Decisions (2026-11-21)
 
-1. "Let the AirPods move when this device is playing media" defaults to
-   **on**, keeping today's "requester wins" behaviour.
+1. ~~"Let the AirPods move when playing media" setting~~ — dropped: there is
+   no such setting; whoever asks wins unless the holder is in a call (§4.3).
 2. Settings stay **per device**; they are not synchronised.
 3. When the holder is unreachable, a `media` request waits **2 s** and then
    connects anyway.

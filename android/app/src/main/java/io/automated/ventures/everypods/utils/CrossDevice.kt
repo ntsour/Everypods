@@ -34,6 +34,9 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.util.Log
 import io.automated.ventures.everypods.services.ServiceManager
+import io.automated.ventures.everypods.utils.peer.GrantDecision
+import io.automated.ventures.everypods.utils.peer.GrantDenial
+import io.automated.ventures.everypods.utils.peer.LegacyHandoverRequest
 import io.automated.ventures.everypods.utils.peer.PeerHeartbeat
 import io.automated.ventures.everypods.utils.peer.PeerHeartbeatAction
 import io.automated.ventures.everypods.utils.peer.ElapsedClock
@@ -242,12 +245,14 @@ object CrossDevice {
         if (v2ReadySockets.remove(mac.uppercase(), socket)) {
             v2ReadySessions.remove(mac.uppercase())
             v2AcquisitionCapable.remove(mac.uppercase())
+            v2IntentCapable.remove(mac.uppercase())
             peerOwnershipStore.invalidate(mac)
         }
         if (v2ClientSockets.none { runCatching { it.remoteDevice.address.equals(mac, true) }.getOrDefault(false) }) {
             v2ReadySessions.remove(mac.uppercase())
             v2ReadySockets.remove(mac.uppercase())
             v2AcquisitionCapable.remove(mac.uppercase())
+            v2IntentCapable.remove(mac.uppercase())
             peerOwnershipStore.invalidate(mac)
             Log.d(TAG, "[$mac] v2 snapshot invalidated after final v2 link loss")
         }
@@ -279,18 +284,21 @@ object CrossDevice {
         v2ReadySessions.remove(normalized)
         v2ReadySockets.remove(normalized)
         v2AcquisitionCapable.remove(normalized)
+        v2IntentCapable.remove(normalized)
         Log.i(TAG, "[$mac] peer removed: inbound/outbound transports and ownership state cleared")
     }
 
-    internal fun markV2PeerReady(mac: String, sessionId: String, acquisitionCapable: Boolean = false) {
+    internal fun markV2PeerReady(mac: String, sessionId: String, acquisitionCapable: Boolean = false, intentCapable: Boolean = false) {
         v2ReadySessions[mac.uppercase()] = sessionId
         if (acquisitionCapable) v2AcquisitionCapable.add(mac.uppercase()) else v2AcquisitionCapable.remove(mac.uppercase())
+        if (intentCapable) v2IntentCapable.add(mac.uppercase()) else v2IntentCapable.remove(mac.uppercase())
     }
 
-    internal fun markV2PeerReady(mac: String, sessionId: String, socket: BluetoothSocket, acquisitionCapable: Boolean = false) {
+    internal fun markV2PeerReady(mac: String, sessionId: String, socket: BluetoothSocket, acquisitionCapable: Boolean = false, intentCapable: Boolean = false) {
         v2ReadySessions[mac.uppercase()] = sessionId
         v2ReadySockets[mac.uppercase()] = socket
         if (acquisitionCapable) v2AcquisitionCapable.add(mac.uppercase()) else v2AcquisitionCapable.remove(mac.uppercase())
+        if (intentCapable) v2IntentCapable.add(mac.uppercase()) else v2IntentCapable.remove(mac.uppercase())
         ServiceManager.getService()?.retryRecentRemoteCaseObservation()
     }
 
@@ -331,6 +339,7 @@ object CrossDevice {
         val localOwnership = snapshot["ownership"] as? String
         Log.d(TAG, "passive acquisition local=$localOwnership peers=${peers.values}")
         val frames = passiveAcquisitionProtocol?.begin(
+            allPeersSupportIntent = allSupportIntent(membersByMac.keys),
             headsetId = headsetId,
             membership = membership,
             localUnowned = localOwnership == "released",
@@ -470,7 +479,7 @@ object CrossDevice {
         } else null
         val frame = PeerV2Message.encode(type, fields)
         val result = passiveAcquisitionProtocol?.receive(remoteId, remoteSessionId, frame,
-            localStatus, membership, currentRevisions) ?: return
+            localStatus, membership, currentRevisions, peerSupportsIntent(mac)) ?: return
         Log.d(TAG, "passive acquisition received=$type replies=${result.replies.map { PeerV2Message.decode(it).let { message -> message.type to message.fields["reason"] } }} ready=${result.readyToConnect != null}")
         LidAutoconnectDiagnostics.logEvent("passive_receive", mapOf("type" to type,
             "ready" to (result.readyToConnect != null),
@@ -622,9 +631,9 @@ object CrossDevice {
             override fun bindPeerIdentity(installationId: String) { bindV2PeerIdentity(mac, installationId) }
             override fun observeSnapshot(remoteSessionId: String, snapshot: Map<String, Any?>) =
                 observeRemoteSnapshot(mac, remoteSessionId, snapshot)
-            override fun markReady(remoteSessionId: String, acquisitionCapable: Boolean) {
+            override fun markReady(remoteSessionId: String, acquisitionCapable: Boolean, intentCapable: Boolean) {
                 val first = v2ReadySessions[mac.uppercase()] != remoteSessionId
-                markV2PeerReady(mac, remoteSessionId, acquisitionCapable)
+                markV2PeerReady(mac, remoteSessionId, acquisitionCapable, intentCapable)
                 if (first) Log.d(TAG, "[$mac] v2 over Bluetooth LE ready")
                 ServiceManager.getService()?.retryRecentRemoteCaseObservation()
             }
@@ -706,6 +715,9 @@ object CrossDevice {
         remoteCaseTransport = null
     }
     private val v2AcquisitionCapable = ConcurrentHashMap.newKeySet<String>()
+    private val v2IntentCapable = ConcurrentHashMap.newKeySet<String>()
+    internal fun peerSupportsIntent(mac: String): Boolean = v2IntentCapable.contains(mac.uppercase())
+    internal fun allSupportIntent(macs: Collection<String>): Boolean = macs.all { peerSupportsIntent(it) }
     private class ListenerEndpoint(val name: String, val uuid: UUID) {
         val generation = AtomicLong(0L)
         @Volatile var socket: BluetoothServerSocket? = null
@@ -844,6 +856,7 @@ object CrossDevice {
         var helloSeen = false
         var remoteSessionId: String? = null
         var remoteAcquisitionCapable = false
+        var remoteIntentCapable = false
         val syncComplete = AtomicBoolean(false)
         val heartbeatState = PeerHeartbeat()
         val syncWatchdog = launch {
@@ -886,7 +899,9 @@ object CrossDevice {
                         val localSession = processSessionId ?: error("session_unavailable")
                         val remoteInstall = remote.getValue("installationId") as String
                         remoteSessionId = remote.getValue("sessionId") as String
-                        remoteAcquisitionCapable = "acquire-v1" in (remote.getValue("capabilities") as List<*>).filterIsInstance<String>()
+                        val remoteCaps = (remote.getValue("capabilities") as List<*>).filterIsInstance<String>()
+                        remoteAcquisitionCapable = "acquire-v1" in remoteCaps
+                        remoteIntentCapable = "acquire-v2" in remoteCaps
                         require(remote.getValue("initiatorId") == remoteInstall) { "invalid_initiator_identity" }
                         val context = ServiceManager.getService()?.applicationContext ?: error("service_unavailable")
                         val oldIdentity = PeerIdentityStore.peerInstallationId(context, address)
@@ -903,7 +918,7 @@ object CrossDevice {
                         queueV2Frame(outbound, PeerV2Message.encode(PeerV2Frame.Type.HELLO, mapOf(
                             "installationId" to localInstall,
                             "sessionId" to localSession,
-                            "capabilities" to listOf("acquire-v1", "snapshot"),
+                            "capabilities" to PeerV2Message.LOCAL_CAPABILITIES,
                             "initiatorId" to initiatorId,
                             "connectionId" to connectionId,
                         )))
@@ -932,7 +947,7 @@ object CrossDevice {
                                 "pong_snapshot_not_authoritative"
                             }
                             syncComplete.set(true)
-                            remoteSessionId?.let { markV2PeerReady(address, it, socket, remoteAcquisitionCapable) }
+                            remoteSessionId?.let { markV2PeerReady(address, it, socket, remoteAcquisitionCapable, remoteIntentCapable) }
                             syncWatchdog.cancel()
                         }
                         PeerV2Frame.Type.ACQUIRE_REQUEST, PeerV2Frame.Type.ACQUIRE_GRANT,
@@ -1513,6 +1528,40 @@ object CrossDevice {
         return ServiceManager.getService()?.isAnyPodInEar() != false
     }
 
+    /**
+     * Legacy REQUEST_HANDOVER / REQUEST_DISCONNECT. Only mark the peer as holder when we
+     * *accept* (pod in ear / unknown); ignoring when pods are in the case must NOT sticky-add
+     * the peer — that blocked lid-open autoconnect via peer_holding. Then the holder-side grant
+     * policy decides (spec §4.3): grant yields, deny keeps the AirPods and tells the requester.
+     */
+    private fun handleLegacyHandoverRequest(kind: LegacyHandoverRequest.Kind, sourceMac: String) {
+        val service = ServiceManager.getService()
+        if (!shouldAcceptHandoverRequest()) {
+            holders.remove(sourceMac)
+            Log.d(TAG, "[$sourceMac] $kind ignored — no pod in ear (pods in case)")
+            return
+        }
+        val action = LegacyHandoverRequest.resolve(kind) { intent ->
+            service?.peerHandoverDecision(intent) ?: GrantDecision.Grant
+        }
+        // A call refusal takes the pre-existing path unchanged: disconnectForCD() applies the
+        // call-hold veto itself (it broadcasts AIRPODS_CONNECTED and keeps the AirPods).
+        val callVeto = action is LegacyHandoverRequest.Action.ReplyStillHeld &&
+            action.reason == GrantDenial.CALL_ACTIVE
+        when {
+            action == LegacyHandoverRequest.Action.Yield || callVeto -> {
+                Log.d(TAG, "[$sourceMac] $kind — releasing AirPods (eagerly marking peer as holder)")
+                holders.add(sourceMac)
+                service?.markPeerTakeoverAttempt()
+                service?.disconnectForCD()
+            }
+            action is LegacyHandoverRequest.Action.ReplyStillHeld -> {
+                Log.d(TAG, "[$sourceMac] $kind denied (${action.reason}) — keeping AirPods, broadcasting AIRPODS_CONNECTED")
+                notifyConnected()   // broadcast, like the former call-hold veto
+            }
+        }
+    }
+
     internal fun processPacket(raw: ByteArray, sourceMac: String, context: Context? = ServiceManager.getService()?.applicationContext) {
         if (context == null || !io.automated.ventures.everypods.relay.DeviceConnectionStore(context).coordinationAuthorized(sourceMac)) {
             Log.w(TAG, "Ignoring packet from peer without an authorized coordination capability")
@@ -1528,36 +1577,10 @@ object CrossDevice {
         }
         Log.d(TAG, "[$sourceMac] received: ${raw.joinToString("") { "%02x".format(it) }}")
         when {
-            raw.contentEquals(CrossDevicePackets.REQUEST_HANDOVER.packet) -> {
-                // Peer wants the AirPods — release them if we hold the connection.
-                // Only eagerly mark the peer as holder when we *accept* the takeover
-                // (pod in ear / unknown). Ignoring when pods are in the case must NOT
-                // sticky-add the peer — that blocked lid-open autoconnect via peer_holding.
-                val service = ServiceManager.getService()
-                if (shouldAcceptHandoverRequest()) {
-                    Log.d(TAG, "[$sourceMac] REQUEST_HANDOVER — releasing AirPods (eagerly marking peer as holder)")
-                    holders.add(sourceMac)
-                    service?.markPeerTakeoverAttempt()
-                    service?.disconnectForCD()
-                } else {
-                    // Prefer check-in-ear-first: never add on ignore. Defensive remove
-                    // covers any older path that added before the ignore branch.
-                    holders.remove(sourceMac)
-                    Log.d(TAG, "[$sourceMac] REQUEST_HANDOVER ignored — no pod in ear (pods in case)")
-                }
-            }
-            raw.contentEquals(CrossDevicePackets.REQUEST_DISCONNECT.packet) -> {
-                // Same accept-only eager mark as REQUEST_HANDOVER.
-                val service = ServiceManager.getService()
-                if (shouldAcceptHandoverRequest()) {
-                    holders.add(sourceMac)
-                    service?.markPeerTakeoverAttempt()
-                    service?.disconnectForCD()
-                } else {
-                    holders.remove(sourceMac)
-                    Log.d(TAG, "[$sourceMac] REQUEST_DISCONNECT ignored — no pod in ear (pods in case)")
-                }
-            }
+            raw.contentEquals(CrossDevicePackets.REQUEST_HANDOVER.packet) ->
+                handleLegacyHandoverRequest(LegacyHandoverRequest.Kind.HANDOVER, sourceMac)
+            raw.contentEquals(CrossDevicePackets.REQUEST_DISCONNECT.packet) ->
+                handleLegacyHandoverRequest(LegacyHandoverRequest.Kind.DISCONNECT, sourceMac)
             raw.contentEquals(CrossDevicePackets.AIRPODS_CONNECTED.packet) -> {
                 holders.add(sourceMac)
                 ownershipObservations[sourceMac.uppercase()] =

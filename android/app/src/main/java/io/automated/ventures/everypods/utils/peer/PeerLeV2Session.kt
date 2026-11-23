@@ -26,7 +26,7 @@ class PeerLeV2Session(
         fun newConnectionId(): String
         fun bindPeerIdentity(installationId: String)
         fun observeSnapshot(remoteSessionId: String, snapshot: Map<String, Any?>): Boolean
-        fun markReady(remoteSessionId: String, acquisitionCapable: Boolean)
+        fun markReady(remoteSessionId: String, acquisitionCapable: Boolean, intentCapable: Boolean = false)
         fun handleAcquisition(remoteSessionId: String, type: PeerV2Frame.Type, fields: Map<String, Any?>)
         /** The session ended ([reason] is a short code); called at most once, never after [end] by the owner. */
         fun onEnded(reason: String)
@@ -38,6 +38,7 @@ class PeerLeV2Session(
     private var remoteInstall: String? = null
     private var remoteSession: String? = null
     private var remoteAcquisitionCapable = false
+    private var remoteIntentCapable = false
     private var initialSnapshot = false
     private var initialPong = false
     private var handshakeDeadlineMs: Long? = null
@@ -112,9 +113,12 @@ class PeerLeV2Session(
             readyFlag = false
             initialPong = false
             remoteAcquisitionCapable = false
+            remoteIntentCapable = false
             val install = fields.getValue("installationId") as String
             val session = fields.getValue("sessionId") as String
-            val capable = "acquire-v1" in (fields.getValue("capabilities") as List<*>).filterIsInstance<String>()
+            val remoteCaps = (fields.getValue("capabilities") as List<*>).filterIsInstance<String>()
+            val capable = "acquire-v1" in remoteCaps
+            remoteIntentCapable = "acquire-v2" in remoteCaps
             require(fields.getValue("initiatorId") == install) { "invalid_initiator_identity" }
             val localInstall = hooks.localInstallationId() ?: error("identity_unavailable")
             val localSession = hooks.localSessionId() ?: error("session_unavailable")
@@ -138,7 +142,9 @@ class PeerLeV2Session(
                 }
                 remoteInstall = fields.getValue("installationId") as String
                 remoteSession = fields.getValue("sessionId") as String
-                remoteAcquisitionCapable = "acquire-v1" in (fields.getValue("capabilities") as List<*>).filterIsInstance<String>()
+                val remoteCaps = (fields.getValue("capabilities") as List<*>).filterIsInstance<String>()
+                remoteAcquisitionCapable = "acquire-v1" in remoteCaps
+                remoteIntentCapable = "acquire-v2" in remoteCaps
                 hooks.bindPeerIdentity(remoteInstall!!)
             }
             PeerV2Frame.Type.SNAPSHOT -> {
@@ -166,7 +172,7 @@ class PeerLeV2Session(
                     require(hooks.observeSnapshot(session, snapshot)) { "v2_pong_snapshot_not_authoritative" }
                     initialPong = true
                     readyFlag = true
-                    hooks.markReady(session, remoteAcquisitionCapable)
+                    hooks.markReady(session, remoteAcquisitionCapable, remoteIntentCapable)
                 }
             }
             PeerV2Frame.Type.ACQUIRE_REQUEST, PeerV2Frame.Type.ACQUIRE_GRANT, PeerV2Frame.Type.ACQUIRE_DENY,
@@ -202,6 +208,6 @@ class PeerLeV2Session(
     companion object {
         const val HEARTBEAT_MS = 10_000L
         const val HANDSHAKE_TIMEOUT_MS = 5_000L
-        val CAPABILITIES = listOf("acquire-v1", "snapshot")
+        val CAPABILITIES: List<String> get() = PeerV2Message.LOCAL_CAPABILITIES
     }
 }

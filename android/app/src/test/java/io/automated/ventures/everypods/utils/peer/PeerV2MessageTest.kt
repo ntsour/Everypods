@@ -99,6 +99,63 @@ class PeerV2MessageTest {
         }
     }
 
+    private fun requestFields(): Map<String, Any?> {
+        val membership = listOf(id1, id2)
+        val canonical = (membership.joinToString("\n") + "\n").toByteArray(StandardCharsets.UTF_8)
+        val digest = MessageDigest.getInstance("SHA-256").digest(canonical).joinToString("") { "%02x".format(it) }
+        return mapOf("requestId" to id1, "headsetId" to id2, "requesterId" to id1, "requesterSessionId" to id2,
+            "membership" to membership, "membershipDigest" to digest, "snapshotRevisions" to mapOf(id1 to 4L, id2 to 9L))
+    }
+
+    private fun roundTrip(type: PeerV2Frame.Type, fields: Map<String, Any?>) =
+        PeerV2Message.decode(PeerV2Message.encode(type, fields))
+
+    @Test
+    fun `acquire request intent is optional and defaults to passive`() {
+        val plain = requestFields()
+        assertEquals(HandoverIntent.PASSIVE, PeerV2Message.intentOf(roundTrip(PeerV2Frame.Type.ACQUIRE_REQUEST, plain).fields))
+        HandoverIntent.entries.forEach { intent ->
+            val fields = plain + ("intent" to intent.wire)
+            val decoded = roundTrip(PeerV2Frame.Type.ACQUIRE_REQUEST, fields)
+            assertEquals(fields, decoded.fields)
+            assertEquals(intent, PeerV2Message.intentOf(decoded.fields))
+        }
+    }
+
+    @Test
+    fun `acquire request rejects invalid intent and still rejects unknown fields`() {
+        listOf("bogus", "CALL", "", 3L, null).forEach {
+            assertThrows(IllegalArgumentException::class.java) {
+                PeerV2Message.encode(PeerV2Frame.Type.ACQUIRE_REQUEST, requestFields() + ("intent" to it))
+            }
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            PeerV2Message.encode(PeerV2Frame.Type.ACQUIRE_REQUEST, requestFields() + ("extra" to "x"))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            PeerV2Message.encode(PeerV2Frame.Type.ACQUIRE_REQUEST, requestFields() + mapOf("intent" to "call", "extra" to "x"))
+        }
+    }
+
+    @Test
+    fun `deny accepts policy and call active and hello accepts acquire v2`() {
+        val base = requestFields() - "snapshotRevisions" + mapOf("grantorId" to id2, "grantorSessionId" to id1)
+        listOf("POLICY", "CALL_ACTIVE", "HELD").forEach {
+            assertEquals(it, roundTrip(PeerV2Frame.Type.ACQUIRE_DENY, base + ("reason" to it)).fields["reason"])
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            PeerV2Message.encode(PeerV2Frame.Type.ACQUIRE_DENY, base + ("reason" to "NOPE"))
+        }
+        val hello = mapOf("installationId" to id1, "sessionId" to id2, "initiatorId" to id1, "connectionId" to id2)
+        val caps = listOf("acquire-v1", "acquire-v2", "snapshot")
+        assertEquals(caps, roundTrip(PeerV2Frame.Type.HELLO, hello + ("capabilities" to caps)).fields["capabilities"])
+        val future = listOf("acquire-v1", "acquire-v3", "snapshot")
+        assertEquals(future, roundTrip(PeerV2Frame.Type.HELLO, hello + ("capabilities" to future)).fields["capabilities"])
+        assertThrows(IllegalArgumentException::class.java) {
+            PeerV2Message.encode(PeerV2Frame.Type.HELLO, hello + ("capabilities" to listOf("Bad Name", "snapshot")))
+        }
+    }
+
     private fun payload(type: PeerV2Frame.Type, json: String) =
         PeerV2Frame.Frame(type, json.toByteArray(StandardCharsets.UTF_8))
 }

@@ -31,7 +31,7 @@ class PeerLeV2SessionTest {
         override fun newConnectionId() = "00000000-0000-4000-8000-0000000000c1"
         override fun bindPeerIdentity(installationId: String) { bound += installationId }
         override fun observeSnapshot(remoteSessionId: String, snapshot: Map<String, Any?>) = accepted
-        override fun markReady(remoteSessionId: String, acquisitionCapable: Boolean) { ready += remoteSessionId to acquisitionCapable }
+        override fun markReady(remoteSessionId: String, acquisitionCapable: Boolean, intentCapable: Boolean) { ready += remoteSessionId to acquisitionCapable }
         override fun handleAcquisition(remoteSessionId: String, type: PeerV2Frame.Type, fields: Map<String, Any?>) { acquisitions += type }
         override fun onEnded(reason: String) { ended += reason }
     }

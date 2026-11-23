@@ -23,6 +23,10 @@ package io.automated.ventures.everypods.services
 import io.automated.ventures.everypods.bluetooth.hrm.SharingError
 import io.automated.ventures.everypods.bluetooth.hrm.HeartRateSharingState
 import io.automated.ventures.everypods.utils.peer.PeerAudioUse
+import io.automated.ventures.everypods.utils.peer.GrantDecision
+import io.automated.ventures.everypods.utils.peer.HandoverGrantPolicy
+import io.automated.ventures.everypods.utils.peer.HandoverIntent
+import io.automated.ventures.everypods.utils.peer.HolderState
 import io.automated.ventures.everypods.bluetooth.hrm.HeartRateSharingMethod
 import io.automated.ventures.everypods.bluetooth.hrm.HeartRateSharingPrefs
 import io.automated.ventures.everypods.bluetooth.hrm.HeartRateSharingIntent
@@ -6568,6 +6572,22 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         expectingPeerTakeover = false
         takeoverFlagHandler.removeCallbacks(clearExpectingPeerTakeoverRunnable)
         Log.d(TAG, "Peer confirmed ownership via AIRPODS_CONNECTED — cooldown armed proactively")
+    }
+
+    /** Holder-side grant decision for a legacy peer request (docs/peer-mesh-spec.md §4.3). */
+    fun peerHandoverDecision(intent: HandoverIntent): GrantDecision {
+        val now = System.currentTimeMillis()
+        val takeoverMs = lastTakeoverIntentMs
+        val holder = HolderState(
+            holds = holdsAirPods(),
+            // isInAnyCall() also sees ringing and VoIP-notification calls that peerAudioUse()
+            // misses; the old call-hold veto used it, so keep protecting those calls.
+            audioUse = if (isInAnyCall()) PeerAudioUse.CALL else peerAudioUse(),
+            msSinceOwnTakeover = if (takeoverMs > 0L) now - takeoverMs else null,
+        )
+        val decision = HandoverGrantPolicy.decide(intent, holder)
+        Log.d(TAG, "peerHandoverDecision: intent=$intent holder=$holder -> $decision")
+        return decision
     }
 
     fun disconnectForCD() {

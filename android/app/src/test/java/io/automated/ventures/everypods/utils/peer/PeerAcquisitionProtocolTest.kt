@@ -170,4 +170,41 @@ class PeerAcquisitionProtocolTest {
         assertTrue(retry.any { it.type == PeerV2Frame.Type.ACQUIRE_REQUEST })
     }
 
+    @Test fun `intent is on the wire only when every peer supports it and is decoded by the participant`() {
+        val statuses = mapOf(b to status(b, sessionB))
+        val legacy = protocol(a, sessionA).begin(headset, setOf(a, b), true, true, true, true, 1, statuses,
+            intent = HandoverIntent.CALL, allPeersSupportIntent = false).single()
+        assertFalse(PeerV2Message.decode(legacy).fields.containsKey("intent"))
+        val baseline = protocol(a, sessionA).begin(headset, setOf(a, b), true, true, true, true, 1, statuses).single()
+        assertArrayEquals(baseline.payload, legacy.payload)
+
+        val withIntent = protocol(a, sessionA).begin(headset, setOf(a, b), true, true, true, true, 1, statuses,
+            intent = HandoverIntent.CALL, allPeersSupportIntent = true).single()
+        assertEquals(HandoverIntent.CALL, PeerV2Message.intentOf(PeerV2Message.decode(withIntent).fields))
+        val grant = protocol(b, sessionB).receive(a, sessionA, withIntent, status(b, sessionB), setOf(a, b),
+            mapOf(a to 1L, b to 1L), peerSupportsIntent = true).replies.single()
+        assertEquals(PeerV2Frame.Type.ACQUIRE_GRANT, grant.type)
+    }
+
+    @Test fun `policy and call active denials degrade to held for peers without acquire v2`() {
+        listOf(PassiveAcquisitionCoordinator.Denial.POLICY, PassiveAcquisitionCoordinator.Denial.CALL_ACTIVE).forEach {
+            assertEquals("HELD", PeerAcquisitionProtocol.denyWireReason(it, false))
+            assertEquals(it.name, PeerAcquisitionProtocol.denyWireReason(it, true))
+        }
+        assertEquals("UNKNOWN", PeerAcquisitionProtocol.denyWireReason(PassiveAcquisitionCoordinator.Denial.EXPIRED, true))
+        assertEquals("BUSY", PeerAcquisitionProtocol.denyWireReason(PassiveAcquisitionCoordinator.Denial.BUSY, false))
+    }
+
+    @Test fun `received policy deny cancels the pending request like held`() {
+        val requester = protocol(a, sessionA)
+        val request = requester.begin(headset, setOf(a, b), true, true, true, true, 1,
+            mapOf(b to status(b, sessionB))).single()
+        val f = PeerV2Message.decode(request).fields
+        val deny = PeerV2Message.encode(PeerV2Frame.Type.ACQUIRE_DENY, mapOf(
+            "requestId" to f["requestId"], "headsetId" to headset, "requesterId" to a, "requesterSessionId" to sessionA,
+            "membership" to f["membership"], "membershipDigest" to f["membershipDigest"],
+            "grantorId" to b, "grantorSessionId" to sessionB, "reason" to "POLICY"))
+        val replies = requester.receive(b, sessionB, deny, status(a, sessionA), setOf(a, b)).replies
+        assertEquals(PeerV2Frame.Type.ACQUIRE_CANCEL, replies.single().type)
+    }
 }
