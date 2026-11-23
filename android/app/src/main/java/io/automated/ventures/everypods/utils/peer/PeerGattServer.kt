@@ -71,6 +71,11 @@ object PeerGattServer {
     private const val KEEPALIVE_MS = 20_000L
     private const val ADVERTISE_RETRY_BASE_MS = 2_000L
     private const val ADVERTISE_RETRY_MAX_MS = 30_000L
+    /**
+     * How long to advertise at low latency while a peer is missing. Longer and a sleeping Mac, bonded to this phone,
+     * is woken by the adverts every few seconds (~240 dark wakes an hour); after this the rate drops to low power.
+     */
+    private const val FAST_ADVERTISE_WINDOW_MS = 3 * 60_000L
     private const val NOTIFY_RETRY_MS = 50L
     private const val NOTIFY_MAX_REFUSALS = 40
     /** Room for one fragmented 160 KiB message (PeerLeChannel) on top of normal traffic. */
@@ -110,6 +115,8 @@ object PeerGattServer {
     private var running = false
     private var advertising = false
     private var advertisingLowPower = false
+    /** When low latency was first wanted in the current stretch; null while low power is wanted. */
+    private var fastWantedSinceMs: Long? = null
     private var advertiseRetries = 0
     private var advertiseGivenUp = false
     private val sessions = HashMap<String, Session>()
@@ -228,6 +235,8 @@ object PeerGattServer {
         running = false
         handler.removeCallbacks(tick)
         handler.removeCallbacks(restartAdvertising)
+        handler.removeCallbacks(fastWindowEnded)
+        fastWantedSinceMs = null  // a restart (e.g. Bluetooth back on) gets a fresh fast window
         stopAdvertising()
         sessions.values.toList().forEach { endSession(it, reason) }
         sessions.clear()
@@ -275,8 +284,22 @@ object PeerGattServer {
 
     private fun wantsFast(): Boolean {
         val ready = sessions.values.filter { it.ready }.mapTo(mutableSetOf()) { it.address }
-        return runCatching { listener?.wantsFastAdvertising(ready) }.getOrNull() ?: ready.isEmpty()
+        val wanted = runCatching { listener?.wantsFastAdvertising(ready) }.getOrNull() ?: ready.isEmpty()
+        if (!wanted) {
+            fastWantedSinceMs = null
+            handler.removeCallbacks(fastWindowEnded)
+            return false
+        }
+        val now = SystemClock.elapsedRealtime()
+        val since = fastWantedSinceMs ?: now.also {
+            fastWantedSinceMs = it
+            handler.removeCallbacks(fastWindowEnded)
+            handler.postDelayed(fastWindowEnded, FAST_ADVERTISE_WINDOW_MS)
+        }
+        return now - since < FAST_ADVERTISE_WINDOW_MS
     }
+
+    private val fastWindowEnded = Runnable { updateAdvertisingRate() }
 
     /** Re-evaluates the advertising rate (e.g. after the peer configuration changed). */
     fun refreshAdvertisingRate() {
