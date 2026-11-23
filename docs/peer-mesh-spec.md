@@ -54,7 +54,15 @@ Peers keep listening on the legacy service `1abbb9a4-…` and the setup service
   lexicographically smallest `(initiatorId, connectionId)` from HELLO and close
   the other (the existing v2 rule). The Bluetooth address is not used.
 - The peer with the smaller `installationId` dials first; the other waits 3 s
-  before its first dial, so races are rare.
+  before its first dial, then dials anyway (so a peer that never dials, such
+  as an Android build with #96, is still reached), so races are rare. Each
+  peer remembers every peer's `installationId` from HELLO by Bluetooth
+  address; with no remembered id it dials without waiting.
+- While the legacy link is still in use (§8), it follows the same rules. Two
+  legacy links between the same pair: keep the one dialled by the peer with
+  the smaller `installationId` when both ids are known, otherwise keep the one
+  that came up first and close the newer.
+- No rule depends on what kind of device a peer is.
 - A peer that cannot listen (capability `no-listen`, §3) is dialled by the
   others and never expected to accept.
 

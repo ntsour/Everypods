@@ -280,11 +280,13 @@ class PassiveAcquisitionCoordinator(
     ): Event {
         val now = clock.nowMs()
         val members = membership.map { it.lowercase() }
-        if (members != configuredMembership.map { it.lowercase() }.distinct().sorted() ||
+        // Computers don't link to each other, so a membership may name peers this device doesn't know. It must name
+        // every peer this device does know (each was asked), plus this device and the requester.
+        if (!members.toSet().containsAll(configuredMembership.map { it.lowercase() }) ||
             members != members.distinct().sorted() || localInstallationId.lowercase() !in members ||
             requesterId.lowercase() !in members || membershipDigest(members) != membershipDigest) return Event.Deny(requestId, Denial.MEMBERSHIP_MISMATCH)
         if (snapshotRevisions != null && (currentSnapshotRevisions == null ||
-                snapshotRevisions.keys != members.toSet() || snapshotRevisions != currentSnapshotRevisions)) {
+                snapshotRevisions.keys != members.toSet() || !revisionsMatchKnown(snapshotRevisions, currentSnapshotRevisions))) {
             return Event.Deny(requestId, Denial.STALE_SNAPSHOT)
         }
         if (localStatus == null || !localStatus.ready || localStatus.protocolVersion != 2 || localStatus.sessionId != localSessionId ||
@@ -337,13 +339,14 @@ class PassiveAcquisitionCoordinator(
             if (current.phase == Phase.PREPARING) reservation = current.copy(phase = Phase.CANCELLED)
             return Event.Deny(requestId, Denial.EXPIRED)
         }
-        if (current.snapshotRevisions.isNotEmpty() && current.snapshotRevisions != currentSnapshotRevisions) {
+        if (current.snapshotRevisions.isNotEmpty() &&
+            !revisionsMatchKnown(current.snapshotRevisions, currentSnapshotRevisions.orEmpty())) {
             if (!duplicateStart) reservation = current.copy(phase = Phase.CANCELLED)
             return Event.Deny(requestId, Denial.STALE_SNAPSHOT)
         }
         if (membership != null && (membership != membership.distinct().sorted() ||
                 membershipDigest(membership) != current.membershipDigest ||
-                configuredMembership?.map { it.lowercase() }?.toSet() != membership.toSet())) {
+                configuredMembership?.let { known -> !membership.toSet().containsAll(known.map { it.lowercase() }) } ?: true)) {
             if (!duplicateStart) reservation = current.copy(phase = Phase.CANCELLED)
             return Event.Deny(requestId, Denial.MEMBERSHIP_MISMATCH)
         }
@@ -412,4 +415,8 @@ class PassiveAcquisitionCoordinator(
                 .joinToString("") { "%02x".format(it) }
         }
     }
+
+    /** Every revision this device knows must match the requester's; revisions it can't see are not checked. */
+    private fun revisionsMatchKnown(theirs: Map<String, Long>, known: Map<String, Long>): Boolean =
+        known.all { (id, revision) -> theirs[id] == revision }
 }
