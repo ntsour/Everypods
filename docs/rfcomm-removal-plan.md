@@ -233,7 +233,24 @@ Also verified over LE: case evidence exchanged between the phones, and a Wi-Fi r
 
 Phase 5 build (2026-11-22): a handover round Pixel → Mac → tablet → Pixel ran over LE only, with sound at each step. Pixel → PC → Pixel also worked, but the first PC attempt failed on the Windows side: the Pixel released at once, yet all 5 of the PC's connects ended "no link within 6 s" and the AirPods only connected about 30 s later. Tracked in ntsour/Everypods-private#10. It is not caused by the LE work, since Windows still uses RFCOMM.
 
-A phone advertised slowly while its other phone was linked, so a Mac that dropped took 14 s to find it again. A phone now advertises fast while a computer that has linked over LE is missing.
+A phone advertised slowly while its other phone was linked, so a Mac that dropped took 14 s to find it again. A phone now advertises fast while a computer that has linked over LE is missing, but only for the first 3 minutes (see below).
+
+#### The phones' advertising woke the sleeping Mac (2026-11-23)
+
+With the lid open and the display off, the Mac had 60–240 dark wakes an hour, with the power log naming Bluetooth (`wifibt … bluetooth-pcie`). A normal night has 4–10.
+
+| Mac asleep, lid open | Dark wakes | From Bluetooth |
+|---|---|---|
+| Phones on, advertising fast while the Mac is missing | ~240 an hour | most |
+| Mac app closes its links and scans before sleep | 81 in 20 min | 67 |
+| Phones' Bluetooth off | 5 in 18 min | 0 |
+| Phones fast for 3 min after the Mac goes missing, then low power | 9 in 70 min | 1 |
+
+- Closing the links and stopping the Mac's scans on `willSleep` did not help on its own. The phones' LE links were already down while the Mac slept.
+- The cause was the phones advertising every 100 ms for as long as the Mac was away. The Mac is bonded to both phones, so those adverts kept waking it.
+- Fix: phones advertise at low latency for 3 minutes after a computer goes missing, then at low power. A GATT server restart (e.g. Bluetooth back on) starts a fresh fast window.
+- Trade-off: after a long sleep, relinking is slower. After 70 minutes the tablet relinked in 8.4 s and the Pixel in 38.9 s (the Pixel may also have been dozing). After a 5-minute sleep it was 2–4 s. Watch this in the soak test.
+- With the lid closed overnight the wakes were already rare (3–5 an hour), probably because of the deeper sleep.
 
 ### Soak and regression
 
