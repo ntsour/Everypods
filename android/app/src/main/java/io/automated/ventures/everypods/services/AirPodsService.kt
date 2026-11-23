@@ -5324,7 +5324,12 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     ServiceManager.getService()?.onHeadsetAclConnected(bluetoothDevice.address)
 
                     val uuid = ParcelUuid.fromString("74ec2172-0bad-4d01-8f77-997b2be0722a")
-                    if (bluetoothDevice.uuids != null && bluetoothDevice.uuids.contains(uuid)) {
+                    if (isNeverAirPods(bluetoothDevice)) {
+                        // A peer phone or computer is never AirPods. Its cached UUIDs never contain the AirPods
+                        // service, so the SDP lookup below ran on every connect and paged the peer over classic
+                        // Bluetooth (95 lookups to a PC in 2.5 h, and back-to-back to a phone during setup).
+                        Log.d(TAG, "Skipping AirPods SDP check for ${bluetoothDevice.address} (peer phone or computer)")
+                    } else if (bluetoothDevice.uuids != null && bluetoothDevice.uuids.contains(uuid)) {
                         // UUIDs already cached — fire immediately
                         Log.d(TAG, "UUIDs already cached for ${bluetoothDevice.address}")
                         val intent = Intent(AirPodsNotifications.AIRPODS_CONNECTION_DETECTED).setPackage(context?.packageName)
@@ -8282,4 +8287,13 @@ fun getNextMode(currentMode: Int, configByte: Int, offmodeEnabled: Boolean): Int
     val nextIndex = if (currentIndex == -1) 0 else (currentIndex + 1) % enabledModes.size
 
     return enabledModes[nextIndex]
+}
+
+/** Configured EveryPods peers, and any phone or computer, can't be AirPods: no SDP lookup for them. */
+@android.annotation.SuppressLint("MissingPermission")
+private fun isNeverAirPods(device: BluetoothDevice): Boolean {
+    if (CrossDevice.configuredPeers.any { it.equals(device.address, ignoreCase = true) }) return true
+    val major = runCatching { device.bluetoothClass?.majorDeviceClass }.getOrNull() ?: return false
+    return major == android.bluetooth.BluetoothClass.Device.Major.COMPUTER ||
+        major == android.bluetooth.BluetoothClass.Device.Major.PHONE
 }
