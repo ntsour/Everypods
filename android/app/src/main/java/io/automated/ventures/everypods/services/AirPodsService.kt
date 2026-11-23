@@ -5619,6 +5619,20 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         return status.isLeftInEar || status.isRightInEar
     }
 
+    /**
+     * Fresh evidence that at least one bud is out of the case and worn: the AACP ear state when our
+     * link is up, otherwise a recent BLE advertisement. Unknown counts as not worn, so the playback
+     * hold and progress overlay never start for AirPods sitting in a (closed) case.
+     */
+    private fun airPodsLikelyWorn(): Boolean {
+        val socketUp = ::socket.isInitialized && socket.isConnected
+        if (socketUp) return !areBothPodsInCase() && earDetectionNotification.status.contains(0x00.toByte())
+        val ble = bleManager.getMostRecentStatus() ?: return false
+        if (System.currentTimeMillis() - ble.lastSeen > EAR_DATA_FRESHNESS_MS) return false
+        if (ble.isLeftCharging && ble.isRightCharging) return false
+        return ble.isLeftInEar || ble.isRightInEar
+    }
+
     private fun areBothPodsInCase(): Boolean {
         val socketUp = ::socket.isInitialized && socket.isConnected
         if (!socketUp) return false
@@ -5863,9 +5877,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 // the AirPods (docs/playback-hold.md). Started before any computer-release
                 // wait so the speaker stays quiet for that phase too. On retry a hold is
                 // already active and is kept.
+                val worn = airPodsLikelyWorn()
                 if (takingOverFor == "music" && macAddress.isNotEmpty() &&
                     sharedPreferences.getBoolean("hold_playback_until_connected", false) &&
-                    !PlaybackHold.isActive
+                    !PlaybackHold.isActive && worn
                 ) {
                     PlaybackHold.start(
                         macAddress,
@@ -5874,7 +5889,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     )
                 }
                 // Calls are never held: just show handover progress in the bottom popup.
-                if (takingOverFor == "call" && macAddress.isNotEmpty()) {
+                if (!worn) Log.d(TAG, "takeOver: no fresh evidence a bud is worn — no playback hold / progress")
+                if (takingOverFor == "call" && macAddress.isNotEmpty() && worn) {
                     PlaybackHold.startCall(
                         macAddress,
                         config.deviceName.ifEmpty { sharedPreferences.getString("name", null) ?: "AirPods" }
