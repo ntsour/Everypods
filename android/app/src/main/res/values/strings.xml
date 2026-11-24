@@ -88,7 +88,7 @@
     <string name="hold_use_phone">Use phone</string>
     <string name="hold_call_notification_text">Your call stays on the phone. Retry to move it to your AirPods.</string>
     <string name="hold_notification_channel_name">Playback hold</string>
-    <string name="hold_notification_channel_description">Shown when your AirPods fail to connect while media is held</string>
+    <string name="hold_notification_channel_description">Shows AirPods connection progress while the phone is locked, and when they fail to connect</string>
     <string name="hold_notification_title">Couldn\'t connect to %1$s</string>
     <string name="hold_notification_text">Your media is paused. Retry or play it on the phone.</string>
     <string name="hold_playback_until_connected">Hold playback until connected</string>

@@ -19,6 +19,7 @@
 
 package io.automated.ventures.everypods.presentation.overlays
 
+import android.app.KeyguardManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -26,6 +27,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.media.AudioManager
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -68,6 +70,8 @@ object HoldOverlayController {
     private var island: IslandWindow? = null
     private var popup: PopupWindow? = null
     private var notificationShown = false
+    /** Phase the notification currently shows (null = none); it is only re-posted on a phase change. */
+    private var notifiedPhase: HoldPhase? = null
 
     /** User swiped / closed the overlay for this hold; don't re-show until FAILED. */
     private var dismissed = false
@@ -164,16 +168,24 @@ object HoldOverlayController {
         val canOverlay = Settings.canDrawOverlays(svc)
         val progress = PlaybackHold.progressFraction(status, SystemClock.uptimeMillis())
 
-        // Calls always use the bottom popup: at the top, the island would cover the
-        // incoming-call banner and its Answer / Decline buttons.
         val isCall = status.kind == HoldKind.CALL
+        val locked = (svc.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager)?.isKeyguardLocked == true
+        // Calls: a ringing call on an unlocked phone shows a heads-up banner at the top, so the
+        // bottom popup is used then. Otherwise (lock screen, or the full in-call screen) the
+        // Answer / call controls are at the bottom, so the top island is used.
+        val ringing = (svc.getSystemService(Context.AUDIO_SERVICE) as? AudioManager)?.mode == AudioManager.MODE_RINGTONE
+        val callAtBottom = ringing && !locked
         when {
             island != null -> renderIsland(status, progress)
             popup != null -> renderPopup(status, progress)
             dismissed -> Unit
-            isCall && canShowOverlay(prefs, canOverlay) -> {
+            isCall && canShowOverlay(prefs, canOverlay) && callAtBottom -> {
                 showPopup(svc, prefs.getString("name", "AirPods Pro").toString())
                 renderPopup(status, progress)
+            }
+            isCall && canShowOverlay(prefs, canOverlay) -> {
+                showIsland(svc, prefs.getString("name", "AirPods Pro").toString(), status)
+                renderIsland(status, progress)
             }
             canOverlay && prefs.getBoolean("show_island_popup", true) -> {
                 showIsland(svc, prefs.getString("name", "AirPods Pro").toString(), status)
@@ -186,12 +198,14 @@ object HoldOverlayController {
             else -> Unit
         }
 
-        // Notification fallback: only when no overlay is in use.
-        if (island == null && popup == null && !canShowOverlay(prefs, canOverlay)) {
-            if (status.phase == HoldPhase.FAILED && !dismissed) postNotification(svc, status)
-            else cancelNotification()
-        } else {
-            cancelNotification()
+        // Notification: progress and failure while locked (the lock screen may not draw the
+        // overlay); otherwise only a failure when no overlay is in use.
+        val noOverlay = island == null && popup == null
+        when {
+            locked && !dismissed -> postNotification(svc, status)
+            noOverlay && !canShowOverlay(prefs, canOverlay) && status.phase == HoldPhase.FAILED && !dismissed ->
+                postNotification(svc, status)
+            else -> cancelNotification()
         }
 
         val animating = status.phase != HoldPhase.FAILED && status.phase != HoldPhase.CONNECTED
@@ -254,7 +268,7 @@ object HoldOverlayController {
     // ── Notification fallback ────────────────────────────────────────────────
 
     private fun postNotification(svc: AirPodsService, status: HoldStatus) {
-        if (notificationShown) return
+        if (notificationShown && notifiedPhase == status.phase) return
         val nm = svc.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val channel = NotificationChannel(
             CHANNEL_ID,
@@ -269,25 +283,47 @@ object HoldOverlayController {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        val n = NotificationCompat.Builder(svc, CHANNEL_ID)
+        val isCall = status.kind == HoldKind.CALL
+        val b = NotificationCompat.Builder(svc, CHANNEL_ID)
             .setSmallIcon(R.drawable.airpods)
-            .setContentTitle(svc.getString(R.string.hold_notification_title, status.deviceName))
-            .setContentText(svc.getString(
-                if (status.kind == HoldKind.CALL) R.string.hold_call_notification_text else R.string.hold_notification_text
-            ))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOnlyAlertOnce(true)
-            .setAutoCancel(true)
-            .addAction(0, svc.getString(R.string.hold_retry), action(ACTION_RETRY, 1))
-            .addAction(0, svc.getString(
-                if (status.kind == HoldKind.CALL) R.string.hold_use_phone else R.string.hold_play_on_phone
-            ), action(ACTION_PLAY_ON_PHONE, 2))
-            .setDeleteIntent(null)
-            .build()
+        if (status.phase == HoldPhase.FAILED) {
+            b.setContentTitle(svc.getString(R.string.hold_notification_title, status.deviceName))
+                .setContentText(svc.getString(
+                    if (isCall) R.string.hold_call_notification_text else R.string.hold_notification_text
+                ))
+                .setAutoCancel(true)
+                .addAction(0, svc.getString(R.string.hold_retry), action(ACTION_RETRY, 1))
+                .addAction(0, svc.getString(
+                    if (isCall) R.string.hold_use_phone else R.string.hold_play_on_phone
+                ), action(ACTION_PLAY_ON_PHONE, 2))
+        } else {
+            val text = when (status.phase) {
+                HoldPhase.REQUESTING_RELEASE ->
+                    if (status.peerName.isNullOrEmpty()) svc.getString(R.string.hold_asking_peer_generic)
+                    else svc.getString(R.string.hold_asking_peer, status.peerName)
+                HoldPhase.CONNECTING -> svc.getString(
+                    if (isCall) R.string.hold_call_connecting else R.string.hold_connecting, status.deviceName
+                )
+                HoldPhase.ROUTING -> svc.getString(
+                    if (isCall) R.string.hold_call_switching else R.string.hold_switching_audio
+                )
+                else -> svc.getString(R.string.hold_connected)
+            }
+            b.setContentTitle(status.deviceName)
+                .setContentText(text)
+                .setOngoing(status.phase != HoldPhase.CONNECTED)
+            if (status.phase == HoldPhase.CONNECTED) b.setProgress(0, 0, false)
+            else b.setProgress(0, 0, true)
+        }
         try {
-            nm.notify(NOTIFICATION_ID, n)
+            nm.notify(NOTIFICATION_ID, b.build())
             notificationShown = true
+            notifiedPhase = status.phase
+            Log.d(TAG, "notification: ${status.kind} ${status.phase}")
         } catch (e: Exception) {
             Log.w(TAG, "notify failed: ${e.message}")
         }
@@ -296,6 +332,7 @@ object HoldOverlayController {
     private fun cancelNotification() {
         if (!notificationShown) return
         notificationShown = false
+        notifiedPhase = null
         try {
             (service?.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager)
                 ?.cancel(NOTIFICATION_ID)

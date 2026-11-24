@@ -64,6 +64,7 @@ import io.automated.ventures.everypods.data.Battery
 import io.automated.ventures.everypods.data.BatteryComponent
 import io.automated.ventures.everypods.data.BatteryStatus
 import io.automated.ventures.everypods.services.ServiceManager
+import io.automated.ventures.everypods.utils.HoldKind
 import io.automated.ventures.everypods.utils.HoldPhase
 import io.automated.ventures.everypods.utils.HoldStatus
 import io.automated.ventures.everypods.utils.PlaybackHold
@@ -483,6 +484,9 @@ class IslandWindow(private val context: Context) {
         val ringBg = islandView.findViewById<ProgressBar>(R.id.island_battery_bg)
         val batteryText = islandView.findViewById<TextView>(R.id.island_battery_text)
         val buttons = islandView.findViewById<View>(R.id.island_hold_buttons)
+        val isCall = status.kind == HoldKind.CALL
+        islandView.findViewById<TextView>(R.id.island_hold_play_on_phone).text =
+            ctx.getString(if (isCall) R.string.hold_use_phone else R.string.hold_play_on_phone)
 
         when (status.phase) {
             HoldPhase.CONNECTED -> {
@@ -517,8 +521,10 @@ class IslandWindow(private val context: Context) {
                     HoldPhase.REQUESTING_RELEASE ->
                         if (status.peerName.isNullOrEmpty()) ctx.getString(R.string.hold_asking_peer_generic)
                         else ctx.getString(R.string.hold_asking_peer, status.peerName)
-                    HoldPhase.CONNECTING -> ctx.getString(R.string.hold_connecting, status.deviceName)
-                    else -> ctx.getString(R.string.hold_switching_audio)
+                    HoldPhase.CONNECTING -> ctx.getString(
+                        if (isCall) R.string.hold_call_connecting else R.string.hold_connecting, status.deviceName
+                    )
+                    else -> ctx.getString(if (isCall) R.string.hold_call_switching else R.string.hold_switching_audio)
                 }
                 buttons.visibility = View.GONE
                 ring.visibility = View.VISIBLE
