@@ -1039,4 +1039,22 @@ Yêu cầu giao thức: %4$d</string>
     <string name="ui_handover_trace_desc">Ghi mọi dòng nhật ký của EveryPods, kể cả địa chỉ Bluetooth của các thiết bị khác, vào các tệp riêng được giữ trong 14 ngày. Các tệp ở lại trên thiết bị này cho đến khi bạn chia sẻ.</string>
     <string name="ui_handover_trace_share">Chia sẻ nhật ký</string>
     <string name="ui_handover_trace_empty">Chưa có nhật ký nào</string>
+    <string name="hold_asking_peer">Đang yêu cầu %1$s nhả kết nối…</string>
+    <string name="hold_asking_peer_generic">Đang yêu cầu thiết bị khác của bạn nhả kết nối…</string>
+    <string name="hold_connecting">Đang kết nối với %1$s…</string>
+    <string name="hold_switching_audio">Đang chuyển âm thanh…</string>
+    <string name="hold_connected">Đã kết nối</string>
+    <string name="hold_failed">Không thể kết nối với %1$s</string>
+    <string name="hold_retry">Thử lại</string>
+    <string name="hold_play_on_phone">Phát trên điện thoại</string>
+    <string name="hold_call_connecting">Đang chuyển cuộc gọi sang %1$s…</string>
+    <string name="hold_call_switching">Đang chuyển âm thanh cuộc gọi…</string>
+    <string name="hold_use_phone">Dùng điện thoại</string>
+    <string name="hold_call_notification_text">Cuộc gọi vẫn ở trên điện thoại. Nhấn Thử lại để chuyển sang AirPods.</string>
+    <string name="hold_notification_channel_name">Tạm giữ phát</string>
+    <string name="hold_notification_channel_description">Hiển thị tiến trình kết nối AirPods khi điện thoại bị khóa và khi kết nối thất bại</string>
+    <string name="hold_notification_title">Không thể kết nối với %1$s</string>
+    <string name="hold_notification_text">Nội dung đã tạm dừng. Thử lại hoặc phát trên điện thoại.</string>
+    <string name="hold_playback_until_connected">Tạm dừng phát cho đến khi kết nối</string>
+    <string name="hold_playback_until_connected_description">Tạm dừng nội dung khi AirPods đang kết nối để không có âm thanh phát ra từ loa điện thoại.</string>
 </resources>

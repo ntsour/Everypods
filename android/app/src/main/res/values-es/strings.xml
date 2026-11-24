@@ -1041,4 +1041,22 @@ Solicitudes del protocolo: %4$d</string>
     <string name="ui_handover_trace_desc">Guarda cada línea de registro de EveryPods, incluidas las direcciones Bluetooth de los otros dispositivos, en archivos aparte que se conservan 14 días. Permanecen en este dispositivo hasta que los compartas.</string>
     <string name="ui_handover_trace_share">Compartir registro</string>
     <string name="ui_handover_trace_empty">Aún no hay ningún registro</string>
+    <string name="hold_asking_peer">Pidiendo a %1$s que los suelte…</string>
+    <string name="hold_asking_peer_generic">Pidiendo a tu otro dispositivo que los suelte…</string>
+    <string name="hold_connecting">Conectando con %1$s…</string>
+    <string name="hold_switching_audio">Cambiando el audio…</string>
+    <string name="hold_connected">Conectados</string>
+    <string name="hold_failed">No se pudo conectar con %1$s</string>
+    <string name="hold_retry">Reintentar</string>
+    <string name="hold_play_on_phone">Reproducir en el teléfono</string>
+    <string name="hold_call_connecting">Pasando la llamada a %1$s…</string>
+    <string name="hold_call_switching">Cambiando el audio de la llamada…</string>
+    <string name="hold_use_phone">Usar teléfono</string>
+    <string name="hold_call_notification_text">La llamada sigue en el teléfono. Pulsa Reintentar para pasarla a tus AirPods.</string>
+    <string name="hold_notification_channel_name">Pausa de reproducción</string>
+    <string name="hold_notification_channel_description">Muestra el progreso de conexión de los AirPods con el teléfono bloqueado y cuando no consiguen conectar</string>
+    <string name="hold_notification_title">No se pudo conectar con %1$s</string>
+    <string name="hold_notification_text">Tu contenido está en pausa. Reintenta o reprodúcelo en el teléfono.</string>
+    <string name="hold_playback_until_connected">Pausar hasta que se conecten</string>
+    <string name="hold_playback_until_connected_description">Pausa el contenido mientras se conectan los AirPods, para que no suene nada por el altavoz del teléfono.</string>
 </resources>

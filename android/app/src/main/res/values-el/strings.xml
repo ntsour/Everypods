@@ -1004,4 +1004,22 @@
     <string name="ui_handover_trace_desc">Καταγράφει κάθε γραμμή καταγραφής του EveryPods, μαζί με τις διευθύνσεις Bluetooth των άλλων συσκευών, σε ξεχωριστά αρχεία που διατηρούνται για 14 ημέρες. Παραμένουν σε αυτή τη συσκευή μέχρι να τα κοινοποιήσετε.</string>
     <string name="ui_handover_trace_share">Κοινοποίηση ιστορικού</string>
     <string name="ui_handover_trace_empty">Δεν έχει καταγραφεί ιστορικό ακόμη</string>
+    <string name="hold_asking_peer">Ζητείται από το %1$s να τα αφήσει…</string>
+    <string name="hold_asking_peer_generic">Ζητείται από την άλλη συσκευή σας να τα αφήσει…</string>
+    <string name="hold_connecting">Σύνδεση με %1$s…</string>
+    <string name="hold_switching_audio">Εναλλαγή ήχου…</string>
+    <string name="hold_connected">Συνδέθηκε</string>
+    <string name="hold_failed">Δεν ήταν δυνατή η σύνδεση με %1$s</string>
+    <string name="hold_retry">Ξανά</string>
+    <string name="hold_play_on_phone">Αναπαραγωγή στο τηλέφωνο</string>
+    <string name="hold_call_connecting">Μεταφορά της κλήσης στο %1$s…</string>
+    <string name="hold_call_switching">Εναλλαγή ήχου κλήσης…</string>
+    <string name="hold_use_phone">Χρήση τηλεφώνου</string>
+    <string name="hold_call_notification_text">Η κλήση σας μένει στο τηλέφωνο. Πατήστε Ξανά για μεταφορά στα AirPods.</string>
+    <string name="hold_notification_channel_name">Παύση αναπαραγωγής</string>
+    <string name="hold_notification_channel_description">Δείχνει την πρόοδο σύνδεσης των AirPods όταν το τηλέφωνο είναι κλειδωμένο και όταν η σύνδεση αποτυγχάνει</string>
+    <string name="hold_notification_title">Δεν ήταν δυνατή η σύνδεση με %1$s</string>
+    <string name="hold_notification_text">Τα μέσα σας είναι σε παύση. Δοκιμάστε ξανά ή παίξτε τα στο τηλέφωνο.</string>
+    <string name="hold_playback_until_connected">Παύση αναπαραγωγής μέχρι τη σύνδεση</string>
+    <string name="hold_playback_until_connected_description">Παύση των μέσων όσο συνδέονται τα AirPods, ώστε να μην ακούγεται τίποτα από το ηχείο του τηλεφώνου.</string>
 </resources>
