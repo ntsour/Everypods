@@ -79,6 +79,15 @@ class PeerOwnershipStore(
     @Synchronized
     fun observations(): Map<String, PeerObservation> = current.toMap()
 
+    /** Each peer's latest audio use, for peers whose own snapshot is still fresh. */
+    @Synchronized
+    fun freshAudioUses(): Map<String, PeerAudioUse> {
+        val now = clock.nowMs()
+        return current.filterValues {
+            CrossDeviceReconnectPolicy.observationIsFresh(it.receivedAtElapsedMs, now, freshnessMs)
+        }.mapValues { it.value.audioUse }
+    }
+
     @Synchronized
     fun allConfiguredPeersFresh(headsetId: String? = null): Boolean {
         val now = clock.nowMs()

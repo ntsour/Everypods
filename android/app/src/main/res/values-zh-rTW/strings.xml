@@ -1057,4 +1057,10 @@
     <string name="hold_notification_text">媒體已暫停。請重試或在手機上播放。</string>
     <string name="hold_playback_until_connected">連線前暫停播放</string>
     <string name="hold_playback_until_connected_description">在 AirPods 連線期間暫停媒體，避免手機揚聲器發出聲音。</string>
+    <string name="computer_in_call_channel_name">AirPods 正在電腦上使用</string>
+    <string name="computer_in_call_title">AirPods 正在 %1$s 上通話</string>
+    <string name="computer_in_call_generic_name">你的電腦</string>
+    <string name="computer_in_call_text_media">它們會留在那裡，因此將在手機上播放。</string>
+    <string name="computer_in_call_text_phone_call">它們會留在那裡，因此此來電將在手機上響鈴。</string>
+    <string name="computer_in_call_take">取回 AirPods</string>
 </resources>

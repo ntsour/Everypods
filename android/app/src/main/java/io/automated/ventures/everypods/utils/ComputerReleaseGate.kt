@@ -48,4 +48,21 @@ object ComputerReleaseGate {
         val held = holders.map { it.uppercase() }.toSet()
         return onlineHandoverPeers.map { it.uppercase() }.filter { it in held && isComputer(it) }.toSet()
     }
+
+    /**
+     * Computer holders whose fresh snapshot says they are in a call. An automatic takeover
+     * (media started or a phone call rang here) must not pull the AirPods out of that call:
+     * the computer refuses REQUEST_DISCONNECT then, and before this check the phone read
+     * the refusal as a slow ack and connected after [ACK_TIMEOUT_MS] anyway (Mac in a
+     * Teams call, 2026-11-24 20:46).
+     */
+    fun computersInCall(
+        computerHolders: Collection<String>,
+        audioUse: Map<String, io.automated.ventures.everypods.utils.peer.PeerAudioUse>,
+    ): Set<String> {
+        val byPeer = audioUse.mapKeys { it.key.uppercase() }
+        return computerHolders.map { it.uppercase() }
+            .filter { byPeer[it] == io.automated.ventures.everypods.utils.peer.PeerAudioUse.CALL }
+            .toSet()
+    }
 }

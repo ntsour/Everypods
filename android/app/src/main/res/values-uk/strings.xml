@@ -1057,4 +1057,10 @@
     <string name="hold_notification_text">Медіа на паузі. Повторіть спробу або відтворіть на телефоні.</string>
     <string name="hold_playback_until_connected">Пауза до підключення</string>
     <string name="hold_playback_until_connected_description">Ставить медіа на паузу, поки AirPods підключаються, щоб нічого не звучало з динаміка телефона.</string>
+    <string name="computer_in_call_channel_name">AirPods зайняті на комп’ютері</string>
+    <string name="computer_in_call_title">AirPods у дзвінку на %1$s</string>
+    <string name="computer_in_call_generic_name">вашому комп’ютері</string>
+    <string name="computer_in_call_text_media">Вони залишаються там, тому звук іде з телефона.</string>
+    <string name="computer_in_call_text_phone_call">Вони залишаються там, тому цей дзвінок лунає на телефоні.</string>
+    <string name="computer_in_call_take">Забрати AirPods</string>
 </resources>

@@ -1057,4 +1057,10 @@ Pedidos do protocolo: %4$d</string>
     <string name="hold_notification_text">O conteúdo está em pausa. Tente novamente ou reproduza no telemóvel.</string>
     <string name="hold_playback_until_connected">Pausar até ligar</string>
     <string name="hold_playback_until_connected_description">Pausa o conteúdo enquanto os AirPods se ligam, para que nada toque no altifalante do telemóvel.</string>
+    <string name="computer_in_call_channel_name">AirPods ocupados num computador</string>
+    <string name="computer_in_call_title">Os AirPods estão numa chamada em %1$s</string>
+    <string name="computer_in_call_generic_name">o seu computador</string>
+    <string name="computer_in_call_text_media">Ficam lá, por isso isto toca no telemóvel.</string>
+    <string name="computer_in_call_text_phone_call">Ficam lá, por isso esta chamada toca no telemóvel.</string>
+    <string name="computer_in_call_take">Usar AirPods aqui</string>
 </resources>

@@ -1074,4 +1074,10 @@ Protocol requests: %4$d</string>
     <string name="ui_handover_trace_desc">Records every EveryPods log line, including peer Bluetooth addresses, to separate files kept for 14 days. They stay on this device until you share them.</string>
     <string name="ui_handover_trace_share">Share trace</string>
     <string name="ui_handover_trace_empty">No trace recorded yet</string>
+    <string name="computer_in_call_channel_name">AirPods busy on a computer</string>
+    <string name="computer_in_call_title">AirPods are in a call on %1$s</string>
+    <string name="computer_in_call_generic_name">your computer</string>
+    <string name="computer_in_call_text_media">They stay there, so this plays on the phone.</string>
+    <string name="computer_in_call_text_phone_call">They stay there, so this call rings on the phone.</string>
+    <string name="computer_in_call_take">Take AirPods</string>
 </resources>

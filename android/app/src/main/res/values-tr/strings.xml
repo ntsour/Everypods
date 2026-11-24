@@ -1057,4 +1057,10 @@ Protokol istekleri: %4$d</string>
     <string name="hold_notification_text">Medyanız duraklatıldı. Tekrar deneyin veya telefonda çalın.</string>
     <string name="hold_playback_until_connected">Bağlanana kadar oynatmayı beklet</string>
     <string name="hold_playback_until_connected_description">AirPods bağlanırken medyayı duraklatır, böylece telefon hoparlöründen ses gelmez.</string>
+    <string name="computer_in_call_channel_name">AirPods bir bilgisayarda meşgul</string>
+    <string name="computer_in_call_title">AirPods %1$s üzerinde bir aramada</string>
+    <string name="computer_in_call_generic_name">bilgisayarınız</string>
+    <string name="computer_in_call_text_media">Orada kalıyorlar, bu yüzden bu telefonda çalıyor.</string>
+    <string name="computer_in_call_text_phone_call">Orada kalıyorlar, bu yüzden bu arama telefonda çalıyor.</string>
+    <string name="computer_in_call_take">AirPods\'u al</string>
 </resources>

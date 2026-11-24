@@ -207,6 +207,10 @@ object CrossDevice {
             it.audioUse == io.automated.ventures.everypods.utils.peer.PeerAudioUse.CALL
     }
 
+    /** Fresh per-peer audio use (peer MAC, uppercase); peers without a fresh snapshot are absent. */
+    fun freshPeerAudioUse(): Map<String, io.automated.ventures.everypods.utils.peer.PeerAudioUse> =
+        peerOwnershipStore.freshAudioUses()
+
     internal fun currentV2Snapshot(): Map<String, Any?> = localSnapshot()
 
     internal fun bindV2PeerIdentity(mac: String, installationId: String): String? {

@@ -1057,4 +1057,10 @@ Requêtes du protocole : %4$d</string>
     <string name="hold_notification_text">Votre média est en pause. Réessayez ou lisez-le sur le téléphone.</string>
     <string name="hold_playback_until_connected">Mettre en pause jusqu\'à la connexion</string>
     <string name="hold_playback_until_connected_description">Met les médias en pause pendant la connexion des AirPods, pour que rien ne sorte du haut-parleur du téléphone.</string>
+    <string name="computer_in_call_channel_name">AirPods occupés sur un ordinateur</string>
+    <string name="computer_in_call_title">Les AirPods sont en appel sur %1$s</string>
+    <string name="computer_in_call_generic_name">votre ordinateur</string>
+    <string name="computer_in_call_text_media">Ils restent là-bas, donc la lecture se fait sur le téléphone.</string>
+    <string name="computer_in_call_text_phone_call">Ils restent là-bas, donc cet appel sonne sur le téléphone.</string>
+    <string name="computer_in_call_take">Prendre les AirPods</string>
 </resources>

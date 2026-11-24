@@ -1056,4 +1056,10 @@ Protokollanfragen: %4$d</string>
     <string name="hold_notification_text">Deine Medien sind pausiert. Versuche es erneut oder spiele sie auf dem Telefon ab.</string>
     <string name="hold_playback_until_connected">Wiedergabe bis zur Verbindung anhalten</string>
     <string name="hold_playback_until_connected_description">Medien pausieren, während deine AirPods sich verbinden, damit nichts über den Telefonlautsprecher läuft.</string>
+    <string name="computer_in_call_channel_name">AirPods auf einem Computer belegt</string>
+    <string name="computer_in_call_title">AirPods sind in einem Anruf auf %1$s</string>
+    <string name="computer_in_call_generic_name">deinem Computer</string>
+    <string name="computer_in_call_text_media">Sie bleiben dort, daher wird dies auf dem Telefon abgespielt.</string>
+    <string name="computer_in_call_text_phone_call">Sie bleiben dort, daher klingelt dieser Anruf auf dem Telefon.</string>
+    <string name="computer_in_call_take">AirPods übernehmen</string>
 </resources>

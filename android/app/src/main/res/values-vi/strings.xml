@@ -1057,4 +1057,10 @@ Yêu cầu giao thức: %4$d</string>
     <string name="hold_notification_text">Nội dung đã tạm dừng. Thử lại hoặc phát trên điện thoại.</string>
     <string name="hold_playback_until_connected">Tạm dừng phát cho đến khi kết nối</string>
     <string name="hold_playback_until_connected_description">Tạm dừng nội dung khi AirPods đang kết nối để không có âm thanh phát ra từ loa điện thoại.</string>
+    <string name="computer_in_call_channel_name">AirPods đang bận trên máy tính</string>
+    <string name="computer_in_call_title">AirPods đang trong cuộc gọi trên %1$s</string>
+    <string name="computer_in_call_generic_name">máy tính của bạn</string>
+    <string name="computer_in_call_text_media">Chúng vẫn ở đó, nên nội dung này phát trên điện thoại.</string>
+    <string name="computer_in_call_text_phone_call">Chúng vẫn ở đó, nên cuộc gọi này đổ chuông trên điện thoại.</string>
+    <string name="computer_in_call_take">Lấy AirPods</string>
 </resources>

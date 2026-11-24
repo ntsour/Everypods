@@ -1022,4 +1022,10 @@
     <string name="hold_notification_text">Τα μέσα σας είναι σε παύση. Δοκιμάστε ξανά ή παίξτε τα στο τηλέφωνο.</string>
     <string name="hold_playback_until_connected">Παύση αναπαραγωγής μέχρι τη σύνδεση</string>
     <string name="hold_playback_until_connected_description">Παύση των μέσων όσο συνδέονται τα AirPods, ώστε να μην ακούγεται τίποτα από το ηχείο του τηλεφώνου.</string>
+    <string name="computer_in_call_channel_name">Τα AirPods είναι απασχολημένα σε υπολογιστή</string>
+    <string name="computer_in_call_title">Τα AirPods είναι σε κλήση στο %1$s</string>
+    <string name="computer_in_call_generic_name">τον υπολογιστή σας</string>
+    <string name="computer_in_call_text_media">Μένουν εκεί, οπότε αυτό παίζει στο τηλέφωνο.</string>
+    <string name="computer_in_call_text_phone_call">Μένουν εκεί, οπότε αυτή η κλήση χτυπά στο τηλέφωνο.</string>
+    <string name="computer_in_call_take">Πάρε τα AirPods</string>
 </resources>
