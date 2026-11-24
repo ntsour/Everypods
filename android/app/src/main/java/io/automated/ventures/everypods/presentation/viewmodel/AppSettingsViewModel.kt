@@ -25,6 +25,7 @@ data class AppSettingsUiState(
     val takeoverWhenCall: Boolean = false,
     val takeoverWhenRingingCall: Boolean = false,
     val takeoverWhenMediaStart: Boolean = false,
+    val holdPlaybackUntilConnected: Boolean = false,
     val conversationalAwarenessVolume: Float = 43f,
     val isPremium: Boolean = true,
     val connectionSuccessful: Boolean = false,
@@ -44,6 +45,9 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
         }
         if (key == "takeover_when_media_start") {
             _uiState.update { it.copy(takeoverWhenMediaStart = sharedPref.getBoolean(key, true)) }
+        }
+        if (key == "hold_playback_until_connected") {
+            _uiState.update { it.copy(holdPlaybackUntilConnected = sharedPref.getBoolean(key, false)) }
         }
         if (key == "takeover_when_ringing_call") {
             _uiState.update { it.copy(takeoverWhenRingingCall = sharedPref.getBoolean(key, true)) }
@@ -83,6 +87,7 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
                 takeoverWhenCall = sharedPreferences.getBoolean("takeover_when_call", true),
                 takeoverWhenRingingCall = sharedPreferences.getBoolean("takeover_when_ringing_call", true),
                 takeoverWhenMediaStart = sharedPreferences.getBoolean("takeover_when_media_start", true),
+                holdPlaybackUntilConnected = sharedPreferences.getBoolean("hold_playback_until_connected", false),
                 conversationalAwarenessVolume = sharedPreferences.getInt("conversational_awareness_volume", 43).toFloat(),
                 connectionSuccessful = sharedPreferences.getBoolean("connection_successful", false),
                 showBottomSheetPopup = sharedPreferences.getBoolean("show_bottom_sheet_popup", false),
@@ -139,6 +144,11 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
     fun setTakeoverWhenMediaStart(enabled: Boolean) {
         sharedPreferences.edit { putBoolean("takeover_when_media_start", enabled) }
         _uiState.update { it.copy(takeoverWhenMediaStart = enabled) }
+    }
+
+    fun setHoldPlaybackUntilConnected(enabled: Boolean) {
+        sharedPreferences.edit { putBoolean("hold_playback_until_connected", enabled) }
+        _uiState.update { it.copy(holdPlaybackUntilConnected = enabled) }
     }
 
     fun setConversationalAwarenessVolume(volume: Float) {

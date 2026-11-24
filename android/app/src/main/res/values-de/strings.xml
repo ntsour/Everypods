@@ -1038,4 +1038,22 @@ Protokollanfragen: %4$d</string>
     <string name="ui_handover_trace_desc">Speichert jede EveryPods-Protokollzeile, einschließlich der Bluetooth-Adressen anderer Geräte, 14 Tage lang in separaten Dateien. Sie bleiben auf diesem Gerät, bis du sie teilst.</string>
     <string name="ui_handover_trace_share">Protokoll teilen</string>
     <string name="ui_handover_trace_empty">Noch kein Protokoll aufgezeichnet</string>
+    <string name="hold_asking_peer">%1$s wird gebeten, sie freizugeben…</string>
+    <string name="hold_asking_peer_generic">Dein anderes Gerät wird gebeten, sie freizugeben…</string>
+    <string name="hold_connecting">Verbinde mit %1$s…</string>
+    <string name="hold_switching_audio">Audio wird umgeschaltet…</string>
+    <string name="hold_connected">Verbunden</string>
+    <string name="hold_failed">Verbindung mit %1$s fehlgeschlagen</string>
+    <string name="hold_retry">Erneut versuchen</string>
+    <string name="hold_play_on_phone">Auf dem Telefon abspielen</string>
+    <string name="hold_call_connecting">Dein Anruf wird auf %1$s verlegt…</string>
+    <string name="hold_call_switching">Anrufaudio wird umgeschaltet…</string>
+    <string name="hold_use_phone">Telefon verwenden</string>
+    <string name="hold_call_notification_text">Dein Anruf bleibt auf dem Telefon. Tippe auf Erneut versuchen, um ihn auf deine AirPods zu verlegen.</string>
+    <string name="hold_notification_channel_name">Wiedergabe anhalten</string>
+    <string name="hold_notification_channel_description">Zeigt den Verbindungsfortschritt der AirPods bei gesperrtem Telefon und wenn die Verbindung fehlschlägt</string>
+    <string name="hold_notification_title">Verbindung mit %1$s fehlgeschlagen</string>
+    <string name="hold_notification_text">Deine Medien sind pausiert. Versuche es erneut oder spiele sie auf dem Telefon ab.</string>
+    <string name="hold_playback_until_connected">Wiedergabe bis zur Verbindung anhalten</string>
+    <string name="hold_playback_until_connected_description">Medien pausieren, während deine AirPods sich verbinden, damit nichts über den Telefonlautsprecher läuft.</string>
 </resources>

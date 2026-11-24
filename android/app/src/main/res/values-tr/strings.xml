@@ -1039,4 +1039,22 @@ Protokol istekleri: %4$d</string>
     <string name="ui_handover_trace_desc">EveryPods günlüğündeki her satırı, diğer cihazların Bluetooth adresleri dahil, 14 gün saklanan ayrı dosyalara kaydeder. Paylaşana kadar bu cihazda kalır.</string>
     <string name="ui_handover_trace_share">Kaydı paylaş</string>
     <string name="ui_handover_trace_empty">Henüz kayıt yok</string>
+    <string name="hold_asking_peer">%1$s cihazından bırakması isteniyor…</string>
+    <string name="hold_asking_peer_generic">Diğer cihazınızdan bırakması isteniyor…</string>
+    <string name="hold_connecting">%1$s cihazına bağlanılıyor…</string>
+    <string name="hold_switching_audio">Ses değiştiriliyor…</string>
+    <string name="hold_connected">Bağlandı</string>
+    <string name="hold_failed">%1$s cihazına bağlanılamadı</string>
+    <string name="hold_retry">Tekrar dene</string>
+    <string name="hold_play_on_phone">Telefonda çal</string>
+    <string name="hold_call_connecting">Aramanız %1$s cihazına aktarılıyor…</string>
+    <string name="hold_call_switching">Arama sesi değiştiriliyor…</string>
+    <string name="hold_use_phone">Telefonu kullan</string>
+    <string name="hold_call_notification_text">Aramanız telefonda kalıyor. AirPods\'a aktarmak için Tekrar dene\'ye dokunun.</string>
+    <string name="hold_notification_channel_name">Oynatmayı bekletme</string>
+    <string name="hold_notification_channel_description">Telefon kilitliyken ve bağlantı başarısız olduğunda AirPods bağlantı ilerlemesini gösterir</string>
+    <string name="hold_notification_title">%1$s cihazına bağlanılamadı</string>
+    <string name="hold_notification_text">Medyanız duraklatıldı. Tekrar deneyin veya telefonda çalın.</string>
+    <string name="hold_playback_until_connected">Bağlanana kadar oynatmayı beklet</string>
+    <string name="hold_playback_until_connected_description">AirPods bağlanırken medyayı duraklatır, böylece telefon hoparlöründen ses gelmez.</string>
 </resources>

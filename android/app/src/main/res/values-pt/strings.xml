@@ -1039,4 +1039,22 @@ Pedidos do protocolo: %4$d</string>
     <string name="ui_handover_trace_desc">Guarda cada linha de registo do EveryPods, incluindo os endereços Bluetooth dos outros dispositivos, em ficheiros separados mantidos durante 14 dias. Ficam neste dispositivo até os partilhar.</string>
     <string name="ui_handover_trace_share">Partilhar registo</string>
     <string name="ui_handover_trace_empty">Ainda não há registo</string>
+    <string name="hold_asking_peer">A pedir a %1$s que os liberte…</string>
+    <string name="hold_asking_peer_generic">A pedir ao seu outro dispositivo que os liberte…</string>
+    <string name="hold_connecting">A ligar a %1$s…</string>
+    <string name="hold_switching_audio">A mudar o áudio…</string>
+    <string name="hold_connected">Ligados</string>
+    <string name="hold_failed">Não foi possível ligar a %1$s</string>
+    <string name="hold_retry">Tentar novamente</string>
+    <string name="hold_play_on_phone">Reproduzir no telemóvel</string>
+    <string name="hold_call_connecting">A passar a chamada para %1$s…</string>
+    <string name="hold_call_switching">A mudar o áudio da chamada…</string>
+    <string name="hold_use_phone">Usar telemóvel</string>
+    <string name="hold_call_notification_text">A chamada fica no telemóvel. Toque em Tentar novamente para a passar para os AirPods.</string>
+    <string name="hold_notification_channel_name">Pausa de reprodução</string>
+    <string name="hold_notification_channel_description">Mostra o progresso da ligação dos AirPods com o telemóvel bloqueado e quando a ligação falha</string>
+    <string name="hold_notification_title">Não foi possível ligar a %1$s</string>
+    <string name="hold_notification_text">O conteúdo está em pausa. Tente novamente ou reproduza no telemóvel.</string>
+    <string name="hold_playback_until_connected">Pausar até ligar</string>
+    <string name="hold_playback_until_connected_description">Pausa o conteúdo enquanto os AirPods se ligam, para que nada toque no altifalante do telemóvel.</string>
 </resources>

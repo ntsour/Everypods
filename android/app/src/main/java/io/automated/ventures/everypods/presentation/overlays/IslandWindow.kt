@@ -64,6 +64,10 @@ import io.automated.ventures.everypods.data.Battery
 import io.automated.ventures.everypods.data.BatteryComponent
 import io.automated.ventures.everypods.data.BatteryStatus
 import io.automated.ventures.everypods.services.ServiceManager
+import io.automated.ventures.everypods.utils.HoldKind
+import io.automated.ventures.everypods.utils.HoldPhase
+import io.automated.ventures.everypods.utils.HoldStatus
+import io.automated.ventures.everypods.utils.PlaybackHold
 import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlin.math.abs
 
@@ -72,6 +76,10 @@ enum class IslandType {
     TAKING_OVER,
     MOVED_TO_REMOTE,
     MOVED_TO_OTHER_DEVICE,
+    /** Playback hold in progress: progress ring + phase text, no auto-close. */
+    CONNECTING,
+    /** Playback hold failed: Retry / Play on phone buttons, no auto-close. */
+    FAILED,
 }
 
 class IslandWindow(private val context: Context) {
@@ -103,6 +111,16 @@ class IslandWindow(private val context: Context) {
 
     private val containerView = FrameLayout(context)
 
+    /** True while the island shows the playback-hold look (connecting / failed). */
+    private var holdMode = false
+    private var holdMorphed = false
+
+    /** True while this island is showing the connecting/failed hold look. */
+    val isHolding: Boolean get() = holdMode
+
+    /** Invoked once when the island is removed from the screen, for any reason. */
+    var onClosed: (() -> Unit)? = null
+
     private lateinit var springAnimation: SpringAnimation
     private val flingAnimator = ValueAnimator()
 
@@ -131,6 +149,7 @@ class IslandWindow(private val context: Context) {
 
     @SuppressLint("SetTextI18n")
     private fun updateBatteryDisplay(batteryList: ArrayList<Battery>?) {
+        if (holdMode) return
         if (batteryList == null || batteryList.isEmpty()) return
 
         val leftBattery = batteryList.find { it.component == BatteryComponent.LEFT }
@@ -169,6 +188,9 @@ class IslandWindow(private val context: Context) {
         if (ServiceManager.getService()?.islandOpen == true) return
         else ServiceManager.getService()?.islandOpen = true
 
+        holdMode = type == IslandType.CONNECTING || type == IslandType.FAILED
+        holdMorphed = false
+
         val displayMetrics = Resources.getSystem().displayMetrics
         val width = (displayMetrics.widthPixels * 0.95).toInt()
         screenHeight = displayMetrics.heightPixels
@@ -205,6 +227,14 @@ class IslandWindow(private val context: Context) {
 
         batteryProgressBar.isIndeterminate = false
         islandView.findViewById<TextView>(R.id.island_device_name).text = name
+        if (holdMode) {
+            batteryText.visibility = View.GONE
+            batteryProgressBar.progress = 0
+        }
+        islandView.findViewById<View>(R.id.island_hold_retry).setOnClickListener { PlaybackHold.retry() }
+        islandView.findViewById<View>(R.id.island_hold_play_on_phone).setOnClickListener { PlaybackHold.playOnPhone() }
+        islandView.findViewById<View>(R.id.island_hold_buttons).visibility =
+            if (type == IslandType.FAILED) View.VISIBLE else View.GONE
 
         val actionButton = islandView.findViewById<ImageButton>(R.id.island_action_button)
         val batteryBg = islandView.findViewById<ProgressBar>(R.id.island_battery_bg)
@@ -221,7 +251,7 @@ class IslandWindow(private val context: Context) {
             batteryBg.visibility = View.GONE
         } else {
             actionButton.visibility = View.GONE
-            batteryText.visibility = View.VISIBLE
+            batteryText.visibility = if (holdMode) View.GONE else View.VISIBLE
             batteryProgressBar.visibility = View.VISIBLE
             batteryBg.visibility = View.VISIBLE
         }
@@ -260,7 +290,7 @@ class IslandWindow(private val context: Context) {
         containerView.setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
-                    autoCloseHandler?.removeCallbacks(autoCloseRunnable ?: return@setOnTouchListener false)
+                    autoCloseRunnable?.let { autoCloseHandler?.removeCallbacks(it) }
                     flingAnimator.cancel()
 
                     velocityTracker?.recycle()
@@ -299,7 +329,7 @@ class IslandWindow(private val context: Context) {
                         isBeingDragged = true
 
                         // Cancel auto close timer when dragging starts
-                        autoCloseHandler?.removeCallbacks(autoCloseRunnable ?: return@setOnTouchListener false)
+                        autoCloseRunnable?.let { autoCloseHandler?.removeCallbacks(it) }
 
                         val dampedDeltaY = if (deltaY > 0) {
                             initialY + (deltaY * 0.6f)
@@ -361,6 +391,14 @@ class IslandWindow(private val context: Context) {
             IslandType.MOVED_TO_REMOTE -> {
                 islandView.findViewById<TextView>(R.id.island_connected_text).text = context.getString(R.string.island_moved_to_remote_text)
             }
+            IslandType.CONNECTING -> {
+                islandView.findViewById<TextView>(R.id.island_connected_text).text = context.getString(R.string.hold_connecting, name)
+            }
+            IslandType.FAILED -> {
+                islandView.findViewById<TextView>(R.id.island_connected_text).text = context.getString(R.string.hold_failed, name)
+                batteryProgressBar.visibility = View.GONE
+                batteryBg.visibility = View.GONE
+            }
             IslandType.MOVED_TO_OTHER_DEVICE -> {
                 if (otherDeviceName == null || otherDeviceName.isEmpty()) {
                     e("IslandWindow", "Other device name is null or empty for MOVED_TO_OTHER_DEVICE type")
@@ -411,6 +449,91 @@ class IslandWindow(private val context: Context) {
         }
 
         resetAutoCloseTimer()
+    }
+
+    private fun currentBatteryLevel(fallback: Int): Int? {
+        val list = ServiceManager.getService()?.getBattery()
+        val left = list?.find { it.component == BatteryComponent.LEFT }?.level ?: 0
+        val right = list?.find { it.component == BatteryComponent.RIGHT }?.level ?: 0
+        return when {
+            left > 0 && right > 0 -> minOf(left, right)
+            left > 0 -> left
+            right > 0 -> right
+            fallback > 0 -> fallback
+            else -> null
+        }
+    }
+
+    /**
+     * Playback-hold update; safe to call repeatedly (e.g. every 100 ms) on a shown island.
+     * CONNECTING/ROUTING/REQUESTING_RELEASE: phase text + determinate progress ring.
+     * FAILED: failure text + Retry / Play on phone buttons.
+     * CONNECTED: morphs into the normal "taking over" look with real battery and starts
+     * the normal auto-close. No-op if the island isn't on screen or was already morphed.
+     */
+    @SuppressLint("SetTextI18n")
+    fun updateHold(status: HoldStatus, progress: Float, batteryPercentage: Int = 0) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            Handler(Looper.getMainLooper()).post { updateHold(status, progress, batteryPercentage) }
+            return
+        }
+        if (containerView.parent == null || isClosing || holdMorphed) return
+        val ctx = context
+        val text = islandView.findViewById<TextView>(R.id.island_connected_text)
+        val ring = islandView.findViewById<ProgressBar>(R.id.island_battery_progress)
+        val ringBg = islandView.findViewById<ProgressBar>(R.id.island_battery_bg)
+        val batteryText = islandView.findViewById<TextView>(R.id.island_battery_text)
+        val buttons = islandView.findViewById<View>(R.id.island_hold_buttons)
+        val isCall = status.kind == HoldKind.CALL
+        islandView.findViewById<TextView>(R.id.island_hold_play_on_phone).text =
+            ctx.getString(if (isCall) R.string.hold_use_phone else R.string.hold_play_on_phone)
+
+        when (status.phase) {
+            HoldPhase.CONNECTED -> {
+                holdMorphed = true
+                holdMode = false
+                buttons.visibility = View.GONE
+                ring.visibility = View.VISIBLE
+                ringBg.visibility = View.VISIBLE
+                batteryText.visibility = View.VISIBLE
+                text.text = ctx.getString(R.string.island_taking_over_text)
+                val level = currentBatteryLevel(batteryPercentage)
+                if (level != null) {
+                    batteryText.text = "$level%"
+                    ring.progress = level
+                } else {
+                    batteryText.text = "?"
+                    ring.progress = 0
+                }
+                resetAutoCloseTimer()
+            }
+            HoldPhase.FAILED -> {
+                holdMode = true
+                text.text = ctx.getString(R.string.hold_failed, status.deviceName)
+                ring.visibility = View.GONE
+                ringBg.visibility = View.GONE
+                batteryText.visibility = View.GONE
+                buttons.visibility = View.VISIBLE
+            }
+            else -> {
+                holdMode = true
+                text.text = when (status.phase) {
+                    HoldPhase.REQUESTING_RELEASE ->
+                        if (status.peerName.isNullOrEmpty()) ctx.getString(R.string.hold_asking_peer_generic)
+                        else ctx.getString(R.string.hold_asking_peer, status.peerName)
+                    HoldPhase.CONNECTING -> ctx.getString(
+                        if (isCall) R.string.hold_call_connecting else R.string.hold_connecting, status.deviceName
+                    )
+                    else -> ctx.getString(if (isCall) R.string.hold_call_switching else R.string.hold_switching_audio)
+                }
+                buttons.visibility = View.GONE
+                ring.visibility = View.VISIBLE
+                ringBg.visibility = View.VISIBLE
+                batteryText.visibility = View.GONE
+                ring.isIndeterminate = false
+                ring.progress = (progress.coerceIn(0f, 1f) * 100f).toInt()
+            }
+        }
     }
 
     private fun captureInitialPositions() {
@@ -472,7 +595,8 @@ class IslandWindow(private val context: Context) {
     }
 
     private fun resetAutoCloseTimer() {
-        autoCloseHandler?.removeCallbacks(autoCloseRunnable ?: return)
+        autoCloseRunnable?.let { autoCloseHandler?.removeCallbacks(it) }
+        if (holdMode) return
         autoCloseHandler = Handler(Looper.getMainLooper())
         autoCloseRunnable = Runnable { close() }
         autoCloseHandler?.postDelayed(autoCloseRunnable!!, 4500)
@@ -666,7 +790,7 @@ class IslandWindow(private val context: Context) {
             }
 
             ServiceManager.getService()?.islandOpen = false
-            autoCloseHandler?.removeCallbacks(autoCloseRunnable ?: return)
+            autoCloseRunnable?.let { autoCloseHandler?.removeCallbacks(it) }
 
             resetStretchEffects()
 
@@ -715,6 +839,7 @@ class IslandWindow(private val context: Context) {
             e("IslandWindow", "Error removing view: $e")
         }
         isClosing = false
+        holdMode = false
         // Make sure all animations are canceled
         try {
             springAnimation.cancel()
@@ -726,6 +851,9 @@ class IslandWindow(private val context: Context) {
         } catch (e: Exception) {
             e("IslandWindow", "Error cancelling fling animation $e")
         }
+        val callback = onClosed
+        onClosed = null
+        callback?.invoke()
     }
 
     fun forceClose() {
@@ -744,7 +872,7 @@ class IslandWindow(private val context: Context) {
             }
 
             ServiceManager.getService()?.islandOpen = false
-            autoCloseHandler?.removeCallbacks(autoCloseRunnable ?: return)
+            autoCloseRunnable?.let { autoCloseHandler?.removeCallbacks(it) }
 
             // Cancel all ongoing animations
             springAnimation.cancel()

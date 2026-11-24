@@ -874,6 +874,10 @@ private fun ConnectionContent(state: AirPodsUiState, appState: AppSettingsUiStat
             StyledToggle(label = stringResource(R.string.takeover_media_start), description = stringResource(R.string.takeover_media_start_desc),
                 checked = appState.takeoverWhenMediaStart && !handoverTemporarilyPaused, onCheckedChange = appSettingsViewModel::setTakeoverWhenMediaStart, enabled = !handoverTemporarilyPaused)
         } }
+        AnchorWrapper("hold_playback") { rowModifier -> Box(rowModifier) {
+            StyledToggle(label = stringResource(R.string.hold_playback_until_connected), description = stringResource(R.string.hold_playback_until_connected_description),
+                checked = appState.holdPlaybackUntilConnected, onCheckedChange = appSettingsViewModel::setHoldPlaybackUntilConnected, enabled = appState.takeoverWhenMediaStart && !handoverTemporarilyPaused)
+        } }
         if (appState.takeoverWhenMediaStart) io.automated.ventures.everypods.presentation.components.MediaHandoverAccessNotice()
     } }
     AnchorWrapper("ear_detection") { modifier -> SettingsSection(stringResource(R.string.ear_detection), modifier) {
