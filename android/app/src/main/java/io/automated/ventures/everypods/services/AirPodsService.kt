@@ -5627,6 +5627,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     private fun airPodsLikelyWorn(): Boolean {
         val socketUp = ::socket.isInitialized && socket.isConnected
         if (socketUp) return !areBothPodsInCase() && earDetectionNotification.status.contains(0x00.toByte())
+        // A linked peer forwards the AirPods' advert (ear state included). Some phones' own
+        // background BLE scan goes silent for hours (Xiaomi), so the peer may be the only
+        // fresh evidence.
+        if (peerReportsBudInEar()) return true
         val ble = bleManager.getMostRecentStatus() ?: return false
         if (System.currentTimeMillis() - ble.lastSeen > EAR_DATA_FRESHNESS_MS) return false
         if (ble.isLeftCharging && ble.isRightCharging) return false
