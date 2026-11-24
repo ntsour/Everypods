@@ -1004,4 +1004,10 @@
     <string name="ui_handover_trace_desc">Καταγράφει κάθε γραμμή καταγραφής του EveryPods, μαζί με τις διευθύνσεις Bluetooth των άλλων συσκευών, σε ξεχωριστά αρχεία που διατηρούνται για 14 ημέρες. Παραμένουν σε αυτή τη συσκευή μέχρι να τα κοινοποιήσετε.</string>
     <string name="ui_handover_trace_share">Κοινοποίηση ιστορικού</string>
     <string name="ui_handover_trace_empty">Δεν έχει καταγραφεί ιστορικό ακόμη</string>
+    <string name="computer_in_call_channel_name">Τα AirPods είναι απασχολημένα σε υπολογιστή</string>
+    <string name="computer_in_call_title">Τα AirPods είναι σε κλήση στο %1$s</string>
+    <string name="computer_in_call_generic_name">τον υπολογιστή σας</string>
+    <string name="computer_in_call_text_media">Μένουν εκεί, οπότε αυτό παίζει στο τηλέφωνο.</string>
+    <string name="computer_in_call_text_phone_call">Μένουν εκεί, οπότε αυτή η κλήση χτυπά στο τηλέφωνο.</string>
+    <string name="computer_in_call_take">Πάρε τα AirPods</string>
 </resources>

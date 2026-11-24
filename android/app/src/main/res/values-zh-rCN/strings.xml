@@ -1038,4 +1038,10 @@
     <string name="ui_handover_trace_desc">将 EveryPods 的每一行日志（包括其他设备的蓝牙地址）记录到单独的文件中，保留 14 天。在你分享之前，这些文件只保存在本设备上。</string>
     <string name="ui_handover_trace_share">分享日志</string>
     <string name="ui_handover_trace_empty">尚未记录日志</string>
+    <string name="computer_in_call_channel_name">AirPods 正在电脑上使用</string>
+    <string name="computer_in_call_title">AirPods 正在 %1$s 上通话</string>
+    <string name="computer_in_call_generic_name">你的电脑</string>
+    <string name="computer_in_call_text_media">它们会留在那里，因此将在手机上播放。</string>
+    <string name="computer_in_call_text_phone_call">它们会留在那里，因此此来电将在手机上响铃。</string>
+    <string name="computer_in_call_take">取回 AirPods</string>
 </resources>

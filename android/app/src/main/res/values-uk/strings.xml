@@ -1039,4 +1039,10 @@
     <string name="ui_handover_trace_desc">Записує кожен рядок журналу EveryPods, зокрема Bluetooth-адреси інших пристроїв, в окремі файли, що зберігаються 14 днів. Вони залишаються на цьому пристрої, доки ви ними не поділитеся.</string>
     <string name="ui_handover_trace_share">Поділитися журналом</string>
     <string name="ui_handover_trace_empty">Журнал ще не записано</string>
+    <string name="computer_in_call_channel_name">AirPods зайняті на комп’ютері</string>
+    <string name="computer_in_call_title">AirPods у дзвінку на %1$s</string>
+    <string name="computer_in_call_generic_name">вашому комп’ютері</string>
+    <string name="computer_in_call_text_media">Вони залишаються там, тому звук іде з телефона.</string>
+    <string name="computer_in_call_text_phone_call">Вони залишаються там, тому цей дзвінок лунає на телефоні.</string>
+    <string name="computer_in_call_take">Забрати AirPods</string>
 </resources>

@@ -1039,4 +1039,10 @@ Richieste protocollo: %4$d</string>
     <string name="ui_handover_trace_desc">Salva ogni riga di log di EveryPods, compresi gli indirizzi Bluetooth degli altri dispositivi, in file separati conservati per 14 giorni. Restano su questo dispositivo finché non li condividi.</string>
     <string name="ui_handover_trace_share">Condividi registro</string>
     <string name="ui_handover_trace_empty">Nessun registro ancora</string>
+    <string name="computer_in_call_channel_name">AirPods occupati su un computer</string>
+    <string name="computer_in_call_title">Gli AirPods sono in una chiamata su %1$s</string>
+    <string name="computer_in_call_generic_name">il tuo computer</string>
+    <string name="computer_in_call_text_media">Restano lì, quindi l\'audio viene riprodotto sul telefono.</string>
+    <string name="computer_in_call_text_phone_call">Restano lì, quindi questa chiamata squilla sul telefono.</string>
+    <string name="computer_in_call_take">Prendi gli AirPods</string>
 </resources>

@@ -1039,4 +1039,10 @@ Yêu cầu giao thức: %4$d</string>
     <string name="ui_handover_trace_desc">Ghi mọi dòng nhật ký của EveryPods, kể cả địa chỉ Bluetooth của các thiết bị khác, vào các tệp riêng được giữ trong 14 ngày. Các tệp ở lại trên thiết bị này cho đến khi bạn chia sẻ.</string>
     <string name="ui_handover_trace_share">Chia sẻ nhật ký</string>
     <string name="ui_handover_trace_empty">Chưa có nhật ký nào</string>
+    <string name="computer_in_call_channel_name">AirPods đang bận trên máy tính</string>
+    <string name="computer_in_call_title">AirPods đang trong cuộc gọi trên %1$s</string>
+    <string name="computer_in_call_generic_name">máy tính của bạn</string>
+    <string name="computer_in_call_text_media">Chúng vẫn ở đó, nên nội dung này phát trên điện thoại.</string>
+    <string name="computer_in_call_text_phone_call">Chúng vẫn ở đó, nên cuộc gọi này đổ chuông trên điện thoại.</string>
+    <string name="computer_in_call_take">Lấy AirPods</string>
 </resources>

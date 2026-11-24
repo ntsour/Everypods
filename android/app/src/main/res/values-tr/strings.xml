@@ -1039,4 +1039,10 @@ Protokol istekleri: %4$d</string>
     <string name="ui_handover_trace_desc">EveryPods günlüğündeki her satırı, diğer cihazların Bluetooth adresleri dahil, 14 gün saklanan ayrı dosyalara kaydeder. Paylaşana kadar bu cihazda kalır.</string>
     <string name="ui_handover_trace_share">Kaydı paylaş</string>
     <string name="ui_handover_trace_empty">Henüz kayıt yok</string>
+    <string name="computer_in_call_channel_name">AirPods bir bilgisayarda meşgul</string>
+    <string name="computer_in_call_title">AirPods %1$s üzerinde bir aramada</string>
+    <string name="computer_in_call_generic_name">bilgisayarınız</string>
+    <string name="computer_in_call_text_media">Orada kalıyorlar, bu yüzden bu telefonda çalıyor.</string>
+    <string name="computer_in_call_text_phone_call">Orada kalıyorlar, bu yüzden bu arama telefonda çalıyor.</string>
+    <string name="computer_in_call_take">AirPods\'u al</string>
 </resources>
