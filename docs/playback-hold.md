@@ -111,6 +111,11 @@ is active, and during a hold it isn't.
   `isActive` is already false by then.
 - If another island is open when a hold starts, the hold's island replaces it. Otherwise
   the hold would have no UI.
+- A hold (or call progress) only starts when a bud is likely worn, so AirPods left in the
+  case never trigger it (`airPodsLikelyWorn()`). The evidence is our own AACP ear state, a
+  BLE advert under 10 s old, or a peer's forwarded in-ear report under 60 s old. A Xiaomi
+  (HyperOS) drops AirPods proximity adverts before apps see them, so its own scan never has
+  fresh ear data and relies on the peer's report.
 
 There is no refusal signal from peers today (`COURTESY_DENY` is ignored), so failure is
 timeout-only.
@@ -142,6 +147,7 @@ The hold drives the overlay the user already chose in *Pop-up Animations*:
 | Bottom sheet (`show_bottom_sheet_popup`) | Same states in the bottom-sheet popup: a status line with a linear progress bar, and Retry / Play on phone on failure. |
 | Both on | Island only (it's the lighter surface). |
 | Neither on, or no overlay permission | No UI while connecting. On `FAILED`, a high-priority notification with Retry / Play on phone. |
+| Phone locked | The overlay above, plus a public progress notification (see *Lock screen* under Calls). |
 
 Phase text: "Asking {peer} to let go…", "Connecting to {name}…", "Switching audio…",
 "Connected", "Couldn't connect to {name}".
@@ -208,10 +214,14 @@ Calls are never held, muted or paused. When `takeOver("call")` is about to conne
 call ringing or answered, or a VoIP call starting: the existing call triggers), `PlaybackHold.startCall()`
 publishes the same `HoldStatus` with `kind = CALL`, and the overlay shows handover progress.
 
-- **Surface:** always the **bottom-sheet popup**, never the island. At the top, the island
-  would cover the incoming-call banner and its Answer / Decline buttons. It's shown when
-  either pop-up preference is on and the overlay permission is granted. Otherwise only
-  failures are shown, as a notification.
+- **Surface:** chosen by where the call controls are, not by the pop-up preference. It's
+  shown when either pop-up preference is on and the overlay permission is granted.
+  - **Bottom-sheet popup** for a ringing call on an unlocked phone (`AudioManager.mode ==
+    MODE_RINGTONE`). Here the heads-up banner with Answer / Decline is at the top, and the
+    island would cover it.
+  - **Top island** on the lock screen and the in-call screen (outgoing or answered calls).
+    Here the Answer / call controls are at the bottom, and the popup covered them.
+  - Otherwise only failures are shown, as a notification.
 - **Phases:** "Asking … to let go" → "Moving your call to {name}…" → "Switching call audio…".
   A2DP events only move the phase to CONNECTING. The headset (HFP) profile connecting moves
   it to ROUTING. `CONNECTED` comes when HFP is connected (in-band ring) or the AirPods are
@@ -223,5 +233,14 @@ publishes the same `HoldStatus` with `kind = CALL`, and the overlay shows handov
   `MODE_IN_COMMUNICATION`) or the AirPods are lost to a peer.
 - **A call during a media hold:** the media hold ends with the media left paused, and the
   call status takes over.
-- **Lock screen:** a full-screen incoming call on a locked phone may hide the overlay.
-  Still to verify on the Pixel and the Xiaomi.
+- **Lock screen:** overlays may not draw over the lock screen or the full-screen incoming
+  call on it. While the phone is locked (`KeyguardManager.isKeyguardLocked`), the progress is
+  therefore also posted as a public notification (indeterminate progress, the same phase
+  texts). On failure it becomes "Couldn't connect" with Retry / Use phone, and it's cancelled
+  when the hold ends. This applies to media holds too.
+- **Ringtone stays on the phone:** when the AirPods connect while a call is already
+  ringing, Telecom notes them as the active Bluetooth device but doesn't move the ringing
+  call there (`routeTo: skip requesting route for non-user request`). The ringtone keeps
+  playing on the phone, and an app can't change that. Answering from the AirPods should
+  bring the call audio onto them (not yet verified). `CONNECTED` means the AirPods are the
+  call device, not that the ringtone is in them.
