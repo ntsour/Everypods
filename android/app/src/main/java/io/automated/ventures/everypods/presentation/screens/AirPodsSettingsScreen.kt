@@ -304,6 +304,7 @@ private fun buildSearchIndex(context: Context): List<SearchableItem> = listOf(
     SearchableItem("Background Activity",      "App Settings", "appsettings", "category/appsettings?anchor=background_activity", keywords = listOf("battery", "optimization", "unrestricted", "background", "actividad en segundo plano")),
     SearchableItem("Connect When Receiving a Call","Audio & Connection","audio", "category/audio?anchor=takeover_ringing", keywords = listOf("takeover", "auto connect", "ringing", "incoming call", "al recibir una llamada")),
     SearchableItem("Connect When Starting Media","Audio & Connection","audio", "category/audio?anchor=takeover_media", keywords = listOf("takeover", "auto connect", "media starts", "playback", "al iniciar multimedia")),
+    SearchableItem(context.getString(R.string.hold_playback_until_connected), "Audio & Connection", "audio", "category/audio?anchor=hold_playback", keywords = listOf("pause", "media", "speaker", "playback", "handover", "hold")),
     SearchableItem(context.getString(R.string.lid_open_last_holder_autoconnect), "Audio & Connection", "audio", "category/connection?anchor=lid_open_autoconnect", keywords = listOf("last device", "last phone", "last holder", "open case", "case lid", "reconnect", "último dispositivo", "último teléfono", "abrir estuche")),
     // Audio & Connection
     SearchableItem(context.getString(R.string.ui_audio_settings), "Audio & Connection", "audio", "category/audio?anchor=audio_controls", keywords = listOf("Audio Settings", "eq", "equalizer", "adaptive volume", "ajustes de audio", "configuración de audio")),
@@ -1308,6 +1309,14 @@ private fun DisconnectedScreen(
                         enabled = !handoverTemporarilyPaused
                     )
                     if (appState.takeoverWhenMediaStart) io.automated.ventures.everypods.presentation.components.MediaHandoverAccessNotice()
+                    StyledToggle(
+                        label = stringResource(R.string.hold_playback_until_connected),
+                        description = stringResource(R.string.hold_playback_until_connected_description),
+                        checked = appState.holdPlaybackUntilConnected,
+                        onCheckedChange = appSettingsViewModel::setHoldPlaybackUntilConnected,
+                        independent = true,
+                        enabled = appState.takeoverWhenMediaStart
+                    )
                     StyledToggle(
                         label = stringResource(R.string.takeover_ringing_call),
                         description = stringResource(R.string.takeover_ringing_call_desc),

@@ -264,6 +264,20 @@ fun AppSettingsScreen(
                         independent = false,
                         enabled = state.isPremium
                     )
+                    HorizontalDivider(
+                        thickness = 1.dp,
+                        color = Color(0x40888888),
+                        modifier = Modifier.padding(horizontal = 12.dp)
+                    )
+
+                    StyledToggle(
+                        label = stringResource(R.string.hold_playback_until_connected),
+                        description = stringResource(R.string.hold_playback_until_connected_description),
+                        checked = state.holdPlaybackUntilConnected,
+                        onCheckedChange = viewModel::setHoldPlaybackUntilConnected,
+                        independent = false,
+                        enabled = state.isPremium && state.takeoverWhenMediaStart
+                    )
                 }
 
                 // Advanced Options (alternate head tracking) moved to HeadTrackingScreen

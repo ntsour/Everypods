@@ -62,6 +62,48 @@
             android:textColor="@color/white"
             android:textSize="24sp"
             tools:ignore="HardcodedText" />
+
+        <LinearLayout
+            android:id="@+id/island_hold_buttons"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/island_hold_retry"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:background="@drawable/island_hold_button_bg"
+                android:fontFamily="@font/sf_pro"
+                android:gravity="center"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:text="@string/hold_retry"
+                android:textColor="@color/white"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/island_hold_play_on_phone"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/island_hold_button_bg"
+                android:fontFamily="@font/sf_pro"
+                android:gravity="center"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:text="@string/hold_play_on_phone"
+                android:textColor="@color/white"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+        </LinearLayout>
     </LinearLayout>
 
     <FrameLayout

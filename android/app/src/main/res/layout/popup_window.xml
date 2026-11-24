@@ -53,6 +53,74 @@
         tools:ignore="HardcodedText" />
 
     <LinearLayout
+        android:id="@+id/hold_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingStart="32dp"
+        android:paddingEnd="32dp"
+        android:paddingTop="16dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/hold_status_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="@font/sf_pro"
+            android:gravity="center"
+            android:textColor="@color/popup_text"
+            android:textSize="20sp" />
+
+        <ProgressBar
+            android:id="@+id/hold_progress"
+            style="@style/Widget.AppCompat.ProgressBar.Horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="6dp"
+            android:layout_marginTop="16dp"
+            android:max="100"
+            android:progress="0"
+            android:progressTint="#1ceb72"
+            android:progressBackgroundTint="#33000000" />
+
+        <LinearLayout
+            android:id="@+id/hold_buttons"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/hold_retry"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:background="@drawable/island_hold_button_bg"
+                android:fontFamily="@font/sf_pro"
+                android:gravity="center"
+                android:text="@string/hold_retry"
+                android:textColor="@color/white"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/hold_play_on_phone"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_marginStart="12dp"
+                android:layout_weight="1"
+                android:background="@drawable/island_hold_button_bg"
+                android:fontFamily="@font/sf_pro"
+                android:gravity="center"
+                android:text="@string/hold_play_on_phone"
+                android:textColor="@color/white"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/battery_row"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal">
