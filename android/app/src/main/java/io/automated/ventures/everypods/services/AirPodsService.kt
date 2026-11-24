@@ -1145,6 +1145,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         const val EXTRA_CONNECTION_GENERATION = "io.automated.ventures.everypods.extra.CONNECTION_GENERATION"
         private const val ACTION_TOGGLE_GYM_MODE = "io.automated.ventures.everypods.TOGGLE_GYM_MODE"
         private const val ACTION_CONNECT_LAST_DEVICE = "io.automated.ventures.everypods.CONNECT_LAST_DEVICE"
+        private const val ACTION_TAKE_FROM_COMPUTER = "io.automated.ventures.everypods.TAKE_FROM_COMPUTER"
+        private const val COMPUTER_CALL_CHANNEL_ID = "computer_in_call"
+        private const val COMPUTER_CALL_NOTIFICATION_ID = 7431
+        private const val COMPUTER_CALL_NOTIFICATION_TIMEOUT_MS = 60_000L
         private const val GYM_MODE_NOTIFICATION_REQUEST_CODE = 73
         private const val CONNECT_LAST_DEVICE_NOTIFICATION_REQUEST_CODE = 75
         private const val GYM_TIMER_NOTIFICATION_ID = 4
@@ -5545,6 +5549,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             Log.w(TAG, "onStartCommand startForeground: ${e.message}")
         }
 
+        if (intent?.action == ACTION_TAKE_FROM_COMPUTER) {
+            Log.d(TAG, "Take AirPods from the computer's call (user action)")
+            getSystemService(NotificationManager::class.java).cancel(COMPUTER_CALL_NOTIFICATION_ID)
+            takeOver("music", manualTakeOverAfterReversed = true)
+        }
         if (intent?.action == "io.automated.ventures.everypods.RECONNECT_AFTER_REVERSE") {
             Log.d(TAG, "reconnect after reversed received, taking over")
             disconnectedBecauseReversed = false
@@ -5619,7 +5628,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }.getOrDefault(false)
 
     /** Poll until the computer holders released (or the ack timeout), then connect. */
-    private fun awaitComputerRelease(peers: Set<String>, token: Long, startedAt: Long, connect: () -> Unit) {
+    private fun awaitComputerRelease(peers: Set<String>, token: Long, startedAt: Long, connect: () -> Unit,
+        guardCall: Boolean = false, takingOverFor: String = "") {
         val gate = io.automated.ventures.everypods.utils.ComputerReleaseGate
         val handler = Handler(Looper.getMainLooper())
         if (!takeoverAttemptFence.isCurrent(token)) {
@@ -5628,8 +5638,17 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         }
         val stillHeld = peers.filter { peer -> CrossDevice.holders.any { it.equals(peer, ignoreCase = true) } }
         val waited = SystemClock.elapsedRealtime() - startedAt
+        // The computer refuses while it is in a call; its snapshot may only say so after
+        // the request (a call that started moments ago), so check on every poll.
+        if (guardCall && stillHeld.isNotEmpty()) {
+            val inCall = gate.computersInCall(stillHeld, CrossDevice.freshPeerAudioUse())
+            if (inCall.isNotEmpty()) {
+                skipTakeoverForComputerCall(inCall, takingOverFor, "while waiting ${waited}ms")
+                return
+            }
+        }
         if (stillHeld.isNotEmpty() && waited < gate.ACK_TIMEOUT_MS) {
-            handler.postDelayed({ awaitComputerRelease(peers, token, startedAt, connect) }, gate.POLL_MS)
+            handler.postDelayed({ awaitComputerRelease(peers, token, startedAt, connect, guardCall, takingOverFor) }, gate.POLL_MS)
             return
         }
         val released = stillHeld.isEmpty()
@@ -5637,6 +5656,41 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             "released" to released, "waitedMs" to waited))
         Log.d(TAG, "takeOver: computer ${if (released) "released after ${waited}ms" else "did not confirm release in ${waited}ms"}; connecting now")
         connect()
+    }
+
+    /**
+     * An automatic takeover found a computer holding the AirPods for a call: leave them
+     * there and offer a manual "Take AirPods" from a notification.
+     */
+    @SuppressLint("MissingPermission")
+    private fun skipTakeoverForComputerCall(peers: Set<String>, takingOverFor: String, stage: String) {
+        if (takingOverFor == "call") handleIncomingCallOnceConnected = false
+        LidAutoconnectDiagnostics.logEvent("takeover_skipped_computer_call", mapOf(
+            "reason" to takingOverFor, "peers" to peers.joinToString(","), "stage" to stage))
+        Log.i(TAG, "takeOver: $peers in a call; leaving the AirPods there ($takingOverFor, $stage)")
+        val name = runCatching {
+            getSystemService(BluetoothManager::class.java).adapter.getRemoteDevice(peers.first()).let { it.alias ?: it.name }
+        }.getOrNull() ?: getString(R.string.computer_in_call_generic_name)
+        val nm = getSystemService(NotificationManager::class.java)
+        nm.createNotificationChannel(NotificationChannel(COMPUTER_CALL_CHANNEL_ID,
+            getString(R.string.computer_in_call_channel_name), NotificationManager.IMPORTANCE_DEFAULT))
+        val take = PendingIntent.getService(this, 0, Intent(this, AirPodsService::class.java)
+            .setPackage(packageName).setAction(ACTION_TAKE_FROM_COMPUTER),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val notification = NotificationCompat.Builder(this, COMPUTER_CALL_CHANNEL_ID)
+            .setSmallIcon(R.drawable.airpods)
+            .setContentTitle(getString(R.string.computer_in_call_title, name))
+            .setContentText(getString(
+                if (takingOverFor == "call") R.string.computer_in_call_text_phone_call else R.string.computer_in_call_text_media))
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setAutoCancel(true)
+            .setOnlyAlertOnce(true)
+            .setTimeoutAfter(COMPUTER_CALL_NOTIFICATION_TIMEOUT_MS)
+            .addAction(R.drawable.ic_bluetooth, getString(R.string.computer_in_call_take), take)
+            .build()
+        runCatching { nm.notify(COMPUTER_CALL_NOTIFICATION_ID, notification) }
+            .onFailure { Log.w(TAG, "computer-call notification failed: ${it.message}") }
     }
 
     private fun submitExplicitAudioIntent(target: BluetoothDevice?,
@@ -5830,9 +5884,21 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 // no-ops on limited-mode devices that can't force a takeover.
                 var requestedPeers: Set<String> = emptySet()
                 if (CrossDevice.isPeerConnected) {
-                    Log.d(TAG, "takeOver: sending REQUEST_DISCONNECT to BT handover peers")
                     val connections = io.automated.ventures.everypods.relay.DeviceConnectionStore(this)
                     requestedPeers = connections.onlineHandoverPeers(CrossDevice.configuredPeers.filter(CrossDevice::isConnectedTo))
+                    // Never pull the AirPods out of a computer's call automatically. A manual
+                    // takeover (Take AirPods) still goes through.
+                    if (!manualTakeOverAfterReversed && takingOverFor in setOf("music", "call")) {
+                        val inCall = io.automated.ventures.everypods.utils.ComputerReleaseGate.computersInCall(
+                            io.automated.ventures.everypods.utils.ComputerReleaseGate.computerHolders(
+                                requestedPeers, CrossDevice.holders, ::isComputerPeer),
+                            CrossDevice.freshPeerAudioUse())
+                        if (inCall.isNotEmpty()) {
+                            skipTakeoverForComputerCall(inCall, takingOverFor, "before request")
+                            return
+                        }
+                    }
+                    Log.d(TAG, "takeOver: sending REQUEST_DISCONNECT to BT handover peers")
                     requestedPeers.forEach { peer ->
                         CrossDevice.sendTo(peer, CrossDevicePackets.REQUEST_DISCONNECT.packet)
                     }
@@ -5857,7 +5923,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     connect()
                 } else {
                     Log.d(TAG, "takeOver: waiting for computer holder(s) $computerHolders to release before connecting")
-                    awaitComputerRelease(computerHolders, takeoverToken, SystemClock.elapsedRealtime(), connect)
+                    awaitComputerRelease(computerHolders, takeoverToken, SystemClock.elapsedRealtime(), connect,
+                        guardCall = !manualTakeOverAfterReversed, takingOverFor = takingOverFor)
                 }
 
             }

@@ -115,6 +115,17 @@ class PeerOwnershipStoreTest {
         assertFalse(store.allConfiguredPeersFresh())
     }
 
+    @Test
+    fun `fresh audio use reports each fresh peer and drops stale ones`() {
+        store.configure(peers)
+        assertTrue(store.observe(observation("AA", ownership = PeerOwnership.HELD, audioUse = PeerAudioUse.CALL)))
+        now += 20
+        assertTrue(store.observe(observation("BB", audioUse = PeerAudioUse.IDLE)))
+        assertEquals(mapOf("AA" to PeerAudioUse.CALL, "BB" to PeerAudioUse.IDLE), store.freshAudioUses())
+        now += 20 // AA is now 40 old (> 35), BB 20
+        assertEquals(mapOf("BB" to PeerAudioUse.IDLE), store.freshAudioUses())
+    }
+
     private fun observe(peer: String) {
         assertTrue(store.observe(observation(peer)))
     }
