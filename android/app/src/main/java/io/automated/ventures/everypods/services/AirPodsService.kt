@@ -2065,12 +2065,15 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                         intent.getParcelableExtra("device") as BluetoothDevice?
                     }
 
-                    if (device == null) {
+                    // Capture once: the field is mutable and a racing AIRPODS_DISCONNECTED
+                    // nulls it, which crashed the IO coroutine below when it re-read `device!!`.
+                    val detected = device
+                    if (detected == null) {
                         Log.w(TAG, "Ignoring connection event without a device")
                         return
                     }
-                    if (config.deviceName == "AirPods" && device?.name != null) {
-                        config.deviceName = device?.name ?: "AirPods"
+                    if (config.deviceName == "AirPods" && detected.name != null) {
+                        config.deviceName = detected.name ?: "AirPods"
                         sharedPreferences.edit { putString("name", config.deviceName) }
                     }
 
@@ -2079,12 +2082,17 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     Log.d(TAG, "${config.deviceName} connected")
                     CoroutineScope(Dispatchers.IO).launch {
                         val bluetoothManager = getSystemService(BluetoothManager::class.java)
-                        connectToSocket(bluetoothManager.adapter, device!!)
+                        val connected = io.automated.ventures.everypods.bluetooth.connection.connectIfStillCurrent(
+                            detected, { device }
+                        ) { connectToSocket(bluetoothManager.adapter, it) }
+                        if (!connected) {
+                            Log.d(TAG, "<LogCollector:Conn> connect skipped — device cleared or replaced since AIRPODS_CONNECTION_DETECTED")
+                        }
                     }
                     Log.d(TAG, "Setting metadata")
-                    setMetadatas(device!!)
+                    setMetadatas(detected)
 //                    isConnectedLocally = true
-                    macAddress = device!!.address
+                    macAddress = detected.address
                     sharedPreferences.edit {
                         putString("mac_address", macAddress)
                     }
