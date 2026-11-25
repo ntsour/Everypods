@@ -1063,4 +1063,11 @@ Richieste protocollo: %4$d</string>
     <string name="computer_in_call_text_media">Restano lì, quindi l\'audio viene riprodotto sul telefono.</string>
     <string name="computer_in_call_text_phone_call">Restano lì, quindi questa chiamata squilla sul telefono.</string>
     <string name="computer_in_call_take">Prendi gli AirPods</string>
+    <string name="crash_notification_channel">Report di arresto anomalo</string>
+    <string name="crash_notification_title">EveryPods si è interrotto in modo imprevisto</string>
+    <string name="crash_notification_text">%1$s alle %2$s. Tocca per condividere il report.</string>
+    <string name="crash_notification_share">Condividi report di arresto anomalo</string>
+    <string name="crash_kind_anr">L\'app non risponde</string>
+    <string name="crash_kind_native">Arresto anomalo nativo</string>
+    <string name="crash_kind_other">Arresto anomalo</string>
 </resources>

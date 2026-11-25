@@ -1,9 +1,12 @@
 import java.util.Properties
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.InputFile
+import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.TaskAction
 
@@ -36,6 +39,29 @@ abstract class VerifyPlayReleaseSigningTask : DefaultTask() {
     @TaskAction
     fun verifySigning() {
         check(configured.get()) { "Play release signing is not configured; set all RELEASE_* properties in local.properties." }
+    }
+}
+
+/**
+ * Copies R8's mapping.txt out of build/ after each minified release build, named by version
+ * and the pg_map_id that release stack traces carry ("r8-map-id-<id>"), so a crash from a
+ * sideloaded APK can still be retraced after the next build or `clean`.
+ */
+abstract class ArchiveR8MappingTask : DefaultTask() {
+    @get:InputFile abstract val mapping: RegularFileProperty
+    @get:Input abstract val versionLabel: Property<String>
+    @get:Internal abstract val archiveDirectory: DirectoryProperty
+
+    @TaskAction
+    fun archive() {
+        val source = mapping.get().asFile
+        val mapId = source.useLines { lines ->
+            lines.take(20).firstOrNull { it.startsWith("# pg_map_id: ") }?.removePrefix("# pg_map_id: ")?.trim()
+        } ?: "unknown"
+        val dir = archiveDirectory.get().asFile.apply { mkdirs() }
+        val target = dir.resolve("${versionLabel.get()}-${mapId.take(16)}.txt")
+        source.copyTo(target, overwrite = true)
+        logger.lifecycle("R8 mapping archived: ${target.absolutePath} (pg_map_id $mapId)")
     }
 }
 
@@ -196,6 +222,26 @@ val verifyPlayReleaseSigning = tasks.register<VerifyPlayReleaseSigningTask>("ver
 }
 tasks.matching { it.name == "bundlePlayRelease" }.configureEach {
     dependsOn(verifyPlayReleaseSigning)
+}
+
+// Keep every release mapping: set MAPPING_ARCHIVE_DIR in local.properties to share one archive
+// across worktrees; the default (android/release-mappings) is gitignored.
+val mappingArchiveDir = props.getProperty("MAPPING_ARCHIVE_DIR")?.takeIf { it.isNotBlank() }
+    ?.let { file(it) } ?: rootProject.file("release-mappings")
+androidComponents {
+    onVariants(selector().withBuildType("release")) { registerMappingArchive(it) }
+    onVariants(selector().withBuildType("playRelease")) { registerMappingArchive(it) }
+}
+fun registerMappingArchive(variant: com.android.build.api.variant.ApplicationVariant) {
+    val cap = variant.name.replaceFirstChar { it.uppercase() }
+    val archive = tasks.register<ArchiveR8MappingTask>("archive${cap}R8Mapping") {
+        // The artifact carries the dependency on R8 and the Compose mapping merge.
+        mapping.set(variant.artifacts.get(com.android.build.api.artifact.SingleArtifact.OBFUSCATION_MAPPING_FILE))
+        versionLabel.set("$appVersionName-${android.defaultConfig.versionCode}-${variant.name}")
+        archiveDirectory.set(mappingArchiveDir)
+        doNotTrackState("copies into an archive outside build/")
+    }
+    tasks.matching { it.name == "assemble$cap" || it.name == "bundle$cap" }.configureEach { finalizedBy(archive) }
 }
 
 tasks.register<Exec>("validateLocalizationResources") {

@@ -1028,4 +1028,11 @@
     <string name="computer_in_call_text_media">Μένουν εκεί, οπότε αυτό παίζει στο τηλέφωνο.</string>
     <string name="computer_in_call_text_phone_call">Μένουν εκεί, οπότε αυτή η κλήση χτυπά στο τηλέφωνο.</string>
     <string name="computer_in_call_take">Πάρε τα AirPods</string>
+    <string name="crash_notification_channel">Αναφορές σφαλμάτων</string>
+    <string name="crash_notification_title">Το EveryPods σταμάτησε απροσδόκητα</string>
+    <string name="crash_notification_text">%1$s στις %2$s. Πατήστε για κοινοποίηση της αναφοράς.</string>
+    <string name="crash_notification_share">Κοινοποίηση αναφοράς σφάλματος</string>
+    <string name="crash_kind_anr">Η εφαρμογή δεν αποκρίνεται</string>
+    <string name="crash_kind_native">Εγγενές σφάλμα</string>
+    <string name="crash_kind_other">Σφάλμα</string>
 </resources>

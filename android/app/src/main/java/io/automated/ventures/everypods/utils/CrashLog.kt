@@ -56,7 +56,10 @@ object CrashLog {
                 exitProcess(10)
             }
         }
-        Thread({ captureAbnormalExits(app, dir, header) }, "CrashLogExitScan").start()
+        Thread({
+            captureAbnormalExits(app, dir, header)
+            CrashNotifier.announcePending(app, dir)
+        }, "CrashLogExitScan").start()
     }
 
     fun logsDir(context: Context): File = File(context.filesDir, "logs").apply { mkdirs() }
@@ -187,7 +190,17 @@ object CrashLog {
         appendLine("appVersion=${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
         appendLine("deviceModel=${Build.MANUFACTURER} ${Build.MODEL}")
         appendLine("sdk=${Build.VERSION.SDK_INT}")
+        appendLine("r8MapId=${r8MapId(Throwable().stackTrace)}")
     }
+
+    /**
+     * R8 names every frame's source file "r8-map-id-<id>", the id of the mapping.txt needed to
+     * retrace this build. Native-crash and ANR reports have no app frames, so record it up front.
+     */
+    internal fun r8MapId(frames: Array<StackTraceElement>): String =
+        frames.firstOrNull()?.fileName?.takeIf { it.startsWith(R8_MAP_PREFIX) }?.removePrefix(R8_MAP_PREFIX) ?: "none"
+
+    private const val R8_MAP_PREFIX = "r8-map-id-"
 
     private fun fileStamp(ms: Long) = SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.US).format(Date(ms))
     private fun iso(ms: Long) = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", Locale.US).format(Date(ms))

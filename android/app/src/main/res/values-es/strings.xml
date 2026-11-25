@@ -1065,4 +1065,11 @@ Solicitudes del protocolo: %4$d</string>
     <string name="computer_in_call_text_media">Se quedan allí, así que esto suena en el teléfono.</string>
     <string name="computer_in_call_text_phone_call">Se quedan allí, así que esta llamada suena en el teléfono.</string>
     <string name="computer_in_call_take">Usar AirPods aquí</string>
+    <string name="crash_notification_channel">Informes de fallos</string>
+    <string name="crash_notification_title">EveryPods se detuvo inesperadamente</string>
+    <string name="crash_notification_text">%1$s a las %2$s. Toca para compartir el informe.</string>
+    <string name="crash_notification_share">Compartir informe de fallo</string>
+    <string name="crash_kind_anr">La app no responde</string>
+    <string name="crash_kind_native">Fallo nativo</string>
+    <string name="crash_kind_other">Fallo</string>
 </resources>

@@ -1080,4 +1080,11 @@ Protocol requests: %4$d</string>
     <string name="computer_in_call_text_media">They stay there, so this plays on the phone.</string>
     <string name="computer_in_call_text_phone_call">They stay there, so this call rings on the phone.</string>
     <string name="computer_in_call_take">Take AirPods</string>
+    <string name="crash_notification_channel">Crash reports</string>
+    <string name="crash_notification_title">EveryPods stopped unexpectedly</string>
+    <string name="crash_notification_text">%1$s at %2$s. Tap to share the report.</string>
+    <string name="crash_notification_share">Share crash report</string>
+    <string name="crash_kind_anr">App not responding</string>
+    <string name="crash_kind_native">Native crash</string>
+    <string name="crash_kind_other">Crash</string>
 </resources>

@@ -1063,4 +1063,11 @@ Protokol istekleri: %4$d</string>
     <string name="computer_in_call_text_media">Orada kalıyorlar, bu yüzden bu telefonda çalıyor.</string>
     <string name="computer_in_call_text_phone_call">Orada kalıyorlar, bu yüzden bu arama telefonda çalıyor.</string>
     <string name="computer_in_call_take">AirPods\'u al</string>
+    <string name="crash_notification_channel">Çökme raporları</string>
+    <string name="crash_notification_title">EveryPods beklenmedik şekilde durdu</string>
+    <string name="crash_notification_text">%2$s saatinde %1$s. Raporu paylaşmak için dokunun.</string>
+    <string name="crash_notification_share">Çökme raporunu paylaş</string>
+    <string name="crash_kind_anr">Uygulama yanıt vermiyor</string>
+    <string name="crash_kind_native">Yerel çökme</string>
+    <string name="crash_kind_other">Çökme</string>
 </resources>
