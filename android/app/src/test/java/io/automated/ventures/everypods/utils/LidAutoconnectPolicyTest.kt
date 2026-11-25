@@ -1,5 +1,6 @@
 package io.automated.ventures.everypods.utils
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -131,5 +132,24 @@ class LidAutoconnectPolicyTest {
                 a2dpDisconnectedAtMs = 2_100L,
             )
         )
+    }
+
+    @Test
+    fun `probe gap starts at 45 s and doubles after each empty probe`() {
+        assertEquals(45_000L, LidAutoconnectPolicy.scanProbeIntervalMs(0))
+        assertEquals(90_000L, LidAutoconnectPolicy.scanProbeIntervalMs(1))
+        assertEquals(180_000L, LidAutoconnectPolicy.scanProbeIntervalMs(2))
+    }
+
+    @Test
+    fun `probe gap is capped at 5 min however long the scan stays silent`() {
+        assertEquals(300_000L, LidAutoconnectPolicy.scanProbeIntervalMs(3))
+        assertEquals(300_000L, LidAutoconnectPolicy.scanProbeIntervalMs(50))
+        assertEquals(300_000L, LidAutoconnectPolicy.scanProbeIntervalMs(Int.MAX_VALUE))
+    }
+
+    @Test
+    fun `negative counts are treated as no empty probes`() {
+        assertEquals(45_000L, LidAutoconnectPolicy.scanProbeIntervalMs(-1))
     }
 }
