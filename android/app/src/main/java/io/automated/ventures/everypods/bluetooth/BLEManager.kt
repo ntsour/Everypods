@@ -86,6 +86,8 @@ class BLEManager(private val context: Context) {
     private var probeCallback: ScanCallback? = null
     private var probeTimeout: Runnable? = null
     private var lastProbeAtMs = 0L
+    /** Probes in a row that timed out without an advert; reset by any advert. */
+    private var consecutiveEmptyProbes = 0
     private var airPodsStatusListener: AirPodsStatusListener? = null
     private val deviceStatusMap = mutableMapOf<String, AirPodsStatus>()
     private val verifiedAddresses = mutableSetOf<String>()
@@ -311,7 +313,8 @@ class BLEManager(private val context: Context) {
     @SuppressLint("MissingPermission")
     @Synchronized private fun probeScanning(reason: String) {
         val now = SystemClock.elapsedRealtime()
-        if (probeCallback != null || (lastProbeAtMs > 0 && now - lastProbeAtMs < SCAN_PROBE_INTERVAL_MS)) return
+        val interval = io.automated.ventures.everypods.utils.LidAutoconnectPolicy.scanProbeIntervalMs(consecutiveEmptyProbes)
+        if (probeCallback != null || (lastProbeAtMs > 0 && now - lastProbeAtMs < interval)) return
         val scanner = mBluetoothLeScanner ?: return
         val callback = newScanCallback()
         probeCallback = callback
@@ -319,7 +322,10 @@ class BLEManager(private val context: Context) {
         io.automated.ventures.everypods.utils.LidAutoconnectDiagnostics.logEvent("scan_probe_start", mapOf("reason" to reason))
         val timeout = Runnable { synchronized(this@BLEManager) {
             if (probeCallback === callback) {
-                io.automated.ventures.everypods.utils.LidAutoconnectDiagnostics.logEvent("scan_probe_timeout")
+                consecutiveEmptyProbes++
+                io.automated.ventures.everypods.utils.LidAutoconnectDiagnostics.logEvent("scan_probe_timeout", mapOf(
+                    "emptyInARow" to consecutiveEmptyProbes,
+                    "nextInMs" to io.automated.ventures.everypods.utils.LidAutoconnectPolicy.scanProbeIntervalMs(consecutiveEmptyProbes)))
                 stopProbe()
                 if (mScanCallback == null && scanningDesired) scheduleScanRetry("probe_timeout")
             }
@@ -499,6 +505,7 @@ class BLEManager(private val context: Context) {
             processedAddresses.add(address)
             lastBroadcastTime = System.currentTimeMillis()
             lastBroadcastElapsedMs = receivedAt
+            consecutiveEmptyProbes = 0
 
             val encryptionKey = getEncryptionKeyFromPreferences()
             val decryptedData = if (encryptionKey != null) decryptLastBytes(manufacturerData, encryptionKey) else null
@@ -721,7 +728,6 @@ class BLEManager(private val context: Context) {
         private const val LID_CLOSE_TIMEOUT_MS = 2500L
         /** Silence is uncertain; probe without discarding the existing registration. */
         const val STALE_SCAN_RESTART_MS = 45_000L
-        private const val SCAN_PROBE_INTERVAL_MS = 45_000L
         private const val SCAN_PROBE_TIMEOUT_MS = 20_000L
         private const val SCAN_RETRY_BASE_MS = 2_000L
         private const val SCAN_RETRY_MAX_MS = 30_000L

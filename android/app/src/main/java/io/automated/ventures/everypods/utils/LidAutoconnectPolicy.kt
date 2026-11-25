@@ -9,6 +9,20 @@ package io.automated.ventures.everypods.utils
  */
 object LidAutoconnectPolicy {
     const val BLE_EVIDENCE_MAX_AGE_MS = 10_000L
+    const val SCAN_PROBE_BASE_INTERVAL_MS = 45_000L
+    const val SCAN_PROBE_MAX_INTERVAL_MS = 5 * 60_000L
+
+    /**
+     * Gap before the next recovery probe of a silent scan. Each probe is a 20 s
+     * low-latency scan; silence is normal (AirPods in the closed case or away), and on
+     * some phones permanent (a Xiaomi's system drops AirPods proximity adverts before apps
+     * see them), so the gap doubles after each probe that hears nothing, up to 5 min.
+     * Any advert resets it.
+     */
+    fun scanProbeIntervalMs(consecutiveEmptyProbes: Int): Long {
+        val doublings = consecutiveEmptyProbes.coerceIn(0, 10)
+        return (SCAN_PROBE_BASE_INTERVAL_MS shl doublings).coerceAtMost(SCAN_PROBE_MAX_INTERVAL_MS)
+    }
 
     /** Every scanner start gets a full grace period, even if its predecessor saw an old ad. */
     fun isScanSilent(nowMs: Long, startedAtMs: Long, lastAdvertisementMs: Long, timeoutMs: Long): Boolean {
