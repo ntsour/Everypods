@@ -2375,7 +2375,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 val generation = BluetoothConnectionManager.connectionGeneration()
                 val wornMask = (if (earDetection[6] == 0x00.toByte()) 1 else 0) or
                     (if (earDetection[7] == 0x00.toByte()) 2 else 0)
-                processEarDetectionChange(earDetection)
+                processEarDetectionChange(earDetection, firstOnLink = wearReportBaseline.isFirstOnLink(generation))
                 gestureHandler.post {
                     // Sensor reports can precede the engine's Connected publication.
                     // Keep current-socket evidence; action eligibility still requires Connected.
@@ -3171,7 +3171,24 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         if (muted) startMutedReminder() else stopMutedReminder()
     }
 
-    private fun processEarDetectionChange(earDetection: ByteArray) {
+    private val wearReportBaseline = io.automated.ventures.everypods.utils.WearReportBaseline()
+
+    private fun processEarDetectionChange(earDetection: ByteArray, firstOnLink: Boolean = false) {
+        if (firstOnLink) {
+            // The stored state is from the previous link: record this report as the
+            // baseline instead of reading the difference as the user taking a bud out
+            // (or putting one in). See WearReportBaseline.
+            earDetectionNotification.setStatus(earDetection)
+            val worn = earDetection[earDetection.size - 2] == 0x00.toByte() ||
+                earDetection[earDetection.size - 1] == 0x00.toByte()
+            Log.d("AirPodsParser", "First wear report on this link (${earDetection[earDetection.size - 2]} " +
+                "${earDetection[earDetection.size - 1]}): baseline only, no play/pause")
+            if (config.earDetectionEnabled && worn) {
+                // Keep the wear evidence the old none→in path gave lid / passive recovery.
+                submitPassiveAacpEvidence("ear_in")
+            }
+            return
+        }
         var inEar: Boolean
         val inEarData = listOf(
             earDetectionNotification.status[0] == 0x00.toByte(),
