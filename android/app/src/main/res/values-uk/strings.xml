@@ -1063,4 +1063,11 @@
     <string name="computer_in_call_text_media">Вони залишаються там, тому звук іде з телефона.</string>
     <string name="computer_in_call_text_phone_call">Вони залишаються там, тому цей дзвінок лунає на телефоні.</string>
     <string name="computer_in_call_take">Забрати AirPods</string>
+    <string name="crash_notification_channel">Звіти про збої</string>
+    <string name="crash_notification_title">EveryPods неочікувано зупинився</string>
+    <string name="crash_notification_text">%1$s о %2$s. Торкніться, щоб поділитися звітом.</string>
+    <string name="crash_notification_share">Поділитися звітом про збій</string>
+    <string name="crash_kind_anr">Застосунок не відповідає</string>
+    <string name="crash_kind_native">Нативний збій</string>
+    <string name="crash_kind_other">Збій</string>
 </resources>

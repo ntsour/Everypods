@@ -1063,4 +1063,11 @@ Yêu cầu giao thức: %4$d</string>
     <string name="computer_in_call_text_media">Chúng vẫn ở đó, nên nội dung này phát trên điện thoại.</string>
     <string name="computer_in_call_text_phone_call">Chúng vẫn ở đó, nên cuộc gọi này đổ chuông trên điện thoại.</string>
     <string name="computer_in_call_take">Lấy AirPods</string>
+    <string name="crash_notification_channel">Báo cáo sự cố</string>
+    <string name="crash_notification_title">EveryPods đã dừng đột ngột</string>
+    <string name="crash_notification_text">%1$s lúc %2$s. Nhấn để chia sẻ báo cáo.</string>
+    <string name="crash_notification_share">Chia sẻ báo cáo sự cố</string>
+    <string name="crash_kind_anr">Ứng dụng không phản hồi</string>
+    <string name="crash_kind_native">Sự cố gốc</string>
+    <string name="crash_kind_other">Sự cố</string>
 </resources>

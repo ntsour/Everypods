@@ -1062,4 +1062,11 @@
     <string name="computer_in_call_text_media">它们会留在那里，因此将在手机上播放。</string>
     <string name="computer_in_call_text_phone_call">它们会留在那里，因此此来电将在手机上响铃。</string>
     <string name="computer_in_call_take">取回 AirPods</string>
+    <string name="crash_notification_channel">崩溃报告</string>
+    <string name="crash_notification_title">EveryPods 意外停止运行</string>
+    <string name="crash_notification_text">%2$s 发生 %1$s。点按即可分享报告。</string>
+    <string name="crash_notification_share">分享崩溃报告</string>
+    <string name="crash_kind_anr">应用无响应</string>
+    <string name="crash_kind_native">原生崩溃</string>
+    <string name="crash_kind_other">崩溃</string>
 </resources>

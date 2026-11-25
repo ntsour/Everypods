@@ -1063,4 +1063,11 @@
     <string name="computer_in_call_text_media">它們會留在那裡，因此將在手機上播放。</string>
     <string name="computer_in_call_text_phone_call">它們會留在那裡，因此此來電將在手機上響鈴。</string>
     <string name="computer_in_call_take">取回 AirPods</string>
+    <string name="crash_notification_channel">當機報告</string>
+    <string name="crash_notification_title">EveryPods 意外停止運作</string>
+    <string name="crash_notification_text">%2$s 發生 %1$s。輕觸即可分享報告。</string>
+    <string name="crash_notification_share">分享當機報告</string>
+    <string name="crash_kind_anr">應用程式沒有回應</string>
+    <string name="crash_kind_native">原生當機</string>
+    <string name="crash_kind_other">當機</string>
 </resources>

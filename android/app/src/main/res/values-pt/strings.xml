@@ -1063,4 +1063,11 @@ Pedidos do protocolo: %4$d</string>
     <string name="computer_in_call_text_media">Ficam lá, por isso isto toca no telemóvel.</string>
     <string name="computer_in_call_text_phone_call">Ficam lá, por isso esta chamada toca no telemóvel.</string>
     <string name="computer_in_call_take">Usar AirPods aqui</string>
+    <string name="crash_notification_channel">Relatórios de falhas</string>
+    <string name="crash_notification_title">O EveryPods parou inesperadamente</string>
+    <string name="crash_notification_text">%1$s às %2$s. Toque para partilhar o relatório.</string>
+    <string name="crash_notification_share">Partilhar relatório de falha</string>
+    <string name="crash_kind_anr">A app não responde</string>
+    <string name="crash_kind_native">Falha nativa</string>
+    <string name="crash_kind_other">Falha</string>
 </resources>

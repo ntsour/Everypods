@@ -1063,4 +1063,11 @@ Requêtes du protocole : %4$d</string>
     <string name="computer_in_call_text_media">Ils restent là-bas, donc la lecture se fait sur le téléphone.</string>
     <string name="computer_in_call_text_phone_call">Ils restent là-bas, donc cet appel sonne sur le téléphone.</string>
     <string name="computer_in_call_take">Prendre les AirPods</string>
+    <string name="crash_notification_channel">Rapports de plantage</string>
+    <string name="crash_notification_title">EveryPods s\'est arrêté de façon inattendue</string>
+    <string name="crash_notification_text">%1$s à %2$s. Appuyez pour partager le rapport.</string>
+    <string name="crash_notification_share">Partager le rapport de plantage</string>
+    <string name="crash_kind_anr">L\'app ne répond pas</string>
+    <string name="crash_kind_native">Plantage natif</string>
+    <string name="crash_kind_other">Plantage</string>
 </resources>

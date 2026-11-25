@@ -16,3 +16,4 @@ crowdin.yml
 local.properties
 debug.jks
 /.kotlin
+/release-mappings

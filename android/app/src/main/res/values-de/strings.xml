@@ -1062,4 +1062,11 @@ Protokollanfragen: %4$d</string>
     <string name="computer_in_call_text_media">Sie bleiben dort, daher wird dies auf dem Telefon abgespielt.</string>
     <string name="computer_in_call_text_phone_call">Sie bleiben dort, daher klingelt dieser Anruf auf dem Telefon.</string>
     <string name="computer_in_call_take">AirPods übernehmen</string>
+    <string name="crash_notification_channel">Absturzberichte</string>
+    <string name="crash_notification_title">EveryPods wurde unerwartet beendet</string>
+    <string name="crash_notification_text">%1$s um %2$s. Tippen, um den Bericht zu teilen.</string>
+    <string name="crash_notification_share">Absturzbericht teilen</string>
+    <string name="crash_kind_anr">App reagiert nicht</string>
+    <string name="crash_kind_native">Nativer Absturz</string>
+    <string name="crash_kind_other">Absturz</string>
 </resources>
