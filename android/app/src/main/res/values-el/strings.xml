@@ -672,6 +672,8 @@
     <string name="assistant_unavailable">Δεν ήταν δυνατό το άνοιγμα του βοηθού συστήματος. Ξεκλείδωσε το τηλέφωνο και έλεγξε τον προεπιλεγμένο βοηθό στις ρυθμίσεις Android.</string>
     <string name="action_google_voice_command">Φωνητική εντολή Google</string>
     <string name="google_voice_command_unavailable">Δεν ήταν δυνατή η έναρξη του φωνητικού ελέγχου Google. Έλεγξε ότι η εφαρμογή Google είναι εγκατεστημένη και ενεργοποιημένη.</string>
+    <string name="action_chatgpt_voice">Φωνή ChatGPT</string>
+    <string name="chatgpt_voice_unavailable">Δεν ήταν δυνατό το άνοιγμα της φωνής του ChatGPT. Ελέγξτε ότι η εφαρμογή ChatGPT είναι εγκατεστημένη.</string>
     <string name="ui_standard">Τυπικές άδειες</string>
     <string name="ui_special_access">Ειδική πρόσβαση</string>
     <string name="ui_no_search_results">Δεν βρέθηκαν ρυθμίσεις. Δοκιμάστε άλλο όνομα.</string>

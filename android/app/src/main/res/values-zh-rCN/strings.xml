@@ -708,6 +708,8 @@
     <string name="assistant_unavailable">无法打开系统助理。请解锁手机，并在 Android 设置中检查默认助理。</string>
     <string name="action_google_voice_command">Google 语音指令</string>
     <string name="google_voice_command_unavailable">无法启动 Google 语音控制。请检查是否已安装并启用 Google 应用。</string>
+    <string name="action_chatgpt_voice">ChatGPT 语音</string>
+    <string name="chatgpt_voice_unavailable">无法打开 ChatGPT 语音。请检查是否已安装 ChatGPT 应用。</string>
     <string name="ui_standard">标准权限</string>
     <string name="ui_special_access">特殊访问权限</string>
     <string name="ui_no_search_results">未找到设置，请尝试其他名称。</string>

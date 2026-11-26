@@ -2953,6 +2953,15 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 }
             }
 
+            StemAction.CHATGPT_VOICE -> {
+                runCatching {
+                    startActivity(io.automated.ventures.everypods.ChatGptVoiceLaunchActivity.intent(this))
+                }.onFailure { error ->
+                    Log.w("EveryPodsChatGptVoice", "ChatGPT voice launch activity could not start", error)
+                    sendToast(getString(R.string.chatgpt_voice_unavailable))
+                }
+            }
+
             StemAction.CYCLE_NOISE_CONTROL_MODES -> {
                 Log.d("AirPodsParser", "Cycling noise control modes")
                 sendBroadcast(Intent("io.automated.ventures.everypods.SET_ANC_MODE").apply {

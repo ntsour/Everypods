@@ -709,6 +709,8 @@
     <string name="assistant_unavailable">Không thể mở trợ lý hệ thống. Hãy mở khóa điện thoại và kiểm tra trợ lý mặc định trong cài đặt Android.</string>
     <string name="action_google_voice_command">Lệnh thoại Google</string>
     <string name="google_voice_command_unavailable">Không thể khởi động điều khiển bằng giọng nói của Google. Hãy kiểm tra xem ứng dụng Google đã được cài đặt và bật chưa.</string>
+    <string name="action_chatgpt_voice">Giọng nói ChatGPT</string>
+    <string name="chatgpt_voice_unavailable">Không thể mở chế độ giọng nói ChatGPT. Hãy kiểm tra xem ứng dụng ChatGPT đã được cài đặt chưa.</string>
     <string name="ui_standard">Tiêu chuẩn</string>
     <string name="ui_special_access">Quyền truy cập đặc biệt</string>
     <string name="ui_no_search_results">Không tìm thấy cài đặt. Hãy thử tên khác.</string>

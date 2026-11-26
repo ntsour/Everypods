@@ -709,6 +709,8 @@
     <string name="assistant_unavailable">Impossible d’ouvrir l’assistant système. Déverrouillez le téléphone et vérifiez l’assistant par défaut dans les paramètres Android.</string>
     <string name="action_google_voice_command">Commande vocale Google</string>
     <string name="google_voice_command_unavailable">Impossible de lancer la commande vocale Google. Vérifiez que l’application Google est installée et activée.</string>
+    <string name="action_chatgpt_voice">Mode vocal ChatGPT</string>
+    <string name="chatgpt_voice_unavailable">Impossible d’ouvrir le mode vocal ChatGPT. Vérifiez que l’application ChatGPT est installée.</string>
     <string name="ui_standard">Standard</string>
     <string name="ui_special_access">Accès spécial</string>
     <string name="ui_no_search_results">Aucun réglage trouvé. Essayez un autre nom.</string>

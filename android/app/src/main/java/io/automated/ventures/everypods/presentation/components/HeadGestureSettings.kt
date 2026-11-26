@@ -54,6 +54,7 @@ fun controlActionLabel(action: StemAction?): String = stringResource(when (actio
     StemAction.PREVIOUS_TRACK -> R.string.action_previous_track
     StemAction.DIGITAL_ASSISTANT -> R.string.digital_assistant
     StemAction.GOOGLE_VOICE_COMMAND -> R.string.action_google_voice_command
+    StemAction.CHATGPT_VOICE -> R.string.action_chatgpt_voice
     StemAction.CYCLE_NOISE_CONTROL_MODES -> R.string.noise_control
     StemAction.MUTE_CALL -> R.string.mute_unmute
     StemAction.TOGGLE_GYM_MODE -> R.string.action_toggle_gym

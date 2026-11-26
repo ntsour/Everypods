@@ -31,7 +31,8 @@ enum class StemAction {
     GYM_TIMER_RESET,
     GOOGLE_VOICE_COMMAND,
     ANNOUNCE_HEART_RATE,
-    TOGGLE_PAUSE_TRANSPARENCY;
+    TOGGLE_PAUSE_TRANSPARENCY,
+    CHATGPT_VOICE;
     companion object {
         fun fromString(action: String): StemAction? {
             return entries.find { it.name == action }

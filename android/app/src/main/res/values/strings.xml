@@ -736,7 +736,9 @@
     <string name="timer_countdown_label">Countdown</string>
     <string name="assistant_unavailable">Couldn\'t open the system assistant. Unlock your phone and check your default assistant in Android settings.</string>
     <string name="action_google_voice_command">Google voice command</string>
+    <string name="action_chatgpt_voice">ChatGPT voice</string>
     <string name="google_voice_command_unavailable">Couldn\'t start Google voice control. Check that the Google app is installed and enabled.</string>
+    <string name="chatgpt_voice_unavailable">Couldn\'t open ChatGPT voice. Check that the ChatGPT app is installed.</string>
 <string name="ui_standard">Standard</string>
 <string name="ui_special_access">Special access</string>
 <string name="ui_no_search_results">No settings found. Try a different name.</string>

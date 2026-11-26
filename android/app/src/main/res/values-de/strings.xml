@@ -708,6 +708,8 @@
     <string name="assistant_unavailable">Der Systemassistent konnte nicht geöffnet werden. Entsperre dein Telefon und überprüfe den Standardassistenten in den Android-Einstellungen.</string>
     <string name="action_google_voice_command">Google-Sprachbefehl</string>
     <string name="google_voice_command_unavailable">Die Google-Sprachsteuerung konnte nicht gestartet werden. Prüfe, ob die Google-App installiert und aktiviert ist.</string>
+    <string name="action_chatgpt_voice">ChatGPT-Sprachmodus</string>
+    <string name="chatgpt_voice_unavailable">ChatGPT-Sprachmodus konnte nicht geöffnet werden. Prüfe, ob die ChatGPT-App installiert ist.</string>
     <string name="ui_standard">Standard</string>
     <string name="ui_special_access">Spezieller Zugriff</string>
     <string name="ui_no_search_results">Keine Einstellungen gefunden. Versuche einen anderen Namen.</string>

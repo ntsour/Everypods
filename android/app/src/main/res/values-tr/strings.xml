@@ -709,6 +709,8 @@
     <string name="assistant_unavailable">Sistem asistanı açılamadı. Telefonunuzun kilidini açın ve Android ayarlarında varsayılan asistanı kontrol edin.</string>
     <string name="action_google_voice_command">Google sesli komutu</string>
     <string name="google_voice_command_unavailable">Google sesli kontrolü başlatılamadı. Google uygulamasının yüklü ve etkin olduğunu kontrol edin.</string>
+    <string name="action_chatgpt_voice">ChatGPT sesli modu</string>
+    <string name="chatgpt_voice_unavailable">ChatGPT sesli modu açılamadı. ChatGPT uygulamasının yüklü olduğunu kontrol edin.</string>
     <string name="ui_standard">Standart</string>
     <string name="ui_special_access">Özel erişim</string>
     <string name="ui_no_search_results">Ayar bulunamadı. Başka bir ad deneyin.</string>

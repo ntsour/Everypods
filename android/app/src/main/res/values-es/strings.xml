@@ -709,6 +709,8 @@
     <string name="assistant_unavailable">No se ha podido abrir el asistente del sistema. Desbloquea el teléfono y comprueba el asistente predeterminado en los ajustes de Android.</string>
     <string name="action_google_voice_command">Comando de voz de Google</string>
     <string name="google_voice_command_unavailable">No se ha podido iniciar el control por voz de Google. Comprueba que la aplicación de Google esté instalada y habilitada.</string>
+    <string name="action_chatgpt_voice">Voz de ChatGPT</string>
+    <string name="chatgpt_voice_unavailable">No se ha podido abrir la voz de ChatGPT. Comprueba que la app de ChatGPT está instalada.</string>
     <string name="ui_standard">Estándar</string>
     <string name="ui_special_access">Acceso especial</string>
     <string name="ui_no_search_results">No se encontraron ajustes. Prueba con otro nombre.</string>

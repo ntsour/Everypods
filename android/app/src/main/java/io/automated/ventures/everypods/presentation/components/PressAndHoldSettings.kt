@@ -56,6 +56,7 @@ fun PressAndHoldSettings(
         StemAction.CYCLE_NOISE_CONTROL_MODES -> stringResource(R.string.noise_control)
         StemAction.DIGITAL_ASSISTANT -> stringResource(R.string.digital_assistant)
         StemAction.GOOGLE_VOICE_COMMAND -> stringResource(R.string.action_google_voice_command)
+        StemAction.CHATGPT_VOICE -> stringResource(R.string.action_chatgpt_voice)
         else -> "INVALID!!"
     }
 
@@ -63,6 +64,7 @@ fun PressAndHoldSettings(
         StemAction.CYCLE_NOISE_CONTROL_MODES -> stringResource(R.string.noise_control)
         StemAction.DIGITAL_ASSISTANT -> stringResource(R.string.digital_assistant)
         StemAction.GOOGLE_VOICE_COMMAND -> stringResource(R.string.action_google_voice_command)
+        StemAction.CHATGPT_VOICE -> stringResource(R.string.action_chatgpt_voice)
         else -> "INVALID!!"
     }
     Box(
