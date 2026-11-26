@@ -2943,10 +2943,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
             StemAction.GOOGLE_VOICE_COMMAND -> {
                 runCatching {
-                    val headset = device ?: error("No connected AirPods device")
+                    checkNotNull(device) { "No connected AirPods device" }
                     val locked = getSystemService(android.app.KeyguardManager::class.java).isKeyguardLocked
-                    Log.i("EveryPodsAssistant", "Google headset voice command requested: keyguardLocked=$locked profile=HEADSET")
-                    io.automated.ventures.everypods.utils.GoogleVoiceCommand.launch(this, headset)
+                    Log.i("EveryPodsAssistant", "Google hands-free voice requested via headset-button long press: keyguardLocked=$locked")
+                    io.automated.ventures.everypods.utils.GoogleVoiceCommand.launch(this)
                 }.onFailure { error ->
                     Log.w("EveryPodsAssistant", "Google headset voice command launch failed", error)
                     sendToast(getString(R.string.google_voice_command_unavailable))
