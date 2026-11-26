@@ -709,6 +709,8 @@
     <string name="assistant_unavailable">無法開啟系統助理。請解鎖手機，並在 Android 設定中檢查預設助理。</string>
     <string name="action_google_voice_command">Google 語音指令</string>
     <string name="google_voice_command_unavailable">無法啟動 Google 語音控制。請檢查是否已安裝並啟用 Google 應用程式。</string>
+    <string name="action_chatgpt_voice">ChatGPT 語音</string>
+    <string name="chatgpt_voice_unavailable">無法開啟 ChatGPT 語音。請檢查是否已安裝 ChatGPT 應用程式。</string>
     <string name="ui_standard">標準權限</string>
     <string name="ui_special_access">特殊存取權限</string>
     <string name="ui_no_search_results">找不到設定，請嘗試其他名稱。</string>

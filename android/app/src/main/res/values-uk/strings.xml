@@ -709,6 +709,8 @@
     <string name="assistant_unavailable">Не вдалося відкрити системного помічника. Розблокуйте телефон і перевірте помічника за замовчуванням у налаштуваннях Android.</string>
     <string name="action_google_voice_command">Голосова команда Google</string>
     <string name="google_voice_command_unavailable">Не вдалося запустити голосове керування Google. Перевірте, чи встановлено й увімкнено додаток Google.</string>
+    <string name="action_chatgpt_voice">Голос ChatGPT</string>
+    <string name="chatgpt_voice_unavailable">Не вдалося відкрити голосовий режим ChatGPT. Перевірте, чи встановлено застосунок ChatGPT.</string>
     <string name="ui_standard">Стандартні дозволи</string>
     <string name="ui_special_access">Спеціальний доступ</string>
     <string name="ui_no_search_results">Налаштування не знайдено. Спробуйте іншу назву.</string>

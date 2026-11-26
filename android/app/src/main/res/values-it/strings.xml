@@ -709,6 +709,8 @@
     <string name="assistant_unavailable">Impossibile aprire l’assistente di sistema. Sblocca il telefono e controlla l’assistente predefinito nelle impostazioni Android.</string>
     <string name="action_google_voice_command">Comando vocale Google</string>
     <string name="google_voice_command_unavailable">Impossibile avviare il controllo vocale Google. Verifica che l’app Google sia installata e attiva.</string>
+    <string name="action_chatgpt_voice">Voce ChatGPT</string>
+    <string name="chatgpt_voice_unavailable">Impossibile aprire la voce di ChatGPT. Verifica che l’app ChatGPT sia installata.</string>
 <string name="tip_tier_beer">Birra / spuntino</string>
 <string name="tip_tier_coffee">Caffè</string>
 <string name="tip_tier_lunch">Pranzo</string>
