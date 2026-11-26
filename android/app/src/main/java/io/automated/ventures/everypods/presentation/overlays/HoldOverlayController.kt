@@ -173,7 +173,11 @@ object HoldOverlayController {
         // Calls: a ringing call on an unlocked phone shows a heads-up banner at the top, so the
         // bottom popup is used then. Otherwise (lock screen, or the full in-call screen) the
         // Answer / call controls are at the bottom, so the top island is used.
-        val ringing = (svc.getSystemService(Context.AUDIO_SERVICE) as? AudioManager)?.mode == AudioManager.MODE_RINGTONE
+        // The takeover starts on the RINGING phone state, before Telecom switches the audio mode
+        // (26 Nov: the mode turned RINGTONE 60 ms after this check, so a ringing call got the island
+        // under the incoming-call banner). The phone and VoIP ring flags are set first.
+        val ringing = svc.callRinging ||
+            (svc.getSystemService(Context.AUDIO_SERVICE) as? AudioManager)?.mode == AudioManager.MODE_RINGTONE
         val callAtBottom = ringing && !locked
         when {
             island != null -> renderIsland(status, progress)
