@@ -1933,6 +1933,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                             // the pods from the device the user is actually answering on.
                             if (CrossDevice.peerAudioActive) {
                                 Log.d(TAG, "takeOver(call/RINGING) suppressed: peer has active call session")
+                                skipTakeoverForComputerCall(CrossDevice.holders.toSet(), "call", "ringing, peer reports a call")
                             } else {
                                 takeOver("call")
                             }
@@ -1954,6 +1955,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                         ).launch {
                             if (CrossDevice.peerAudioActive) {
                                 Log.d(TAG, "takeOver(call/OFFHOOK) suppressed: peer has active call session")
+                                skipTakeoverForComputerCall(CrossDevice.holders.toSet(), "call", "answered, peer reports a call")
                             } else {
                                 takeOver("call")
                             }
@@ -3830,6 +3832,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }
     private var isInCall = false
     private var isCallRinging = false
+    /** A phone or VoIP call is ringing on this device (set before Telecom changes the audio mode). */
+    val callRinging: Boolean get() = isCallRinging || CallNotifListener.isVoipNotifRinging
     private var isVoIPCallActive = false
     private var callNumber: String? = null
 
