@@ -84,6 +84,35 @@ class PassiveAcquisitionCoordinator(
         }
     }
 
+    /**
+     * A participant answered request [requestId]. Messages on one session arrive in order, so it has processed
+     * every cancellation sent to it before: drop it from the older ones. Without this, a peer that publishes no
+     * fresh snapshot (quiet-v1) kept every old cancellation pending, and each new request replayed all of them
+     * (27 Nov: 8 requests in 15 s, each followed by every earlier cancel).
+     */
+    @Synchronized fun onPeerAnswered(peerId: String, requestId: String) {
+        val peer = peerId.lowercase()
+        val iterator = pendingCancellations.entries.iterator()
+        while (iterator.hasNext()) {
+            val (pendingId, pending) = iterator.next()
+            if (pendingId != requestId) pending.holders.remove(peer)
+            if (pending.holders.isEmpty()) iterator.remove()
+        }
+    }
+
+    /**
+     * A participant denied [requestId] because its peer list differs from ours. That does not change within
+     * seconds, so [begin] refuses the same membership for [MEMBERSHIP_MISMATCH_HOLD_MS] instead of retrying
+     * every 2 s (27 Nov: a tablet that had not authorized the Mac, and a phone that had).
+     */
+    @Synchronized fun onMembershipMismatch(peerId: String, requestId: String) {
+        val current = intent ?: return
+        if (current.requestId != requestId) return
+        mismatchHold = current.membershipDigest to (clock.nowMs() + MEMBERSHIP_MISMATCH_HOLD_MS)
+        changed("requester", requestId, current.phase, "membership_mismatch_from_$peerId")
+    }
+    private var mismatchHold: Pair<String, Long>? = null
+
     @Synchronized fun currentIntent(): Intent? = intent
     @Synchronized fun currentReservation(): ParticipantReservation? = reservation
 
@@ -122,6 +151,10 @@ class PassiveAcquisitionCoordinator(
             (localInstallationId.lowercase() to localSnapshotRevision)
         if (revisions.values.any { it < 0 }) return Event.Deny("", Denial.STALE_SNAPSHOT)
         val membersDigest = membershipDigest(members)
+        mismatchHold?.let { (digest, until) ->
+            if (digest == membersDigest && now < until) return Event.Deny("", Denial.MEMBERSHIP_MISMATCH)
+            if (now >= until) mismatchHold = null
+        }
         val active = intent
         if (active?.phase == Phase.IN_PROGRESS) return Event.Deny(active.requestId, Denial.BUSY)
         if (active != null && active.phase in setOf(Phase.PREPARING, Phase.STARTING, Phase.IN_PROGRESS)) {
@@ -409,6 +442,7 @@ class PassiveAcquisitionCoordinator(
         const val PREPARATION_TTL_MS = 5_000L
         const val GRANT_RECEIVE_MS = 2_000L
         const val START_ACK_MS = 3_000L
+        const val MEMBERSHIP_MISMATCH_HOLD_MS = 60_000L
         fun membershipDigest(members: List<String>): String {
             val canonical = members.map { it.lowercase() }.distinct().sorted().joinToString("\n", postfix = "\n")
             return MessageDigest.getInstance("SHA-256").digest(canonical.toByteArray(StandardCharsets.UTF_8))

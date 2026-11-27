@@ -5,13 +5,14 @@ package io.automated.ventures.everypods.utils.peer
  * Everypods-private docs/peer-link-quiet-redesign.md). The keys match the Windows and Mac lines, so the traces
  * measure idle traffic, dials and link churn directly:
  *
- *     STATS peer=98597A1041E9 window_s=3600 legacy_in=180 legacy_in_bytes=720 ... v2_pings=360
+ *     STATS peer=98597A1041E9 window_s=3600 legacy_in=180 legacy_in_bytes=720 ... v2_pings=360 ... le_pings=0
  *     STATS window_s=3600
  *
  * Times are `SystemClock.elapsedRealtime()` milliseconds passed in by the caller, so this stays a plain class.
  */
 class PeerLinkStats(startedAtMs: Long) {
-    enum class Channel(val key: String) { LEGACY("legacy"), V2("v2") }
+    /** LEGACY and V2: the RFCOMM links. LE: V2 frames over the Bluetooth LE links (Mac, phone to phone). */
+    enum class Channel(val key: String) { LEGACY("legacy"), V2("v2"), LE("le") }
 
     class Counters {
         var framesIn = 0L; var bytesIn = 0L; var framesOut = 0L; var bytesOut = 0L

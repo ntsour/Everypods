@@ -224,6 +224,43 @@ class PassiveAcquisitionCoordinatorTest {
         assertEquals(listOf(second.requestId), coordinator.pendingCancellations().map { it.requestId })
     }
 
+    @Test fun `a peer that answered a newer request has processed the older cancellations`() {
+        var nextId = 0
+        val coordinator = PassiveAcquisitionCoordinator(a, Clock()) { "request-${++nextId}" }
+        val peers = mapOf(b to status(b, "sess-b"))
+        val first = coordinator.begin(headset, "sess-a", setOf(a, b), true, true, true, true, 4, peers)
+            as PassiveAcquisitionCoordinator.Event.Request
+        coordinator.cancelIntent()
+        val second = coordinator.begin(headset, "sess-a", setOf(a, b), true, true, true, true, 4, peers)
+            as PassiveAcquisitionCoordinator.Event.Request
+        assertEquals(listOf(first.requestId), coordinator.pendingCancellations().map { it.requestId })
+        // b grants or denies the second request: the first cancellation reached it (one ordered session).
+        coordinator.onPeerAnswered(b.uppercase(), second.requestId)
+        assertTrue(coordinator.pendingCancellations().isEmpty())
+    }
+
+    @Test fun `a membership mismatch holds the same membership for a minute instead of retrying`() {
+        var nextId = 0
+        val clock = Clock()
+        val coordinator = PassiveAcquisitionCoordinator(a, clock) { "request-${++nextId}" }
+        val peers = mapOf(b to status(b, "sess-b"))
+        val first = coordinator.begin(headset, "sess-a", setOf(a, b), true, true, true, true, 4, peers)
+            as PassiveAcquisitionCoordinator.Event.Request
+        coordinator.onMembershipMismatch(b, first.requestId)
+        coordinator.cancelIntent()
+        val held = coordinator.begin(headset, "sess-a", setOf(a, b), true, true, true, true, 4, peers)
+        assertEquals(PassiveAcquisitionCoordinator.Denial.MEMBERSHIP_MISMATCH,
+            (held as PassiveAcquisitionCoordinator.Event.Deny).reason)
+        // A different membership (a peer added or removed) is tried at once.
+        val other = coordinator.begin(headset, "sess-a", setOf(a, b, c), true, true, true, true, 4,
+            peers + (c to status(c, "sess-c")))
+        assertTrue(other is PassiveAcquisitionCoordinator.Event.Request)
+        coordinator.cancelIntent()
+        clock.now += PassiveAcquisitionCoordinator.MEMBERSHIP_MISMATCH_HOLD_MS
+        assertTrue(coordinator.begin(headset, "sess-a", setOf(a, b), true, true, true, true, 4, peers)
+            is PassiveAcquisitionCoordinator.Event.Request)
+    }
+
     @Test fun `begin defaults to passive intent and carries an explicit intent through retries`() {
         val passive = PassiveAcquisitionCoordinator(a, Clock()) { "request-1" }
         val p = passive.begin(headset, "sess-a", setOf(a, b), true, true, true, true, 4,

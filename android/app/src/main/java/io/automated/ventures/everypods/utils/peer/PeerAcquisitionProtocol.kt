@@ -82,14 +82,18 @@ class PeerAcquisitionProtocol(
             PeerV2Frame.Type.ACQUIRE_GRANT -> {
                 require(f.getValue("grantorId") == authenticatedPeerId &&
                     f.getValue("grantorSessionId") == authenticatedPeerSessionId) { "grantor_identity_mismatch" }
+                coordinator.onPeerAnswered(authenticatedPeerId, f.getValue("requestId") as String)
                 return Result(frames(coordinator.onGrant(authenticatedPeerId, authenticatedPeerSessionId,
                     f.getValue("requestId") as String, f.getValue("grantId") as String)))
             }
             PeerV2Frame.Type.ACQUIRE_DENY -> {
                 require(f.getValue("grantorId") == authenticatedPeerId &&
                     f.getValue("grantorSessionId") == authenticatedPeerSessionId) { "grantor_identity_mismatch" }
+                val deniedId = f.getValue("requestId") as String
+                coordinator.onPeerAnswered(authenticatedPeerId, deniedId)
+                if (f["reason"] == "MEMBERSHIP_MISMATCH") coordinator.onMembershipMismatch(authenticatedPeerId, deniedId)
                 val pending = coordinator.currentIntent()
-                val cancel = if (pending?.requestId == f.getValue("requestId")) coordinator.cancelIntent() else emptyList()
+                val cancel = if (pending?.requestId == deniedId) coordinator.cancelIntent() else emptyList()
                 return Result(frames(cancel))
             }
             PeerV2Frame.Type.ACQUIRE_START_ACK -> {
