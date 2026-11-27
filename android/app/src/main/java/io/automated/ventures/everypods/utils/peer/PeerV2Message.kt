@@ -36,8 +36,18 @@ object PeerV2Message {
      * advertised once every deployed build accepts it.
      */
     const val ADVERTISE_ACQUIRE_V2 = false
-    val LOCAL_CAPABILITIES: List<String> =
-        if (ADVERTISE_ACQUIRE_V2) listOf("acquire-v1", "acquire-v2", "snapshot") else listOf("acquire-v1", "snapshot")
+    /**
+     * quiet-v1 (Everypods-private docs/peer-link-quiet-redesign.md, D1): this side pushes every state change, keeps a
+     * peer's state valid for the whole session, answers PING at once and probes a quiet link only after a minute of
+     * silence. Every client from 27 Nov accepts it; older Mac builds reject unknown names, so update the Mac first.
+     */
+    const val ADVERTISE_QUIET_V1 = true
+    val LOCAL_CAPABILITIES: List<String> = listOfNotNull(
+        "acquire-v1",
+        "acquire-v2".takeIf { ADVERTISE_ACQUIRE_V2 },
+        PeerIdleProbe.CAPABILITY.takeIf { ADVERTISE_QUIET_V1 },
+        "snapshot",
+    )
 
     fun intentOf(fields: Map<String, Any?>): HandoverIntent =
         HandoverIntent.fromWire(fields["intent"] as? String) ?: HandoverIntent.PASSIVE

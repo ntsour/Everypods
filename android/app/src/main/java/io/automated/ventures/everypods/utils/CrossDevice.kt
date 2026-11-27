@@ -300,14 +300,18 @@ object CrossDevice {
         Log.i(TAG, "[$mac] peer removed: inbound/outbound transports and ownership state cleared")
     }
 
-    internal fun markV2PeerReady(mac: String, sessionId: String, acquisitionCapable: Boolean = false, intentCapable: Boolean = false) {
+    internal fun markV2PeerReady(mac: String, sessionId: String, acquisitionCapable: Boolean = false, intentCapable: Boolean = false,
+                                 quiet: Boolean = false) {
         v2ReadySessions[mac.uppercase()] = sessionId
+        peerOwnershipStore.setSessionScoped(mac, quiet)
         if (acquisitionCapable) v2AcquisitionCapable.add(mac.uppercase()) else v2AcquisitionCapable.remove(mac.uppercase())
         if (intentCapable) v2IntentCapable.add(mac.uppercase()) else v2IntentCapable.remove(mac.uppercase())
     }
 
-    internal fun markV2PeerReady(mac: String, sessionId: String, socket: BluetoothSocket, acquisitionCapable: Boolean = false, intentCapable: Boolean = false) {
+    internal fun markV2PeerReady(mac: String, sessionId: String, socket: BluetoothSocket, acquisitionCapable: Boolean = false, intentCapable: Boolean = false,
+                                 quiet: Boolean = false) {
         v2ReadySessions[mac.uppercase()] = sessionId
+        peerOwnershipStore.setSessionScoped(mac, quiet)
         v2ReadySockets[mac.uppercase()] = socket
         if (acquisitionCapable) v2AcquisitionCapable.add(mac.uppercase()) else v2AcquisitionCapable.remove(mac.uppercase())
         if (intentCapable) v2IntentCapable.add(mac.uppercase()) else v2IntentCapable.remove(mac.uppercase())
@@ -643,9 +647,9 @@ object CrossDevice {
             override fun bindPeerIdentity(installationId: String) { bindV2PeerIdentity(mac, installationId) }
             override fun observeSnapshot(remoteSessionId: String, snapshot: Map<String, Any?>) =
                 observeRemoteSnapshot(mac, remoteSessionId, snapshot)
-            override fun markReady(remoteSessionId: String, acquisitionCapable: Boolean, intentCapable: Boolean) {
+            override fun markReady(remoteSessionId: String, acquisitionCapable: Boolean, intentCapable: Boolean, quietCapable: Boolean) {
                 val first = v2ReadySessions[mac.uppercase()] != remoteSessionId
-                markV2PeerReady(mac, remoteSessionId, acquisitionCapable, intentCapable)
+                markV2PeerReady(mac, remoteSessionId, acquisitionCapable, intentCapable, quietCapable)
                 if (first) Log.d(TAG, "[$mac] v2 over Bluetooth LE ready")
                 ServiceManager.getService()?.retryRecentRemoteCaseObservation()
             }
@@ -874,6 +878,9 @@ object CrossDevice {
         var remoteIntentCapable = false
         val syncComplete = AtomicBoolean(false)
         val heartbeatState = PeerHeartbeat()
+        // A quiet-v1 peer gets the idle probe instead of the 10 s PING once the session is ready.
+        val remoteQuiet = AtomicBoolean(false)
+        val idleProbe = io.automated.ventures.everypods.utils.peer.PeerIdleProbe(SystemClock.elapsedRealtime())
         val syncWatchdog = launch {
             delay(5_000L)
             if (!syncComplete.get()) socket.runCatching { close() }
@@ -881,6 +888,24 @@ object CrossDevice {
         val heartbeat = launch {
             while (isActive && endpoint.generation.get() == generation &&
                 runCatching { socket.isConnected }.getOrDefault(false)) {
+                if (remoteQuiet.get() && syncComplete.get()) {
+                    delay((idleProbe.nextDueMs() - SystemClock.elapsedRealtime()).coerceIn(1_000L, 60_000L))
+                    when (val probe = idleProbe.onTick(SystemClock.elapsedRealtime())) {
+                        is io.automated.ventures.everypods.utils.peer.PeerIdleProbe.Action.SendPing -> if (!outbound.trySend(PeerV2Message.encode(
+                            PeerV2Frame.Type.PING, mapOf("nonce" to probe.nonce)).encode()).isSuccess) {
+                            socket.runCatching { close() }
+                        } else {
+                            linkStats.ping(address, io.automated.ventures.everypods.utils.peer.PeerLinkStats.Channel.V2)
+                            logLinkStatsIfDue()
+                        }
+                        io.automated.ventures.everypods.utils.peer.PeerIdleProbe.Action.Wait -> logLinkStatsIfDue()
+                        io.automated.ventures.everypods.utils.peer.PeerIdleProbe.Action.TimedOut -> {
+                            Log.w(TAG, "[$address] v2 idle probe unanswered twice")
+                            socket.runCatching { close() }
+                        }
+                    }
+                    continue
+                }
                 delay(10_000L)
                 when (val action = heartbeatState.onInterval()) {
                     is PeerHeartbeatAction.SendPing -> if (!outbound.trySend(PeerV2Message.encode(
@@ -905,6 +930,7 @@ object CrossDevice {
                 if (count < 0) break
                 for (frame in decoder.feed(chunk.copyOf(count))) {
                     linkStats.frameIn(address, io.automated.ventures.everypods.utils.peer.PeerLinkStats.Channel.V2, frame.payload.size)
+                    idleProbe.onFrameReceived(SystemClock.elapsedRealtime())  // any frame answers the idle probe
                     val capabilityContext = ServiceManager.getService()?.applicationContext ?: error("service_unavailable")
                     require(io.automated.ventures.everypods.relay.DeviceConnectionStore(capabilityContext).coordinationAuthorized(address)) {
                         "unauthorized_coordination_peer"
@@ -921,6 +947,7 @@ object CrossDevice {
                         val remoteCaps = (remote.getValue("capabilities") as List<*>).filterIsInstance<String>()
                         remoteAcquisitionCapable = "acquire-v1" in remoteCaps
                         remoteIntentCapable = "acquire-v2" in remoteCaps
+                        remoteQuiet.set(io.automated.ventures.everypods.utils.peer.PeerIdleProbe.CAPABILITY in remoteCaps)
                         require(remote.getValue("initiatorId") == remoteInstall) { "invalid_initiator_identity" }
                         val context = ServiceManager.getService()?.applicationContext ?: error("service_unavailable")
                         val oldIdentity = PeerIdentityStore.peerInstallationId(context, address)
@@ -952,21 +979,23 @@ object CrossDevice {
                             }
                         }
                         PeerV2Frame.Type.PING -> {
+                            // Once ready the PONG alone carries the snapshot; every client reads it from there.
                             val snapshot = localSnapshot()
-                            queueV2Frame(outbound, PeerV2Message.encode(PeerV2Frame.Type.SNAPSHOT, snapshot))
+                            if (!syncComplete.get()) queueV2Frame(outbound, PeerV2Message.encode(PeerV2Frame.Type.SNAPSHOT, snapshot))
                             queueV2Frame(outbound, PeerV2Message.encode(PeerV2Frame.Type.PONG, mapOf(
                                 "nonce" to message.fields.getValue("nonce"), "snapshot" to snapshot,
                             )))
                         }
                         PeerV2Frame.Type.PONG -> {
                             val nonce = message.fields.getValue("nonce") as String
-                            if (!heartbeatState.acknowledge(nonce)) continue
+                            val probeAnswer = syncComplete.get() && idleProbe.acknowledge(nonce)
+                            if (!probeAnswer && !heartbeatState.acknowledge(nonce)) continue
                             require(observeRemoteSnapshot(address, remoteSessionId,
                                 stringKeyedMap(message.fields.getValue("snapshot")))) {
                                 "pong_snapshot_not_authoritative"
                             }
                             syncComplete.set(true)
-                            remoteSessionId?.let { markV2PeerReady(address, it, socket, remoteAcquisitionCapable, remoteIntentCapable) }
+                            remoteSessionId?.let { markV2PeerReady(address, it, socket, remoteAcquisitionCapable, remoteIntentCapable, remoteQuiet.get()) }
                             syncWatchdog.cancel()
                         }
                         PeerV2Frame.Type.ACQUIRE_REQUEST, PeerV2Frame.Type.ACQUIRE_GRANT,
@@ -1476,6 +1505,12 @@ object CrossDevice {
             while (true) {
                 delay(SERVER_KEEPALIVE_INTERVAL_MS)
                 if (!clientSockets.contains(socket)) break
+                // A ready quiet-v1 V2 session to the same peer proves its app alive: no status request
+                // over this link (docs/peer-link-quiet-redesign.md, D1).
+                if (v2ReadySessions.containsKey(addr.uppercase()) && peerOwnershipStore.isSessionScoped(addr)) {
+                    logLinkStatsIfDue()
+                    continue
+                }
                 // Check before asking again, never right after: the reply to this
                 // request cannot have arrived yet (see LegacyPeerLiveness).
                 if (liveness.staleBeforeRequest(SystemClock.elapsedRealtime())) {

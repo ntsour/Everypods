@@ -21,6 +21,8 @@ class PeerLeV2SessionTest {
         val ready = mutableListOf<Pair<String, Boolean>>()
         val bound = mutableListOf<String>()
         val acquisitions = mutableListOf<PeerV2Frame.Type>()
+        var snapshots = 0
+        val quiet = mutableListOf<Boolean>()
         override fun send(frame: PeerV2Frame.Frame): Boolean { if (sendOk) outbox += frame.encode(); return sendOk }
         override fun isAuthorized() = authorized
         override fun localInstallationId() = install
@@ -30,8 +32,11 @@ class PeerLeV2SessionTest {
             "audioUse" to "unknown", "lastOwnerId" to null, "lastOwnerRevision" to null, "acquisition" to null)
         override fun newConnectionId() = "00000000-0000-4000-8000-0000000000c1"
         override fun bindPeerIdentity(installationId: String) { bound += installationId }
-        override fun observeSnapshot(remoteSessionId: String, snapshot: Map<String, Any?>) = accepted
-        override fun markReady(remoteSessionId: String, acquisitionCapable: Boolean, intentCapable: Boolean) { ready += remoteSessionId to acquisitionCapable }
+        override fun observeSnapshot(remoteSessionId: String, snapshot: Map<String, Any?>): Boolean { snapshots++; return accepted }
+        override fun markReady(remoteSessionId: String, acquisitionCapable: Boolean, intentCapable: Boolean, quietCapable: Boolean) {
+            ready += remoteSessionId to acquisitionCapable
+            quiet += quietCapable
+        }
         override fun handleAcquisition(remoteSessionId: String, type: PeerV2Frame.Type, fields: Map<String, Any?>) { acquisitions += type }
         override fun onEnded(reason: String) { ended += reason }
     }
@@ -107,28 +112,44 @@ class PeerLeV2SessionTest {
         assertTrue(c.acquisitions.isEmpty())
     }
 
-    @Test fun `a missed heartbeat twice ends the session`() {
+    // Both sides advertise quiet-v1 (PeerV2Message.LOCAL_CAPABILITIES): the idle probe replaces the 10 s PING.
+    @Test fun `a quiet session sends nothing in its first silent minute`() {
         handshake()
         now += PeerLeV2Session.HEARTBEAT_MS
+        central.tick(); peripheral.tick()
+        assertTrue(a.outbox.isEmpty() && b.outbox.isEmpty())
+        now += PeerIdleProbe.IDLE_PROBE_MS - PeerLeV2Session.HEARTBEAT_MS - 1
         central.tick()
-        assertEquals(1, a.outbox.size)          // PING sent
+        assertTrue(a.outbox.isEmpty())
+    }
+
+    @Test fun `two unanswered idle probes end the session`() {
+        handshake()
+        now += PeerIdleProbe.IDLE_PROBE_MS
+        central.tick()
+        assertEquals(1, a.outbox.size)          // probe sent
         a.outbox.clear()                        // ... and lost
-        now += PeerLeV2Session.HEARTBEAT_MS
-        central.tick()                          // first missed interval
+        now += PeerIdleProbe.PROBE_RETRY_MS
+        central.tick()
+        assertEquals(1, a.outbox.size)          // one more probe
+        a.outbox.clear()
         assertTrue(a.ended.isEmpty())
-        now += PeerLeV2Session.HEARTBEAT_MS
+        now += PeerIdleProbe.PROBE_RETRY_MS
         central.tick()
         assertEquals(listOf("heartbeat_timeout"), a.ended)
         assertFalse(central.isReady)
     }
 
-    @Test fun `a heartbeat that is answered keeps the session up`() {
+    @Test fun `an answered idle probe keeps the session up and delivers the snapshot`() {
         handshake()
+        assertEquals(true, a.quiet.last())
+        val before = a.snapshots
         repeat(4) {
-            now += PeerLeV2Session.HEARTBEAT_MS
-            central.tick(); pump()
+            now += PeerIdleProbe.IDLE_PROBE_MS
+            central.tick(); peripheral.tick(); pump()
         }
-        assertTrue(a.ended.isEmpty() && central.isReady)
+        assertTrue(a.ended.isEmpty() && b.ended.isEmpty() && central.isReady)
+        assertTrue(a.snapshots > before)
     }
 
     @Test fun `no initial pong within five seconds ends the handshake`() {

@@ -126,6 +126,32 @@ class PeerOwnershipStoreTest {
         assertEquals(mapOf("BB" to PeerAudioUse.IDLE), store.freshAudioUses())
     }
 
+    @Test
+    fun `a quiet-v1 peer's state stays valid for its session, then ends with it`() {
+        store.configure(peers)
+        peers.forEach(::observe)
+        peers.forEach { store.setSessionScoped(it, true) }
+        now = 100_000L  // long past freshnessMs: no 10 s re-sends from quiet peers
+        assertTrue(store.allPeersRelease(headset))
+        assertEquals(3, store.freshAudioUses().size)
+        store.invalidate("BB")  // its session ended
+        assertFalse(store.isSessionScoped("BB"))
+        assertFalse(store.allConfiguredPeersFresh(headset))
+        assertTrue(store.observe(observation("BB")))
+        assertFalse("a new session is time-limited until it is marked quiet again", run { now += 36L; store.allConfiguredPeersFresh(headset) })
+    }
+
+    @Test
+    fun `a peer that is not quiet still expires after freshnessMs`() {
+        store.configure(peers)
+        peers.forEach(::observe)
+        store.setSessionScoped("AA", true)
+        store.setSessionScoped("BB", true)
+        now = 136L
+        assertFalse(store.allConfiguredPeersFresh(headset))  // CC is not quiet
+        assertEquals(setOf("AA", "BB"), store.freshAudioUses().keys)
+    }
+
     private fun observe(peer: String) {
         assertTrue(store.observe(observation(peer)))
     }
