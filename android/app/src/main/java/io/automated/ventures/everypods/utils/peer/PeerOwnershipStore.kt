@@ -39,11 +39,26 @@ class PeerOwnershipStore(
 ) {
     private var configuredPeers: Set<String> = emptySet()
     private val current = mutableMapOf<String, PeerObservation>()
+    // quiet-v1 peers push every change and stop re-sending their state every 10 s: their observation stays valid
+    // for as long as its session is ready (invalidate() ends it), not only freshnessMs.
+    private val sessionScoped = mutableSetOf<String>()
+
+    @Synchronized
+    fun setSessionScoped(peerId: String, scoped: Boolean) {
+        if (scoped) sessionScoped.add(peerId.uppercase()) else sessionScoped.remove(peerId.uppercase())
+    }
+
+    @Synchronized
+    fun isSessionScoped(peerId: String): Boolean = peerId.uppercase() in sessionScoped
+
+    private fun isFresh(peer: String, value: PeerObservation, now: Long): Boolean =
+        peer in sessionScoped || CrossDeviceReconnectPolicy.observationIsFresh(value.receivedAtElapsedMs, now, freshnessMs)
 
     @Synchronized
     fun configure(peers: Set<String>) {
         configuredPeers = peers.mapTo(mutableSetOf()) { it.uppercase() }
         current.keys.retainAll(configuredPeers)
+        sessionScoped.retainAll(configuredPeers)
     }
 
     @Synchronized
@@ -69,11 +84,13 @@ class PeerOwnershipStore(
     @Synchronized
     fun invalidate(peerId: String) {
         current.remove(peerId.uppercase())
+        sessionScoped.remove(peerId.uppercase())
     }
 
     @Synchronized
     fun clear() {
         current.clear()
+        sessionScoped.clear()
     }
 
     @Synchronized
@@ -83,9 +100,7 @@ class PeerOwnershipStore(
     @Synchronized
     fun freshAudioUses(): Map<String, PeerAudioUse> {
         val now = clock.nowMs()
-        return current.filterValues {
-            CrossDeviceReconnectPolicy.observationIsFresh(it.receivedAtElapsedMs, now, freshnessMs)
-        }.mapValues { it.value.audioUse }
+        return current.filter { (peer, value) -> isFresh(peer, value, now) }.mapValues { it.value.audioUse }
     }
 
     @Synchronized
@@ -93,8 +108,7 @@ class PeerOwnershipStore(
         val now = clock.nowMs()
         return configuredPeers.all { peer ->
             val value = current[peer] ?: return@all false
-            value.headsetId != null && (headsetId == null || value.headsetId == headsetId) &&
-                CrossDeviceReconnectPolicy.observationIsFresh(value.receivedAtElapsedMs, now, freshnessMs)
+            value.headsetId != null && (headsetId == null || value.headsetId == headsetId) && isFresh(peer, value, now)
         }
     }
 

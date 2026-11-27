@@ -26,7 +26,7 @@ class PeerLeV2Session(
         fun newConnectionId(): String
         fun bindPeerIdentity(installationId: String)
         fun observeSnapshot(remoteSessionId: String, snapshot: Map<String, Any?>): Boolean
-        fun markReady(remoteSessionId: String, acquisitionCapable: Boolean, intentCapable: Boolean = false)
+        fun markReady(remoteSessionId: String, acquisitionCapable: Boolean, intentCapable: Boolean = false, quietCapable: Boolean = false)
         fun handleAcquisition(remoteSessionId: String, type: PeerV2Frame.Type, fields: Map<String, Any?>)
         /** The session ended ([reason] is a short code); called at most once, never after [end] by the owner. */
         fun onEnded(reason: String)
@@ -43,6 +43,9 @@ class PeerLeV2Session(
     private var initialPong = false
     private var handshakeDeadlineMs: Long? = null
     private var nextHeartbeatMs: Long = clock() + HEARTBEAT_MS
+    // A quiet-v1 peer gets the idle probe instead of the 10 s PING once the session is ready.
+    private var remoteQuiet = false
+    private var idleProbe = PeerIdleProbe(clock())
     @Volatile private var endedFlag = false
     @Volatile private var readyFlag = false
 
@@ -73,6 +76,7 @@ class PeerLeV2Session(
             require(frames.size == 1) { "v2_record_not_one_frame" }
             handle(frames[0])
         }
+        idleProbe.onFrameReceived(clock())  // any frame answers the idle probe
     }
 
     /** Call about once a second: runs the handshake watchdog and the 10 s heartbeat. */
@@ -82,6 +86,14 @@ class PeerLeV2Session(
         guarded {
             val deadline = handshakeDeadlineMs
             if (deadline != null && !initialPong && now >= deadline) error("handshake_timeout")
+            if (readyFlag && remoteQuiet) {
+                when (val probe = idleProbe.onTick(now)) {
+                    is PeerIdleProbe.Action.SendPing -> send(PeerV2Message.encode(PeerV2Frame.Type.PING, mapOf("nonce" to probe.nonce)))
+                    PeerIdleProbe.Action.Wait -> Unit
+                    PeerIdleProbe.Action.TimedOut -> error("heartbeat_timeout")
+                }
+                return@guarded
+            }
             if (now < nextHeartbeatMs) return@guarded
             nextHeartbeatMs = now + HEARTBEAT_MS
             if (remoteInstall == null) return@guarded
@@ -114,11 +126,13 @@ class PeerLeV2Session(
             initialPong = false
             remoteAcquisitionCapable = false
             remoteIntentCapable = false
+            idleProbe = PeerIdleProbe(clock())
             val install = fields.getValue("installationId") as String
             val session = fields.getValue("sessionId") as String
             val remoteCaps = (fields.getValue("capabilities") as List<*>).filterIsInstance<String>()
             val capable = "acquire-v1" in remoteCaps
             remoteIntentCapable = "acquire-v2" in remoteCaps
+            remoteQuiet = PeerIdleProbe.CAPABILITY in remoteCaps
             require(fields.getValue("initiatorId") == install) { "invalid_initiator_identity" }
             val localInstall = hooks.localInstallationId() ?: error("identity_unavailable")
             val localSession = hooks.localSessionId() ?: error("session_unavailable")
@@ -145,6 +159,7 @@ class PeerLeV2Session(
                 val remoteCaps = (fields.getValue("capabilities") as List<*>).filterIsInstance<String>()
                 remoteAcquisitionCapable = "acquire-v1" in remoteCaps
                 remoteIntentCapable = "acquire-v2" in remoteCaps
+                remoteQuiet = PeerIdleProbe.CAPABILITY in remoteCaps
                 hooks.bindPeerIdentity(remoteInstall!!)
             }
             PeerV2Frame.Type.SNAPSHOT -> {
@@ -159,20 +174,21 @@ class PeerLeV2Session(
                 }
             }
             PeerV2Frame.Type.PING -> {
+                // Once ready the PONG alone carries the snapshot; every client reads it from there.
                 val snapshot = hooks.localSnapshot()
-                send(PeerV2Message.encode(PeerV2Frame.Type.SNAPSHOT, snapshot))
+                if (!readyFlag) send(PeerV2Message.encode(PeerV2Frame.Type.SNAPSHOT, snapshot))
                 send(PeerV2Message.encode(PeerV2Frame.Type.PONG, mapOf("nonce" to fields.getValue("nonce"), "snapshot" to snapshot)))
             }
             PeerV2Frame.Type.PONG -> {
                 val nonce = fields.getValue("nonce") as String
-                if (heartbeat.acknowledge(nonce)) {
+                if ((readyFlag && idleProbe.acknowledge(nonce)) || heartbeat.acknowledge(nonce)) {
                     val session = remoteSession ?: error("hello_required")
                     val snapshot = stringKeyed(fields.getValue("snapshot"))
                     require(snapshot["sessionId"] == session) { "v2_session_mismatch" }
                     require(hooks.observeSnapshot(session, snapshot)) { "v2_pong_snapshot_not_authoritative" }
                     initialPong = true
                     readyFlag = true
-                    hooks.markReady(session, remoteAcquisitionCapable, remoteIntentCapable)
+                    hooks.markReady(session, remoteAcquisitionCapable, remoteIntentCapable, remoteQuiet)
                 }
             }
             PeerV2Frame.Type.ACQUIRE_REQUEST, PeerV2Frame.Type.ACQUIRE_GRANT, PeerV2Frame.Type.ACQUIRE_DENY,

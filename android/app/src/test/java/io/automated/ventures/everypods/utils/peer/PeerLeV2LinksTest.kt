@@ -24,7 +24,7 @@ class PeerLeV2LinksTest {
         override fun newConnectionId() = "00000000-0000-4000-8000-0000000000c1"
         override fun bindPeerIdentity(installationId: String) = Unit
         override fun observeSnapshot(remoteSessionId: String, snapshot: Map<String, Any?>) = true
-        override fun markReady(remoteSessionId: String, acquisitionCapable: Boolean, intentCapable: Boolean) = Unit
+        override fun markReady(remoteSessionId: String, acquisitionCapable: Boolean, intentCapable: Boolean, quietCapable: Boolean) = Unit
         override fun handleAcquisition(remoteSessionId: String, type: PeerV2Frame.Type, fields: Map<String, Any?>) = Unit
         override fun onEnded(reason: String) = onEnded.invoke(reason)
     }
