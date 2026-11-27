@@ -634,7 +634,16 @@ object CrossDevice {
 
     private fun newLeV2Session(mac: String, central: Boolean, ended: (String) -> Unit): PeerLeV2Session =
         PeerLeV2Session(central, object : PeerLeV2Session.Hooks {
-            override fun send(frame: PeerV2Frame.Frame) = PeerLeChannel.send(mac, PeerGattRecords.V2, frame.encode())
+            override fun send(frame: PeerV2Frame.Frame): Boolean {
+                val bytes = frame.encode()
+                val sent = PeerLeChannel.send(mac, PeerGattRecords.V2, bytes)
+                if (sent) {
+                    linkStats.frameOut(mac, io.automated.ventures.everypods.utils.peer.PeerLinkStats.Channel.LE, bytes.size)
+                    if (frame.type == PeerV2Frame.Type.PING) linkStats.ping(mac, io.automated.ventures.everypods.utils.peer.PeerLinkStats.Channel.LE)
+                    logLinkStatsIfDue()
+                }
+                return sent
+            }
             override fun isAuthorized(): Boolean {
                 val ctx = gattContext ?: return false
                 return isEnabled && configuredPeers.any { it.equals(mac, ignoreCase = true) } &&
@@ -1203,7 +1212,10 @@ object CrossDevice {
         startServer(adapter)
         gattContext = context.applicationContext
         PeerLeChannel.authorizer = ::isLeAuthorizedPeer
-        PeerLeChannel.register(PeerGattRecords.V2) { mac, payload -> leV2Links.onRecord(mac, payload) }
+        PeerLeChannel.register(PeerGattRecords.V2) { mac, payload ->
+            linkStats.frameIn(mac, io.automated.ventures.everypods.utils.peer.PeerLinkStats.Channel.LE, payload.size)
+            leV2Links.onRecord(mac, payload)
+        }
         if (configuredPeers.isEmpty()) {
             PeerGattServer.stop("no peers")
             PeerGattClient.stop("no peers")

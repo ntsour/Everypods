@@ -11,7 +11,9 @@ class PeerLinkStatsTest {
                 " legacy_in=0 legacy_in_bytes=0 legacy_out=0 legacy_out_bytes=0 legacy_dials=0" +
                 " legacy_dial_failures=0 legacy_up=0 legacy_down=0 legacy_pings=0" +
                 " v2_in=0 v2_in_bytes=0 v2_out=0 v2_out_bytes=0 v2_dials=0" +
-                " v2_dial_failures=0 v2_up=0 v2_down=0 v2_pings=0",
+                " v2_dial_failures=0 v2_up=0 v2_down=0 v2_pings=0" +
+                " le_in=0 le_in_bytes=0 le_out=0 le_out_bytes=0 le_dials=0" +
+                " le_dial_failures=0 le_up=0 le_down=0 le_pings=0",
             PeerLinkStats.format("98:59:7a:10:41:e9", 3600, emptyMap()),
         )
     }

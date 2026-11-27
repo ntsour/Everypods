@@ -2580,7 +2580,15 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
             @SuppressLint("NewApi")
             override fun onHeadTrackingReceived(headTracking: ByteArray) {
-                Log.d(TAG, "onHeadTrackingReceived: active=$isHeadTrackingActive len=${headTracking.size}")
+                // ~25 per second while head gestures listen: one line a minute, not one per sample (27 Nov:
+                // 94,000 lines that pushed everything else out of logcat).
+                headTrackingSamples++
+                val nowMs = SystemClock.elapsedRealtime()
+                if (nowMs - headTrackingLoggedAtMs >= 60_000L) {
+                    Log.d(TAG, "onHeadTrackingReceived: active=$isHeadTrackingActive len=${headTracking.size} samples=$headTrackingSamples since last line")
+                    headTrackingLoggedAtMs = nowMs
+                    headTrackingSamples = 0
+                }
                 if (BuildConfig.DEBUG) io.automated.ventures.everypods.utils.HeadMotionRecorder.record(headTracking, SystemClock.elapsedRealtime())
                 if (isHeadTrackingActive) {
                     val generation = BluetoothConnectionManager.connectionGeneration()
@@ -4160,6 +4168,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         io.automated.ventures.everypods.bluetooth.audio.AudioCommandFenceStore(
             getSharedPreferences("audio_command_fence", MODE_PRIVATE))
     }
+    @Volatile private var headTrackingSamples = 0
+    @Volatile private var headTrackingLoggedAtMs = 0L
     private val peerRefreshBudget = io.automated.ventures.everypods.bluetooth.audio.PeerRefreshBudget()
     private val offlineAudioCoordinator = io.automated.ventures.everypods.bluetooth.audio.AudioConnectionCoordinator()
     private val offlineAudioDriver: io.automated.ventures.everypods.bluetooth.audio.AudioConnectionDriver by lazy {
