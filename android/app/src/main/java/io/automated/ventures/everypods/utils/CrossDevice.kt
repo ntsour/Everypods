@@ -105,6 +105,14 @@ object CrossDevice {
     // between handovers, so without this Android's BT power-management can drop the ACL.
     private const val SERVER_KEEPALIVE_INTERVAL_MS = 20_000L
 
+    /** Hourly STATS lines per peer (phase 0 of the quiet peer links plan). */
+    private val linkStats by lazy { io.automated.ventures.everypods.utils.peer.PeerLinkStats(SystemClock.elapsedRealtime()) }
+
+    /** Logs the STATS lines once an hour, from the link loops that already run (no timer of its own). */
+    private fun logLinkStatsIfDue() {
+        linkStats.takeIfDue(SystemClock.elapsedRealtime())?.forEach { Log.i(TAG, it) }
+    }
+
     /**
      * W5 diagnostic: current power-management state of the EveryPods process. Sampled at
      * each keep-alive tick so we can correlate link drops with Doze entering or with the
@@ -849,11 +857,14 @@ object CrossDevice {
         val input = socket.inputStream
         val outbound = Channel<ByteArray>(64)
         v2InboundQueues[socket] = outbound
+        val v2LinkUpAtMs = SystemClock.elapsedRealtime()
+        linkStats.linkUp(address, io.automated.ventures.everypods.utils.peer.PeerLinkStats.Channel.V2)
         val writer = launch(Dispatchers.IO) {
             try {
                 for (bytes in outbound) {
                     socket.outputStream.write(bytes)
                     socket.outputStream.flush()
+                    linkStats.frameOut(address, io.automated.ventures.everypods.utils.peer.PeerLinkStats.Channel.V2, bytes.size)
                 }
             } catch (_: Exception) { socket.runCatching { close() } }
         }
@@ -875,6 +886,9 @@ object CrossDevice {
                     is PeerHeartbeatAction.SendPing -> if (!outbound.trySend(PeerV2Message.encode(
                         PeerV2Frame.Type.PING, mapOf("nonce" to action.nonce)).encode()).isSuccess) {
                         socket.runCatching { close() }
+                    } else {
+                        linkStats.ping(address, io.automated.ventures.everypods.utils.peer.PeerLinkStats.Channel.V2)
+                        logLinkStatsIfDue()
                     }
                     PeerHeartbeatAction.AwaitResponse -> Unit
                     PeerHeartbeatAction.TimedOut -> {
@@ -890,6 +904,7 @@ object CrossDevice {
                 val count = input.read(chunk)
                 if (count < 0) break
                 for (frame in decoder.feed(chunk.copyOf(count))) {
+                    linkStats.frameIn(address, io.automated.ventures.everypods.utils.peer.PeerLinkStats.Channel.V2, frame.payload.size)
                     val capabilityContext = ServiceManager.getService()?.applicationContext ?: error("service_unavailable")
                     require(io.automated.ventures.everypods.relay.DeviceConnectionStore(capabilityContext).coordinationAuthorized(address)) {
                         "unauthorized_coordination_peer"
@@ -968,6 +983,8 @@ object CrossDevice {
         } catch (e: Exception) {
             Log.d(TAG, "v2 peer session ended (${e.javaClass.simpleName})")
         } finally {
+            linkStats.linkDown(address, io.automated.ventures.everypods.utils.peer.PeerLinkStats.Channel.V2,
+                SystemClock.elapsedRealtime() - v2LinkUpAtMs)
             syncWatchdog.cancel()
             heartbeat.cancel()
             outbound.close()
@@ -1416,6 +1433,7 @@ object CrossDevice {
             init(context.applicationContext)
             return
         }
+        linkStats.take(SystemClock.elapsedRealtime()).forEach { Log.i(TAG, it) }  // the partial window
         invalidateServerGeneration()
         closeV2ClientSockets()
         val oldPeers = clientSockets.mapNotNull { socket ->
@@ -1449,13 +1467,24 @@ object CrossDevice {
         // handovers and Android Doze will eventually drop the idle ACL. Pinging the
         // peer every 20 s keeps it alive. The peer already
         // replies to REQUEST_CONNECTION_STATUS, so no protocol change is needed.
-        val liveness = io.automated.ventures.everypods.utils.peer.LegacyPeerLiveness(SystemClock.elapsedRealtime())
+        val linkUpAtMs = SystemClock.elapsedRealtime()
+        val liveness = io.automated.ventures.everypods.utils.peer.LegacyPeerLiveness(linkUpAtMs)
         val decoder = io.automated.ventures.everypods.utils.peer.LegacyPeerStreamDecoder()
+        linkStats.linkUp(addr, io.automated.ventures.everypods.utils.peer.PeerLinkStats.Channel.LEGACY)
         LidAutoconnectDiagnostics.logConnectionEvent("legacy_server", "opened")
         val keepAliveJob: Job = clientScope.launch {
             while (true) {
                 delay(SERVER_KEEPALIVE_INTERVAL_MS)
                 if (!clientSockets.contains(socket)) break
+                // Check before asking again, never right after: the reply to this
+                // request cannot have arrived yet (see LegacyPeerLiveness).
+                if (liveness.staleBeforeRequest(SystemClock.elapsedRealtime())) {
+                    LidAutoconnectDiagnostics.logConnectionEvent("legacy_server", "timeout", mapOf(
+                        "ageMs" to liveness.responseAgeMs(SystemClock.elapsedRealtime())))
+                    Log.w(TAG, "Server heartbeat status unanswered → $addr (closing stale link)")
+                    socket.runCatching { close() }
+                    break
+                }
                 val ok = sendToSocket(socket, CrossDevicePackets.REQUEST_CONNECTION_STATUS.packet)
 
                 if (!ok) {
@@ -1464,13 +1493,9 @@ object CrossDevice {
                     Log.w(TAG, "Server keep-alive ping FAILED → $addr (link dying)")
                     break
                 }
-                if (liveness.expired(SystemClock.elapsedRealtime())) {
-                    LidAutoconnectDiagnostics.logConnectionEvent("legacy_server", "timeout", mapOf(
-                        "ageMs" to liveness.responseAgeMs(SystemClock.elapsedRealtime())))
-                    Log.w(TAG, "Server heartbeat status expired → $addr (closing stale link)")
-                    socket.runCatching { close() }
-                    break
-                }
+                liveness.onRequestSent(SystemClock.elapsedRealtime())
+                linkStats.ping(addr, io.automated.ventures.everypods.utils.peer.PeerLinkStats.Channel.LEGACY)
+                logLinkStatsIfDue()
                 Log.d(TAG, "Server keep-alive ping → $addr @ ${System.currentTimeMillis()} ${powerStateDiag()}")
             }
         }
@@ -1485,6 +1510,7 @@ object CrossDevice {
             }
             if (bytes == -1) break
             for (packet in decoder.feed(buffer.copyOf(bytes))) {
+                linkStats.frameIn(addr, io.automated.ventures.everypods.utils.peer.PeerLinkStats.Channel.LEGACY, packet.size)
                 if (packet.contentEquals(CrossDevicePackets.AIRPODS_CONNECTED.packet) ||
                     packet.contentEquals(CrossDevicePackets.AIRPODS_DISCONNECTED.packet)) {
                     liveness.onStatusResponse(SystemClock.elapsedRealtime())
@@ -1494,6 +1520,8 @@ object CrossDevice {
         }
 
         keepAliveJob.cancel()
+        linkStats.linkDown(addr, io.automated.ventures.everypods.utils.peer.PeerLinkStats.Channel.LEGACY,
+            SystemClock.elapsedRealtime() - linkUpAtMs)
         LidAutoconnectDiagnostics.logConnectionEvent("legacy_server", "closed", mapOf(
             "ageMs" to liveness.responseAgeMs(SystemClock.elapsedRealtime())))
         socket.runCatching { close() }
@@ -1734,6 +1762,8 @@ object CrossDevice {
                 socket.outputStream.write(data)
                 socket.outputStream.flush()
             }
+            linkStats.frameOut(socket.remoteDevice.address,
+                io.automated.ventures.everypods.utils.peer.PeerLinkStats.Channel.LEGACY, data.size)
             Log.d(TAG, "Sent to ${socket.remoteDevice.address}: $hex")
             return true
         } catch (e: IOException) {
