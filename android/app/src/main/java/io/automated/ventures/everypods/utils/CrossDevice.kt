@@ -85,6 +85,10 @@ enum class CrossDevicePackets(val packet: ByteArray) {
     // Windows → Android: whether a call/meeting is actively using AirPods on Windows.
     WINDOWS_AUDIO_ACTIVE(byteArrayOf(0x00, 0x03, 0x00, 0x01)),
     WINDOWS_AUDIO_IDLE(byteArrayOf(0x00, 0x03, 0x00, 0x00)),
+    // Phone → computers: another device holds the AirPods in a call, or no longer does (PeerCallRelay).
+    // Computers don't link to each other; older ones ignore these packets.
+    OTHER_PEER_CALL_ACTIVE(byteArrayOf(0x00, 0x03, 0x00, 0x02)),
+    OTHER_PEER_CALL_IDLE(byteArrayOf(0x00, 0x03, 0x00, 0x03)),
     // Courtesy-filter handshake (holder-authoritative). The requester broadcasts
     // REQUEST_TAKEOVER; each peer replies COURTESY_DENY only if IT currently holds
     // the AirPods and its own toggle forbids interruption in its current state,
@@ -612,7 +616,31 @@ object CrossDevice {
             ownershipObservations.remove(mac.lowercase())
             peerOwnershipStore.invalidate(mac)
             Log.d(TAG, "[$mac] peer ownership is UNKNOWN until a fresh status arrives")
+            callRelay.linkDown(mac)
         }
+        refreshCallRelay()
+    }
+
+    /** Passes "another device holds the AirPods in a call" to the computers (PeerCallRelay). */
+    private val callRelay = io.automated.ventures.everypods.utils.peer.PeerCallRelay { mac, active ->
+        Log.d(TAG, "[$mac] relaying to this computer: ${if (active) "another device is in a call on the AirPods" else "no other device is in a call"}")
+        sendTo(mac, if (active) CrossDevicePackets.OTHER_PEER_CALL_ACTIVE.packet else CrossDevicePackets.OTHER_PEER_CALL_IDLE.packet)
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun refreshCallRelay() {
+        runCatching {
+            val ctx = gattContext ?: return
+            val adapter = ctx.getSystemService(BluetoothManager::class.java)?.adapter ?: return
+            if (!isEnabled) return
+            val computers = configuredPeers.map { it.uppercase() }
+                .filter { isComputerPeer(adapter, it) && isConnectedTo(it) }.toSet()
+            val localHeadset = ServiceManager.getService()?.macAddress?.takeIf { it.isNotBlank() }
+                ?.let { PeerIdentityStore.headsetIdFromAddress(it) }
+            val inCall = io.automated.ventures.everypods.utils.peer.PeerCallRelay.peersInCall(
+                peerOwnershipStore.observations(), peerOwnershipStore.freshAudioUses(), localHeadset)
+            callRelay.update(computers, inCall)
+        }.onFailure { Log.w(TAG, "call relay failed", it) }
     }
 
     private val clientSockets = CopyOnWriteArrayList<BluetoothSocket>()
@@ -677,6 +705,7 @@ object CrossDevice {
         v2ReadySessions.remove(key)
         v2AcquisitionCapable.remove(key)
         peerOwnershipStore.invalidate(key)
+        refreshCallRelay()
     }
     private val v2ReadySockets = ConcurrentHashMap<String, BluetoothSocket>()
     @Volatile private var remoteCaseTransport: io.automated.ventures.everypods.utils.peer.RemoteCaseBluetoothTransport? = null
@@ -1127,6 +1156,7 @@ object CrossDevice {
         // The v2 HELD field also includes AACP-only ownership. It cannot prove
         // that an acknowledged A2DP command has completed; the requester sends
         // an authenticated terminal release after observing the profile result.
+        refreshCallRelay()
         return true
     }
 
@@ -1358,6 +1388,7 @@ object CrossDevice {
                 if (ServiceManager.getService()?.holdsAirPods() == true) CrossDevicePackets.AIRPODS_CONNECTED.packet
                 else CrossDevicePackets.AIRPODS_DISCONNECTED.packet)
             startLeV2(address, hello, central = false)
+            refreshCallRelay()  // a computer that just linked hears about a call already running elsewhere
         }
 
         override fun onLegacyPacket(address: String, packet: ByteArray) = processPacket(packet, address)
