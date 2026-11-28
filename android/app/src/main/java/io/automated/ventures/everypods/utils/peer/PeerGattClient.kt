@@ -102,6 +102,11 @@ object PeerGattClient {
     private val readyAddresses = ConcurrentHashMap.newKeySet<String>()
 
     fun isReady(address: String): Boolean = address.uppercase() in readyAddresses
+
+    @Volatile private var targetSnapshot: Set<String> = emptySet()
+
+    /** True if this phone dials [address] as an LE central (another phone): its connection is not a central's. */
+    fun isTarget(address: String): Boolean = address.uppercase() in targetSnapshot
     fun hasReadySession(): Boolean = readyAddresses.isNotEmpty()
 
     private fun now() = SystemClock.elapsedRealtime()
@@ -137,6 +142,7 @@ object PeerGattClient {
     /** Keep (or start) links to exactly these bonded classic addresses (uppercase); close the rest. */
     fun setTargets(addresses: Set<String>) {
         val wanted = addresses.map { it.uppercase() }.toSet()
+        targetSnapshot = wanted
         handler.post {
             targets = wanted
             if (running) reconcile()
