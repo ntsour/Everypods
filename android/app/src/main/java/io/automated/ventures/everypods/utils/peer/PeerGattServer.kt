@@ -78,6 +78,14 @@ object PeerGattServer {
     private const val FAST_ADVERTISE_WINDOW_MS = 3 * 60_000L
     private const val NOTIFY_RETRY_MS = 50L
     private const val NOTIFY_MAX_REFUSALS = 40
+    /**
+     * A configured central that connects but has not finished subscribe + HELLO this long after connecting probably
+     * has stale handles: our service moved when the server was reopened (app restart, Bluetooth restart) and Android
+     * only sends Service Changed to centrals connected at that moment. See [nudgeStaleCentral].
+     */
+    private const val STALE_CHECK_MS = 5_000L
+    /** Re-adding the service moves it for every connected central, so never more often than this. */
+    private const val NUDGE_MIN_INTERVAL_MS = 30_000L
     /** Room for one fragmented 160 KiB message (PeerLeChannel) on top of normal traffic. */
     private const val QUEUE_LIMIT_BYTES = 256 * 1024
 
@@ -112,6 +120,14 @@ object PeerGattServer {
     private var listener: Listener? = null
     private var server: BluetoothGattServer? = null
     private var tx: BluetoothGattCharacteristic? = null
+    private var service: BluetoothGattService? = null
+    /** Centrals that reached ready since the server was opened: their handles are current. */
+    private val freshCentrals = HashSet<String>()
+    /** Centrals already nudged since the server was opened (one nudge each). */
+    private val nudgedCentrals = HashSet<String>()
+    private var lastNudgeMs = 0L
+    /** True while a nudge's re-add is pending: onServiceAdded must not restart advertising. */
+    private var readding = false
     private var running = false
     private var advertising = false
     private var advertisingLowPower = false
@@ -123,6 +139,8 @@ object PeerGattServer {
 
     // Read from any thread.
     private val readyAddresses = ConcurrentHashMap.newKeySet<String>()
+    /** Mirror of [Session.subscribed] for answering CCCD reads on the Binder thread. */
+    private val sessionSubscribed = ConcurrentHashMap<String, Boolean>()
 
     fun isReady(address: String): Boolean = address.uppercase() in readyAddresses
     fun hasReadySession(): Boolean = readyAddresses.isNotEmpty()
@@ -197,6 +215,27 @@ object PeerGattServer {
             Log.w(TAG, "openGattServer failed")
             return
         }
+        val (svc, txChar) = buildService()
+        server = s
+        service = svc
+        tx = txChar
+        running = true
+        advertiseRetries = 0
+        advertiseGivenUp = false
+        freshCentrals.clear()
+        nudgedCentrals.clear()
+        readding = false
+        if (!s.addService(svc)) {
+            Log.w(TAG, "addService refused")
+            close("addService refused")
+            return
+        }
+        handler.removeCallbacks(tick)
+        handler.postDelayed(tick, TICK_MS)
+        // Advertising starts from onServiceAdded.
+    }
+
+    private fun buildService(): Pair<BluetoothGattService, BluetoothGattCharacteristic> {
         val service = BluetoothGattService(SERVICE_UUID, BluetoothGattService.SERVICE_TYPE_PRIMARY)
         val rx = BluetoothGattCharacteristic(
             RX_UUID,
@@ -214,19 +253,45 @@ object PeerGattServer {
         ))
         service.addCharacteristic(rx)
         service.addCharacteristic(txChar)
-        server = s
-        tx = txChar
-        running = true
-        advertiseRetries = 0
-        advertiseGivenUp = false
-        if (!s.addService(service)) {
-            Log.w(TAG, "addService refused")
-            close("addService refused")
+        return service to txChar
+    }
+
+    /**
+     * Gives a central with stale handles a Service Changed. Android's GATT database is shared by every app, so our
+     * service lands at new handles each time the server is reopened. Android indicates Service Changed only to
+     * centrals connected at that moment; a bonded central that reconnects later keeps its cached handles (the Mac
+     * then writes HELLO into another app's attributes; Windows fails discovery with 0x80070016). Removing and
+     * re-adding the service while this central is connected makes the stack indicate Service Changed to it, and it
+     * rediscovers. Once per central per server lifetime, at most every [NUDGE_MIN_INTERVAL_MS].
+     */
+    private fun nudgeStaleCentral(address: String, session: Session) {
+        if (!running || sessions[address] !== session || session.ready) return
+        if (address in freshCentrals || address in nudgedCentrals || !allowed(address)) return
+        // This phone is the central on links it dials itself (to another phone); that peer never subscribes here.
+        if (PeerGattClient.isTarget(address)) return
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastNudgeMs < NUDGE_MIN_INTERVAL_MS) {
+            handler.postDelayed({ nudgeStaleCentral(address, session) }, NUDGE_MIN_INTERVAL_MS - (now - lastNudgeMs))
             return
         }
-        handler.removeCallbacks(tick)
-        handler.postDelayed(tick, TICK_MS)
-        // Advertising starts from onServiceAdded.
+        val s = server ?: return
+        val old = service ?: return
+        nudgedCentrals.add(address)
+        lastNudgeMs = now
+        // Connected centrals get this Service Changed; one that is away now will have stale handles next time.
+        freshCentrals.retainAll(sessions.keys)
+        Log.d(TAG, "[$address] connected ${STALE_CHECK_MS / 1000} s without subscribing (stale handles?); " +
+            "re-adding the service so it gets Service Changed")
+        val (svc, txChar) = buildService()
+        runCatching { s.removeService(old) }
+        service = svc
+        tx = txChar
+        readding = true
+        if (!s.addService(svc)) {
+            Log.w(TAG, "re-addService refused")
+            close("re-addService refused")
+            start(context ?: return, listener ?: return)
+        }
     }
 
     private fun close(reason: String) {
@@ -243,6 +308,8 @@ object PeerGattServer {
         server?.runCatching { close() }
         server = null
         tx = null
+        service = null
+        readding = false
     }
 
     // --- advertising ---
@@ -381,6 +448,7 @@ object PeerGattServer {
         session.outbox.clear()
         session.decoder.reset()
         session.subscribed = false
+        sessionSubscribed.remove(session.address)
         session.hello = null
         unready(session, reason)
     }
@@ -404,6 +472,7 @@ object PeerGattServer {
         session.ready = true
         session.lastKeepAliveMs = SystemClock.elapsedRealtime()
         readyAddresses.add(session.address)
+        freshCentrals.add(session.address)
         Log.d(TAG, "[${session.address}] link ready with '${hello.name}' (${hello.installationId.take(8)})")
         deliver { onSessionReady(session.address, hello) }
         updateAdvertisingRate()
@@ -519,8 +588,9 @@ object PeerGattServer {
         override fun onServiceAdded(status: Int, service: BluetoothGattService) {
             handler.post {
                 if (!running) return@post
-                if (status == BluetoothGatt.GATT_SUCCESS) startAdvertising()
-                else {
+                if (status == BluetoothGatt.GATT_SUCCESS) {
+                    if (readding) readding = false else startAdvertising()
+                } else {
                     Log.w(TAG, "service not added (status $status)")
                     close("service not added")
                 }
@@ -531,7 +601,12 @@ object PeerGattServer {
             handler.post {
                 val key = device.address.uppercase()
                 if (newState == BluetoothProfile.STATE_CONNECTED) {
-                    if (allowed(key)) sessionFor(device)
+                    if (allowed(key)) {
+                        val session = sessionFor(device)
+                        if (key !in freshCentrals && key !in nudgedCentrals) {
+                            handler.postDelayed({ nudgeStaleCentral(key, session) }, STALE_CHECK_MS)
+                        }
+                    }
                 } else {
                     sessions.remove(key)?.let { endSession(it, "disconnected") }
                 }
@@ -563,6 +638,7 @@ object PeerGattServer {
                     session.outbox.clear()
                     session.decoder.reset()
                     session.subscribed = true
+                    sessionSubscribed[session.address] = true
                     session.lastHeardMs = SystemClock.elapsedRealtime()
                     listener?.let { enqueue(session, PeerGattRecords.encodeHello(it.localHello())) }
                     maybeReady(session)
@@ -570,6 +646,38 @@ object PeerGattServer {
                     endSession(session, "unsubscribed")
                 }
             }
+        }
+
+        // Android hands every read of an app-hosted descriptor to the app; an unanswered read stalls the central's
+        // ATT bearer until its 30 s timeout. Windows reads the CCCD after a full (uncached) discovery.
+        override fun onDescriptorReadRequest(
+            device: BluetoothDevice, requestId: Int, offset: Int, descriptor: BluetoothGattDescriptor,
+        ) {
+            val key = device.address.uppercase()
+            val ok = descriptor.uuid == CCCD_UUID && (allowed(key) || bonded(device))
+            if (!ok) {
+                server?.sendResponse(device, requestId, BluetoothGatt.GATT_READ_NOT_PERMITTED, offset, null)
+                return
+            }
+            val subscribed = sessionSubscribed[key] == true
+            val value = if (subscribed) BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                else BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE
+            if (offset > value.size) {
+                server?.sendResponse(device, requestId, BluetoothGatt.GATT_INVALID_OFFSET, offset, null)
+                return
+            }
+            server?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, value.copyOfRange(offset, value.size))
+        }
+
+        override fun onCharacteristicReadRequest(
+            device: BluetoothDevice, requestId: Int, offset: Int, characteristic: BluetoothGattCharacteristic,
+        ) {
+            server?.sendResponse(device, requestId, BluetoothGatt.GATT_READ_NOT_PERMITTED, offset, null)
+        }
+
+        // Prepared (long) writes are refused at the request; still answer the execute so the central's bearer moves on.
+        override fun onExecuteWrite(device: BluetoothDevice, requestId: Int, execute: Boolean) {
+            server?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, 0, null)
         }
 
         override fun onCharacteristicWriteRequest(
